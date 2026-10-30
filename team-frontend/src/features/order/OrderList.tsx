@@ -47,50 +47,50 @@ function OrderRow({
 
   return (
     <Card data-testid="order-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle bg-surface-muted px-4 py-3">
+      <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-text-primary">
+          <p className="truncate text-base font-semibold text-text-primary">
             {shopLabel(order.sellerId, shopName)}
           </p>
-          <p className="text-xs text-text-secondary">
+          <p className="text-sm text-text-secondary">
             Mã đơn: #{order.id.slice(0, 8)}
             {order.createdAt && <> · {order.createdAt}</>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-text-secondary">
-            {order.paymentMethodText}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
           <OrderStatusBadge
             status={order.status}
             label={order.statusText}
             data-testid="order-status"
           />
+          <span className="text-sm text-text-secondary">
+            {order.paymentMethodText}
+          </span>
         </div>
       </div>
 
-      <ul className="divide-y divide-border-subtle px-4">
+      <ul className="divide-y divide-border-subtle px-4 sm:px-6">
         {order.items.map((it) => (
-          <li key={it.id} className="flex items-start gap-3 py-3">
+          <li key={it.id} className="flex items-start gap-4 py-4">
             <OrderItemThumb
               imageUrl={it.imageUrl}
               title={it.title}
               eager={first}
             />
-            <div className="min-w-0 flex-1">
-              <span className="line-clamp-2 text-sm font-medium text-text-primary">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="line-clamp-2 text-base font-medium text-text-primary">
                 <Link href={`/listing/${it.listingId}`} variant="subtle">
                   {it.title}
                 </Link>
               </span>
               {it.variantName && (
-                <p className="text-xs text-text-secondary">
+                <p className="text-sm text-text-secondary">
                   Phân loại: {it.variantName}
                 </p>
               )}
-              <p className="text-xs text-text-secondary">x{it.quantity}</p>
+              <p className="text-sm text-text-secondary">x{it.quantity}</p>
             </div>
-            <div className="flex flex-col items-end gap-1.5">
+            <div className="flex shrink-0 flex-col items-end gap-2">
               <PriceTag price={it.unitPrice * it.quantity} size="md" />
               {order.status === OrderStatus.COMPLETED && (
                 <ReviewButton
@@ -104,11 +104,11 @@ function OrderRow({
         ))}
       </ul>
 
-      <div className="space-y-3 border-t border-border-subtle bg-surface-muted px-4 py-3">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div className="min-w-0 text-xs text-text-secondary">
+      <div className="flex flex-col gap-4 border-t border-border-subtle bg-surface-muted px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-1 text-sm text-text-secondary">
             {order.recipientName && (
-              <p>
+              <p className="break-words">
                 <span className="font-medium text-text-primary">
                   Giao đến:{" "}
                 </span>
@@ -119,19 +119,15 @@ function OrderRow({
               </p>
             )}
             {hasDue && payable && (
-              <p className="mt-0.5">
-                Hạn thanh toán: {formatInstant(order.paymentDueAt)}
-              </p>
+              <p>Hạn thanh toán: {formatInstant(order.paymentDueAt)}</p>
             )}
-            {hasDue && !payable && (
-              <p className="mt-0.5">Đã hết hạn thanh toán</p>
-            )}
+            {hasDue && !payable && <p>Đã hết hạn thanh toán</p>}
             {order.trackingNumber && (
-              <p className="mt-0.5">Mã vận đơn: {order.trackingNumber}</p>
+              <p className="break-all">Mã vận đơn: {order.trackingNumber}</p>
             )}
           </div>
-          <div className="flex shrink-0 items-baseline gap-2 sm:justify-end">
-            <span className="text-xs text-text-secondary">
+          <div className="flex shrink-0 items-baseline justify-between gap-2 sm:justify-end">
+            <span className="text-sm text-text-secondary">
               Tổng thanh toán:
             </span>
             <PriceTag price={order.totalAmount} size="lg" />
@@ -142,7 +138,7 @@ function OrderRow({
           <Link
             href={`/account/orders/${order.id}`}
             variant="outline"
-            size="xs"
+            size="sm"
             fullWidth="mobile"
           >
             Xem chi tiết
@@ -151,7 +147,7 @@ function OrderRow({
             <Link
               href={`/checkout/pay/${order.id}`}
               variant="primary"
-              size="xs"
+              size="sm"
               fullWidth="mobile"
             >
               Thanh toán lại
@@ -179,7 +175,7 @@ export function OrdersEmpty({ status }: { status: OrderStatusKey }) {
       <Empty
         description="Bạn chưa có đơn hàng nào"
         action={
-          <Link href="/" variant="primary" size="xs">
+          <Link href="/" variant="primary" size="sm">
             Mua sắm ngay
           </Link>
         }
@@ -190,7 +186,7 @@ export function OrdersEmpty({ status }: { status: OrderStatusKey }) {
     <Empty
       description="Chưa có đơn hàng nào ở trạng thái này"
       action={
-        <Link href={ordersHref("all")} variant="outline" size="xs">
+        <Link href={ordersHref("all")} variant="outline" size="sm">
           Xem tất cả đơn hàng
         </Link>
       }
@@ -213,7 +209,7 @@ export function OrderList({
 }) {
   if (orders.length === 0) return <OrdersEmpty status={status} />;
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4 md:gap-6">
       {orders.map((o, i) => (
         <OrderRow
           key={o.id}

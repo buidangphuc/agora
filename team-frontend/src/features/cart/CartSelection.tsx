@@ -103,8 +103,8 @@ export function CartSelection({
 
   return (
     <SelectionContext.Provider value={state}>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">{children}</div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+        <div className="min-w-0 space-y-6 lg:col-span-2">{children}</div>
         <div>
           <OrderSummary
             itemCount={chosen.length}

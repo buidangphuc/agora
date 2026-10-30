@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
  */
 export default function HomePage() {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-8 sm:gap-12">
       <Suspense fallback={null}>
         <LoyaltyBlock />
       </Suspense>

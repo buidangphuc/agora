@@ -2,6 +2,7 @@ import React from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { Card } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
 import { Link } from "@/components/ui/Link";
 import { PriceTag } from "@/components/ui/PriceTag";
@@ -77,28 +78,28 @@ function itemColumns(order: ViewOrder): TableColumn<ViewOrderItem>[] {
       key: "product",
       title: "Sản phẩm",
       render: (it, index) => (
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-4">
           <OrderItemThumb
             imageUrl={it.imageUrl}
             title={it.title}
             eager={index === 0}
           />
-          <div className="min-w-0">
-            <span className="line-clamp-2 text-sm font-medium text-text-primary">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="line-clamp-2 text-base font-medium text-text-primary">
               <Link href={`/listing/${it.listingId}`} variant="subtle">
                 {it.title}
               </Link>
             </span>
             {it.variantName && (
-              <p className="text-xs text-text-secondary">
+              <p className="text-sm text-text-secondary">
                 Phân loại: {it.variantName}
               </p>
             )}
-            <div className="flex items-center gap-1 text-xs text-text-secondary md:hidden">
+            <div className="flex items-center gap-1 text-sm text-text-secondary md:hidden">
               {it.quantity} × <PriceTag price={it.unitPrice} size="sm" />
             </div>
             {order.status === OrderStatus.COMPLETED && (
-              <div className="mt-1.5">
+              <div className="pt-1">
                 <ReviewButton
                   listingId={it.listingId}
                   orderId={order.id}
@@ -219,86 +220,89 @@ export function OrderDetailView({
   ];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="space-y-4 rounded-xl border border-border-subtle bg-surface-card p-5">
-        <Breadcrumb
-          items={[
-            { label: "Đơn hàng của tôi", href: "/account/orders" },
-            { label: `Chi tiết #${order.id.slice(0, 8)}` },
-          ]}
-        />
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-text-primary">
-                Order #{order.id.slice(0, 8)}
-              </h1>
-              <OrderStatusBadge
-                status={order.status}
-                label={order.statusText}
-                data-testid="order-status"
-              />
-            </div>
-            {order.createdAt && (
-              <p className="text-xs text-text-secondary">
-                Ngày đặt: {order.createdAt}
-              </p>
-            )}
-            {isOnlinePending && order.paymentDueAt !== "" && payable && (
-              <p className="text-xs text-text-secondary">
-                Hạn thanh toán: {formatInstant(order.paymentDueAt)}
-              </p>
-            )}
-            {isOnlinePending && order.paymentDueAt !== "" && !payable && (
-              <p className="text-xs text-text-secondary">
-                Đã hết hạn thanh toán
-              </p>
-            )}
-            {order.status === OrderStatus.SHIPPED &&
-              order.autoCompleteAt !== "" && (
-                <p className="text-xs text-text-secondary">
-                  Tự động hoàn thành vào {formatInstant(order.autoCompleteAt)}
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 md:gap-8">
+      <Card padded>
+        <header className="flex flex-col gap-4 md:gap-6">
+          <Breadcrumb
+            items={[
+              { label: "Đơn hàng của tôi", href: "/account/orders" },
+              { label: `Chi tiết #${order.id.slice(0, 8)}` },
+            ]}
+          />
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
+                  Order #{order.id.slice(0, 8)}
+                </h1>
+                <OrderStatusBadge
+                  status={order.status}
+                  label={order.statusText}
+                  data-testid="order-status"
+                />
+              </div>
+              {order.createdAt && (
+                <p className="text-sm text-text-secondary">
+                  Ngày đặt: {order.createdAt}
                 </p>
               )}
-            {order.status === OrderStatus.COMPLETED &&
-              order.returnWindowEndsAt !== "" &&
-              (returnable ? (
-                <p className="text-xs text-text-secondary">
-                  Có thể trả hàng đến {formatInstant(order.returnWindowEndsAt)}
+              {isOnlinePending && order.paymentDueAt !== "" && payable && (
+                <p className="text-sm text-text-secondary">
+                  Hạn thanh toán: {formatInstant(order.paymentDueAt)}
                 </p>
-              ) : (
-                <p className="text-xs text-text-secondary">
-                  Đã hết thời hạn trả hàng
+              )}
+              {isOnlinePending && order.paymentDueAt !== "" && !payable && (
+                <p className="text-sm text-text-secondary">
+                  Đã hết hạn thanh toán
                 </p>
-              ))}
-            <div className="pt-1">
-              <PriceTag price={order.totalAmount} size="xl" />
+              )}
+              {order.status === OrderStatus.SHIPPED &&
+                order.autoCompleteAt !== "" && (
+                  <p className="text-sm text-text-secondary">
+                    Tự động hoàn thành vào {formatInstant(order.autoCompleteAt)}
+                  </p>
+                )}
+              {order.status === OrderStatus.COMPLETED &&
+                order.returnWindowEndsAt !== "" &&
+                (returnable ? (
+                  <p className="text-sm text-text-secondary">
+                    Có thể trả hàng đến{" "}
+                    {formatInstant(order.returnWindowEndsAt)}
+                  </p>
+                ) : (
+                  <p className="text-sm text-text-secondary">
+                    Đã hết thời hạn trả hàng
+                  </p>
+                ))}
+              <div className="pt-2">
+                <PriceTag price={order.totalAmount} size="xl" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:max-w-sm lg:justify-end">
+              {payable && (
+                <Link
+                  href={`/checkout/pay/${order.id}`}
+                  variant="primary"
+                  size="md"
+                  fullWidth="mobile"
+                >
+                  Thanh toán lại
+                </Link>
+              )}
+              {order.status === OrderStatus.SHIPPED && (
+                <ConfirmReceiptButton orderId={order.id} size="md" />
+              )}
+              <OrderActions
+                orderId={order.id}
+                orderTotal={order.totalAmount}
+                primaryReorder
+                canCancel={canCancelFromDetail(order.status)}
+                canReturn={returnable}
+              />
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
-            {payable && (
-              <Link
-                href={`/checkout/pay/${order.id}`}
-                variant="primary"
-                size="xs"
-                fullWidth="mobile"
-              >
-                Thanh toán lại
-              </Link>
-            )}
-            {order.status === OrderStatus.SHIPPED && (
-              <ConfirmReceiptButton orderId={order.id} size="md" />
-            )}
-            <OrderActions
-              orderId={order.id}
-              orderTotal={order.totalAmount}
-              primaryReorder
-              canCancel={canCancelFromDetail(order.status)}
-              canReturn={returnable}
-            />
-          </div>
-        </div>
-      </header>
+        </header>
+      </Card>
 
       <section aria-label="Tiến trình đơn hàng">
         {cancelled ? (
@@ -312,31 +316,42 @@ export function OrderDetailView({
             }
           />
         ) : (
-          <div className="rounded-xl border border-border-subtle bg-surface-card p-5">
+          <Card padded>
             <div className="hidden sm:block">
               <Stepper steps={steps} />
             </div>
             <div className="sm:hidden">
               <Stepper steps={steps} orientation="vertical" />
             </div>
-          </div>
+          </Card>
         )}
       </section>
 
-      <Descriptions title="Thông tin đơn hàng" items={recipient} />
+      <div className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-3">
+        <section
+          aria-label="Sản phẩm"
+          className="flex min-w-0 flex-col gap-4 lg:col-span-2"
+        >
+          <h2 className="text-lg font-semibold text-text-primary">
+            Sản phẩm ({order.items.length})
+          </h2>
+          <Table
+            columns={itemColumns(order)}
+            dataSource={order.items}
+            rowKey="id"
+            caption="Danh sách sản phẩm của đơn hàng"
+          />
+          <Descriptions items={amounts} column={1} />
+        </section>
 
-      <section aria-label="Sản phẩm" className="space-y-3">
-        <h2 className="text-sm font-bold text-text-primary">
-          Sản phẩm ({order.items.length})
-        </h2>
-        <Table
-          columns={itemColumns(order)}
-          dataSource={order.items}
-          rowKey="id"
-          caption="Danh sách sản phẩm của đơn hàng"
-        />
-        <Descriptions items={amounts} column={1} />
-      </section>
+        <div className="min-w-0">
+          <Descriptions
+            title="Thông tin đơn hàng"
+            items={recipient}
+            column={1}
+          />
+        </div>
+      </div>
 
       <OrderDetailTabs
         initialTab={tab}

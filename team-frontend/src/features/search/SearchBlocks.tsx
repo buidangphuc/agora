@@ -96,7 +96,11 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
           title="Không tải được kết quả tìm kiếm"
           description="Hệ thống tìm kiếm tạm thời không phản hồi. Vui lòng thử lại."
           action={
-            <Link href={buildSearchHref(state, { page: state.page })}>
+            <Link
+              href={buildSearchHref(state, { page: state.page })}
+              variant="secondary"
+              size="sm"
+            >
               Thử lại
             </Link>
           }
@@ -113,7 +117,7 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
   const hrefFor = (page: number) => buildSearchHref(state, { page });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <SortBar
         currentSort={state.sort}
         totalResults={result.total}
@@ -123,20 +127,20 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
 
       <div data-testid="search-results">
         {result.items.length === 0 ? (
-          <Card>
+          <Card padded>
             <Empty
               description={
                 <>
-                  <span className="block font-semibold text-text-primary">
+                  <span className="block text-base font-semibold text-text-primary">
                     Không tìm thấy sản phẩm
                   </span>
-                  <span className="mt-1 block text-xs">
+                  <span className="mt-2 block text-sm">
                     Hãy thử từ khóa khác hoặc bỏ bớt bộ lọc.
                   </span>
                 </>
               }
               action={
-                <Link href="/search" variant="primary" size="sm">
+                <Link href="/search" variant="primary" size="md">
                   Xóa bộ lọc
                 </Link>
               }
@@ -151,7 +155,7 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
         )}
       </div>
 
-      <div className="hidden justify-center sm:flex">
+      <div className="hidden justify-center pt-2 sm:flex">
         <Pagination
           current={result.page}
           total={result.total}
@@ -164,7 +168,7 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
         total={result.total}
         pageSize={result.pageSize}
         hrefFor={hrefFor}
-        className="sm:hidden"
+        className="pt-2 sm:hidden"
       />
     </div>
   );

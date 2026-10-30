@@ -9,7 +9,8 @@ export interface KpiCell {
   tone?: "danger";
 }
 
-export const KPI_GRID = "grid grid-cols-2 gap-4 lg:grid-cols-4";
+export const KPI_GRID =
+  "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6";
 
 /**
  * Responsive KPI row: 2-up on mobile, 4-up on desktop. The skeleton

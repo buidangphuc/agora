@@ -70,7 +70,7 @@ export default async function SellerPage(props: {
       />
 
       {kpis.length > 0 && (
-        <div className="space-y-2">
+        <section aria-label="Số liệu tổng quan" className="space-y-3">
           <KpiRow
             cells={kpis.map((k) => ({
               key: k.key,
@@ -86,7 +86,7 @@ export default async function SellerPage(props: {
               phẩm đầu tiên.
             </p>
           )}
-        </div>
+        </section>
       )}
       {kpis.length === 0 && (
         <Alert
@@ -100,8 +100,12 @@ export default async function SellerPage(props: {
         />
       )}
 
-      <QuickActions />
-      <RecentOrders orders={orders} retryHref={here} />
+      <div className="grid gap-6 lg:grid-cols-3 lg:items-start lg:gap-8">
+        <div className="min-w-0 lg:col-span-2">
+          <RecentOrders orders={orders} retryHref={here} />
+        </div>
+        <QuickActions />
+      </div>
       <ProductList listings={listings} params={params} />
     </>
   );

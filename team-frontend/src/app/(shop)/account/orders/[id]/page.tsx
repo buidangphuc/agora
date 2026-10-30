@@ -21,7 +21,7 @@ import { loadOrderResult } from "./data";
 export const dynamic = "force-dynamic";
 
 const backLink = (
-  <Link href="/account/orders" variant="outline" size="sm">
+  <Link href="/account/orders" variant="outline" size="md">
     Về đơn hàng của tôi
   </Link>
 );
@@ -65,7 +65,7 @@ export default async function BuyerOrderDetailPage(props: {
   }
   if (res.kind === "error") {
     return (
-      <section className="mx-auto max-w-4xl py-2">
+      <section className="mx-auto w-full max-w-5xl py-4 md:py-8">
         <Alert
           type="error"
           title="Không tải được đơn hàng"
@@ -83,7 +83,7 @@ export default async function BuyerOrderDetailPage(props: {
   ]);
 
   return (
-    <section className="py-2">
+    <section className="py-4 md:py-8">
       <ReturnStateProvider initialReturns={returns}>
         <OrderDetailView
           order={res.order}

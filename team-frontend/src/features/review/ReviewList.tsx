@@ -19,10 +19,10 @@ function ReviewItem({
   isAdmin: boolean;
 }) {
   return (
-    <li data-testid="review-item" className="space-y-2 py-4">
-      <div className="flex items-center gap-3">
+    <li data-testid="review-item" className="space-y-3 py-6 first:pt-0">
+      <div className="flex items-start gap-3">
         <Avatar name={review.userName} size="sm" />
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-sm font-semibold text-text-primary">
             {review.userName}
           </span>
@@ -41,21 +41,24 @@ function ReviewItem({
 
       <Rate readOnly size="sm" value={review.rating} />
 
-      <p className="text-sm leading-relaxed text-text-primary">
+      <p className="break-words text-base leading-relaxed text-text-primary">
         {review.comment}
       </p>
 
       {review.mediaUrls.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-1">
+        <div className="flex flex-wrap gap-3 pt-1">
           {review.mediaUrls.map((url) => (
-            <div key={url} className="h-16 w-16 shrink-0">
+            <div
+              key={url}
+              className="h-20 w-20 shrink-0 overflow-hidden rounded-xl"
+            >
               <Image src={url} alt="Ảnh đánh giá" aspect="square" />
             </div>
           ))}
         </div>
       )}
 
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex flex-wrap items-center gap-3 pt-1">
         <ReviewHelpfulButton
           reviewId={review.id}
           listingId={review.listingId}
@@ -115,7 +118,7 @@ export async function ReviewList({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <ul className="divide-y divide-border-subtle">
         {result.reviews.map((r) => (
           <ReviewItem key={r.id} review={r} isAdmin={isAdmin} />

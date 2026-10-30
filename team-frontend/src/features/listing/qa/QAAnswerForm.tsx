@@ -63,7 +63,7 @@ export function QAAnswerForm({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <textarea
         aria-label="Nội dung trả lời"
         rows={2}
@@ -71,10 +71,10 @@ export function QAAnswerForm({
         disabled={pending}
         onChange={(e) => setText(e.target.value)}
         placeholder="Nhập câu trả lời của shop…"
-        className="w-full rounded-lg border border-border-strong bg-surface-card p-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
+        className="block min-h-touch w-full rounded-xl border border-border-strong bg-surface-card px-4 py-3 text-base text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
       />
       {error && <Alert type="error" title={error} />}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-3">
         <Button
           variant="primary"
           size="sm"

@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 export default function PaymentLoading() {
   return (
     <section
-      className="mx-auto max-w-xl space-y-4 py-4"
+      className="mx-auto w-full min-w-0 max-w-xl space-y-4 md:space-y-6"
       aria-busy="true"
       data-testid="payment-skeleton"
     >

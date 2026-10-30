@@ -18,22 +18,22 @@ export function ServiceHubs() {
   return (
     <nav
       aria-label="Lối tắt"
-      className="rounded-2xl border border-border-subtle bg-surface-card p-4 shadow-preline-card"
+      className="rounded-3xl border border-border-subtle bg-surface-card p-3 shadow-card sm:p-5"
     >
-      <ul className="grid grid-cols-4 gap-2 text-center sm:grid-cols-8">
+      <ul className="grid grid-cols-4 gap-1 text-center sm:grid-cols-8 sm:gap-3">
         {HUBS.map((hub) => (
-          <li key={hub.name}>
+          <li key={hub.name} className="min-w-0">
             <Link
               href={hub.href}
-              className={`group flex min-h-20 flex-col items-center justify-start gap-1.5 rounded-xl p-2 transition duration-150 hover:bg-surface-muted ${focusRing}`}
+              className={`group flex min-h-24 flex-col items-center justify-start gap-2 rounded-2xl px-1 py-2 transition duration-150 hover:bg-surface-muted ${focusRing}`}
             >
               <span
                 aria-hidden="true"
-                className="grid h-12 w-12 place-items-center rounded-2xl border border-border-subtle bg-surface-muted text-2xl"
+                className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-50 text-2xl"
               >
                 {hub.icon}
               </span>
-              <span className="line-clamp-2 text-xs font-medium leading-4 text-text-primary group-hover:text-action-primary">
+              <span className="line-clamp-2 text-xs font-medium leading-4 text-text-primary group-hover:text-action-primary sm:text-sm sm:leading-5">
                 {hub.name}
               </span>
             </Link>

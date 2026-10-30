@@ -1,4 +1,5 @@
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
 import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
@@ -30,15 +31,17 @@ export default async function CartPage(props: {
 
   if (cart.items.length === 0) {
     return (
-      <section className="py-2">
-        <Empty
-          description="Giỏ hàng của bạn đang trống"
-          action={
-            <Link href="/" variant="primary">
-              Tiếp tục mua sắm
-            </Link>
-          }
-        />
+      <section className="mx-auto w-full max-w-xl py-6 sm:py-10">
+        <Card padded>
+          <Empty
+            description="Giỏ hàng của bạn đang trống"
+            action={
+              <Link href="/" variant="primary" size="lg">
+                Tiếp tục mua sắm
+              </Link>
+            }
+          />
+        </Card>
       </section>
     );
   }
@@ -58,14 +61,14 @@ export default async function CartPage(props: {
   const applied = preview?.valid ? code : undefined;
   const discount = preview?.valid ? preview.discountAmount : 0;
   return (
-    <section className="space-y-4 py-2 pb-24 lg:pb-2">
+    <section className="space-y-6 py-4 pb-24 sm:py-6 lg:pb-8">
       <div className="hidden lg:block">
         <Breadcrumb
           items={[{ label: "Trang chủ", href: "/" }, { label: "Giỏ hàng" }]}
         />
       </div>
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-text-primary">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
           Giỏ hàng ({cart.items.length} sản phẩm)
         </h1>
         <ClearCartButton />

@@ -13,7 +13,7 @@ export default function OrdersError({
 }) {
   const retry = useRouteRetry(reset);
   return (
-    <section className="mx-auto max-w-4xl py-2">
+    <section className="mx-auto w-full max-w-4xl py-4 md:py-8">
       <Alert
         type="error"
         title="Không tải được đơn hàng"

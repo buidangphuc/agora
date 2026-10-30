@@ -2,11 +2,12 @@
 
 import { type FormEvent, useState } from "react";
 
-import { LinkButton } from "@/components/LinkButton";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
 import { Input } from "@/components/ui/Input";
+import { Link } from "@/components/ui/Link";
 import { Modal } from "@/components/ui/Modal";
 import { formatPrice } from "@/components/ui/format";
 import type {
@@ -149,22 +150,33 @@ export function CreateCampaignForm() {
 
   if (created) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col gap-6">
         <Alert
           type="success"
           data-testid="campaign-created-status"
           description="Đã tạo chiến dịch flash sale. Thông tin dưới đây do hệ thống trả về."
         />
-        <CampaignDetails
-          campaign={created}
-          title="Chiến dịch vừa tạo"
-          testId="campaign-created"
-        />
-        <div className="flex flex-wrap gap-3">
-          <LinkButton href="/admin/campaigns">
+        <Card padded>
+          <CampaignDetails
+            campaign={created}
+            title="Chiến dịch vừa tạo"
+            testId="campaign-created"
+          />
+        </Card>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <Link
+            href="/admin/campaigns"
+            variant="outline"
+            size="md"
+            fullWidth="mobile"
+          >
             Xem chiến dịch đang chạy
-          </LinkButton>
-          <Button variant="secondary" onClick={() => setCreated(null)}>
+          </Link>
+          <Button
+            variant="secondary"
+            fullWidth="mobile"
+            onClick={() => setCreated(null)}
+          >
             Tạo chiến dịch khác
           </Button>
         </div>
@@ -174,41 +186,47 @@ export function CreateCampaignForm() {
 
   return (
     <>
-      <form
-        noValidate
-        onSubmit={onReview}
-        data-testid="campaign-form"
-        className="grid grid-cols-1 gap-4 md:grid-cols-2"
-      >
-        {FIELDS.map((f) => (
-          <Input
-            key={f.key}
-            name={f.key}
-            label={f.label}
-            type={f.type}
-            required={f.required}
-            min={f.type === "number" ? 1 : undefined}
-            step={f.type === "number" ? 1 : undefined}
-            inputMode={f.type === "number" ? "numeric" : undefined}
-            value={draft[f.key]}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, [f.key]: e.target.value }))
-            }
-            helperText={f.help}
-            error={fieldErrors[f.key]}
-          />
-        ))}
-        <div className="md:col-span-2 space-y-3">
-          {warning ? (
-            <Alert
-              type="warning"
-              data-testid="campaign-form-warning"
-              description={warning}
+      <Card padded>
+        <form
+          noValidate
+          onSubmit={onReview}
+          data-testid="campaign-form"
+          className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6"
+        >
+          {FIELDS.map((f) => (
+            <Input
+              key={f.key}
+              name={f.key}
+              label={f.label}
+              type={f.type}
+              required={f.required}
+              min={f.type === "number" ? 1 : undefined}
+              step={f.type === "number" ? 1 : undefined}
+              inputMode={f.type === "number" ? "numeric" : undefined}
+              value={draft[f.key]}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, [f.key]: e.target.value }))
+              }
+              helperText={f.help}
+              error={fieldErrors[f.key]}
             />
-          ) : null}
-          <Button type="submit">Xem lại trước khi tạo</Button>
-        </div>
-      </form>
+          ))}
+          <div className="flex flex-col gap-4 border-t border-border-subtle pt-6 md:col-span-2">
+            {warning ? (
+              <Alert
+                type="warning"
+                data-testid="campaign-form-warning"
+                description={warning}
+              />
+            ) : null}
+            <div>
+              <Button type="submit" fullWidth="mobile">
+                Xem lại trước khi tạo
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Card>
 
       <Modal
         isOpen={review !== null}
@@ -227,7 +245,7 @@ export function CreateCampaignForm() {
           </>
         }
       >
-        <div className="space-y-3">
+        <div className="flex flex-col gap-4">
           {review ? <Summary value={review} /> : null}
           {error ? (
             <Alert

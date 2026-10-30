@@ -83,16 +83,16 @@ function Bucket({
       data-key={dataKey}
       data-active={active ? "true" : "false"}
       aria-current={active ? "true" : undefined}
-      className={`flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-sm transition duration-150 ${focusRing} ${
+      className={`flex min-h-touch w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm transition duration-150 ${focusRing} ${
         active
-          ? "bg-primary-50 font-semibold text-action-primary"
+          ? "bg-surface-muted font-semibold text-action-primary"
           : "text-text-primary hover:bg-surface-muted hover:text-action-primary"
       }`}
     >
-      <span className="flex min-w-0 items-center gap-2">
+      <span className="flex min-w-0 items-center gap-3">
         <span
           aria-hidden="true"
-          className={`grid h-4 w-4 shrink-0 place-items-center rounded-xs border text-xs leading-none ${
+          className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border text-xs leading-none ${
             active
               ? "border-action-primary bg-action-primary text-text-inverse"
               : "border-border-strong bg-surface-card"
@@ -119,9 +119,9 @@ function Group({
   return (
     <section
       data-testid={testId}
-      className="space-y-1.5 border-t border-border-subtle pt-3 first:border-t-0 first:pt-0"
+      className="space-y-2 border-t border-border-subtle pt-5 first:border-t-0 first:pt-0"
     >
-      <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+      <h3 className="px-1 text-sm font-semibold text-text-primary">{title}</h3>
       {children}
     </section>
   );
@@ -174,7 +174,7 @@ function AttributeGroups({
             title={attributeGroupLabel(facet.group)}
             testId={`facet-${prefix}-${facet.group}`}
           >
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {facet.buckets.map((b) => {
                 const active = selected.includes(b.key);
                 return (
@@ -226,10 +226,10 @@ function FilterContent({
   if (state.sort !== "relevance") hidden.sort = state.sort;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {facets.categories.length > 0 && (
         <Group title="Danh mục" testId="facet-categories">
-          <div className="max-h-64 space-y-0.5 overflow-y-auto">
+          <div className="max-h-72 space-y-1 overflow-y-auto">
             {facets.categories.map((b) => {
               const active = state.category === b.key;
               return (
@@ -249,7 +249,7 @@ function FilterContent({
 
       {facets.priceRanges.length > 0 && (
         <Group title="Khoảng giá" testId="facet-price_ranges">
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {facets.priceRanges.map((b) => {
               const active = priceKey === normalizePriceKey(b.key);
               return (
@@ -285,7 +285,7 @@ function FilterContent({
 
       {facets.sellers.length > 0 && (
         <Group title="Nơi bán" testId="facet-sellers">
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {facets.sellers.map((b) => {
               const active = state.seller === b.key;
               return (
@@ -354,7 +354,7 @@ export function FilterSidebar({
             showSubmit
           />
           {!hasAnyFacet && (
-            <p className="mt-3 text-xs text-text-secondary">
+            <p className="mt-4 text-sm text-text-secondary">
               Chưa có bộ lọc nào cho kết quả này.
             </p>
           )}

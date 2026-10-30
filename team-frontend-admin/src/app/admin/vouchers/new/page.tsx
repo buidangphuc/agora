@@ -28,11 +28,21 @@ export default async function NewVoucherPage() {
     return <VoucherForbidden subTitle={NO_ADMIN_SCOPE} />;
   }
   return (
-    <div className="flex flex-col gap-4">
-      <Link href="/admin/vouchers" variant="subtle">
-        Về danh sách voucher sàn
-      </Link>
-      <h1 className="text-2xl font-bold text-text-primary">Tạo voucher sàn</h1>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 md:gap-8">
+      <header className="flex flex-col items-start gap-3">
+        <div className="-ml-4">
+          <Link href="/admin/vouchers" variant="ghost" size="sm">
+            Về danh sách voucher sàn
+          </Link>
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
+          Tạo voucher sàn
+        </h1>
+        <p className="text-base text-text-secondary">
+          Voucher áp dụng cho mọi người mua trên toàn sàn. Kiểm tra kỹ trước khi
+          tạo vì chưa thể sửa hay ngừng voucher sau đó.
+        </p>
+      </header>
       <CreateVoucherForm />
     </div>
   );

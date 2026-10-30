@@ -12,7 +12,7 @@ export default function CheckoutError({
 }) {
   const retry = useRouteRetry(reset);
   return (
-    <section className="mx-auto max-w-xl py-8">
+    <section className="mx-auto w-full max-w-xl py-6 md:py-10">
       <Alert
         type="error"
         title="Không thể tải trang thanh toán"

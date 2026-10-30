@@ -9,10 +9,14 @@ import { calculateShippingFee } from "@/lib/gateway/orders";
 
 function ShippingRow({ children }: { children: React.ReactNode }) {
   return (
-    <dl className="space-y-2 text-sm">
-      <div className="flex gap-3">
-        <dt className="w-24 shrink-0 text-text-secondary">Vận chuyển</dt>
-        <dd className="text-text-primary">{children}</dd>
+    <dl className="text-sm">
+      <div className="flex flex-col gap-1 sm:flex-row sm:gap-4">
+        <dt className="shrink-0 font-semibold text-text-primary sm:w-24 sm:font-normal sm:text-text-secondary">
+          Vận chuyển
+        </dt>
+        <dd className="min-w-0 leading-relaxed text-text-primary">
+          {children}
+        </dd>
       </div>
     </dl>
   );

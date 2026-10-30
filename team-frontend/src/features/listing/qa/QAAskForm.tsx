@@ -43,23 +43,32 @@ export function QAAskForm({ listingId }: { listingId: string }) {
   }
 
   return (
-    <div id="qa-ask" data-testid="qa-ask-form" className="space-y-3">
+    <div
+      id="qa-ask"
+      data-testid="qa-ask-form"
+      className="flex flex-col gap-3 sm:items-start"
+    >
       <label htmlFor={textId} className="sr-only">
         Câu hỏi của bạn
       </label>
       <textarea
         id={textId}
-        rows={2}
+        rows={3}
         value={question}
         disabled={pending}
         onChange={(e) => setQuestion(e.target.value)}
         placeholder="Đặt câu hỏi cho shop về sản phẩm này…"
-        className="w-full rounded-lg border border-border-strong bg-surface-card p-2.5 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
+        className="block min-h-touch w-full rounded-xl border border-border-strong bg-surface-card px-4 py-3 text-base text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
       />
-      {error && <Alert type="error" title={error} />}
+      {error && (
+        <div className="w-full">
+          <Alert type="error" title={error} />
+        </div>
+      )}
       <Button
         variant="primary"
         size="md"
+        fullWidth="mobile"
         isLoading={pending}
         disabled={!question.trim() || pending}
         onClick={ask}

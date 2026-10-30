@@ -1,5 +1,10 @@
 import { Alert } from "@/components/ui/Alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
 import type { ListingPage } from "@/lib/gateway/listings";
 import { LinkButton } from "./LinkButton";
@@ -37,38 +42,43 @@ export function ProductList({
   let body: React.ReactNode;
   if (listings === null) {
     body = (
-      <Alert
-        type="error"
-        title="Không tải được danh sách sản phẩm"
-        description="Có lỗi khi đọc dữ liệu từ máy chủ."
-        action={
-          <LinkButton href={here} size="sm">
-            Thử lại
-          </LinkButton>
-        }
-      />
+      <div className="p-4 sm:p-6">
+        <Alert
+          type="error"
+          title="Không tải được danh sách sản phẩm"
+          description="Có lỗi khi đọc dữ liệu từ máy chủ."
+          action={
+            <LinkButton href={here} size="sm">
+              Thử lại
+            </LinkButton>
+          }
+        />
+      </div>
     );
   } else if (filtered.length === 0) {
-    body =
-      filtering && listings.total > 0 ? (
-        <Empty
-          description="Không có kết quả"
-          action={
-            <LinkButton href="/seller" size="sm">
-              Xoá bộ lọc
-            </LinkButton>
-          }
-        />
-      ) : (
-        <Empty
-          description="Shop chưa có sản phẩm"
-          action={
-            <LinkButton href="/seller/new" size="sm">
-              Thêm sản phẩm
-            </LinkButton>
-          }
-        />
-      );
+    body = (
+      <div className="px-4 py-10 sm:px-6 sm:py-12">
+        {filtering && listings.total > 0 ? (
+          <Empty
+            description="Không có kết quả"
+            action={
+              <LinkButton href="/seller" size="sm">
+                Xoá bộ lọc
+              </LinkButton>
+            }
+          />
+        ) : (
+          <Empty
+            description="Shop chưa có sản phẩm"
+            action={
+              <LinkButton href="/seller/new" size="sm">
+                Thêm sản phẩm
+              </LinkButton>
+            }
+          />
+        )}
+      </div>
+    );
   } else {
     body = <ProductTable items={filtered} />;
   }
@@ -76,30 +86,37 @@ export function ProductList({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sản phẩm{listings ? ` (${listings.total})` : ""}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <SellerFilterBar
-            basePath="/seller"
-            q={params.q}
-            status={params.status}
-            statusOptions={STATUS_OPTIONS}
-            searchLabel="Tìm sản phẩm"
-            placeholder="Tên sản phẩm hoặc mã"
-            hint="Tìm kiếm và bộ lọc chỉ áp dụng cho các sản phẩm trong trang này."
-          />
-          {body}
-          {listings && (
-            <SellerPagination
-              current={params.page}
-              total={listings.total}
-              pageSize={LISTINGS_PAGE_SIZE}
-              hrefFor={hrefFor}
-            />
-          )}
+        <div className="min-w-0">
+          <CardTitle>
+            Sản phẩm{listings ? ` (${listings.total})` : ""}
+          </CardTitle>
+          <CardDescription>
+            Quản lý giá bán, tồn kho và trạng thái hiển thị.
+          </CardDescription>
         </div>
-      </CardContent>
+      </CardHeader>
+      <div className="border-b border-border-subtle p-4 sm:p-6">
+        <SellerFilterBar
+          basePath="/seller"
+          q={params.q}
+          status={params.status}
+          statusOptions={STATUS_OPTIONS}
+          searchLabel="Tìm sản phẩm"
+          placeholder="Tên sản phẩm hoặc mã"
+          hint="Tìm kiếm và bộ lọc chỉ áp dụng cho các sản phẩm trong trang này."
+        />
+      </div>
+      {body}
+      {listings && (
+        <div className="empty:hidden border-t border-border-subtle px-4 py-4 sm:px-6">
+          <SellerPagination
+            current={params.page}
+            total={listings.total}
+            pageSize={LISTINGS_PAGE_SIZE}
+            hrefFor={hrefFor}
+          />
+        </div>
+      )}
     </Card>
   );
 }

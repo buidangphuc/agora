@@ -9,47 +9,48 @@ import { Skeleton } from "@/components/ui/Skeleton";
 export default function Loading() {
   return (
     <div
-      className="space-y-4"
+      className="space-y-6 md:space-y-8"
       aria-busy="true"
       aria-live="polite"
       data-testid="pdp-skeleton"
     >
-      {/* Breadcrumb footprint: one text-xs line at lg, two wrapped lines below. */}
       <div className="space-y-1.5" data-testid="pdp-skeleton-breadcrumb">
         <div className="h-4 w-2/3 animate-pulse rounded-xs bg-neutral-200 lg:w-1/3" />
         <div className="h-4 w-1/2 animate-pulse rounded-xs bg-neutral-200 lg:hidden" />
       </div>
 
-      <Card padded>
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          <div className="space-y-3 lg:col-span-5">
-            <Skeleton variant="image" aspect="square" />
-            <div className="flex gap-2">
-              <Skeleton variant="avatar" size="lg" />
-              <Skeleton variant="avatar" size="lg" />
-              <Skeleton variant="avatar" size="lg" />
-            </div>
-          </div>
-          <div className="space-y-4 lg:col-span-7">
-            <Skeleton variant="text" lines={2} />
-            <div className="w-1/3">
-              <Skeleton variant="text" lines={1} />
-            </div>
-            <div className="max-h-24">
-              <Skeleton variant="image" aspect="4/3" />
-            </div>
-            <Skeleton variant="text" lines={3} />
-            <div className="flex gap-3">
-              <div className="w-40">
-                <Skeleton variant="text" lines={1} />
-              </div>
-              <div className="w-40">
-                <Skeleton variant="text" lines={1} />
-              </div>
-            </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-12 lg:gap-10">
+        <div className="min-w-0 space-y-4 lg:col-span-6">
+          <Skeleton variant="image" aspect="square" />
+          <div className="flex gap-3">
+            <Skeleton variant="avatar" size="lg" />
+            <Skeleton variant="avatar" size="lg" />
+            <Skeleton variant="avatar" size="lg" />
           </div>
         </div>
-      </Card>
+        <div className="min-w-0 lg:col-span-6">
+          <Card padded>
+            <div className="space-y-6">
+              <Skeleton variant="text" lines={2} />
+              <div className="w-1/3">
+                <Skeleton variant="text" lines={1} />
+              </div>
+              <div className="max-h-24">
+                <Skeleton variant="image" aspect="4/3" />
+              </div>
+              <Skeleton variant="text" lines={3} />
+              <div className="flex flex-wrap gap-3">
+                <div className="w-40">
+                  <Skeleton variant="text" lines={1} />
+                </div>
+                <div className="w-40">
+                  <Skeleton variant="text" lines={1} />
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
 
       <Card padded>
         <div className="flex items-center gap-4">

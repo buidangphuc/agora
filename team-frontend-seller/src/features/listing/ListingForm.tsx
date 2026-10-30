@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/Card";
 import { FormItem } from "@/components/ui/FormItem";
 import { Image } from "@/components/ui/Image";
 import { Input } from "@/components/ui/Input";
@@ -75,7 +81,7 @@ const STATUS_OPTIONS = [
 
 // Native textarea on the same tokens as Input (no Textarea in the core set yet).
 const textareaClass =
-  "block w-full rounded-lg border border-border-subtle bg-surface-card px-3.5 py-2 text-sm text-text-primary shadow-2xs transition duration-150 placeholder:text-text-disabled focus-visible:border-action-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-invalid:border-danger";
+  "block min-h-touch w-full rounded-xl border border-border-strong bg-surface-card px-4 py-3 text-base text-text-primary transition duration-150 placeholder:text-text-disabled focus-visible:border-action-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-invalid:border-danger";
 
 interface VariantRow {
   key: string;
@@ -97,15 +103,13 @@ function Section({
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-col items-start gap-0.5">
+        <div className="min-w-0">
           <CardTitle>{title}</CardTitle>
-          {description && (
-            <p className="text-xs text-text-secondary">{description}</p>
-          )}
+          {description && <CardDescription>{description}</CardDescription>}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">{children}</div>
+        <div className="space-y-5">{children}</div>
       </CardContent>
     </Card>
   );
@@ -290,7 +294,7 @@ export function ListingForm({
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-4">
+    <form onSubmit={onSubmit} noValidate className="space-y-6">
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="imageKeys" value={JSON.stringify(imageKeys)} />
       <input
@@ -322,238 +326,247 @@ export function ListingForm({
         }}
       />
 
-      <fieldset
-        disabled={pending || readOnly}
-        className="m-0 min-w-0 space-y-4 border-0 p-0"
-      >
-        <Section title="Thông tin cơ bản">
-          <Input
-            label="Tên sản phẩm"
-            error={errorOf("title")}
-            id="title"
-            name="title"
-            required
-            value={title}
-            onChange={(e) => {
-              noteEdit("title");
-              change("title", () => setTitle(e.target.value));
-            }}
-            onBlur={() => touch("title")}
-            placeholder="VD: Điện thoại iPhone 15 Pro Max 256GB - Hàng Chính Hãng"
-          />
-          <Select
-            label="Ngành hàng"
-            required
-            error={errorOf("categoryId")}
-            id="categoryId"
-            name="categoryId"
-            value={categoryId}
-            onChange={(e) =>
-              change("categoryId", () => setCategoryId(e.target.value))
-            }
-            onBlur={() => touch("categoryId")}
-            placeholder="-- Chọn ngành hàng --"
-            options={categories.map((c) => ({
-              value: c.id,
-              label: `${c.iconUrl ? `${c.iconUrl} ` : ""}${c.name}`,
-            }))}
-          />
-          <FormItem label="Mô tả chi tiết">
-            <textarea
-              id="description"
-              name="description"
-              rows={5}
-              value={description}
-              onChange={(e) => {
-                noteEdit("description");
-                setDescription(e.target.value);
-              }}
-              className={textareaClass}
-              placeholder="Thông số kỹ thuật, chất liệu, kích thước, xuất xứ, chính sách bảo hành..."
-            />
-          </FormItem>
-        </Section>
-
-        <Section
-          title="Hình ảnh"
-          description="Ảnh vuông 1:1, tối thiểu 1 ảnh. Ảnh đầu tiên là ảnh bìa."
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+        <fieldset
+          disabled={pending || readOnly}
+          className="m-0 min-w-0 space-y-6 border-0 p-0 lg:col-span-2"
         >
-          {imageKeys.length > 0 && (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-              {imageKeys.map((key, idx) => (
-                <li key={key} className="relative">
-                  <Image
-                    src={getImageUrl(key)}
-                    alt={`Ảnh sản phẩm ${idx + 1}`}
-                    aspect="square"
-                    loading={idx < EAGER_IMAGES ? "eager" : "lazy"}
-                  />
-                  {idx === 0 && (
-                    <span className="absolute bottom-1 left-1">
-                      <Tag color="primary">Ảnh bìa</Tag>
-                    </span>
-                  )}
-                  <span className="absolute right-1 top-1">
-                    <Button
-                      size="xs"
-                      variant="white"
-                      aria-label={`Xoá ảnh ${idx + 1}`}
-                      onClick={() =>
-                        setImageKeys(imageKeys.filter((_, i) => i !== idx))
-                      }
-                    >
-                      ✕
-                    </Button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border-strong p-6 text-center transition hover:border-action-primary focus-within:ring-2 focus-within:ring-focus-ring">
-            <span className="text-sm font-medium text-text-primary">
-              {uploading ? "Đang tải ảnh lên..." : "Chọn ảnh sản phẩm"}
-            </span>
-            <span className="text-xs text-text-secondary">
-              Chọn nhiều ảnh cùng lúc, tối đa 10MB mỗi ảnh
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              disabled={uploading}
-              onChange={handleFileChange}
-              className="sr-only"
-            />
-          </label>
-          {uploadError && <Alert type="error" description={uploadError} />}
-        </Section>
-
-        <Section title="Giá & tồn kho">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Section title="Thông tin cơ bản">
             <Input
+              label="Tên sản phẩm"
+              error={errorOf("title")}
+              id="title"
+              name="title"
               required
-              label="Giá bán (₫)"
-              error={errorOf("price")}
-              id="price"
-              name="price"
-              type="number"
-              min={0}
-              value={price}
+              value={title}
               onChange={(e) => {
-                noteEdit("price");
-                change("price", () => setPrice(e.target.value));
+                noteEdit("title");
+                change("title", () => setTitle(e.target.value));
               }}
-              onBlur={() => touch("price")}
-              placeholder="VD: 29990000"
-            />
-            <Input
-              required
-              label="Kho hàng"
-              error={errorOf("stock")}
-              id="stock"
-              name="stock"
-              type="number"
-              min={0}
-              value={stock}
-              onChange={(e) => change("stock", () => setStock(e.target.value))}
-              onBlur={() => touch("stock")}
-              placeholder="VD: 100"
+              onBlur={() => touch("title")}
+              placeholder="VD: Điện thoại iPhone 15 Pro Max 256GB - Hàng Chính Hãng"
             />
             <Select
-              label="Đơn vị tiền tệ"
-              id="currency"
-              name="currency"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              options={[{ value: "VND", label: "VND (Việt Nam Đồng)" }]}
+              label="Ngành hàng"
+              required
+              error={errorOf("categoryId")}
+              id="categoryId"
+              name="categoryId"
+              value={categoryId}
+              onChange={(e) =>
+                change("categoryId", () => setCategoryId(e.target.value))
+              }
+              onBlur={() => touch("categoryId")}
+              placeholder="-- Chọn ngành hàng --"
+              options={categories.map((c) => ({
+                value: c.id,
+                label: `${c.iconUrl ? `${c.iconUrl} ` : ""}${c.name}`,
+              }))}
             />
-          </div>
-        </Section>
+            <FormItem label="Mô tả chi tiết">
+              <textarea
+                id="description"
+                name="description"
+                rows={5}
+                value={description}
+                onChange={(e) => {
+                  noteEdit("description");
+                  setDescription(e.target.value);
+                }}
+                className={textareaClass}
+                placeholder="Thông số kỹ thuật, chất liệu, kích thước, xuất xứ, chính sách bảo hành..."
+              />
+            </FormItem>
+          </Section>
 
-        <Section
-          title="Phân loại"
-          description="Tuỳ chọn: thêm màu, kích cỡ... với giá và tồn kho riêng."
-        >
-          {rows.map(({ key, value: v }) => (
-            <div
-              key={key}
-              className="grid grid-cols-1 gap-3 rounded-xl border border-border-subtle p-3 sm:grid-cols-5"
-            >
-              <Input
-                label="Tên phân loại"
-                value={v.name}
-                onChange={(e) => patchVariant(key, { name: e.target.value })}
-              />
-              <Input
-                label="SKU"
-                value={v.sku ?? ""}
-                onChange={(e) => patchVariant(key, { sku: e.target.value })}
-              />
-              <Input
-                label="Giá (₫)"
-                type="number"
-                min={0}
-                value={v.price ?? ""}
-                onChange={(e) =>
-                  patchVariant(key, {
-                    price:
-                      e.target.value === ""
-                        ? undefined
-                        : Number(e.target.value),
-                  })
-                }
-              />
-              <Input
-                label="Kho"
-                type="number"
-                min={0}
-                value={v.stock ?? ""}
-                onChange={(e) =>
-                  patchVariant(key, {
-                    stock:
-                      e.target.value === ""
-                        ? undefined
-                        : Number(e.target.value),
-                  })
-                }
-              />
-              <div className="flex items-end">
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => setRows(rows.filter((r) => r.key !== key))}
-                >
-                  Xoá phân loại
-                </Button>
-              </div>
-            </div>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setRows([...rows, { key: newRowKey(), value: { name: "" } }])
-            }
+          <Section
+            title="Hình ảnh"
+            description="Ảnh vuông 1:1, tối thiểu 1 ảnh. Ảnh đầu tiên là ảnh bìa."
           >
-            Thêm phân loại
-          </Button>
-        </Section>
+            {imageKeys.length > 0 && (
+              <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-5">
+                {imageKeys.map((key, idx) => (
+                  <li key={key} className="relative">
+                    <Image
+                      src={getImageUrl(key)}
+                      alt={`Ảnh sản phẩm ${idx + 1}`}
+                      aspect="square"
+                      loading={idx < EAGER_IMAGES ? "eager" : "lazy"}
+                    />
+                    {idx === 0 && (
+                      <span className="absolute bottom-2 left-2">
+                        <Tag color="primary">Ảnh bìa</Tag>
+                      </span>
+                    )}
+                    <span className="absolute right-2 top-2">
+                      <Button
+                        size="xs"
+                        variant="white"
+                        aria-label={`Xoá ảnh ${idx + 1}`}
+                        onClick={() =>
+                          setImageKeys(imageKeys.filter((_, i) => i !== idx))
+                        }
+                      >
+                        ✕
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label className="flex min-h-touch cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border-strong bg-surface-muted px-6 py-10 text-center transition hover:border-action-primary focus-within:ring-2 focus-within:ring-focus-ring">
+              <span className="text-base font-semibold text-text-primary">
+                {uploading ? "Đang tải ảnh lên..." : "Chọn ảnh sản phẩm"}
+              </span>
+              <span className="text-xs text-text-secondary">
+                Chọn nhiều ảnh cùng lúc, tối đa 10MB mỗi ảnh
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={uploading}
+                onChange={handleFileChange}
+                className="sr-only"
+              />
+            </label>
+            {uploadError && <Alert type="error" description={uploadError} />}
+          </Section>
 
-        <Section title="Trạng thái">
-          <FormItem label="Hiển thị" group>
-            <RadioGroup
-              name="status"
-              value={status}
-              onChange={setStatus}
-              options={STATUS_OPTIONS}
-            />
-          </FormItem>
-        </Section>
-      </fieldset>
+          <Section title="Giá & tồn kho">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <Input
+                required
+                label="Giá bán (₫)"
+                error={errorOf("price")}
+                id="price"
+                name="price"
+                type="number"
+                min={0}
+                value={price}
+                onChange={(e) => {
+                  noteEdit("price");
+                  change("price", () => setPrice(e.target.value));
+                }}
+                onBlur={() => touch("price")}
+                placeholder="VD: 29990000"
+              />
+              <Input
+                required
+                label="Kho hàng"
+                error={errorOf("stock")}
+                id="stock"
+                name="stock"
+                type="number"
+                min={0}
+                value={stock}
+                onChange={(e) =>
+                  change("stock", () => setStock(e.target.value))
+                }
+                onBlur={() => touch("stock")}
+                placeholder="VD: 100"
+              />
+              <Select
+                label="Đơn vị tiền tệ"
+                id="currency"
+                name="currency"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                options={[{ value: "VND", label: "VND (Việt Nam Đồng)" }]}
+              />
+            </div>
+          </Section>
+
+          <Section
+            title="Phân loại"
+            description="Tuỳ chọn: thêm màu, kích cỡ... với giá và tồn kho riêng."
+          >
+            {rows.map(({ key, value: v }) => (
+              <div
+                key={key}
+                className="grid grid-cols-1 gap-4 rounded-2xl border border-border-subtle bg-surface-muted p-4 sm:grid-cols-2 xl:grid-cols-4"
+              >
+                <Input
+                  label="Tên phân loại"
+                  value={v.name}
+                  onChange={(e) => patchVariant(key, { name: e.target.value })}
+                />
+                <Input
+                  label="SKU"
+                  value={v.sku ?? ""}
+                  onChange={(e) => patchVariant(key, { sku: e.target.value })}
+                />
+                <Input
+                  label="Giá (₫)"
+                  type="number"
+                  min={0}
+                  value={v.price ?? ""}
+                  onChange={(e) =>
+                    patchVariant(key, {
+                      price:
+                        e.target.value === ""
+                          ? undefined
+                          : Number(e.target.value),
+                    })
+                  }
+                />
+                <Input
+                  label="Kho"
+                  type="number"
+                  min={0}
+                  value={v.stock ?? ""}
+                  onChange={(e) =>
+                    patchVariant(key, {
+                      stock:
+                        e.target.value === ""
+                          ? undefined
+                          : Number(e.target.value),
+                    })
+                  }
+                />
+                <div className="flex items-end sm:col-span-2 xl:col-span-4 xl:justify-end">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setRows(rows.filter((r) => r.key !== key))}
+                  >
+                    Xoá phân loại
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              fullWidth="mobile"
+              onClick={() =>
+                setRows([...rows, { key: newRowKey(), value: { name: "" } }])
+              }
+            >
+              Thêm phân loại
+            </Button>
+          </Section>
+        </fieldset>
+        <fieldset
+          disabled={pending || readOnly}
+          className="m-0 min-w-0 space-y-6 border-0 p-0 lg:sticky lg:top-6"
+        >
+          <Section title="Trạng thái">
+            <FormItem label="Hiển thị" group>
+              <RadioGroup
+                name="status"
+                value={status}
+                onChange={setStatus}
+                options={STATUS_OPTIONS}
+              />
+            </FormItem>
+          </Section>
+        </fieldset>
+      </div>
 
       {/* Sticky on mobile so Save stays reachable; inline from md up. */}
-      <div className="sticky bottom-0 z-20 -mx-4 flex items-center justify-end gap-3 border-t border-border-subtle bg-surface-card px-4 py-3 md:static md:mx-0 md:rounded-xl md:border">
-        <Link href="/seller" variant="outline" size="sm">
+      <div className="sticky bottom-0 z-20 -mx-4 flex items-center justify-end gap-3 border-t border-border-subtle bg-surface-card px-4 py-3 shadow-card md:static md:mx-0 md:rounded-2xl md:border md:px-6 md:py-4">
+        <Link href="/seller" variant="outline">
           Huỷ
         </Link>
         {!readOnly && (

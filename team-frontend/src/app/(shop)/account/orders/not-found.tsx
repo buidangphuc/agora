@@ -8,7 +8,7 @@ export default function OrderNotFound() {
       title="Không tìm thấy đơn hàng"
       subTitle="Đơn hàng không tồn tại hoặc đã bị xóa."
       extra={
-        <Link href="/account/orders" variant="outline" size="sm">
+        <Link href="/account/orders" variant="outline" size="md">
           Về đơn hàng của tôi
         </Link>
       }

@@ -155,113 +155,121 @@ export default async function ProductDetailPage(props: {
       }}
       initialVariantId={resolved.id}
     >
-      <div className="space-y-4">
-        {/* Fire a best-effort VIEW tracking beacon on PDP mount. */}
+      <div className="space-y-6 md:space-y-8">
         <TrackView listingId={listing.id} path={`/listing/${listing.id}`} />
 
         <Breadcrumb items={breadcrumb} />
 
-        {/* ── Header card: gallery + info column ── */}
-        <Card padded>
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-            <div className="lg:col-span-5">
-              <ImageGallery
-                images={images}
-                alt={listing.title}
-                overlay={<FavoriteButton id={listing.id} initial={favorited} />}
-              />
-            </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-12 lg:gap-10">
+          <div className="min-w-0 md:sticky md:top-32 md:self-start lg:col-span-6">
+            <ImageGallery
+              images={images}
+              alt={listing.title}
+              overlay={<FavoriteButton id={listing.id} initial={favorited} />}
+            />
+          </div>
 
-            <div className="space-y-4 lg:col-span-7">
-              <h1 className="text-xl font-semibold leading-snug text-text-primary">
-                {listing.title}
-              </h1>
+          <div className="min-w-0 lg:col-span-6">
+            <Card padded>
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-3">
+                  <h1 className="break-words text-2xl font-semibold leading-tight tracking-tight text-text-primary md:text-3xl">
+                    {listing.title}
+                  </h1>
 
-              <div
-                data-testid="pdp-rating"
-                className="flex flex-wrap items-center gap-2 border-b border-border-subtle pb-3 text-sm"
-              >
-                {rated ? (
-                  <>
-                    <Rate
-                      readOnly
-                      size="sm"
-                      value={ratingSummary.averageRating}
-                    />
-                    <span className="font-semibold text-text-primary">
-                      {ratingSummary.averageRating.toFixed(1)}
-                    </span>
-                    <span className="text-text-secondary">
-                      ({ratingSummary.reviewCount} đánh giá)
-                    </span>
-                  </>
+                  <div
+                    data-testid="pdp-rating"
+                    className="flex flex-wrap items-center gap-2 text-sm"
+                  >
+                    {rated ? (
+                      <>
+                        <Rate
+                          readOnly
+                          size="sm"
+                          value={ratingSummary.averageRating}
+                        />
+                        <span className="font-semibold text-text-primary">
+                          {ratingSummary.averageRating.toFixed(1)}
+                        </span>
+                        <a
+                          href="#reviews"
+                          className="text-text-secondary underline-offset-4 hover:text-text-primary hover:underline"
+                        >
+                          ({ratingSummary.reviewCount} đánh giá)
+                        </a>
+                      </>
+                    ) : (
+                      <span className="text-text-secondary">
+                        Chưa có đánh giá
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  data-testid="pdp-price"
+                  className="rounded-2xl bg-surface-muted px-5 py-4"
+                >
+                  <SelectedPrice />
+                </div>
+
+                <LiveFlashSaleStock
+                  listingId={listing.id}
+                  campaign={flashSaleCampaign}
+                  currency={listing.currency}
+                />
+
+                {me ? (
+                  <Suspense fallback={<ShippingInfoFallback />}>
+                    <ShippingInfo signedIn />
+                  </Suspense>
                 ) : (
-                  <span className="text-text-secondary">Chưa có đánh giá</span>
+                  <ShippingInfoFallback />
                 )}
-              </div>
 
-              {/* Price: the strike-through exists only for a real flash-sale
-                  price; the page never computes a compare-at price. */}
-              <div
-                data-testid="pdp-price"
-                className="rounded-xl bg-surface-muted p-4"
-              >
-                <SelectedPrice />
-              </div>
+                <VariantSelector />
 
-              {/* Live flash sale (team-promotion). Renders nothing when the
-                  listing is not on flash sale. */}
-              <LiveFlashSaleStock
-                listingId={listing.id}
-                campaign={flashSaleCampaign}
-                currency={listing.currency}
-              />
+                <div className="border-t border-border-subtle pt-6">
+                  <PurchasePanel />
+                </div>
 
-              {me ? (
-                <Suspense fallback={<ShippingInfoFallback />}>
-                  <ShippingInfo signedIn />
-                </Suspense>
-              ) : (
-                <ShippingInfoFallback />
-              )}
-
-              <VariantSelector />
-
-              <div className="border-t border-border-subtle pt-4">
-                <PurchasePanel />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle pt-4">
-                {/* Wishlist: save this listing into a named collection */}
-                <AddToCollectionButton
-                  listingId={listing.id}
-                  initialCollections={collections}
-                  loggedIn={loggedIn}
-                />
-                {/* Price-drop / back-in-stock alert toggles */}
-                <AlertToggle
-                  listingId={listing.id}
-                  initial={alertState}
-                  loggedIn={loggedIn}
-                />
-                {/* Share short link (team-sharing via gateway) */}
-                <ShareButton id={listing.id} />
-                {/* Buyer report; never shown to the listing's own seller */}
-                {me?.id !== listing.sellerId && (
-                  <ReportListingButton
+                <div className="flex flex-col gap-4 border-t border-border-subtle pt-6">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <AddToCollectionButton
+                      listingId={listing.id}
+                      initialCollections={collections}
+                      loggedIn={loggedIn}
+                    />
+                    <ShareButton id={listing.id} />
+                  </div>
+                  <AlertToggle
                     listingId={listing.id}
+                    initial={alertState}
                     loggedIn={loggedIn}
                   />
+                </div>
+
+                <ul className="flex flex-wrap gap-2 text-sm text-text-secondary">
+                  <li className="rounded-full bg-surface-muted px-3 py-1.5">
+                    Đảm bảo hoàn tiền
+                  </li>
+                  <li className="rounded-full bg-surface-muted px-3 py-1.5">
+                    7 ngày miễn phí trả hàng
+                  </li>
+                </ul>
+
+                {me?.id !== listing.sellerId && (
+                  <div className="border-t border-border-subtle pt-4">
+                    <ReportListingButton
+                      listingId={listing.id}
+                      loggedIn={loggedIn}
+                    />
+                  </div>
                 )}
               </div>
-
-              <p className="flex flex-wrap gap-x-6 gap-y-1 border-t border-border-subtle pt-3 text-sm text-text-secondary">
-                <span>Đảm bảo hoàn tiền</span>
-                <span>7 ngày miễn phí trả hàng</span>
-              </p>
-            </div>
+            </Card>
           </div>
-        </Card>
+        </div>
 
         <ShopHeaderCard
           variant="compact"
@@ -277,8 +285,7 @@ export default async function ProductDetailPage(props: {
           }
         />
 
-        {/* ── Body: anchor nav + three stacked, always-visible sections ── */}
-        <div className="space-y-4">
+        <div className="space-y-6 md:space-y-8">
           <PdpAnchorNav />
           <SpecsSection
             categoryName={category?.name}
@@ -297,8 +304,6 @@ export default async function ProductDetailPage(props: {
           <QASection listingId={listing.id} loggedIn={loggedIn} />
         </div>
 
-        {/* "Gợi ý cho bạn": similar items seeded with this listing, from
-            team-ai via the gateway. Hidden when the service is unavailable. */}
         <Suspense fallback={<RecommendationsSkeleton />}>
           <RecommendationsRow seedListingId={listing.id} />
         </Suspense>

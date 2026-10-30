@@ -51,37 +51,35 @@ export default async function SearchPage(props: {
     : [{ label: "Trang chủ", href: "/" }, { label: title }];
 
   return (
-    <section className="space-y-4 py-2">
-      <header className="space-y-2">
+    <section className="space-y-6 py-4 md:space-y-8 md:py-8">
+      <header className="space-y-3">
         <Breadcrumb items={trail} />
-        <h1 className="text-lg font-semibold text-text-primary">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
+          {title}
+        </h1>
         <Suspense
           fallback={
-            <span className="block h-5 w-32 animate-pulse rounded-xs bg-neutral-200" />
+            <span className="block h-5 w-32 animate-pulse rounded-lg bg-surface-muted" />
           }
         >
           <ResultCount state={state} />
         </Suspense>
       </header>
 
-      {/* Category pills: plain links, rendered with the page so the strip
-          never shifts layout after paint. */}
       <CategoryBar
         categories={categories}
         selectedId={state.category || undefined}
         variant="pills"
       />
 
-      <div className="flex flex-col gap-6 lg:flex-row">
-        {/* Filter column: saved searches + facet filters */}
-        <div className="w-full space-y-4 lg:sticky lg:top-36 lg:w-64 lg:shrink-0 lg:self-start">
+      <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+        <div className="w-full space-y-4 lg:sticky lg:top-36 lg:w-72 lg:shrink-0 lg:self-start">
           <SavedSearches currentQuery={state.q} initialSaved={savedSearches} />
           <Suspense fallback={<FilterSkeleton />}>
             <FilterPanel state={state} />
           </Suspense>
         </div>
 
-        {/* Results column */}
         <div className="min-w-0 flex-1">
           <Suspense fallback={<ResultsSkeleton />}>
             <SearchResultsBlock state={state} />

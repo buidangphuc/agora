@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LinkButton } from "@/components/LinkButton";
+import { Card } from "@/components/ui/Card";
 import { Result } from "@/components/ui/Result";
 import { ModerationQueueView } from "@/features/admin/ModerationQueueView";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
@@ -23,6 +24,19 @@ function Forbidden({ subTitle }: { subTitle: string }) {
       subTitle={subTitle}
       extra={<LinkButton href="/">Quay lại trang chủ</LinkButton>}
     />
+  );
+}
+
+function ListingsHeader() {
+  return (
+    <div className="space-y-2">
+      <h1 className="text-2xl font-bold tracking-tight text-text-primary md:text-3xl">
+        Kiểm duyệt tin đăng
+      </h1>
+      <p className="text-sm text-text-secondary md:text-base">
+        Duyệt, từ chối hoặc khóa các tin đăng đang chờ kiểm duyệt.
+      </p>
+    </div>
   );
 }
 
@@ -60,18 +74,24 @@ export default async function ListingsPage({
   }
   if (result.status !== "ok") {
     return (
-      <div className="mx-auto max-w-6xl p-6">
-        <p role="alert" className="text-sm text-text-secondary">
-          Không tải được hàng chờ kiểm duyệt. Vui lòng thử lại sau.
-        </p>
+      <div className="space-y-6">
+        <ListingsHeader />
+        <Card padded>
+          <p role="alert" className="text-sm text-text-secondary md:text-base">
+            Không tải được hàng chờ kiểm duyệt. Vui lòng thử lại sau.
+          </p>
+        </Card>
       </div>
     );
   }
   return (
-    <ModerationQueueView
-      items={result.items}
-      nextCursor={result.nextCursor}
-      basePath="/admin/listings"
-    />
+    <div>
+      <ListingsHeader />
+      <ModerationQueueView
+        items={result.items}
+        nextCursor={result.nextCursor}
+        basePath="/admin/listings"
+      />
+    </div>
   );
 }
