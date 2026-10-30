@@ -30,15 +30,6 @@ export interface ViewAssistantReply {
   suggestedFollowups: string[];
 }
 
-export interface ViewMagicListing {
-  generatedTitle: string;
-  generatedDescription: string;
-  suggestedCategoryId: string;
-  suggestedPriceMin: number;
-  suggestedPriceMax: number;
-  highlightTags: string[];
-}
-
 /** Shopping Assistant (RAG chatbot): question → reply + product cards + followups. */
 export async function shoppingAssistant(
   message: string,
@@ -62,27 +53,6 @@ export async function shoppingAssistant(
       ratingText: c.ratingText,
     })),
     suggestedFollowups: res.suggestedFollowups,
-  };
-}
-
-/** Magic Listing ("tạo tin nhanh"): title hint → SEO title/description/category/price. */
-export async function magicListing(
-  titleHint: string,
-  categoryHint = "",
-  imageUrl = "",
-): Promise<ViewMagicListing> {
-  const res = await gateway().ai.magicListing({
-    titleHint,
-    categoryHint,
-    imageUrl,
-  });
-  return {
-    generatedTitle: res.generatedTitle,
-    generatedDescription: res.generatedDescription,
-    suggestedCategoryId: res.suggestedCategoryId,
-    suggestedPriceMin: Number(res.suggestedPriceMin),
-    suggestedPriceMax: Number(res.suggestedPriceMax),
-    highlightTags: res.highlightTags,
   };
 }
 

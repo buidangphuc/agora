@@ -11,6 +11,8 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
 }));
 
+vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
+
 const shop = { sellerId: "seller-123456", name: "Cửa hàng Hoa Mai" };
 
 beforeEach(() => {
@@ -98,5 +100,26 @@ describe("SellerNavDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mở menu người bán" }));
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("seller logout", () => {
+  it("submits the seller logout action from the sidebar, also when collapsed", () => {
+    render(<SellerSidebar shop={shop} />);
+    const button = screen.getByRole("button", { name: "Đăng xuất" });
+    expect(button).toHaveAttribute("type", "submit");
+    expect(button.closest("form")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Thu gọn thanh bên" }));
+    expect(screen.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
+  });
+
+  it("offers logout in the mobile drawer", () => {
+    render(<SellerNavDrawer shop={shop} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mở menu người bán" }));
+    expect(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Đăng xuất",
+      }),
+    ).toHaveAttribute("type", "submit");
   });
 });

@@ -11,8 +11,8 @@ Status: compose service `team-frontend-seller`, port `:3001`. Stack: React 19, T
 | Route | What | Gate |
 |---|---|---|
 | `/` | Redirects to `/seller` | none |
-| `/login` | Seller login form (same `LoginForm` and server action as the buyer app) | none |
-| `/forbidden` | "Không có quyền" page for a signed-in user without scope `listing.write`; links to `/sell` and back to the buyer app | none |
+| `/login` | Seller login form (same `LoginForm` and server action as the buyer app). Takes `?next=<path>` (the buyer app's "Kênh Người Bán" link sends `next=/seller`) or the older `?returnUrl=`, both checked by `safeReturnUrl`; a user who already has a seller session with `listing.write` is sent straight to it (default `/seller`) | none |
+| `/forbidden` | "Không có quyền" page for a signed-in user without scope `listing.write`; links to `/sell` and back to the buyer app, and a "Đăng xuất" button to switch account | none |
 | `/sell` | Redirects to `/seller/new` | none |
 | `/seller/*` | Workplace, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `src/app/seller/layout.tsx`: `/login?returnUrl=` when anonymous, `/forbidden` without `listing.write`; the gateway re-enforces scopes on the data |
 
@@ -82,8 +82,8 @@ CI: `.github/workflows/team-frontend-seller-ci.yml` (check, build, `docker build
 ## 9. Known gaps
 
 - Duplicated from `team-frontend` on purpose (to be shared or trimmed later): `src/lib/gateway/*` (gateway clients, refresh, revoke, token expiry), `src/components/ui/*` facades, `src/features/auth/*` (login form, actions, return URL), `src/features/order/OrderStatusBadge.tsx`, `src/features/account/skeletons.tsx`, `src/lib/analytics/*` (only for `trackAiInteraction`), `src/lib/action-result.ts`, `src/lib/requestCache.ts`, `src/lib/media.ts`, `src/lib/useRouteRetry.ts`, `scripts/check-tokens.mjs`, `scripts/patch-react-dom-ping.mjs`, `tailwind.config.ts`, `src/app/globals.css` and the vendored `proto/`.
-- No SSO between apps: a buyer signed in on `:3000` signs in again here, and the "Chăm sóc khách hàng" link opens the buyer chat with the buyer session (gap G8 in ADR-0006).
+- No SSO between apps: a buyer signed in on `:3000` signs in again here, and the "Chăm sóc khách hàng" link opens the buyer chat with the buyer session (gap G8 in `fe-platform/docs/gaps.md`, ADR-0006). Logout ("Đăng xuất" in the sidebar, the mobile drawer and `/forbidden`) revokes the server session and clears only `seller_session`/`seller_refresh`.
 - `/sell` still redirects to `/seller/new`; there is no seller onboarding flow, so the forbidden page links there.
-- `TRUSTED_PROXIES` in the gateway lists only `team-frontend-svc`, so the client IP this app forwards on login and refresh is ignored by the gateway.
+- Compose lists all three apps in the gateway `TRUSTED_PROXIES` (`docker-compose.services.yaml:580`), but the gitops gateway config still trusts only `team-frontend` (`platform-gitops/envs/services/team-gateway.yaml:52`), so in a deployed environment the client IP this app forwards on login and refresh is ignored.
 - `OTEL_SERVICE_NAME` defaults to `team-frontend` in `src/lib/gateway/config.ts`; set it to `team-frontend-seller` in deployed environments.
-- No gitops overlay or `COOKIE_SECURE` manifest for this app yet (plan step E4).
+- The gitops baseline and staging/prod overlays (`platform-gitops/envs/{services,staging/services,prod/services}/team-frontend-seller.yaml`, `COOKIE_SECURE: "true"`) exist but are not wired into any ApplicationSet or image tag yet (`platform-gitops/README.md` known gaps).

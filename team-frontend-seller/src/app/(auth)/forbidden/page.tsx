@@ -1,5 +1,6 @@
 import { Result } from "@/components/ui/Result";
 import { LinkButton } from "@/features/seller/LinkButton";
+import { SellerLogoutButton } from "@/features/seller/SellerLogoutButton";
 import { buyerAppUrl } from "@/lib/apps";
 
 export const metadata = {
@@ -28,6 +29,7 @@ export default function ForbiddenPage() {
               Về trang mua sắm
             </a>
           </div>
+          <SellerLogoutButton />
         </div>
       }
     />

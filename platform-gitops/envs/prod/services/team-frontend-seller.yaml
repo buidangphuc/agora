@@ -1,0 +1,6 @@
+replicas: 2
+ingress:
+  enabled: true
+  host: seller.example.com
+env:
+  COOKIE_SECURE: "true"

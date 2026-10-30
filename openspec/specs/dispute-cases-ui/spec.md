@@ -139,7 +139,7 @@ For an admin the tab SHALL call `ListDisputes` once per render with the `status`
 #### Scenario: Default list is OPEN, 20 per page
 - **WHEN** an admin opens `/admin/cases?tab=disputes` with no filter
 - **THEN** `ListDisputes` is called once with `status = OPEN`, `pageSize = 20` and an empty cursor
-- **VERIFIED BY**: `team-frontend/src/lib/gateway/disputes.test.ts` `listDisputes defaults to OPEN and page size 20`
+- **VERIFIED BY**: `team-frontend-admin/src/lib/gateway/disputes.test.ts` `listDisputes defaults to OPEN and page size 20`
 
 #### Scenario: Status filter and server order
 - **WHEN** an admin opens the tab with `status=investigating` and the server returns three disputes with ascending `created_at`
@@ -149,12 +149,12 @@ For an admin the tab SHALL call `ListDisputes` once per render with the `status`
 #### Scenario: Non-admin token is denied the list
 - **WHEN** `ListDisputes` answers `PermissionDenied` for a token the page believed to be admin
 - **THEN** `listDisputes` returns the `forbidden` result with no rows and no server error text (the page renders it as 403, see "Gateway refusal and expired session")
-- **VERIFIED BY**: `team-frontend/src/lib/gateway/disputes.test.ts` `listDisputes maps PermissionDenied to forbidden`
+- **VERIFIED BY**: `team-frontend-admin/src/lib/gateway/disputes.test.ts` `listDisputes maps PermissionDenied to forbidden`
 
 #### Scenario: Unknown status falls back to OPEN
 - **WHEN** the URL has `status=bogus`
 - **THEN** the call carries `status = OPEN`
-- **VERIFIED BY**: `team-frontend/src/lib/gateway/disputes.test.ts` `ignores an unknown status`
+- **VERIFIED BY**: `team-frontend-admin/src/lib/gateway/disputes.test.ts` `ignores an unknown status`
 
 #### Scenario: Next page link carries the cursor
 - **WHEN** the response has `next_cursor` "c2" under filter `status=open`
@@ -169,12 +169,12 @@ For an admin the tab SHALL call `ListDisputes` once per render with the `status`
 #### Scenario: Load failure
 - **WHEN** `ListDisputes` fails with `UNAVAILABLE`
 - **THEN** the panel shows "Không tải được danh sách khiếu nại. Vui lòng thử lại sau." with no rows and no server error text
-- **VERIFIED BY**: `team-frontend/src/lib/gateway/disputes.test.ts` `listDisputes maps UNAVAILABLE to an error result`
+- **VERIFIED BY**: `team-frontend-admin/src/lib/gateway/disputes.test.ts` `listDisputes maps UNAVAILABLE to an error result`
 
 #### Scenario: Deep link opens one dispute
 - **WHEN** an admin opens `/admin/cases?tab=disputes&dispute=d-1`, then a dispute id the server answers `NOT_FOUND` for
 - **THEN** `GetDispute` is called with the id; the first shows that dispute's detail (reason, status and its actions) and the second shows "Không tìm thấy khiếu nại này."
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `deep link renders the dispute detail`; `team-frontend/src/lib/gateway/disputes.test.ts` `getDispute maps NOT_FOUND to not_found`
+- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `deep link renders the dispute detail`; `team-frontend-admin/src/lib/gateway/disputes.test.ts` `getDispute maps NOT_FOUND to not_found`
 
 #### Scenario: Row detail and unsafe evidence URL
 - **WHEN** a dispute has evidence URLs "https://x.test/a.jpg" and "javascript:alert(1)"
@@ -188,7 +188,7 @@ The panel SHALL offer only the transitions the server allows: for OPEN "Bắt đ
 #### Scenario: Actions offered per status
 - **WHEN** the panel renders one dispute each in OPEN, INVESTIGATING, RESOLVED and REJECTED
 - **THEN** OPEN shows "Bắt đầu điều tra" and "Từ chối" but no "Giải quyết"; INVESTIGATING shows "Cập nhật ghi chú", "Giải quyết" and "Từ chối"; RESOLVED and REJECTED show no action
-- **VERIFIED BY**: `team-frontend/src/features/dispute/allowedActions.test.ts` `offers the server state machine only`
+- **VERIFIED BY**: `team-frontend-admin/src/features/dispute/allowedActions.test.ts` `offers the server state machine only`
 
 #### Scenario: Start investigating
 - **WHEN** an admin clicks "Bắt đầu điều tra" on an OPEN dispute

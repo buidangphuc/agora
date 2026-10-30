@@ -15575,7 +15575,7 @@ features:
       - "Default list is OPEN, 20 per page"
     tags: [unit-verified]
     status: not-testable
-    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > listDisputes defaults to OPEN and page size 20"
+    notes: "Verified by Vitest: team-frontend-admin/src/lib/gateway/disputes.test.ts > listDisputes defaults to OPEN and page size 20"
 
   - id: frontend.dce-unit-status-filter-and-server-order
     title: "Status filter and server order"
@@ -15601,7 +15601,7 @@ features:
       - "Non-admin token is denied the list"
     tags: [unit-verified]
     status: not-testable
-    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > listDisputes maps PermissionDenied to forbidden"
+    notes: "Verified by Vitest: team-frontend-admin/src/lib/gateway/disputes.test.ts > listDisputes maps PermissionDenied to forbidden"
 
   - id: frontend.dce-unit-unknown-status-falls-back-to-open
     title: "Unknown status falls back to OPEN"
@@ -15614,7 +15614,7 @@ features:
       - "Unknown status falls back to OPEN"
     tags: [unit-verified]
     status: not-testable
-    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > ignores an unknown status"
+    notes: "Verified by Vitest: team-frontend-admin/src/lib/gateway/disputes.test.ts > ignores an unknown status"
 
   - id: frontend.dce-unit-next-page-link-carries-the-cursor
     title: "Next page link carries the cursor"
@@ -15653,7 +15653,7 @@ features:
       - "Load failure"
     tags: [unit-verified]
     status: not-testable
-    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > listDisputes maps UNAVAILABLE to an error result"
+    notes: "Verified by Vitest: team-frontend-admin/src/lib/gateway/disputes.test.ts > listDisputes maps UNAVAILABLE to an error result"
 
   - id: frontend.dce-unit-deep-link-opens-one-dispute
     title: "Deep link opens one dispute"
@@ -15666,7 +15666,7 @@ features:
       - "Deep link opens one dispute"
     tags: [unit-verified]
     status: not-testable
-    notes: "Verified by Vitest: team-frontend-admin/src/app/admin/cases/page.test.tsx > deep link renders the dispute detail; team-frontend/src/lib/gateway/disputes.test.ts > getDispute maps NOT_FOUND to not_found"
+    notes: "Verified by Vitest: team-frontend-admin/src/app/admin/cases/page.test.tsx > deep link renders the dispute detail; team-frontend-admin/src/lib/gateway/disputes.test.ts > getDispute maps NOT_FOUND to not_found"
 
   - id: frontend.dce-unit-row-detail-and-unsafe-evidence-url
     title: "Row detail and unsafe evidence URL"
@@ -15692,7 +15692,7 @@ features:
       - "Actions offered per status"
     tags: [unit-verified]
     status: not-testable
-    notes: "Verified by Vitest: team-frontend/src/features/dispute/allowedActions.test.ts > offers the server state machine only"
+    notes: "Verified by Vitest: team-frontend-admin/src/features/dispute/allowedActions.test.ts > offers the server state machine only"
 
   - id: frontend.dce-unit-start-investigating
     title: "Start investigating"

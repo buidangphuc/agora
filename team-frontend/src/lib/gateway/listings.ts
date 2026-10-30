@@ -19,11 +19,6 @@ import { getToken } from "./session.js";
 
 export { getImageUrl };
 
-// gateway builds request-scoped clients carrying the caller's session token.
-function gateway() {
-  return makeClients(getToken());
-}
-
 // Public reads: retry once without the bearer if the gateway rejects a stale
 // session (it answers Unauthenticated to any invalid token, even on public RPCs).
 function publicGateway() {
@@ -72,25 +67,6 @@ export interface ViewListing {
   moderation?: ViewModeration;
 }
 
-export interface CreateListingInput {
-  title: string;
-  description: string;
-  price: number;
-  currency: string;
-  status: string; // "draft" | "published" | "rejected"
-  imageKeys?: string[];
-  categoryId?: string;
-  stock?: number;
-  variants?: {
-    id?: string;
-    name: string;
-    sku?: string;
-    price?: number;
-    stock?: number;
-    imageUrl?: string;
-  }[];
-}
-
 export interface ListingPage {
   items: ViewListing[];
   nextCursor: string;
@@ -113,17 +89,6 @@ function statusLabel(s: ListingStatus): string {
       return "held";
     default:
       return "unspecified";
-  }
-}
-
-function statusFromLabel(label: string): ListingStatus {
-  switch (label) {
-    case "published":
-      return ListingStatus.PUBLISHED;
-    case "rejected":
-      return ListingStatus.REJECTED;
-    default:
-      return ListingStatus.DRAFT;
   }
 }
 
@@ -172,20 +137,6 @@ export async function listListings(
   const res = await publicGateway().listing.listListings({
     status: opts.status ?? "",
     page: { cursor: opts.cursor ?? "", pageSize: opts.pageSize ?? 12 },
-  });
-  return {
-    items: res.listings.map(mapListing),
-    nextCursor: res.page?.nextCursor ?? "",
-    total: Number(res.page?.total ?? 0n),
-  };
-}
-
-/** Seller center: the caller's OWN listings. */
-export async function listMyListings(
-  opts: { cursor?: string; pageSize?: number } = {},
-): Promise<ListingPage> {
-  const res = await gateway().listing.listMyListings({
-    page: { cursor: opts.cursor ?? "", pageSize: opts.pageSize ?? 20 },
   });
   return {
     items: res.listings.map(mapListing),
@@ -293,87 +244,6 @@ export async function getCategory(id: string): Promise<ViewCategory | null> {
   }
 }
 
-/** Seller posts a listing; the service persists it and emits an event. */
-export async function createListing(
-  input: CreateListingInput,
-): Promise<ViewListing> {
-  const res = await gateway().listing.createListing({
-    listing: {
-      title: input.title,
-      description: input.description,
-      price: BigInt(Math.trunc(input.price)),
-      currency: input.currency,
-      status: statusFromLabel(input.status),
-      imageKeys: input.imageKeys ?? [],
-      categoryId: input.categoryId ?? "",
-      stock: input.stock ?? 0,
-      variants: (input.variants ?? []).map((v) => ({
-        id: v.id ?? "",
-        listingId: "",
-        name: v.name,
-        sku: v.sku ?? "",
-        price: BigInt(Math.trunc(v.price ?? 0)),
-        stock: v.stock ?? 0,
-        imageUrl: v.imageUrl ?? "",
-      })),
-    },
-  });
-  if (!res.listing) throw new Error("create returned no listing");
-  return mapListing(res.listing);
-}
-
-/** Seller updates one of their own listings (server enforces ownership). */
-export async function updateListing(
-  id: string,
-  input: CreateListingInput,
-): Promise<ViewListing> {
-  const res = await gateway().listing.updateListing({
-    listing: {
-      id,
-      title: input.title,
-      description: input.description,
-      price: BigInt(Math.trunc(input.price)),
-      currency: input.currency,
-      status: statusFromLabel(input.status),
-      imageKeys: input.imageKeys ?? [],
-      categoryId: input.categoryId ?? "",
-      stock: input.stock ?? 0,
-      variants: (input.variants ?? []).map((v) => ({
-        id: v.id ?? "",
-        listingId: id,
-        name: v.name,
-        sku: v.sku ?? "",
-        price: BigInt(Math.trunc(v.price ?? 0)),
-        stock: v.stock ?? 0,
-        imageUrl: v.imageUrl ?? "",
-      })),
-    },
-  });
-  if (!res.listing) throw new Error("update returned no listing");
-  return mapListing(res.listing);
-}
-
-/** Seller removes one of their own listings (server enforces ownership). */
-export async function deleteListing(id: string): Promise<void> {
-  await gateway().listing.deleteListing({ id });
-}
-
-/** Request a presigned URL to upload a product image. */
-export async function getImageUploadUrl(
-  contentType: string,
-  filename?: string,
-): Promise<{ uploadUrl: string; imageKey: string; publicUrl: string }> {
-  const res = await gateway().listing.getImageUploadUrl({
-    contentType,
-    filename: filename ?? "",
-  });
-  return {
-    uploadUrl: res.uploadUrl,
-    imageKey: res.imageKey,
-    publicUrl: res.publicUrl,
-  };
-}
-
 // ── Storefront (seller shop banner / tagline / featured items) ──────────────
 
 export interface ViewStorefront {
@@ -420,33 +290,6 @@ export async function getStorefront(
   }
 }
 
-export async function upsertStorefront(
-  input: Partial<ViewStorefront> & { sellerId: string },
-): Promise<ViewStorefront> {
-  const res = await gateway().listing.upsertStorefront({
-    storefront: {
-      sellerId: input.sellerId,
-      slug: input.slug ?? "",
-      bannerUrl: input.bannerUrl ?? "",
-      tagline: input.tagline ?? "",
-      featuredListingIds: input.featuredListingIds ?? [],
-      theme: input.theme ?? "",
-      displayName: input.displayName ?? "",
-    },
-  });
-  const s = res.storefront;
-  if (!s) throw new Error("upsert storefront failed");
-  return {
-    sellerId: s.sellerId,
-    slug: s.slug,
-    bannerUrl: s.bannerUrl,
-    tagline: s.tagline,
-    featuredListingIds: s.featuredListingIds ?? [],
-    theme: s.theme,
-    displayName: s.displayName,
-  };
-}
-
 // ── Listing bundles ─────────────────────────────────────────────────────────
 // A bundle groups several of a seller's listings for one bundle price.
 // team-listing owns validation/pricing; this module forwards + maps.
@@ -475,20 +318,6 @@ function mapBundle(b: Bundle): ViewBundle {
     bundlePrice: Number(b.bundlePrice),
     createdAt,
   };
-}
-
-export async function createBundle(
-  title: string,
-  listingIds: string[],
-  bundlePrice: number,
-): Promise<ViewBundle> {
-  const res = await gateway().listing.createBundle({
-    title: title.trim(),
-    listingIds,
-    bundlePrice: BigInt(Math.max(0, Math.round(bundlePrice))),
-  });
-  if (!res.bundle) throw new Error("create bundle failed");
-  return mapBundle(res.bundle);
 }
 
 export async function getBundle(id: string): Promise<ViewBundle | null> {

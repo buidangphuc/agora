@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { SellerLogoutButton } from "./SellerLogoutButton";
 import { SellerNavList } from "./SellerNavList";
 import { type SellerShopInfo, ShopCard } from "./ShopCard";
 import { NavIcon } from "./nav";
@@ -69,6 +70,7 @@ export function SellerSidebar({ shop }: { shop: SellerShopInfo }) {
           />
           {!collapsed && <span>Thu gọn</span>}
         </button>
+        <SellerLogoutButton compact={collapsed} />
       </div>
     </aside>
   );

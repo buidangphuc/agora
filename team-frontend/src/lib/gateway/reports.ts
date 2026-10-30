@@ -42,19 +42,8 @@ export interface ReportView {
 export type CreateReportResult =
   | { status: "ok"; report: ReportView }
   | { status: ErrStatus };
-export type ListReportsResult =
-  | { status: "ok"; items: ReportView[]; nextCursor: string }
-  | { status: ErrStatus };
-export type ResolveReportResult = { status: "ok" } | { status: ErrStatus };
 
-const PAGE_SIZE = 20;
 const TIMEOUT_MS = 5000;
-
-const STATUS_ENUM: Record<ReportStatusName, ReportStatus> = {
-  open: ReportStatus.OPEN,
-  actioned: ReportStatus.ACTIONED,
-  dismissed: ReportStatus.DISMISSED,
-};
 
 function statusName(s: ReportStatus): ReportStatusName {
   if (s === ReportStatus.ACTIONED) return "actioned";
@@ -113,46 +102,6 @@ export async function createReport(
     );
     if (!res.report) return { status: "unavailable" };
     return { status: "ok", report: toView(res.report) };
-  } catch (err) {
-    return toErr(err);
-  }
-}
-
-export async function listReports(
-  status: ReportStatusName,
-  cursor: string,
-): Promise<ListReportsResult> {
-  try {
-    const { engagement } = makeClients(getToken());
-    const res = await engagement.listReports(
-      {
-        status: STATUS_ENUM[status],
-        page: { cursor, pageSize: PAGE_SIZE },
-      },
-      { timeoutMs: TIMEOUT_MS },
-    );
-    return {
-      status: "ok",
-      items: res.reports.map(toView),
-      nextCursor: res.page?.nextCursor ?? "",
-    };
-  } catch (err) {
-    return toErr(err);
-  }
-}
-
-export async function resolveReport(
-  reportId: string,
-  outcome: "actioned" | "dismissed",
-  note: string,
-): Promise<ResolveReportResult> {
-  try {
-    const { engagement } = makeClients(getToken());
-    await engagement.resolveReport(
-      { reportId, status: STATUS_ENUM[outcome], resolutionNote: note },
-      { timeoutMs: TIMEOUT_MS },
-    );
-    return { status: "ok" };
   } catch (err) {
     return toErr(err);
   }

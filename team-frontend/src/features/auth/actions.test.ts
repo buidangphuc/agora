@@ -414,6 +414,33 @@ describe("logoutAction revokes the server session (frontend-session-continuity)"
     seen.reply = () => ({});
   });
 
+  it("Per-app logout: clears only the buyer cookies, never another app’s", async () => {
+    const tok = jwt({ sub: "u1", sid: "sess-P", exp: future() });
+    const jar = await seed({
+      session: tok,
+      agora_refresh: "agora_refresh-value",
+      seller_session: "seller_session-value",
+      seller_refresh: "seller_refresh-value",
+      admin_session: "admin_session-value",
+      admin_refresh: "admin_refresh-value",
+    });
+
+    await logoutAction();
+
+    const deleted = vi.mocked(jar.delete).mock.calls.map((c) => c[0]);
+    expect(new Set(deleted)).toEqual(new Set(["session", "agora_refresh"]));
+    for (const other of [
+      "seller_session",
+      "seller_refresh",
+      "admin_session",
+      "admin_refresh",
+    ]) {
+      expect(deleted).not.toContain(other);
+      expect(deleted).not.toContain(`__Host-${other}`);
+    }
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
   it("S13: usable access token with sid -> RevokeSession(sid) with its bearer, both cookies cleared", async () => {
     const tok = jwt({ sub: "u1", sid: "sess-X", exp: future() });
     const jar = await seed({ session: tok, agora_refresh: "rt" });

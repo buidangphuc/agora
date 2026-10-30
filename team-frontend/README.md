@@ -1,8 +1,8 @@
 # team-frontend
 
-Next.js 14 (App Router, SSR, `output: "standalone"`) web UI for the marketplace. It is the **UI shell**: it renders pages, shapes data for display and holds the `httpOnly` session cookie. It owns no business capability, no database and no Kafka/RabbitMQ topics. Each feature's logic lives in the service that owns the capability (identity, listing, order, search, ...).
+Next.js 15 (App Router, SSR, `output: "standalone"`) buyer app of the marketplace, one of three apps (buyer `:3000`, `team-frontend-seller` `:3001`, `team-frontend-admin` `:3002`; ADR-0006). It is the **UI shell**: it renders pages, shapes data for display and holds the `httpOnly` session cookie. It owns no business capability, no database and no Kafka/RabbitMQ topics. Each feature's logic lives in the service that owns the capability (identity, listing, order, search, ...).
 
-Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 18, Tailwind 3, Connect-ES (`@connectrpc/connect-node`), OpenFeature + Flipt, Biome, Vitest.
+Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 19, Tailwind 3, Connect-ES (`@connectrpc/connect-node`), OpenFeature + Flipt, Biome, Vitest.
 
 ## 1. Contract
 
@@ -30,7 +30,7 @@ There is no `/admin` route and no link to one (ADR-0006): the admin screens live
 
 **Consumes**: only `team-gateway` (`GATEWAY_URL`), through `@connectrpc/connect-node` clients over HTTP/1.1. All RPC code lives in `src/lib/gateway/*` (`server-only`); pages and `src/features/*` import from there. Clients are built per request with the caller's token (`makeClients(token)`), so the bearer is never a process singleton and never reaches the browser. Public reads retry once without the bearer (`anonymousFallback`) so a stale session degrades to anonymous browsing. `src/middleware.ts` refreshes an unusable `session` cookie once via the `agora_refresh` cookie before render; if the refresh fails with `Unauthenticated` or `PermissionDenied` both cookies are cleared, and a transient failure renders anonymous while keeping the refresh cookie.
 
-Generated services in use (`src/generated/platform/*`, from the vendored `proto/platform/*`): search, listing, identity (Auth, Address), engagement, order (Cart, Order), payment, chat, ai, recommendation, promotion (Voucher, FlashSale, Subscription, Sponsored), notification, plus referral, sharing, verification, follow and cockpit/analytics helpers in their own `src/lib/gateway/*.ts` modules. The gateway forwards each RPC to the owning service.
+Generated services in use (`src/generated/platform/*`, from the vendored `proto/platform/*`): search, listing, identity (Auth, Address), engagement, order (Cart, Order), payment, chat, ai, recommendation, promotion (Voucher, FlashSale, Sponsored), notification, plus referral, sharing, verification and follow in their own `src/lib/gateway/*.ts` modules. The audit and analytics protos stay vendored but have no client here (the admin and seller apps use them). The gateway forwards each RPC to the owning service.
 
 Login/register forward the browser IP and user agent to the gateway (`src/lib/gateway/client-context.ts`): the `X-Forwarded-For` entry `TRUSTED_PROXY_HOPS` places from the right, never the client-controlled leftmost one. The gateway trusts it only from this server (`TRUSTED_PROXIES=team-frontend-svc` in compose).
 
@@ -59,7 +59,7 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `TRUSTED_PROXY_HOPS` | `1` (values below 1 or non-numeric fall back to 1) | `src/lib/gateway/client-context.ts` |
 | `NEXT_PUBLIC_GTM_ID` | empty, GTM disabled (Dockerfile build `ARG`, inlined at build) | `src/lib/analytics/destinations/gtm.ts` |
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` | `src/lib/media.ts` |
-| `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); every link to the seller centre goes through `sellerAppUrl()` | `src/lib/apps.ts` |
+| `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); every link to the seller app goes through `src/lib/apps.ts`: "Kênh Người Bán" uses `sellerEntryUrl()`, which opens the seller `/login?next=/seller` (the seller app skips the form when it already has a seller session) | `src/lib/apps.ts` |
 | `NEXT_PUBLIC_APP_ENV` | unset; `staging` turns on GA4 `debug_mode` (build-time) | `src/lib/analytics/destinations/gtm.ts` |
 | `GA4_USER_ID_HMAC_KEY` | unset (server-only secret from Vault): `user_id` disabled, `/api/analytics/identity` returns 204 | `src/lib/analytics/ga4/userId.ts` |
 
@@ -128,14 +128,17 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 - `/api/suggest` and `/api/listings` swallow every error and return empty results, hiding gateway outages from the UI.
 - `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
 - `FEATURES.yaml` has 7 `planned` features with no automated coverage yet.
-- `/seller*` and `/sell` moved to `team-frontend-seller` (`:3001`) and are a 404 here (`src/app/sellerRoutes.test.ts`). `src/features/seller/usePending.ts` stays because `ReportListingButton` imports it. The seller features are still listed in this `FEATURES.yaml`.
+- `/seller*` and `/sell` moved to `team-frontend-seller` (`:3001`) and are a 404 here (`src/app/sellerRoutes.test.ts`). The seller features are still listed in this `FEATURES.yaml`.
+- `/vouchers` still renders `VoucherManager` (create a voucher) for a session with `listing.write`; it is seller work that has not moved to the seller app yet.
+- `/listing/[id]` still shows the admin review-moderation controls when the buyer session carries scope `admin`.
+- No single sign-on across the three apps (gap G8 in `fe-platform/docs/gaps.md`): a buyer session does not open the seller or admin app; each app signs in on its own and logout clears only that app's cookies.
 
 ## 10. Links
 
-- Rules: root `AGENTS.md` (Rule 1: frontend talks only to the gateway; port table `:3000`).
+- Rules: root `AGENTS.md` (Rule 1: frontend talks only to the gateway; port table: buyer `:3000`, seller `:3001`, admin `:3002`).
 - `platform-core/docs/UI_SYSTEM_DESIGN.md`, `platform-core/docs/ARCHITECTURE.md`.
 - ADRs: `platform-core/docs/ADR/0001-proto-distribution.md`, `0003-auth-model.md`, `0006-rs256-jwks-auth.md`.
 
 ## 11. Shared platform packages
 
-`@fe-platform/tokens`, `@fe-platform/ui` and `@fe-platform/api-client` come from `fe-platform/` as committed tarballs in `vendor/` (`file:./vendor/*.tgz`), so the image builds from this directory alone (the Dockerfile copies `vendor/` before `npm ci`). To update: in `fe-platform/` run `npm run vendor`, then here run `npm install` and commit `vendor/` and `package-lock.json`. Decision: `fe-platform/docs/ADR/0006-three-apps-on-the-platform.md`. No component or token from these packages is used yet.
+`@fe-platform/tokens`, `@fe-platform/ui`, `@fe-platform/api-client` and `@fe-platform/session` come from `fe-platform/` as committed tarballs in `vendor/` (`file:./vendor/*.tgz`), so the image builds from this directory alone (the Dockerfile copies `vendor/` before `npm ci`). To update: in `fe-platform/` run `npm run vendor`, rewrite the `integrity` of the four `@fe-platform/*` entries in `package-lock.json` from the new tarballs (sha512, base64), run `npm ci`, and commit `vendor/` and `package-lock.json`. Decision: `fe-platform/docs/ADR/0006-three-apps-on-the-platform.md`. Most components in `src/components/ui/` are facades over `@fe-platform/ui` (`Modal` wraps its Dialog, `ToastProvider` its Toast) and keep their props, roles and `data-testid`s; the tailwind colours come from `@fe-platform/tokens`.
