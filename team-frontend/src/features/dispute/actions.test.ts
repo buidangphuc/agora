@@ -9,7 +9,7 @@ import {
 } from "@/lib/gateway/disputes";
 import { getPrincipal } from "@/lib/gateway/session";
 
-import { createDisputeAction, resolveDisputeAction } from "./actions";
+import { createDisputeAction } from "./actions";
 
 vi.mock("@/lib/gateway/disputes", () => ({
   createDispute: vi.fn(),
@@ -165,125 +165,5 @@ describe("createDisputeAction", () => {
     const res = await createDisputeAction(CREATE_INPUT);
     expect(res).toEqual({ ok: false, error: MSG.outage });
     expect(JSON.stringify(res)).not.toContain("secret-internal");
-  });
-});
-
-describe("resolveDisputeAction", () => {
-  // Scenario: Start investigating
-  it("resolveDisputeAction moves OPEN to INVESTIGATING", async () => {
-    const res = await resolveDisputeAction({
-      disputeId: "d1",
-      status: "INVESTIGATING",
-      resolution: "",
-    });
-    expect(res).toEqual({
-      ok: true,
-      data: { ...dispute, status: "INVESTIGATING" },
-    });
-    expect(resolveDispute).toHaveBeenCalledTimes(1);
-    const arg = vi.mocked(resolveDispute).mock.calls[0][0];
-    expect(arg.disputeId).toBe("d1");
-    expect(arg.status).toBe("INVESTIGATING");
-    expect(arg.ruling ?? "").toBe("");
-    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/admin/cases");
-  });
-
-  // Scenario: Seller-favour and reject send the right payload
-  it("sends seller-favour and reject payloads", async () => {
-    await resolveDisputeAction({
-      disputeId: "d1",
-      status: "RESOLVED",
-      resolution: "Hàng đúng mô tả",
-      ruling: "SELLER_FAVOUR",
-    });
-    await resolveDisputeAction({
-      disputeId: "d2",
-      status: "REJECTED",
-      resolution: "Spam",
-    });
-    const calls = vi.mocked(resolveDispute).mock.calls;
-    expect(calls).toHaveLength(2);
-    expect(calls[0][0]).toMatchObject({
-      disputeId: "d1",
-      status: "RESOLVED",
-      resolution: "Hàng đúng mô tả",
-      ruling: "SELLER_FAVOUR",
-    });
-    expect(calls[1][0]).toMatchObject({
-      disputeId: "d2",
-      status: "REJECTED",
-      resolution: "Spam",
-    });
-    expect(calls[1][0].ruling ?? "").toBe("");
-  });
-
-  // Scenario: Server refuses the transition
-  it("maps a refused transition", async () => {
-    for (const s of ["failed_precondition", "invalid_argument"] as const) {
-      vi.mocked(resolveDispute).mockResolvedValue({ status: s });
-      expect(
-        await resolveDisputeAction({
-          disputeId: "d1",
-          status: "RESOLVED",
-          resolution: "x",
-          ruling: "BUYER_FAVOUR",
-        }),
-      ).toEqual({ ok: false, error: MSG.transition });
-    }
-  });
-
-  // Scenario: Audit service is down
-  it("maps UNAVAILABLE to the audit-down message", async () => {
-    vi.mocked(resolveDispute).mockResolvedValue({ status: "unavailable" });
-    expect(
-      await resolveDisputeAction({
-        disputeId: "d1",
-        status: "INVESTIGATING",
-        resolution: "",
-      }),
-    ).toEqual({ ok: false, error: MSG.audit });
-  });
-
-  // Scenario: Resolve times out
-  it("maps a resolve timeout to the unknown-state message", async () => {
-    vi.mocked(resolveDispute).mockResolvedValue({ status: "timeout" });
-    const res = await resolveDisputeAction({
-      disputeId: "d1",
-      status: "INVESTIGATING",
-      resolution: "",
-    });
-    expect(res).toEqual({ ok: false, error: MSG.timeout });
-    expect(res).not.toEqual({ ok: false, error: MSG.audit });
-    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/admin/cases");
-  });
-
-  // Scenario: Non-admin cannot call the action
-  it("refuses a non-admin before calling the gateway", async () => {
-    vi.mocked(getPrincipal).mockReturnValue({
-      id: "u1",
-      name: "buyer",
-      scopes: ["user"],
-    });
-    const res = await resolveDisputeAction({
-      disputeId: "d1",
-      status: "INVESTIGATING",
-      resolution: "",
-    });
-    expect(res.ok).toBe(false);
-    expect(resolveDispute).not.toHaveBeenCalled();
-  });
-
-  // Scenario: Non-admin cannot call the action
-  it("redirects a guest to login without calling the gateway", async () => {
-    vi.mocked(getPrincipal).mockReturnValue(null);
-    await expect(
-      resolveDisputeAction({
-        disputeId: "d1",
-        status: "INVESTIGATING",
-        resolution: "",
-      }),
-    ).rejects.toThrow("NEXT_REDIRECT");
-    expect(redirectGuestToLogin).toHaveBeenCalled();
-    expect(resolveDispute).not.toHaveBeenCalled();
   });
 });

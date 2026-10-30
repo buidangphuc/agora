@@ -55,7 +55,7 @@ def compose_service_keys(text: str) -> set[str]:
 def agents_table(text: str) -> dict[str, str | None]:
     """Map service name -> declared gRPC/HTTP port string (or None) from §2 rows."""
     rows: dict[str, str | None] = {}
-    for m in re.finditer(r"\*\*(team-[a-z]+)\*\*", text):
+    for m in re.finditer(r"\*\*(team-[a-z-]+)\*\*", text):
         name = m.group(1)
         line = text[m.start() : text.find("\n", m.start())]
         # The port lives in the LAST column; earlier ':port' mentions in the

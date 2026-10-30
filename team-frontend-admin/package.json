@@ -1,0 +1,55 @@
+{
+  "name": "team-frontend-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "proto": "buf generate",
+    "dev": "node scripts/patch-react-dom-ping.mjs && next dev -p 3002",
+    "build": "node scripts/patch-react-dom-ping.mjs && next build",
+    "start": "next start -p 3002",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "biome check . && tsc --noEmit && node scripts/check-tokens.mjs && vitest run"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^1.10.0",
+    "@connectrpc/connect": "^1.6.1",
+    "@connectrpc/connect-node": "^1.6.1",
+    "@fe-platform/api-client": "file:./vendor/fe-platform-api-client.tgz",
+    "@fe-platform/session": "file:./vendor/fe-platform-session.tgz",
+    "@fe-platform/tokens": "file:./vendor/fe-platform-tokens.tgz",
+    "@fe-platform/ui": "file:./vendor/fe-platform-ui.tgz",
+    "@testing-library/dom": "^10.4.2",
+    "next": "^15.5.28",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@bufbuild/buf": "^1.47.2",
+    "@bufbuild/protoc-gen-es": "^1.10.0",
+    "@connectrpc/protoc-gen-connect-es": "^1.6.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "^20.16.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.4.19",
+    "jsdom": "^25.0.1",
+    "postcss": "^8.5.29",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9"
+  },
+  "overrides": {
+    "undici": "^6.29.1",
+    "postcss": "$postcss"
+  }
+}
