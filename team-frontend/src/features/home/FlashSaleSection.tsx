@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { Link } from "@/components/ui/Link";
 import { Progress } from "@/components/ui/Progress";
 import { ListingCard } from "@/features/listing/ListingCard";
 import type { ViewListing } from "@/lib/gateway/listings";
@@ -40,12 +39,9 @@ export function FlashSaleSection({
           </h2>
           {endsAt !== undefined && <CountdownClock endsAt={endsAt} />}
         </div>
-        <Link
-          href="/search"
-          className="text-sm font-medium text-action-primary hover:underline"
-        >
-          Xem tất cả
-        </Link>
+        <span className="text-sm font-medium">
+          <Link href="/search">Xem tất cả</Link>
+        </span>
       </div>
 
       <ul className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:pb-0 md:grid-cols-4 lg:grid-cols-6">

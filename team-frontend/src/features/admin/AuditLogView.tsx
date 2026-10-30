@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { Link } from "@/components/ui/Link";
 import type { AuditParams } from "./auditFilters";
 
 export interface AuditEventRow {
@@ -136,9 +135,11 @@ export function AuditLogView({
           >
             Lọc
           </button>
-          <Link href="/admin/audit" className="text-sm text-text-secondary">
-            Xóa bộ lọc
-          </Link>
+          <span className="text-sm text-text-secondary">
+            <Link href="/admin/audit" variant="subtle">
+              Xóa bộ lọc
+            </Link>
+          </span>
         </div>
       </form>
 
@@ -177,12 +178,9 @@ export function AuditLogView({
           </table>
           {nextCursor ? (
             <p className="mt-4">
-              <Link
-                href={nextHref(params, nextCursor)}
-                className="text-sm text-text-primary underline"
-              >
-                Trang sau
-              </Link>
+              <span className="text-sm">
+                <Link href={nextHref(params, nextCursor)}>Trang sau</Link>
+              </span>
             </p>
           ) : null}
         </>

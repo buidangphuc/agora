@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+import { Link } from "@/components/ui/Link";
 import { formatPrice } from "@/components/ui/format";
 
 export function LoanCalculatorView() {
@@ -260,10 +260,7 @@ export function LoanCalculatorView() {
 
             {/* CTA */}
             <div className="pt-2">
-              <Link
-                href="/search"
-                className="flex items-center justify-center rounded-xl bg-danger py-3 text-xs font-bold uppercase tracking-wider text-text-inverse shadow-xs hover:bg-accent-danger-dark transition"
-              >
+              <Link href="/search" variant="danger" size="xs" fullWidth>
                 Tìm Nhà Đất Phù Hợp Tầm Tài Chính →
               </Link>
             </div>

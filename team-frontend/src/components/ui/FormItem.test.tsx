@@ -4,13 +4,14 @@ import { describe, expect, it } from "vitest";
 import { Checkbox } from "./Checkbox";
 import { FormItem } from "./FormItem";
 import { RadioGroup } from "./Radio";
-import { Select } from "./Select";
 
 describe("FormItem", () => {
   it("binds the label to the control and shows the required mark", () => {
     render(
       <FormItem label="Tỉnh/Thành" required>
-        <Select options={[{ value: "hn", label: "Hà Nội" }]} />
+        <select>
+          <option value="hn">Hà Nội</option>
+        </select>
       </FormItem>,
     );
     expect(screen.getByLabelText(/Tỉnh\/Thành/)).toBe(
@@ -22,7 +23,7 @@ describe("FormItem", () => {
   it("links help text and announces an error status", () => {
     render(
       <FormItem label="Tỉnh" help="Vui lòng chọn tỉnh" status="error">
-        <Select options={[]} />
+        <select />
       </FormItem>,
     );
     const select = screen.getByRole("combobox");
@@ -36,7 +37,7 @@ describe("FormItem", () => {
       <>
         <p id="x">Ghi chú</p>
         <FormItem label="Tỉnh" help="Ok" status="success">
-          <Select aria-describedby="x" options={[]} />
+          <select aria-describedby="x" />
         </FormItem>
       </>,
     );

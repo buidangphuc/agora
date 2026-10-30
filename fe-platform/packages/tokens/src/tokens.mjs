@@ -193,6 +193,9 @@ export const components = {
     content:
       "rounded-2xl border border-border-subtle bg-surface-card text-text-primary p-2 shadow-pop",
     item: "flex items-center rounded-lg px-4 py-3 min-h-touch text-base text-text-primary",
+    native:
+      "w-full appearance-none rounded-xl border border-border-strong bg-surface-card text-text-primary text-base pl-4 pr-10 py-3 min-h-touch focus-visible:ring-2 focus-visible:ring-focus-ring",
+    icon: "pointer-events-none absolute inset-y-0 right-4 flex items-center text-text-secondary",
   },
   checkbox: {
     row: "flex items-center gap-3 min-h-touch",
@@ -201,26 +204,88 @@ export const components = {
     mixed: "bg-action-primary",
   },
   dialog: {
-    overlay: "fixed inset-0 bg-surface-overlay",
+    overlay: "fixed inset-0 z-50 bg-surface-overlay",
     content:
-      "fixed rounded-2xl bg-surface-card text-text-primary border border-border-subtle p-6 shadow-pop",
-    title: "text-2xl font-semibold text-text-primary",
-    description: "text-base text-text-secondary",
+      "fixed inset-4 z-50 m-auto flex h-fit w-auto flex-col overflow-hidden rounded-2xl bg-surface-card text-text-primary border border-border-subtle p-0 shadow-pop",
+    size: {
+      sm: "max-w-md",
+      md: "max-w-lg",
+      lg: "max-w-2xl",
+      xl: "max-w-4xl",
+    },
+    header:
+      "flex items-start justify-between gap-4 border-b border-border-subtle px-6 py-4",
+    title: "text-xl font-semibold text-text-primary",
+    description: "mt-1 text-sm text-text-secondary",
+    close:
+      "inline-flex shrink-0 items-center justify-center rounded-lg px-3 min-h-touch text-text-secondary hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-focus-ring",
+    closeIcon: "size-5",
+    body: "flex-1 overflow-y-auto px-6 py-5",
+    footer:
+      "flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle bg-surface-muted px-6 py-4",
   },
   toast: {
-    root: "rounded-2xl border border-border-subtle bg-surface-card text-text-primary p-4 shadow-pop",
+    viewport: {
+      top: "fixed top-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2 px-4",
+      bottom: "fixed bottom-4 right-4 flex w-full max-w-lg flex-col gap-2",
+    },
+    root: "flex items-start justify-between gap-3 rounded-2xl border bg-surface-card text-text-primary p-4 shadow-pop",
+    tone: {
+      info: "border-border-subtle",
+      success: "border-text-success",
+      warning: "border-text-warning",
+      danger: "border-border-danger",
+    },
+    body: "min-w-0 flex-1",
     title: "text-base font-semibold text-text-primary",
     description: "text-sm text-text-secondary",
   },
+  alert: {
+    root: "flex items-start gap-3 rounded-2xl border bg-surface-card p-4 text-base text-text-primary",
+    tone: {
+      info: "border-border-strong",
+      success: "border-text-success",
+      warning: "border-text-warning",
+      danger: "border-border-danger",
+    },
+    icon: "mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-current text-sm font-semibold",
+    iconTone: {
+      info: "text-text-secondary",
+      success: "text-text-success",
+      warning: "text-text-warning",
+      danger: "text-text-danger",
+    },
+    body: "min-w-0 flex-1",
+    title: "font-semibold text-text-primary",
+    description: "text-sm text-text-secondary",
+    message: "text-sm text-text-primary",
+    action: "shrink-0",
+  },
   table: {
+    wrap: "w-full overflow-x-auto",
     root: "w-full text-base text-text-primary",
     caption: "p-4 text-left text-sm text-text-secondary",
-    th: "border-b border-border-strong p-4 text-left text-sm font-semibold text-text-secondary",
+    th: "border-b border-border-strong p-4 text-sm font-semibold text-text-secondary",
     td: "border-b border-border-subtle p-4",
+    row: "transition duration-150 hover:bg-surface-muted",
     empty: "p-8 text-center text-text-secondary",
+    align: {
+      left: "text-left",
+      center: "text-center",
+      right: "text-right",
+    },
+    sticky: "sticky left-0 z-10 bg-surface-card md:static",
+    hideBelow: {
+      sm: "hidden sm:table-cell",
+      md: "hidden md:table-cell",
+    },
+    skeleton: "block h-4 w-full animate-pulse rounded-lg bg-surface-muted",
+    error: "flex flex-col items-start gap-3 text-sm text-text-danger",
   },
   link: {
     base: "text-text-link underline underline-offset-4 hover:text-text-link-hover rounded-lg focus-visible:ring-2 focus-visible:ring-focus-ring",
+    subtle:
+      "hover:text-text-link rounded-lg focus-visible:ring-2 focus-visible:ring-focus-ring",
   },
   card: {
     base: "overflow-hidden rounded-2xl bg-surface-card border border-border-subtle text-text-primary shadow-card transition duration-200",

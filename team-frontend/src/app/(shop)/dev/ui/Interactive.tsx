@@ -158,7 +158,7 @@ export function FormControlsDemo() {
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-1.5">
         <Select
-          aria-label="Tỉnh thành (controlled)"
+          label="Tỉnh thành (controlled)"
           placeholder="Chọn tỉnh thành"
           value={city}
           onChange={(e) => setCity(e.target.value)}

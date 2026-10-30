@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useId, useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Link } from "@/components/ui/Link";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -42,9 +42,11 @@ export function ReportListingButton({
 
   if (!loggedIn) {
     return (
-      <Link href={loginPath(`/listing/${listingId}`)} className={linkClass}>
-        {LABEL}
-      </Link>
+      <span className="text-sm text-text-secondary">
+        <Link href={loginPath(`/listing/${listingId}`)} variant="subtle">
+          {LABEL}
+        </Link>
+      </span>
     );
   }
 
@@ -95,18 +97,14 @@ export function ReportListingButton({
       >
         <div className="space-y-3">
           {error && <Alert type="error" description={error} />}
-          <div className="space-y-1">
-            <label htmlFor={`${id}-reason`} className="text-sm font-medium">
-              Lý do
-            </label>
-            <Select
-              id={`${id}-reason`}
-              placeholder="Chọn lý do"
-              options={REASONS}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
+          <Select
+            id={`${id}-reason`}
+            label="Lý do"
+            placeholder="Chọn lý do"
+            options={REASONS}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
           <div className="space-y-1">
             <label htmlFor={`${id}-note`} className="text-sm font-medium">
               Chi tiết (không bắt buộc)

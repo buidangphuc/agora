@@ -1,5 +1,5 @@
+import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { Result } from "@/components/ui/Result";
-import { linkButtonPrimary } from "@/features/cart/linkButton";
 import {
   PaymentSimulator,
   type SimulatorPhase,
@@ -62,7 +61,7 @@ export default async function MockPaymentPage(props: {
   if (!order) notFound();
 
   const accountLink = (href: string) => (
-    <Link href={href} className={linkButtonPrimary}>
+    <Link href={href} variant="primary">
       Xem đơn hàng
     </Link>
   );

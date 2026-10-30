@@ -1,7 +1,8 @@
-import Link from "next/link";
+import NextLink from "next/link";
 import type { ReactNode } from "react";
 
 import { FloatingChatBubble } from "@/components/ui/FloatingChatBubble";
+import { Link } from "@/components/ui/Link";
 import { logoutAction } from "@/features/auth/actions";
 import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { SearchBar } from "@/features/search/SearchBar";
@@ -13,50 +14,59 @@ async function AuthNav() {
   if (!principal) {
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-inverse">
-        <Link
+        <NextLink
           href="/register"
           className="hover:text-white/80 font-medium transition"
         >
           Đăng Ký
-        </Link>
+        </NextLink>
         <span className="hidden text-white/40 sm:inline">|</span>
-        <Link
+        <NextLink
           href="/login"
           className="hover:text-white/80 font-medium transition"
         >
           Đăng Nhập
-        </Link>
+        </NextLink>
       </div>
     );
   }
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-inverse">
-      <Link href="/account/orders" className="hover:text-white/80 transition">
+      <NextLink
+        href="/account/orders"
+        className="hover:text-white/80 transition"
+      >
         Đơn Mua
-      </Link>
+      </NextLink>
       <span className="hidden text-white/30 sm:inline">|</span>
-      <Link
+      <NextLink
         href="/account/following"
         className="hover:text-white/80 transition"
       >
         Đang Theo Dõi
-      </Link>
+      </NextLink>
       <span className="hidden text-white/30 sm:inline">|</span>
-      <Link href="/account/referral" className="hover:text-white/80 transition">
+      <NextLink
+        href="/account/referral"
+        className="hover:text-white/80 transition"
+      >
         Mời bạn
-      </Link>
+      </NextLink>
       <span className="hidden text-white/30 sm:inline">|</span>
-      <Link
+      <NextLink
         href="/account/verification"
         className="hover:text-white/80 transition"
       >
         Xác minh
-      </Link>
+      </NextLink>
       <span className="hidden text-white/30 sm:inline">|</span>
-      <Link href="/account/security" className="hover:text-white/80 transition">
+      <NextLink
+        href="/account/security"
+        className="hover:text-white/80 transition"
+      >
         Bảo Mật
-      </Link>
+      </NextLink>
       <span className="hidden text-white/30 sm:inline">|</span>
       <div className="flex items-center gap-1.5 font-semibold">
         <div className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-xs text-text-inverse">
@@ -93,20 +103,20 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4">
             {/* Left Side Links */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/90">
-              <Link
+              <NextLink
                 href="/seller"
                 className="hover:text-text-inverse transition font-normal"
               >
                 Kênh Người Bán
-              </Link>
+              </NextLink>
               <span className="text-white/30">|</span>
-              <Link
+              <NextLink
                 href="/assistant"
                 className="hover:text-text-inverse transition font-bold bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
               >
                 <span>🤖</span>
                 <span>AI Assistant</span>
-              </Link>
+              </NextLink>
               <span className="text-white/30">|</span>
               <div className="hidden items-center gap-1.5 md:flex">
                 <span>Kết nối</span>
@@ -149,7 +159,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
 
             {/* Right Side Links */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/90">
-              <Link
+              <NextLink
                 href="/notifications"
                 className="flex items-center gap-1 hover:text-text-inverse transition"
               >
@@ -163,8 +173,8 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                   <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM14.2 11.2c-.6-.7-1.7-1.5-1.7-4.5 0-2.6-1.8-4.7-4.2-5.1V1a.8.8 0 0 0-1.6 0v.6C4.3 2 2.5 4.1 2.5 6.7c0 3-1.1 3.8-1.7 4.5-.3.4-.4.8-.4 1.1 0 .9.7 1.7 1.6 1.7h12c.9 0 1.6-.8 1.6-1.7 0-.3-.1-.7-.4-1.1z" />
                 </svg>
                 <span>Thông Báo</span>
-              </Link>
-              <Link
+              </NextLink>
+              <NextLink
                 href="/vouchers"
                 className="hover:text-text-inverse transition flex items-center gap-1"
               >
@@ -178,7 +188,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                   <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-3.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5V6h16v3.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5V18z" />
                 </svg>
                 <span>Kho Voucher</span>
-              </Link>
+              </NextLink>
               <span className="hover:text-text-inverse transition cursor-pointer hidden items-center gap-1 md:flex">
                 <svg
                   className="w-3.5 h-3.5 fill-current"
@@ -212,7 +222,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
         {/* 2. Main Search & Brand Bar */}
         <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-3.5 pb-2.5 md:gap-x-8">
           {/* Logo */}
-          <Link
+          <NextLink
             href="/"
             className="flex items-center gap-2.5 text-text-inverse shrink-0 hover:opacity-95 transition"
           >
@@ -227,7 +237,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 AI Polyrepo Platform
               </span>
             </div>
-          </Link>
+          </NextLink>
 
           {/* Search Bar with pills */}
           <div className="order-last w-full min-w-0 max-w-3xl md:order-none md:w-auto md:flex-1">
@@ -237,7 +247,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           </div>
 
           {/* Cart Icon with Live Counter */}
-          <Link
+          <NextLink
             href="/cart"
             className="relative flex items-center p-2 text-text-inverse hover:opacity-90 shrink-0 transition"
           >
@@ -255,7 +265,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 {cart.totalItems}
               </span>
             )}
-          </Link>
+          </NextLink>
         </div>
       </header>
 
@@ -308,33 +318,27 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             </h4>
             <ul className="space-y-2 text-text-secondary text-xs">
               <li>
-                <Link href="/search" className="hover:text-action-primary">
+                <Link href="/search" variant="subtle">
                   Trung Tâm Trợ Giúp
                 </Link>
               </li>
               <li>
-                <Link href="/search" className="hover:text-action-primary">
+                <Link href="/search" variant="subtle">
                   Hướng Dẫn Mua Hàng
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/account/orders"
-                  className="hover:text-action-primary"
-                >
+                <Link href="/account/orders" variant="subtle">
                   Tra Cứu Đơn Hàng & Vận Đơn
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/account/orders"
-                  className="hover:text-action-primary"
-                >
+                <Link href="/account/orders" variant="subtle">
                   Chính Sách Trả Hàng & Hoàn Tiền (RMA)
                 </Link>
               </li>
               <li>
-                <Link href="/chat" className="hover:text-action-primary">
+                <Link href="/chat" variant="subtle">
                   Chăm Sóc Khách Hàng 24/7
                 </Link>
               </li>
@@ -347,38 +351,32 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             </h4>
             <ul className="space-y-2 text-text-secondary text-xs">
               <li>
-                <Link href="/" className="hover:text-action-primary">
+                <Link href="/" variant="subtle">
                   Giới Thiệu Đồ Án
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/admin/cockpit"
-                  className="hover:text-action-primary"
-                >
+                <Link href="/admin/cockpit" variant="subtle">
                   Admin Observability Cockpit
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/admin/listings"
-                  className="hover:text-action-primary"
-                >
+                <Link href="/admin/listings" variant="subtle">
                   Kiểm duyệt tin đăng
                 </Link>
               </li>
               <li>
-                <Link href="/admin/cases" className="hover:text-action-primary">
+                <Link href="/admin/cases" variant="subtle">
                   Hộp thư vụ việc
                 </Link>
               </li>
               <li>
-                <Link href="/seller" className="hover:text-action-primary">
+                <Link href="/seller" variant="subtle">
                   Kênh Người Bán & Quản Lý Kho
                 </Link>
               </li>
               <li>
-                <Link href="/vouchers" className="hover:text-action-primary">
+                <Link href="/vouchers" variant="subtle">
                   Kho Voucher Khuyến Mãi
                 </Link>
               </li>

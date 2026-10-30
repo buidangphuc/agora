@@ -1,5 +1,5 @@
+import { Link } from "@/components/ui/Link";
 import { loginPath } from "@/features/auth/returnUrlShared";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { Card } from "@/components/ui/Card";
@@ -46,12 +46,9 @@ export function QASection({
               data-testid="qa-login-prompt"
               className="text-sm text-text-secondary"
             >
-              <Link
-                href={loginPath(`/listing/${listingId}`)}
-                className="font-semibold text-text-primary underline"
-              >
-                Đăng nhập
-              </Link>{" "}
+              <span className="font-semibold">
+                <Link href={loginPath(`/listing/${listingId}`)}>Đăng nhập</Link>
+              </span>{" "}
               để đặt câu hỏi cho shop.
             </p>
           )}

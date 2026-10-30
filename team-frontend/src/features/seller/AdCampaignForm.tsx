@@ -108,24 +108,20 @@ export function AdCampaignForm({
         <CardContent>
           <form onSubmit={submit} noValidate className="space-y-4">
             <fieldset disabled={pending} className="m-0 space-y-4 border-0 p-0">
-              <FormItem
+              <Select
                 label="Sản phẩm"
                 required
-                status={shown("listing") ? "error" : undefined}
-                help={shown("listing")}
-              >
-                <Select
-                  value={listingId}
-                  onChange={(e) => setListingId(e.target.value)}
-                  placeholder={
-                    listings.length === 0 ? "Shop chưa có sản phẩm" : undefined
-                  }
-                  options={listings.map((l) => ({
-                    value: l.id,
-                    label: l.title,
-                  }))}
-                />
-              </FormItem>
+                error={shown("listing") || undefined}
+                value={listingId}
+                onChange={(e) => setListingId(e.target.value)}
+                placeholder={
+                  listings.length === 0 ? "Shop chưa có sản phẩm" : undefined
+                }
+                options={listings.map((l) => ({
+                  value: l.id,
+                  label: l.title,
+                }))}
+              />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input
                   required

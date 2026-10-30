@@ -1,9 +1,9 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Image } from "@/components/ui/Image";
+import { Link } from "@/components/ui/Link";
 import { Statistic } from "@/components/ui/Statistic";
 import { ShopRatingSummary } from "@/features/review/ShopRatingSummary";
 import type { ViewStorefront } from "@/lib/gateway/listings";
@@ -53,10 +53,7 @@ export function ShopHeaderCard({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {actions}
-            <Link
-              href={`/shop/${sellerId}`}
-              className="inline-flex items-center justify-center rounded-lg border border-border-strong bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm transition duration-150 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
-            >
+            <Link href={`/shop/${sellerId}`} variant="outline" size="xs">
               Xem Shop
             </Link>
           </div>

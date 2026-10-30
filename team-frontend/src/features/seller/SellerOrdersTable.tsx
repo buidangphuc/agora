@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { Link } from "@/components/ui/Link";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { Table, type TableColumn } from "@/components/ui/Table";
 import type { ViewOrder } from "@/lib/gateway/orders";
@@ -17,15 +16,14 @@ const columns: TableColumn<ViewOrder>[] = [
   {
     key: "id",
     title: "Mã đơn",
-    className: "sticky left-0 z-10 bg-surface-card md:static",
+    sticky: true,
     render: (o) => (
       <div>
-        <Link
-          href={`/seller/orders/${o.id}`}
-          className="font-medium text-text-primary hover:text-action-primary"
-        >
-          #{o.id.slice(0, 8)}
-        </Link>
+        <span className="font-medium text-text-primary">
+          <Link href={`/seller/orders/${o.id}`} variant="subtle">
+            #{o.id.slice(0, 8)}
+          </Link>
+        </span>
         <p className="text-xs text-text-disabled">{o.createdAt}</p>
         <p className="text-xs text-text-disabled">
           Hạn gửi: <ShipByLabel order={o} />
@@ -46,8 +44,9 @@ const columns: TableColumn<ViewOrder>[] = [
   {
     key: "items",
     title: "Sản phẩm",
-    className: "min-w-48",
-    render: (o) => <span className="line-clamp-2">{itemsSummary(o)}</span>,
+    render: (o) => (
+      <span className="line-clamp-2 min-w-48">{itemsSummary(o)}</span>
+    ),
   },
   {
     key: "total",
@@ -65,10 +64,7 @@ const columns: TableColumn<ViewOrder>[] = [
     align: "right",
     render: (o) => (
       <div className="flex items-center justify-end gap-2">
-        <Link
-          href={`/seller/orders/${o.id}`}
-          className="rounded-lg px-2 py-1 text-xs font-medium text-action-primary transition hover:bg-primary-50"
-        >
+        <Link href={`/seller/orders/${o.id}`} variant="ghost" size="xs">
           Chi tiết
         </Link>
         {isShippable(o.status) && <ShipOrderButton orderId={o.id} />}

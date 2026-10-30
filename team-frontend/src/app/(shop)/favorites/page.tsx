@@ -1,5 +1,5 @@
+import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
-import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
@@ -124,12 +124,9 @@ export default async function FavoritesPage(props: {
       <CollectionsManager initialCollections={collections} />
 
       {activeCollection && (
-        <Link
-          href="/favorites"
-          className="inline-block text-sm font-medium text-action-primary hover:underline"
-        >
-          ← Xem tất cả sản phẩm yêu thích
-        </Link>
+        <span className="inline-block text-sm font-medium">
+          <Link href="/favorites">← Xem tất cả sản phẩm yêu thích</Link>
+        </span>
       )}
 
       {items.length === 0 ? (

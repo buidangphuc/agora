@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
+import { Link } from "@/components/ui/Link";
 import { Pagination } from "@/components/ui/Pagination";
 import { ListingGrid } from "@/features/listing/ListingGrid";
 import { EMPTY_FACETS } from "@/lib/gateway/search";
@@ -14,9 +14,6 @@ import { FilterSidebar } from "./FilterSidebar";
 import { SortBar } from "./SortBar";
 import { loadCategories, loadSearch, searchKey } from "./data";
 import { type SearchState, buildSearchHref } from "./url";
-
-const linkButton =
-  "inline-flex min-h-11 items-center justify-center rounded-lg bg-action-primary px-4 text-sm font-medium text-text-inverse shadow-sm transition duration-150 hover:bg-action-primary-hover active:scale-95";
 
 /** "Tìm thấy N sản phẩm" under the page title. Renders nothing on failure. */
 export async function ResultCount({ state }: { state: SearchState }) {
@@ -99,10 +96,7 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
           title="Không tải được kết quả tìm kiếm"
           description="Hệ thống tìm kiếm tạm thời không phản hồi. Vui lòng thử lại."
           action={
-            <Link
-              href={buildSearchHref(state, { page: state.page })}
-              className="text-sm font-medium text-action-primary underline"
-            >
+            <Link href={buildSearchHref(state, { page: state.page })}>
               Thử lại
             </Link>
           }
@@ -142,7 +136,7 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
                 </>
               }
               action={
-                <Link href="/search" className={linkButton}>
+                <Link href="/search" variant="primary" size="sm">
                   Xóa bộ lọc
                 </Link>
               }

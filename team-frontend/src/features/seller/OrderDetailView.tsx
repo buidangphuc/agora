@@ -47,9 +47,8 @@ const itemColumns: TableColumn<ViewOrderItem>[] = [
   {
     key: "product",
     title: "Sản phẩm",
-    className: "min-w-56",
     render: (it) => (
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-56 items-center gap-3">
         <div className="w-12 shrink-0">
           <Image
             src={it.imageUrl ? getImageUrl(it.imageUrl) : ""}

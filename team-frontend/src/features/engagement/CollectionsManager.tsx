@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Link } from "@/components/ui/Link";
 import { useToast } from "@/components/ui/ToastProvider";
 import { usePendingAction } from "@/features/account/usePendingAction";
 import type { ViewCollection } from "@/lib/gateway/engagement";
@@ -96,12 +96,14 @@ export function CollectionsManager({
                   data-name={c.name}
                   className="flex items-center justify-between gap-3 py-3"
                 >
-                  <Link
-                    href={`/favorites?collection=${c.id}`}
-                    className="flex min-h-10 min-w-0 items-center truncate text-sm font-medium text-text-primary hover:text-action-primary"
-                  >
-                    {c.name}
-                  </Link>
+                  <span className="flex min-h-10 min-w-0 items-center truncate text-sm font-medium text-text-primary">
+                    <Link
+                      href={`/favorites?collection=${c.id}`}
+                      variant="subtle"
+                    >
+                      {c.name}
+                    </Link>
+                  </span>
                   <Badge variant="neutral" className="shrink-0">
                     {c.itemCount} sản phẩm
                   </Badge>

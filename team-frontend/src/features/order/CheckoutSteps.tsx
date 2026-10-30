@@ -1,13 +1,11 @@
-import Link from "next/link";
-
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
+import { Link } from "@/components/ui/Link";
 import { Radio } from "@/components/ui/Radio";
 import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
 import { AddressSelectorModal } from "@/features/address/AddressSelectorModal";
-import { linkButtonPrimary } from "@/features/cart/linkButton";
 import type { EcommerceItem } from "@/lib/analytics";
 import type { ViewAddress } from "@/lib/gateway/addresses";
 import type { ViewCartItem } from "@/lib/gateway/cart";
@@ -32,17 +30,16 @@ function StepActions({
   return (
     <div className="flex items-center justify-between gap-3">
       {backHref ? (
-        <Link
-          href={backHref}
-          className="rounded-xs text-sm font-medium text-text-secondary hover:text-action-primary"
-        >
-          Quay lại
-        </Link>
+        <span className="text-sm font-medium text-text-secondary">
+          <Link href={backHref} variant="subtle">
+            Quay lại
+          </Link>
+        </span>
       ) : (
         <span />
       )}
       {nextHref ? (
-        <Link href={nextHref} className={`${linkButtonPrimary} min-w-40`}>
+        <Link href={nextHref} variant="primary">
           Tiếp tục
         </Link>
       ) : (

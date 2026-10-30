@@ -1,6 +1,33 @@
 {
   "components": [
     {
+      "name": "Alert",
+      "kind": "component",
+      "purpose": "Inline status message in four tones; `danger` is role=alert, the others role=status; server-safe unless `closable`.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "closable",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "onClose",
+          "required": false,
+          "type": "() => void"
+        },
+        {
+          "name": "closeLabel",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "Button",
       "kind": "component",
       "purpose": "Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones; `fullWidth=\"mobile\"` is full width below the sm breakpoint only.",
@@ -196,7 +223,7 @@
     {
       "name": "Dialog",
       "kind": "component",
-      "purpose": "Modal for a focused task or confirmation. Title and description are required.",
+      "purpose": "Modal for a focused task or confirmation: required title, optional description and footer actions; without `triggerLabel` it is controlled by `open` and returns focus to the opener.",
       "client": true,
       "platforms": [
         "web",
@@ -204,19 +231,34 @@
       ],
       "props": [
         {
-          "name": "triggerLabel",
-          "required": true,
-          "type": "string"
-        },
-        {
           "name": "title",
           "required": true,
           "type": "string"
         },
         {
           "name": "description",
-          "required": true,
+          "required": false,
           "type": "string"
+        },
+        {
+          "name": "triggerLabel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "closeLabel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\" | \"lg\" | \"xl\""
+        },
+        {
+          "name": "footer",
+          "required": false,
+          "type": "ReactNode"
         },
         {
           "name": "children",
@@ -266,7 +308,7 @@
     {
       "name": "Link",
       "kind": "component",
-      "purpose": "Navigation to another page. Use for every \"go there\" action; Button is for actions on the current page.",
+      "purpose": "Navigation to another page with Next client routing. `inline` is an underlined text link, `subtle` keeps the surrounding text colour, and the Button variants draw a button-shaped link. Use Button for actions on the current page.",
       "client": false,
       "platforms": [
         "web",
@@ -292,9 +334,66 @@
           "name": "scroll",
           "required": false,
           "type": "boolean"
+        },
+        {
+          "name": "variant",
+          "required": false,
+          "type": "\"primary\" | \"secondary\" | \"ghost\" | \"danger\" | \"inline\" | \"subtle\""
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"xs\" | \"sm\" | \"md\" | \"lg\""
+        },
+        {
+          "name": "fullWidth",
+          "required": false,
+          "type": "boolean | \"mobile\""
         }
       ],
       "native": "a"
+    },
+    {
+      "name": "NativeSelect",
+      "kind": "component",
+      "purpose": "Single choice on a real `<select>` (native pickers, form submit, server-renderable); use Select for a styled popup list.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "label",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "labelHidden",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "options",
+          "required": true,
+          "type": "NativeSelectOption[]"
+        },
+        {
+          "name": "placeholder",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "errorText",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "helpText",
+          "required": false,
+          "type": "string"
+        }
+      ]
     },
     {
       "name": "Select",
@@ -356,7 +455,7 @@
     {
       "name": "Table",
       "kind": "component",
-      "purpose": "Read-only data table with a required caption and column-scoped headers.",
+      "purpose": "Read-only data table with a required caption, column-scoped headers, row keys, custom cells and empty, loading and error states.",
       "client": false,
       "platforms": [
         "web",
@@ -369,17 +468,57 @@
           "type": "string"
         },
         {
+          "name": "captionHidden",
+          "required": false,
+          "type": "boolean"
+        },
+        {
           "name": "columns",
           "required": true,
-          "type": "TableColumn[]"
+          "type": "TableColumn<T>[]"
         },
         {
           "name": "rows",
           "required": true,
-          "type": "Record<string, ReactNode>[]"
+          "type": "T[]"
+        },
+        {
+          "name": "rowKey",
+          "required": false,
+          "type": "(row: T, index: number) => string"
+        },
+        {
+          "name": "rowTestId",
+          "required": false,
+          "type": "(row: T, index: number) => string"
         },
         {
           "name": "emptyText",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "loading",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "loadingRows",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "name": "error",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "onRetry",
+          "required": false,
+          "type": "() => void"
+        },
+        {
+          "name": "retryLabel",
           "required": false,
           "type": "string"
         }
@@ -388,7 +527,7 @@
     {
       "name": "ToastProvider",
       "kind": "component",
-      "purpose": "Wrap the app once; call `useToast().toast(...)` from any client component.",
+      "purpose": "Wrap the app once; call `useToast().toast(...)` from any client component; `danger` toasts are role=alert, the others role=status; `duration: 0` keeps a toast until dismissed.",
       "client": true,
       "platforms": [
         "web",
@@ -399,6 +538,21 @@
           "name": "children",
           "required": true,
           "type": "ReactNode"
+        },
+        {
+          "name": "label",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "dismissLabel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "position",
+          "required": false,
+          "type": "\"top\" | \"bottom\""
         }
       ]
     },

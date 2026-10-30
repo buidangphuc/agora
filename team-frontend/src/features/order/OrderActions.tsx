@@ -192,7 +192,7 @@ export function OrderActions({
         }
       >
         <Select
-          aria-label="Lý do hủy đơn"
+          label="Lý do hủy đơn"
           value={reason}
           disabled={cancelling}
           options={CANCEL_REASONS.map(({ value, label }) => ({ value, label }))}

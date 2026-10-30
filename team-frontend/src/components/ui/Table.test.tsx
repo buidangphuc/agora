@@ -52,6 +52,7 @@ describe("Table", () => {
         dataSource={[]}
         rowKey="id"
         emptyText="Chưa có sản phẩm"
+        caption="Sản phẩm"
       />,
     );
     expect(screen.getAllByRole("columnheader")).toHaveLength(3);
@@ -59,7 +60,14 @@ describe("Table", () => {
   });
 
   it("falls back to the default Empty text", () => {
-    render(<Table columns={columns} dataSource={[]} rowKey="id" />);
+    render(
+      <Table
+        caption="Sản phẩm"
+        columns={columns}
+        dataSource={[]}
+        rowKey="id"
+      />,
+    );
     expect(screen.getByText("Không có dữ liệu")).toBeInTheDocument();
   });
 
@@ -71,6 +79,7 @@ describe("Table", () => {
         rowKey="id"
         loading
         loadingRows={3}
+        caption="Sản phẩm"
       />,
     );
     expect(screen.getByRole("table")).toHaveAttribute("aria-busy", "true");
@@ -90,6 +99,7 @@ describe("Table", () => {
         rowKey="id"
         error="Không tải được"
         onRetry={onRetry}
+        caption="Sản phẩm"
       />,
     );
     const alert = screen.getByRole("alert");
@@ -104,8 +114,24 @@ describe("Table", () => {
         columns={columns}
         dataSource={data}
         rowKey={(r) => `row-${r.id}`}
+        caption="Sản phẩm"
       />,
     );
     expect(html).toContain("Quần");
+  });
+
+  it("rowProps puts a data-testid on each data row", () => {
+    render(
+      <Table
+        columns={columns}
+        dataSource={data}
+        rowKey="id"
+        caption="Sản phẩm"
+        rowProps={(r) => ({ "data-testid": `row-${r.id}` })}
+      />,
+    );
+    expect(
+      within(screen.getByTestId("row-b")).getByText("Quần"),
+    ).toBeInTheDocument();
   });
 });

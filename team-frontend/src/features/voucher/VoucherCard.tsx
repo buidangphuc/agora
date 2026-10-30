@@ -1,10 +1,8 @@
-import Link from "next/link";
-
 import { Card } from "@/components/ui/Card";
+import { Link } from "@/components/ui/Link";
 import { Progress } from "@/components/ui/Progress";
 import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
-import { linkButtonClass } from "@/features/home/linkButton";
 import { DiscountType, type ViewVoucher } from "@/lib/gateway/promotion";
 
 function title(v: ViewVoucher): string {
@@ -65,12 +63,11 @@ export function VoucherCard({ voucher: v }: { voucher: ViewVoucher }) {
                 </>
               )}
             </div>
-            <Link
-              href="/search"
-              className={`shrink-0 ${linkButtonClass("primary")}`}
-            >
-              Dùng ngay
-            </Link>
+            <span className="shrink-0">
+              <Link href="/search" variant="primary" size="sm">
+                Dùng ngay
+              </Link>
+            </span>
           </div>
         </div>
       </Card>

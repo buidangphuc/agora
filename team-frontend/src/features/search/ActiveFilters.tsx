@@ -1,5 +1,6 @@
-import Link from "next/link";
+import NextLink from "next/link";
 
+import { Link } from "@/components/ui/Link";
 import { Tag } from "@/components/ui/Tag";
 import { focusRing } from "@/components/ui/focus";
 import {
@@ -89,22 +90,19 @@ export function ActiveFilters({
       {tags.map((t) => (
         <Tag key={t.key} color="primary">
           {t.label}
-          <Link
+          <NextLink
             href={t.href}
             aria-label={`Bỏ lọc ${t.label}`}
             className={`-mr-1 inline-flex h-5 w-5 items-center justify-center rounded-xs hover:bg-primary-100 ${focusRing}`}
           >
             <span aria-hidden="true">×</span>
-          </Link>
+          </NextLink>
         </Tag>
       ))}
       {activeFilterCount(state) > 0 && (
-        <Link
-          href={clearFiltersHref(state)}
-          className={`inline-flex min-h-9 items-center rounded-lg px-2 text-sm text-text-secondary underline hover:text-action-primary ${focusRing}`}
-        >
-          Xóa tất cả bộ lọc
-        </Link>
+        <span className="inline-flex min-h-9 items-center px-2 text-sm">
+          <Link href={clearFiltersHref(state)}>Xóa tất cả bộ lọc</Link>
+        </span>
       )}
     </div>
   );

@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Link } from "@/components/ui/Link";
 import { useToast } from "@/components/ui/ToastProvider";
 import { CheckoutVoucherScope } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
@@ -194,15 +194,13 @@ export function PlaceOrderForm({
                 {addressMissing && (
                   <Link
                     href="/checkout?step=address"
-                    className="inline-flex items-center justify-center rounded-lg border border-border-strong bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm hover:bg-surface-muted"
+                    variant="outline"
+                    size="xs"
                   >
                     Chọn địa chỉ giao hàng
                   </Link>
                 )}
-                <Link
-                  href="/cart"
-                  className="inline-flex items-center justify-center rounded-lg border border-border-strong bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm hover:bg-surface-muted"
-                >
+                <Link href="/cart" variant="outline" size="xs">
                   Quay lại giỏ hàng
                 </Link>
               </span>
@@ -220,12 +218,11 @@ export function PlaceOrderForm({
             Quay lại
           </span>
         ) : (
-          <Link
-            href={backHref}
-            className="rounded-xs text-sm font-medium text-text-secondary hover:text-action-primary"
-          >
-            Quay lại
-          </Link>
+          <span className="text-sm font-medium text-text-secondary">
+            <Link href={backHref} variant="subtle">
+              Quay lại
+            </Link>
+          </span>
         )}
         <Button
           ref={buttonRef}

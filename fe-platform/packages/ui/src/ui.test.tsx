@@ -9,8 +9,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import axe from "axe-core";
+import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  Alert,
   Button,
   Card,
   CardContent,
@@ -18,7 +20,10 @@ import {
   Checkbox,
   Dialog,
   Input,
+  Link,
+  NativeSelect,
   Select,
+  Table,
   ToastProvider,
   useToast,
 } from "./index";
@@ -163,6 +168,44 @@ describe("Card", () => {
   });
 });
 
+describe("Link", () => {
+  it("is an underlined text link by default and keeps href, name and test id", () => {
+    render(
+      <Link href="/shop" data-testid="back">
+        Back to shop
+      </Link>,
+    );
+    const a = screen.getByRole("link", { name: "Back to shop" });
+    expect(a.getAttribute("href")).toBe("/shop");
+    expect(a.getAttribute("data-testid")).toBe("back");
+    expect(a.className).toContain("underline");
+  });
+
+  it("subtle keeps the surrounding colour and drops the underline", () => {
+    render(
+      <Link href="/help" variant="subtle">
+        Help
+      </Link>,
+    );
+    const cls = screen.getByRole("link", { name: "Help" }).className;
+    expect(cls).not.toContain("underline");
+    expect(cls).toContain("hover:text-text-link");
+  });
+
+  it("draws a touch-sized button-shaped link from the button maps", () => {
+    render(
+      <Link href="/checkout" variant="primary" size="sm" fullWidth="mobile">
+        Continue
+      </Link>,
+    );
+    const cls = screen.getByRole("link", { name: "Continue" }).className;
+    expect(cls).toContain("bg-action-primary");
+    expect(cls).toContain("min-h-touch");
+    expect(cls).toContain("text-sm");
+    expect(cls).toContain("sm:w-auto");
+  });
+});
+
 describe("Input", () => {
   it("announces the error through text linked by aria-describedby", () => {
     render(<Input label="Name" errorText="Name is required" />);
@@ -227,6 +270,70 @@ describe("Select", () => {
   });
 });
 
+describe("NativeSelect", () => {
+  const options = [
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta", disabled: true },
+  ];
+
+  it("renders a labelled native select that reports changes", () => {
+    let value = "";
+    render(
+      <NativeSelect
+        label="Letter"
+        name="letter"
+        data-testid="letter"
+        placeholder="Pick"
+        options={options}
+        onChange={(e) => {
+          value = e.target.value;
+        }}
+      />,
+    );
+    const box = screen.getByRole("combobox", { name: "Letter" });
+    expect(box.tagName).toBe("SELECT");
+    expect(box.getAttribute("name")).toBe("letter");
+    expect(screen.getByTestId("letter")).toBe(box);
+    expect((box as HTMLSelectElement).value).toBe("");
+    expect(
+      (screen.getByRole("option", { name: "Pick" }) as HTMLOptionElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("option", { name: "Beta" }) as HTMLOptionElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.change(box, { target: { value: "a" } });
+    expect(value).toBe("a");
+  });
+
+  it("links help and error text and marks the field invalid", () => {
+    render(
+      <NativeSelect
+        label="Letter"
+        options={options}
+        helpText="Any letter"
+        errorText="Pick one"
+        required
+      />,
+    );
+    const box = screen.getByRole("combobox", { name: "Letter" });
+    expect(box.getAttribute("aria-invalid")).toBe("true");
+    const ids = box.getAttribute("aria-describedby")?.split(" ") ?? [];
+    expect(ids.map((id) => document.getElementById(id)?.textContent)).toEqual([
+      "Pick one",
+      "Any letter",
+    ]);
+    expect((box as HTMLSelectElement).required).toBe(true);
+  });
+
+  it("keeps the accessible name when the label is hidden", () => {
+    render(<NativeSelect label="Letter" labelHidden options={options} />);
+    expect(screen.getByRole("combobox", { name: "Letter" })).toBeTruthy();
+    expect(screen.getByText("Letter").className).toBe("sr-only");
+  });
+});
+
 describe("Dialog", () => {
   it("opens, exposes title and description, and closes on Escape", () => {
     render(
@@ -241,6 +348,42 @@ describe("Dialog", () => {
     expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("runs controlled without a trigger, shows footer actions and returns focus to the opener", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Opener
+          </button>
+          <Dialog
+            open={open}
+            onOpenChange={setOpen}
+            title="Remove item"
+            closeLabel="Dismiss"
+            size="sm"
+            footer={<button type="button">Remove</button>}
+          >
+            body
+          </Dialog>
+        </>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "Opener" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = screen.getByRole("dialog", { name: "Remove item" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.getAttribute("aria-describedby")).toBeNull();
+    expect(
+      dialog.contains(screen.getByRole("button", { name: "Remove" })),
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 });
 
@@ -267,6 +410,160 @@ describe("Toast", () => {
       expect(live.some((el) => el.textContent?.includes("Saved"))).toBe(true);
     });
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("Saved")).toBeNull();
+  });
+});
+
+describe("Table", () => {
+  type Row = { sku: string; name: string; qty: number };
+  const rows: Row[] = [
+    { sku: "a", name: "Pen", qty: 2 },
+    { sku: "b", name: "Ink", qty: 5 },
+  ];
+  const columns = [
+    { key: "name", header: "Name" },
+    {
+      key: "qty",
+      header: "Qty",
+      align: "right" as const,
+      render: (r: Row) => `x${r.qty}`,
+    },
+  ];
+
+  it("renders custom cells, row test ids and a hidden caption as the name", () => {
+    render(
+      <Table<Row>
+        caption="Items"
+        captionHidden
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.sku}
+        rowTestId={(r) => `row-${r.sku}`}
+      />,
+    );
+    expect(screen.getByRole("table", { name: "Items" })).toBeTruthy();
+    expect(screen.getByTestId("row-b").textContent).toBe("Inkx5");
+    expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+  });
+
+  it("keeps the headers and marks the table busy while loading", () => {
+    render(
+      <Table<Row>
+        caption="Items"
+        columns={columns}
+        rows={rows}
+        loading
+        loadingRows={3}
+      />,
+    );
+    expect(screen.getByRole("table").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+    expect(screen.queryByText("Pen")).toBeNull();
+  });
+
+  it("shows an error alert with a retry action instead of rows", () => {
+    let retried = 0;
+    render(
+      <Table<Row>
+        caption="Items"
+        columns={columns}
+        rows={rows}
+        error="Could not load"
+        onRetry={() => {
+          retried += 1;
+        }}
+        retryLabel="Retry"
+      />,
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("Could not load");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retried).toBe(1);
+    expect(screen.queryByText("Pen")).toBeNull();
+  });
+});
+
+function FireTone({ tone }: { tone: "success" | "danger" }) {
+  const { toast } = useToast();
+  return (
+    <button
+      type="button"
+      onClick={() => toast({ title: `${tone} message`, tone, duration: 0 })}
+    >
+      Go
+    </button>
+  );
+}
+
+describe("Toast tones", () => {
+  it("announces a danger toast as an alert", async () => {
+    render(
+      <ToastProvider dismissLabel="Close">
+        <FireTone tone="danger" />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("danger message");
+    expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+  });
+
+  it("keeps other toasts as status and out of the alert role", async () => {
+    render(
+      <ToastProvider>
+        <FireTone tone="success" />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    await screen.findByText("success message", { selector: "li *" });
+    const matches = screen
+      .getAllByRole("status")
+      .filter((el) => el.textContent?.includes("success message"));
+    expect(matches).toHaveLength(1);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("Alert", () => {
+  it("uses role=alert for danger and role=status for the other tones", () => {
+    const { rerender } = render(<Alert tone="danger" title="Failed" />);
+    expect(screen.getByRole("alert").textContent).toContain("Failed");
+    for (const tone of ["info", "success", "warning"] as const) {
+      rerender(<Alert tone={tone} title={tone} />);
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByRole("status").textContent).toContain(tone);
+    }
+  });
+
+  it("renders description and action and has no close button by default", () => {
+    render(
+      <Alert
+        tone="warning"
+        title="Low stock"
+        description="2 left"
+        action={<a href="/x">View</a>}
+      />,
+    );
+    expect(screen.getByText("2 left")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "View" })).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("closes itself and reports it when closable", () => {
+    let closed = 0;
+    render(
+      <Alert
+        tone="success"
+        title="Saved"
+        closable
+        closeLabel="Close"
+        onClose={() => {
+          closed += 1;
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(closed).toBe(1);
     expect(screen.queryByText("Saved")).toBeNull();
   });
 });

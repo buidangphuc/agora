@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+import { Link } from "@/components/ui/Link";
 import type { AdminUserView, UserStatusName } from "@/lib/gateway/users";
 
 import { setUserStatusAction } from "./userActions";
@@ -202,12 +202,9 @@ export function UsersView({
           >
             Tìm
           </button>
-          <Link
-            href="/admin/users"
-            className="ml-3 px-2 py-2 text-sm text-text-secondary underline"
-          >
-            Xóa bộ lọc
-          </Link>
+          <span className="ml-3 px-2 py-2 text-sm">
+            <Link href="/admin/users">Xóa bộ lọc</Link>
+          </span>
         </div>
       </form>
 
@@ -265,12 +262,11 @@ export function UsersView({
       )}
 
       {nextCursor ? (
-        <Link
-          href={nextHref(filters, nextCursor)}
-          className="mt-4 inline-block text-sm text-text-secondary"
-        >
-          Trang sau
-        </Link>
+        <span className="mt-4 inline-block text-sm text-text-secondary">
+          <Link href={nextHref(filters, nextCursor)} variant="subtle">
+            Trang sau
+          </Link>
+        </span>
       ) : null}
     </div>
   );

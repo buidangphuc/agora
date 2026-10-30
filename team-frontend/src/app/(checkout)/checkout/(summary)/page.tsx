@@ -1,11 +1,10 @@
+import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { Code, ConnectError } from "@connectrpc/connect";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 import { Result } from "@/components/ui/Result";
-import { linkButtonPrimary } from "@/features/cart/linkButton";
 import { BeginCheckoutBeacon } from "@/features/order/BeginCheckoutBeacon";
 import {
   AddressStep,
@@ -51,7 +50,7 @@ export default async function CheckoutPage(props: {
         title="Thanh toán tạm thời không khả dụng"
         subTitle="Chức năng thanh toán đang tạm dừng. Vui lòng thử lại sau ít phút."
         extra={
-          <Link href="/cart" className={linkButtonPrimary}>
+          <Link href="/cart" variant="primary">
             Quay lại giỏ hàng
           </Link>
         }
@@ -143,7 +142,7 @@ export default async function CheckoutPage(props: {
     state.step === "confirm" ? (
       <MobilePlaceOrderButton />
     ) : nextHref ? (
-      <Link href={nextHref} className={linkButtonPrimary}>
+      <Link href={nextHref} variant="primary">
         Tiếp tục
       </Link>
     ) : (
@@ -202,16 +201,18 @@ export default async function CheckoutPage(props: {
             voucherCode={state.pv}
             shipping={shipping}
             action={
-              <Link
-                href={
-                  state.items.length > 0
-                    ? `/cart?${new URLSearchParams({ items: state.items.join(",") })}`
-                    : "/cart"
-                }
-                className="block text-center text-xs text-text-secondary hover:text-action-primary"
-              >
-                Quay lại giỏ hàng
-              </Link>
+              <span className="block text-center text-xs text-text-secondary">
+                <Link
+                  href={
+                    state.items.length > 0
+                      ? `/cart?${new URLSearchParams({ items: state.items.join(",") })}`
+                      : "/cart"
+                  }
+                  variant="subtle"
+                >
+                  Quay lại giỏ hàng
+                </Link>
+              </span>
             }
             mobileAction={mobileAction}
           />

@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent } from "@/components/ui/Card";
 import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
+import { Link } from "@/components/ui/Link";
 import { Select } from "@/components/ui/Select";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { type AuthState, registerAction } from "./actions";
@@ -85,15 +85,13 @@ export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
                 onBlur={() => form.onBlur("password")}
               />
 
-              <FormItem label="Loại tài khoản">
-                <Select
-                  className="min-h-10"
-                  id="role"
-                  name="role"
-                  defaultValue="buyer"
-                  options={ROLE_OPTIONS}
-                />
-              </FormItem>
+              <Select
+                label="Loại tài khoản"
+                id="role"
+                name="role"
+                defaultValue="buyer"
+                options={ROLE_OPTIONS}
+              />
 
               {state.error && !form.hasFieldErrors && (
                 <Alert type="error" description={state.error} />
@@ -103,12 +101,9 @@ export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
 
               <p className="text-center text-sm text-text-secondary">
                 Đã có tài khoản?{" "}
-                <Link
-                  href={loginPath(returnUrl)}
-                  className="font-medium text-action-primary hover:underline"
-                >
-                  Đăng nhập ngay
-                </Link>
+                <span className="font-medium">
+                  <Link href={loginPath(returnUrl)}>Đăng nhập ngay</Link>
+                </span>
               </p>
             </form>
           </div>

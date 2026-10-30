@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import NextLink from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { Link } from "@/components/ui/Link";
 import { MessageType } from "@/generated/platform/chat/v1/chat_pb.js";
 import { trackAiInteraction } from "@/lib/analytics/ai";
 import type { ViewChatMessage, ViewChatThread } from "@/lib/gateway/chat";
@@ -436,14 +437,13 @@ export function ChatView({
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     {activeThread.listingId ? (
-                      <Link
-                        href={`/listing/${activeThread.listingId}`}
-                        className="text-xs text-action-primary hover:underline font-medium"
-                      >
-                        📦{" "}
-                        {activeThread.listingTitle ||
-                          `Xem sản phẩm #${activeThread.listingId.slice(0, 8)}`}
-                      </Link>
+                      <span className="text-xs font-medium">
+                        <Link href={`/listing/${activeThread.listingId}`}>
+                          📦{" "}
+                          {activeThread.listingTitle ||
+                            `Xem sản phẩm #${activeThread.listingId.slice(0, 8)}`}
+                        </Link>
+                      </span>
                     ) : (
                       <span className="text-xs text-text-disabled">
                         Cuộc trò chuyện trực tiếp 1:1
@@ -454,12 +454,15 @@ export function ChatView({
               </div>
 
               {activeThread.buyerId === currentUserId && (
-                <Link
-                  href={`/shop/${activeThread.sellerId}`}
-                  className="hidden md:inline-flex items-center gap-1 text-xs font-semibold text-text-secondary hover:text-action-primary border border-border-subtle rounded-lg px-3 py-1.5 transition hover:bg-surface-page shadow-2xs"
-                >
-                  🏪 Xem gian hàng
-                </Link>
+                <span className="hidden md:inline-flex">
+                  <Link
+                    href={`/shop/${activeThread.sellerId}`}
+                    variant="outline"
+                    size="xs"
+                  >
+                    🏪 Xem gian hàng
+                  </Link>
+                </span>
               )}
             </div>
 
@@ -494,7 +497,7 @@ export function ChatView({
                       }`}
                     >
                       {isListingCard ? (
-                        <Link
+                        <NextLink
                           href={`/listing/${m.listingId}`}
                           className="max-w-bubble rounded-2xl border border-primary-600/30 bg-surface-card p-3 text-xs shadow-2xs transition hover:border-action-primary"
                         >
@@ -513,7 +516,7 @@ export function ChatView({
                           <span className="mt-1.5 inline-block text-xs font-semibold text-action-primary">
                             Xem chi tiết →
                           </span>
-                        </Link>
+                        </NextLink>
                       ) : (
                         <div
                           className={`max-w-bubble rounded-2xl px-4 py-2.5 text-xs shadow-2xs leading-relaxed ${

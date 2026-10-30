@@ -70,16 +70,17 @@ export default async function SellerWalletPage(props: {
         <CardContent>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             {balanceValue === null ? (
-              <Alert
-                type="error"
-                description="Không tải được số dư ví."
-                className="flex-1"
-                action={
-                  <LinkButton href={here} size="sm">
-                    Thử lại
-                  </LinkButton>
-                }
-              />
+              <div className="flex-1">
+                <Alert
+                  type="error"
+                  description="Không tải được số dư ví."
+                  action={
+                    <LinkButton href={here} size="sm">
+                      Thử lại
+                    </LinkButton>
+                  }
+                />
+              </div>
             ) : (
               <>
                 <div className="sm:w-72">
