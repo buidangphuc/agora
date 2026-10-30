@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import {
   Alert,
   Badge,
+  Breadcrumb,
   Button,
   Card,
   CardContent,
@@ -18,15 +19,31 @@ import {
   Link,
   NativeSelect,
   PageSkeleton,
+  Pagination,
   Progress,
   Result,
   Select,
   Skeleton,
   Statistic,
+  Stepper,
   Table,
+  Tabs,
   Tag,
+  Timeline,
   ToastProvider,
 } from "./index";
+
+const tabItems = [
+  { id: "all", label: "All", content: <p>All orders</p> },
+  { id: "open", label: "Open", badge: 3, content: <p>Open orders</p> },
+  { id: "done", label: "Done", disabled: true },
+];
+
+const steps = [
+  { id: 1, title: "Cart", status: "complete" as const, href: "/cart" },
+  { id: 2, title: "Payment", status: "current" as const },
+  { id: 3, title: "Done", status: "upcoming" as const },
+];
 
 const options = [
   { value: "a", label: "Alpha" },
@@ -75,6 +92,66 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
       <Statistic title="Orders" value="12" trend={{ value: "5%" }} loading />
     ),
     fallback: <Statistic title="Orders" value="12" fallback={<p>Failed</p>} />,
+  },
+  Tabs: {
+    underline: <Tabs items={tabItems} />,
+    pills: <Tabs items={tabItems} variant="pills" activeId="open" />,
+    links: (
+      <Tabs
+        items={tabItems}
+        activeId="open"
+        hrefFor={(id) => `/orders/${id}`}
+      />
+    ),
+  },
+  Pagination: {
+    first: <Pagination current={1} total={50} hrefFor={(p) => `/?page=${p}`} />,
+    middle: (
+      <Pagination current={10} total={200} hrefFor={(p) => `/?page=${p}`} />
+    ),
+    last: <Pagination current={5} total={50} hrefFor={(p) => `/?page=${p}`} />,
+  },
+  Breadcrumb: {
+    default: (
+      <Breadcrumb
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Phones", href: "/phones" },
+          { label: "Pixel" },
+        ]}
+      />
+    ),
+  },
+  Stepper: {
+    horizontal: <Stepper steps={steps} />,
+    vertical: (
+      <Stepper
+        orientation="vertical"
+        steps={[
+          ...steps.slice(0, 2),
+          { id: 3, title: "Failed", status: "failed", description: "Retry" },
+        ]}
+      />
+    ),
+    inert: (
+      <Stepper steps={[{ ...steps[0], disabled: true }, ...steps.slice(1)]} />
+    ),
+  },
+  Timeline: {
+    default: (
+      <Timeline
+        items={[
+          { key: "1", title: "Ordered", time: "10:00", tone: "success" },
+          {
+            key: "2",
+            title: "Shipping",
+            description: "With the carrier",
+            tone: "primary",
+            current: true,
+          },
+        ]}
+      />
+    ),
   },
   Link: {
     default: <Link href="/shop">Back to shop</Link>,

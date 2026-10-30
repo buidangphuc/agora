@@ -1,5 +1,10 @@
 export { Alert, type AlertProps, type AlertTone } from "./Alert";
 export { Badge, type BadgeProps, type BadgeTone } from "./Badge";
+export {
+  Breadcrumb,
+  type BreadcrumbItem,
+  type BreadcrumbProps,
+} from "./Breadcrumb";
 export { Button, type ButtonProps } from "./Button";
 export {
   Card,
@@ -42,8 +47,28 @@ export {
   type StatisticProps,
   type StatisticTrend,
 } from "./Statistic";
+export { Pagination, type PaginationProps } from "./Pagination";
+export { Select, type SelectOption, type SelectProps } from "./Select";
+export {
+  type StepItem,
+  Stepper,
+  type StepperProps,
+  type StepStatus,
+} from "./Stepper";
 export { Table, type TableColumn, type TableProps } from "./Table";
 export { Tag, type TagProps, type Tone } from "./Tag";
+export {
+  type TabItem,
+  Tabs,
+  type TabsProps,
+  type TabsVariant,
+} from "./Tabs";
+export {
+  Timeline,
+  type TimelineItem,
+  type TimelineProps,
+  type TimelineTone,
+} from "./Timeline";
 export {
   type ToastMessage,
   ToastProvider,

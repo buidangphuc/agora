@@ -1,41 +1,41 @@
 "use client";
 
-import React, { useId, useRef, useState } from "react";
-import type { TabItem } from "./Tabs";
-import { type TabsVariant, tabBadge, tabStyles } from "./tabStyles";
+import { components } from "@fe-platform/tokens";
+import { type KeyboardEvent, useId, useRef, useState } from "react";
+import type { TabItem, TabsVariant } from "./Tabs";
+import { cx } from "./cx";
 
-export interface TabsClientProps {
+const { tabs } = components;
+
+type TabsClientProps = {
   items: TabItem[];
   activeId?: string;
   defaultActiveId?: string;
   onChange?: (id: string) => void;
   variant: TabsVariant;
-  className: string;
-}
+};
 
-/** Client-side tabs: tablist/tab/tabpanel roles, roving tabindex, arrow keys. */
 export function TabsClient({
   items,
   activeId,
   defaultActiveId,
   onChange,
   variant,
-  className,
 }: TabsClientProps) {
   const baseId = useId();
   const [internalActive, setInternalActive] = useState(
     activeId || defaultActiveId || items[0]?.id || "",
   );
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
-  const currentActive = activeId !== undefined ? activeId : internalActive;
-  const styles = tabStyles[variant];
+  const current = activeId !== undefined ? activeId : internalActive;
+  const style = tabs.variant[variant];
 
   const select = (id: string) => {
     setInternalActive(id);
     onChange?.(id);
   };
 
-  const onKeyDown = (e: React.KeyboardEvent, index: number) => {
+  const onKeyDown = (e: KeyboardEvent, index: number) => {
     const enabled = items.filter((t) => !t.disabled);
     if (enabled.length === 0) return;
     const position = enabled.findIndex((t) => t.id === items[index].id);
@@ -59,9 +59,9 @@ export function TabsClient({
   const panelId = (id: string) => `${baseId}-panel-${id}`;
 
   const list = (
-    <div role="tablist" className={styles.list}>
+    <div role="tablist" className={style.list}>
       {items.map((tab, index) => {
-        const isActive = tab.id === currentActive;
+        const isActive = tab.id === current;
         return (
           <button
             key={tab.id}
@@ -81,16 +81,19 @@ export function TabsClient({
             tabIndex={isActive ? 0 : -1}
             onClick={() => select(tab.id)}
             onKeyDown={(e) => onKeyDown(e, index)}
-            className={`${styles.tab} disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed ${
-              isActive ? styles.active : styles.inactive
-            }`}
+            className={cx(
+              tabs.tab,
+              style.tab,
+              isActive ? style.active : style.inactive,
+            )}
           >
             <span>{tab.label}</span>
             {tab.badge !== undefined && (
               <span
-                className={`${tabBadge} ${
-                  isActive ? styles.badgeActive : styles.badgeInactive
-                }`}
+                className={cx(
+                  tabs.badge,
+                  isActive ? style.badgeActive : style.badgeInactive,
+                )}
               >
                 {tab.badge}
               </span>
@@ -102,9 +105,9 @@ export function TabsClient({
   );
 
   return (
-    <div className={className}>
+    <div>
       {variant === "underline" ? (
-        <div className="border-b border-border-subtle">{list}</div>
+        <div className={tabs.frame}>{list}</div>
       ) : (
         list
       )}
@@ -116,8 +119,8 @@ export function TabsClient({
               id={panelId(tab.id)}
               role="tabpanel"
               aria-labelledby={tabId(tab.id)}
-              hidden={tab.id !== currentActive}
-              className="pt-4"
+              hidden={tab.id !== current}
+              className={tabs.panel}
             >
               {tab.content}
             </div>

@@ -313,12 +313,12 @@ export function OrderDetailView({
           />
         ) : (
           <div className="rounded-xl border border-border-subtle bg-surface-card p-5">
-            <Stepper steps={steps} className="hidden sm:block" />
-            <Stepper
-              steps={steps}
-              orientation="vertical"
-              className="sm:hidden"
-            />
+            <div className="hidden sm:block">
+              <Stepper steps={steps} />
+            </div>
+            <div className="sm:hidden">
+              <Stepper steps={steps} orientation="vertical" />
+            </div>
           </div>
         )}
       </section>

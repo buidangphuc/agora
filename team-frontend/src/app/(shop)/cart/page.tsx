@@ -59,10 +59,11 @@ export default async function CartPage(props: {
   const discount = preview?.valid ? preview.discountAmount : 0;
   return (
     <section className="space-y-4 py-2 pb-24 lg:pb-2">
-      <Breadcrumb
-        className="hidden lg:block"
-        items={[{ label: "Trang chủ", href: "/" }, { label: "Giỏ hàng" }]}
-      />
+      <div className="hidden lg:block">
+        <Breadcrumb
+          items={[{ label: "Trang chủ", href: "/" }, { label: "Giỏ hàng" }]}
+        />
+      </div>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text-primary">
           Giỏ hàng ({cart.items.length} sản phẩm)

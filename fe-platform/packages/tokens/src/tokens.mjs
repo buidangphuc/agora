@@ -359,6 +359,107 @@ export const components = {
     subtle:
       "hover:text-text-link rounded-lg focus-visible:ring-2 focus-visible:ring-focus-ring",
   },
+  tabs: {
+    frame: "border-b border-border-subtle",
+    tab: "inline-flex items-center gap-2 min-h-touch whitespace-nowrap text-sm font-semibold focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50",
+    badge: "rounded-full px-2 text-xs",
+    panel: "pt-4",
+    variant: {
+      underline: {
+        list: "flex gap-6 overflow-x-auto",
+        tab: "border-b-2 px-1",
+        active: "border-action-primary text-action-primary",
+        inactive:
+          "border-transparent text-text-secondary hover:border-border-strong hover:text-text-primary",
+        badgeActive: "bg-surface-muted text-action-primary",
+        badgeInactive: "bg-surface-muted text-text-secondary",
+      },
+      pills: {
+        list: "flex gap-1 overflow-x-auto rounded-xl bg-surface-muted p-1",
+        tab: "rounded-lg px-3",
+        active: "bg-surface-card text-text-primary shadow-card",
+        inactive: "text-text-secondary hover:text-text-primary",
+        badgeActive: "bg-surface-muted text-action-primary",
+        badgeInactive: "bg-surface-card text-text-secondary",
+      },
+    },
+  },
+  pagination: {
+    list: "flex flex-wrap items-center gap-2",
+    cell: "inline-flex min-h-touch min-w-12 items-center justify-center rounded-lg border px-2 text-sm",
+    idle: "border-border-subtle bg-surface-card text-text-primary hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-focus-ring",
+    active:
+      "border-action-primary bg-action-primary text-text-inverse font-semibold focus-visible:ring-2 focus-visible:ring-focus-ring",
+    disabled: "border-border-subtle bg-surface-card text-text-disabled",
+    gap: "border-transparent text-text-disabled",
+  },
+  breadcrumb: {
+    list: "flex flex-wrap items-center gap-2 text-xs text-text-secondary",
+    item: "flex items-center gap-2",
+    link: "inline-flex min-h-touch items-center rounded-xs hover:text-action-primary focus-visible:ring-2 focus-visible:ring-focus-ring",
+    current: "font-semibold text-text-primary",
+    separator: "text-text-disabled",
+  },
+  stepper: {
+    list: "flex w-full items-center gap-2",
+    item: "flex flex-1 items-center gap-2",
+    last: "flex items-center gap-2",
+    marker:
+      "flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+    markerStatus: {
+      complete: "bg-action-primary text-text-inverse",
+      current:
+        "border-2 border-action-primary bg-surface-card text-action-primary",
+      upcoming:
+        "border-2 border-border-subtle bg-surface-card text-text-disabled",
+      failed: "border-2 border-border-danger bg-surface-card text-text-danger",
+    },
+    label: "sr-only sm:not-sr-only",
+    title: "text-xs font-semibold",
+    titleStatus: {
+      complete: "text-text-primary",
+      current: "text-action-primary",
+      upcoming: "text-text-disabled",
+      failed: "text-text-danger",
+    },
+    link: "inline-flex min-h-touch items-center rounded-xs hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring",
+    inert: "cursor-not-allowed opacity-50",
+    connector: "hidden flex-1 border-t border-border-subtle sm:block",
+    dotStatus: {
+      complete: "text-text-success",
+      current: "text-action-primary",
+      upcoming: "text-border-strong",
+      failed: "text-text-danger",
+    },
+  },
+  timeline: {
+    list: "flex flex-col gap-4",
+    item: "relative flex gap-4",
+    line: "absolute left-3 top-6 -bottom-4 border-l border-border-subtle",
+    dotWrap: "relative flex size-6 shrink-0 items-center justify-center",
+    dot: "size-3 rounded-full bg-current ring-4 ring-surface-card",
+    tone: {
+      neutral: "text-border-strong",
+      primary: "text-action-primary",
+      info: "text-text-secondary",
+      success: "text-text-success",
+      warning: "text-text-warning",
+      danger: "text-text-danger",
+    },
+    body: "min-w-0 pb-2",
+    title: "text-xs font-semibold",
+    titleDefault: "text-text-primary",
+    titleTone: {
+      neutral: "text-text-primary",
+      primary: "text-action-primary",
+      info: "text-text-secondary",
+      success: "text-text-success",
+      warning: "text-text-warning",
+      danger: "text-text-danger",
+    },
+    time: "ml-2 font-normal text-text-disabled",
+    description: "mt-1 text-xs text-text-secondary",
+  },
   card: {
     base: "overflow-hidden rounded-2xl bg-surface-card border border-border-subtle text-text-primary shadow-card transition duration-200",
     padded: "p-6",

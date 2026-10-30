@@ -121,7 +121,9 @@ describe("SearchResultsBlock", () => {
       "search_results",
       "search_results",
     ]);
-    const nav = container.querySelector("nav.hidden") as HTMLElement;
+    const nav = container.querySelector(
+      ".hidden.justify-center > nav",
+    ) as HTMLElement;
     const p2 = within(nav).getByRole("link", { name: "Trang 2" });
     expect(p2).toHaveAttribute("href", "/search?q=ao&sort=newest&page=2");
     expect(within(nav).getByRole("link", { name: "Trang 1" })).toHaveAttribute(
