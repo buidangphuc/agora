@@ -24,6 +24,7 @@ vi.mock("next/headers", () => ({
   }),
 }));
 vi.mock("@/lib/gateway/orders", () => ({ listSellerOrders: vi.fn() }));
+vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
 vi.mock("@/lib/gateway/session", () => ({
   getPrincipal: vi.fn(),
   hasSellerAccess: (p: { scopes: string[] } | null) =>
@@ -91,16 +92,46 @@ describe("SellerLayout", () => {
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
-  it("[Signed-in user without the scope is not redirected to login] buyer is sent to the forbidden page, not login", async () => {
+  it("[Signed-in user without the scope is not redirected to login] shows the seller-account notice in place for a buyer", async () => {
     vi.mocked(getPrincipal).mockReturnValue({ ...seller, scopes: [] });
     headerValues.pathname = "/seller/new";
-    await expect(SellerLayout({ children: null })).rejects.toThrow(
-      "NEXT_REDIRECT:/forbidden",
-    );
-    expect(redirect).toHaveBeenCalledWith("/forbidden");
-    expect(redirect).not.toHaveBeenCalledWith(
-      expect.stringContaining("/login"),
-    );
+    await renderLayout();
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.queryByText("page body")).toBeNull();
+    expect(screen.getByText("Không có quyền")).toBeInTheDocument();
+    expect(screen.getByText("Cần tài khoản Người Bán")).toBeInTheDocument();
+    expect(screen.queryByText(/Tài khoản bị hạn chế\?/)).toBeNull();
+    expect(screen.queryByRole("link", { name: "Đăng ký bán hàng" })).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Về trang mua sắm" }),
+    ).toHaveAttribute("href", "http://localhost:3000/");
+    expect(
+      screen.getByRole("button", { name: "Đăng xuất" }),
+    ).toBeInTheDocument();
+  });
+
+  it("[Users UI: Seller layout shows the restricted notice] shows the restricted notice in place for a restricted seller", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      ...seller,
+      scopes: ["listing.read"],
+      status: "restricted",
+    });
+    await renderLayout();
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.queryByText("page body")).toBeNull();
+    expect(
+      screen.getByText("Tài khoản Người Bán đang bị hạn chế"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Cần tài khoản Người Bán")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Đăng ký bán hàng" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Đăng xuất" }),
+    ).toBeInTheDocument();
   });
 
   it("[Order lifecycle: a session without seller scope sees no seller orders] no seller orders without listing scope", async () => {
@@ -108,9 +139,7 @@ describe("SellerLayout", () => {
       ...seller,
       scopes: ["order.read"],
     });
-    await expect(SellerLayout({ children: null })).rejects.toThrow(
-      "NEXT_REDIRECT:/forbidden",
-    );
+    await renderLayout();
     expect(listSellerOrders).not.toHaveBeenCalled();
     expect(batchGetShopNames).not.toHaveBeenCalled();
   });

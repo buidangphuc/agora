@@ -12,9 +12,8 @@ Status: compose service `team-frontend-seller`, port `:3001`. Stack: React 19, T
 |---|---|---|
 | `/` | Redirects to `/seller` | none |
 | `/login` | Seller login form (same `LoginForm` and server action as the buyer app). Takes `?next=<path>` (the buyer app's "Kênh Người Bán" link sends `next=/seller`) or the older `?returnUrl=`, both checked by `safeReturnUrl`; a user who already has a seller session with `listing.write` is sent straight to it (default `/seller`) | none |
-| `/forbidden` | "Không có quyền" page for a signed-in user without scope `listing.write`; links to `/sell` and back to the buyer app, and a "Đăng xuất" button to switch account | none |
 | `/sell` | Redirects to `/seller/new` | none |
-| `/seller/*` | Workplace, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `src/app/seller/layout.tsx`: `/login?returnUrl=` when anonymous, `/forbidden` without `listing.write`; the gateway re-enforces scopes on the data |
+| `/seller/*` | Workplace, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `src/app/seller/layout.tsx`: `/login?returnUrl=` when anonymous; without `listing.write` it renders `SellerAccessDenied` in place ("Tài khoản Người Bán đang bị hạn chế" when the token's `status` is `restricted`, otherwise "Cần tài khoản Người Bán"), with a link back to the buyer app and a "Đăng xuất" button; the gateway re-enforces scopes on the data |
 
 There is no `/admin` route and no link to the admin app.
 
@@ -83,8 +82,8 @@ CI: `.github/workflows/team-frontend-seller-ci.yml` (check, build, `docker build
 ## 9. Known gaps
 
 - Duplicated from `team-frontend` on purpose (to be shared or trimmed later): `src/lib/gateway/*` (gateway clients, refresh, revoke, token expiry), `src/components/ui/*` facades, `src/features/auth/*` (login form, actions, return URL), `src/features/order/OrderStatusBadge.tsx`, `src/features/account/skeletons.tsx`, `src/lib/analytics/*` (only for `trackAiInteraction`), `src/lib/action-result.ts`, `src/lib/requestCache.ts`, `src/lib/media.ts`, `src/lib/useRouteRetry.ts`, `scripts/check-tokens.mjs`, `scripts/patch-react-dom-ping.mjs`, `tailwind.config.ts`, `src/app/globals.css` and the vendored `proto/`.
-- No SSO between apps: a buyer signed in on `:3000` signs in again here, and the "Chăm sóc khách hàng" link opens the buyer chat with the buyer session (gap G8 in `fe-platform/docs/gaps.md`, ADR-0006). Logout ("Đăng xuất" in the sidebar, the mobile drawer and `/forbidden`) revokes the server session and clears only `seller_session`/`seller_refresh`.
-- `/sell` still redirects to `/seller/new`; there is no seller onboarding flow, so the forbidden page links there.
+- No SSO between apps: a buyer signed in on `:3000` signs in again here, and the "Chăm sóc khách hàng" link opens the buyer chat with the buyer session (gap G8 in `fe-platform/docs/gaps.md`, ADR-0006). Logout ("Đăng xuất" in the sidebar, the mobile drawer and the in-place 403) revokes the server session and clears only `seller_session`/`seller_refresh`.
+- `/sell` still redirects to `/seller/new`; there is no seller onboarding flow (gap G15), so the 403 offers no register button.
 - Locally the gateway trusts this app: compose sets `TRUSTED_PROXIES=team-frontend-svc,team-frontend-seller-svc,team-frontend-admin-svc` (`docker-compose.services.yaml:580`). The gitops gateway config still trusts only `team-frontend` (`platform-gitops/envs/services/team-gateway.yaml:52`, `platform-gitops/argocd/apps/team-gateway.yaml:71`), so in a deployed environment the gateway ignores the `X-Forwarded-For` this app sends on login and refresh and records the pod IP instead of the browser IP.
 - Compose passes `NEXT_PUBLIC_BUYER_APP_URL` as a runtime variable, which has no effect on the built image; the image bakes the `http://localhost:3000` default. Other hosts need `--build-arg NEXT_PUBLIC_BUYER_APP_URL=...`.
 - `OTEL_SERVICE_NAME` defaults to `team-frontend` in `src/lib/gateway/config.ts`; set it to `team-frontend-seller` in deployed environments.
