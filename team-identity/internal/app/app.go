@@ -131,6 +131,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 	if err != nil {
 		return nil, err
 	}
+	svc.WithHandoff(store.NewPostgresHandoffRepository(pool))
 
 	if s.SeedAdmin.Enabled {
 		sctx, cancel := context.WithTimeout(ctx, seedTimeout)
