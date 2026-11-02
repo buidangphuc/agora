@@ -18,6 +18,10 @@ type duplicateOnCreate struct {
 	store.VoucherRepository
 }
 
+func (duplicateOnCreate) GetByCode(context.Context, string) (store.Voucher, error) {
+	return store.Voucher{}, store.ErrVoucherNotFound
+}
+
 func (duplicateOnCreate) Create(context.Context, store.Voucher, func(store.Voucher) (outbox.Row, error)) (store.Voucher, error) {
 	return store.Voucher{}, fmt.Errorf("insert voucher: %w", store.ErrDuplicateCode)
 }
