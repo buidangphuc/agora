@@ -34,14 +34,21 @@ enum VoucherScope {
 // Owned by team-promotion (DB-per-service). Checkout redemption is synchronous
 // gRPC from the order saga — never fire-and-forget.
 service VoucherService {
+  // admin-only (scope `admin`): audited, audit action voucher.create.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): ALREADY_EXISTS
+  // when the code is taken; reasons AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc CreateVoucher(CreateVoucherRequest) returns (CreateVoucherResponse);
   rpc GetVoucher(GetVoucherRequest) returns (GetVoucherResponse);
   rpc ListVouchers(ListVouchersRequest) returns (ListVouchersResponse);
-  // ADMIN-ONLY: audited. Sets active=false and deactivated_at. Idempotent.
-  // Errors carry google.rpc.ErrorInfo (domain platform.promotion.v1).
+  // admin-only (scope `admin`): audited, audit action voucher.deactivate.
+  // Sets active=false and deactivated_at. Idempotent.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc DeactivateVoucher(DeactivateVoucherRequest) returns (DeactivateVoucherResponse);
-  // ADMIN-ONLY: audited. Only ends_at and quota are mutable.
-  // Errors carry google.rpc.ErrorInfo (domain platform.promotion.v1).
+  // admin-only (scope `admin`): audited, audit action voucher.update.
+  // Only ends_at and quota are mutable.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc UpdateVoucher(UpdateVoucherRequest) returns (UpdateVoucherResponse);
   // Idempotent on reservation_id: same id returns the same discount without
   // decrementing quota twice. Reject (valid=false + reason) if expired,
@@ -53,16 +60,27 @@ service VoucherService {
 
 // Time-boxed sale price + capped stock for a listing/variant.
 service FlashSaleService {
+  // admin-only (scope `admin`): audited, audit action campaign.create.
+  // idempotency_key is required on the admin path, 8..64 chars [A-Za-z0-9_-];
+  // ALREADY_EXISTS on a payload mismatch for the same key.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE, LISTING_UNAVAILABLE.
   rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
   rpc GetActiveFlashSale(GetActiveFlashSaleRequest) returns (GetActiveFlashSaleResponse);
   rpc ListActiveCampaigns(ListActiveCampaignsRequest) returns (ListActiveCampaignsResponse);
-  // ADMIN-ONLY: lists campaigns of any status, filtered by statuses.
+  // admin-only (scope `admin`): lists campaigns of any status, filtered by statuses.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reason
+  // PROMOTION_UNAVAILABLE.
   rpc ListCampaigns(ListCampaignsRequest) returns (ListCampaignsResponse);
-  // ADMIN-ONLY: audited. Moves a campaign to CAMPAIGN_STATUS_CANCELLED.
-  // Errors carry google.rpc.ErrorInfo (domain platform.promotion.v1).
+  // admin-only (scope `admin`): audited, audit action campaign.cancel.
+  // Moves a campaign to CAMPAIGN_STATUS_CANCELLED.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc CancelCampaign(CancelCampaignRequest) returns (CancelCampaignResponse);
-  // ADMIN-ONLY: audited. Replaces sale_price, stock_cap, starts_at and ends_at.
-  // Errors carry google.rpc.ErrorInfo (domain platform.promotion.v1).
+  // admin-only (scope `admin`): audited, audit action campaign.update.
+  // Replaces sale_price, stock_cap, starts_at and ends_at.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE, LISTING_UNAVAILABLE.
   rpc UpdateCampaign(UpdateCampaignRequest) returns (UpdateCampaignResponse);
   // Live remaining stock for the flash-sale banner/meter (frontend LiveFlashSaleStock).
   rpc GetFlashSaleStock(GetFlashSaleStockRequest) returns (GetFlashSaleStockResponse);
