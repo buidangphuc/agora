@@ -9,10 +9,14 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
 )
 
 func (h *AuthHandler) CreateHandoffCode(ctx context.Context, req *identityv1.CreateHandoffCodeRequest) (*identityv1.CreateHandoffCodeResponse, error) {
+	if _, err := auth.RequireUser(ctx); err != nil {
+		return nil, err
+	}
 	res, err := h.svc.Mint(ctx, callerSID(ctx), req.GetTargetApp())
 	if err != nil {
 		return nil, statusErr(ctx, h.logger, err)
