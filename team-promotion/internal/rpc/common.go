@@ -34,6 +34,7 @@ func mustErrorTable() grpcx.ErrorTable {
 	t, err := grpcx.NewErrorTable(
 		grpcx.Rule{Target: voucher.ErrInvalidVoucher, Code: codes.InvalidArgument, Message: "invalid voucher"},
 		grpcx.Rule{Target: store.ErrVoucherNotFound, Code: codes.NotFound, Message: "voucher not found"},
+		grpcx.Rule{Target: store.ErrDuplicateCode, Code: codes.AlreadyExists, Message: "voucher code already exists"},
 		grpcx.Rule{Target: flashsale.ErrInvalidCampaign, Code: codes.InvalidArgument, Message: "invalid campaign"},
 		grpcx.Rule{Target: store.ErrCampaignNotFound, Code: codes.NotFound, Message: "campaign not found"},
 		grpcx.Rule{Target: sponsored.ErrInvalidAdCampaign, Code: codes.InvalidArgument, Message: "invalid ad campaign"},

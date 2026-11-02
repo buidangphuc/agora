@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
@@ -15,6 +16,8 @@ import (
 
 // ErrVoucherNotFound is returned when a voucher lookup misses.
 var ErrVoucherNotFound = errors.New("voucher not found")
+
+var ErrDuplicateCode = errors.New("voucher code already exists")
 
 // ErrVoucherInactive is returned when an update targets a deactivated voucher.
 var ErrVoucherInactive = errors.New("voucher inactive")
@@ -109,6 +112,10 @@ func (r *PostgresVoucherRepository) Create(ctx context.Context, v Voucher, event
 			v.ID, v.Code, v.Scope, v.SellerID, v.DiscountType, v.DiscountValue,
 			v.MinSpend, v.MaxDiscount, v.Quota, v.Used, nullableTime(v.StartsAt), nullableTime(v.EndsAt),
 		); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "vouchers_code_unique" {
+				return fmt.Errorf("insert voucher: %w", ErrDuplicateCode)
+			}
 			return fmt.Errorf("insert voucher: %w", err)
 		}
 		row, err := event(v)
