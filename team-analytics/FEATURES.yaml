@@ -3704,6 +3704,22 @@ features:
     status: not-testable
     notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestRelayDoesNotServeHTTPProbes. Not producible end to end; the migration runs the platform-e2e suite once at the end."
 
+  - id: analytics.runtime-no-inbound-endpoint-beyond-probes
+    title: "No inbound endpoint beyond probes"
+    persona: guest
+    priority: P2
+    summary: "No inbound endpoint beyond probes (capability ga4-purchase-relay)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN an unauthenticated gRPC client calls any method other than `grpc.health.v1.Health/Check` and `Watch` on the relay's listening port"
+      - "THEN the call returns `Unimplemented` and 0 requests reach the GA4 mock"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestRelayServesOnlyHealth. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
   - id: analytics.runtime-a-ga4-outage-does-not-exceed-the-rebalance-timeout
     title: "A GA4 outage does not exceed the rebalance timeout"
     persona: guest

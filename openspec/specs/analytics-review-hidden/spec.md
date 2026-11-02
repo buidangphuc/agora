@@ -36,9 +36,10 @@ The engagement consumer SHALL map an `engagement.events` envelope of type `platf
 
 #### Scenario: Analytics review hidden: a corrupt payload is dead-lettered
 - **WHEN** a ReviewHidden envelope whose payload bytes are not valid protobuf, or which has no event id, is processed in a batch with good records
-- **THEN** the mapping returns an error, the record is published to the DLQ with an `error` header, and the other records of the batch are still written
+- **THEN** the mapping returns an error, the record is dead-lettered by the SDK to `ENGAGEMENT_DLQ_TOPIC` carrying the SDK `dlq-*` headers (not an `error` header), and the other records are still written
 - **VERIFIED BY**: team-analytics `internal/events` `TestEngagementFactFromEnvelopeRejects`
 - **VERIFIED BY**: team-analytics `internal/events` `TestMalformedEngagementRecordIsPermanent`
+- **VERIFIED BY**: team-analytics `internal/app` `TestMalformedEngagementRecordIsDeadLetteredAndGroupMovesOn`
 
 #### Scenario: Analytics review hidden: existing engagement types are unchanged
 - **WHEN** envelopes of the five existing engagement types and an unknown type "platform.engagement.v1.Nope" are mapped

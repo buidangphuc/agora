@@ -40,9 +40,9 @@ Admins hide a review with an audited reason, which removes it from review lists 
 - **VERIFIED BY**: team-engagement `internal/service` `TestHideReviewAuditFailureFailsClosed`
 
 #### Scenario: No audit upstream configured
-- **WHEN** HideReview runs with `UPSTREAM_AUDIT_ADDR` unset
-- **THEN** the call returns `Unavailable` and the review stays visible
-- **VERIFIED BY**: team-engagement `internal/service` `TestHideReviewNilAuditClientUnavailable`
+- **WHEN** `Load` runs with `UPSTREAM_AUDIT_ADDR` unset in any `ENV` (the audit connection has no fallback, so HideReview can never run without one)
+- **THEN** it returns an error that names `UPSTREAM_AUDIT_ADDR` and no server is built
+- **VERIFIED BY**: team-engagement `internal/config` `TestLoadRefusesEmptyAuditAddr`
 
 #### Scenario: Hide failure after audit is Internal and retryable
 - **WHEN** the audit write succeeds and the repository hide update fails, then the call is retried with the repository healthy

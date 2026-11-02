@@ -41,7 +41,7 @@ Admins list listing reports oldest first and close them with an audited note.
 
 ### Requirement: Admins close a report with an audited note
 
-`EngagementService.ResolveReport` SHALL require the `admin` scope, accept a final `status` of `ACTIONED` or `DISMISSED` and a `resolution_note` of 1-500 characters after trimming, write one team-audit event with `action=report.resolve`, `target_type=report`, `target_id` equal to the report id, `actor_id` equal to the admin's user id and `metadata` holding `status`, `listing_id` and `resolution_note` (never `reporter_id` or `note`), and only then set status, `resolved_at`, `resolved_by` and `resolution_note`. If the audit write fails or no audit upstream is configured it SHALL return `Unavailable` and leave the report `OPEN`. A report that is already `ACTIONED` or `DISMISSED` SHALL be refused with `FailedPrecondition` whatever the requested status, with no audit write and no change (contract rule in `q6-trust-contract`). Closing SHALL not change the listing.
+`EngagementService.ResolveReport` SHALL require the `admin` scope, accept a final `status` of `ACTIONED` or `DISMISSED` and a `resolution_note` of 1-500 characters after trimming, write one team-audit event with `action=report.resolve`, `target_type=report`, `target_id` equal to the report id, `actor_id` equal to the admin's user id and `metadata` holding `status`, `listing_id` and `resolution_note` (never `reporter_id` or `note`), and only then set status, `resolved_at`, `resolved_by` and `resolution_note`. If the audit write fails or times out it SHALL return `Unavailable` and leave the report `OPEN`; `UPSTREAM_AUDIT_ADDR` is required in every `ENV`, so there is no unset-upstream mode. A report that is already `ACTIONED` or `DISMISSED` SHALL be refused with `FailedPrecondition` whatever the requested status, with no audit write and no change (contract rule in `q6-trust-contract`). Closing SHALL not change the listing.
 
 #### Scenario: Listing reports: Admin closes a report as actioned
 - **WHEN** an admin calls ResolveReport on an `OPEN` report with status `ACTIONED` and note "đã gỡ tin"
@@ -74,9 +74,9 @@ Admins list listing reports oldest first and close them with an audited note.
 - **VERIFIED BY**: team-engagement `internal/service` `TestResolveReportAuditFailureFailsClosed`
 
 #### Scenario: Listing reports: No audit upstream configured
-- **WHEN** ResolveReport runs with `UPSTREAM_AUDIT_ADDR` unset
-- **THEN** the call returns `Unavailable` and the report stays `OPEN`
-- **VERIFIED BY**: team-engagement `internal/service` `TestResolveReportNilAuditClientUnavailable`
+- **WHEN** `Load` runs with `UPSTREAM_AUDIT_ADDR` unset in any `ENV` (the audit connection has no fallback, so ResolveReport can never run without one)
+- **THEN** it returns an error that names `UPSTREAM_AUDIT_ADDR` and no server is built
+- **VERIFIED BY**: team-engagement `internal/config` `TestLoadRefusesEmptyAuditAddr`
 
 #### Scenario: Listing reports: Close failure after audit is Internal and retryable
 - **WHEN** the audit write succeeds and the repository close fails, then the call is retried with a healthy repository

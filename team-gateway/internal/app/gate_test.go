@@ -104,8 +104,9 @@ func TestSpecCitationsResolveToExistingGatewayTests(t *testing.T) {
 	def := definedTests(t, svc)
 	cite := regexp.MustCompile(`\bTest\w*[A-Za-z0-9]\b`)
 	pathRe := regexp.MustCompile("`(team-gateway/[^`]+_test\\.go)`")
+	serviceRe := regexp.MustCompile(`\bteam-[a-z]+\b`)
 	var specFiles []string
-	for _, dir := range []string{filepath.Join(repo, "openspec", "specs"), filepath.Join(repo, "openspec", "changes", "gateway-go-sdk-v1", "specs")} {
+	for _, dir := range []string{filepath.Join(repo, "openspec", "specs")} {
 		_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 			if err == nil && !d.IsDir() && d.Name() == "spec.md" {
 				specFiles = append(specFiles, p)
@@ -132,10 +133,12 @@ func TestSpecCitationsResolveToExistingGatewayTests(t *testing.T) {
 					missing = append(missing, p+": file "+m[1])
 				}
 			}
-			for _, name := range cite.FindAllString(line, -1) {
-				checked++
-				if !def[name] {
-					missing = append(missing, p+": "+name)
+			for _, segment := range gatewaySegments(line, serviceRe) {
+				for _, name := range cite.FindAllString(segment, -1) {
+					checked++
+					if !def[name] {
+						missing = append(missing, p+": "+name)
+					}
 				}
 			}
 		}
@@ -147,4 +150,20 @@ func TestSpecCitationsResolveToExistingGatewayTests(t *testing.T) {
 	for _, m := range missing {
 		t.Errorf("cited test does not exist: %s", m)
 	}
+}
+
+func gatewaySegments(line string, serviceRe *regexp.Regexp) []string {
+	locs := serviceRe.FindAllStringIndex(line, -1)
+	var out []string
+	for i, loc := range locs {
+		if line[loc[0]:loc[1]] != "team-gateway" {
+			continue
+		}
+		end := len(line)
+		if i+1 < len(locs) {
+			end = locs[i+1][0]
+		}
+		out = append(out, line[loc[0]:end])
+	}
+	return out
 }
