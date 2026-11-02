@@ -62,7 +62,7 @@ func d9Section(t *testing.T, design string) string {
 
 func TestEveryOldTestIsVerifiedByOrRecordedDeleted_TestInventory(t *testing.T) {
 	root := strings.TrimSpace(git(t, "rev-parse", "--show-toplevel"))
-	change := filepath.Join(root, "openspec", "changes", "chat-go-sdk-v1")
+	change := filepath.Join(root, "openspec", "changes", "archive", "2026-11-02-chat-go-sdk-v1")
 	old := oldTests(t)
 	if len(old) == 0 {
 		t.Fatal("no Test functions found at base ref")
@@ -98,7 +98,7 @@ func TestEveryOldTestIsVerifiedByOrRecordedDeleted_TestInventory(t *testing.T) {
 
 func TestD9InventoryNamesNoUnknownTest_TestInventory(t *testing.T) {
 	root := strings.TrimSpace(git(t, "rev-parse", "--show-toplevel"))
-	d9 := d9Section(t, read(t, filepath.Join(root, "openspec", "changes", "chat-go-sdk-v1", "design.md")))
+	d9 := d9Section(t, read(t, filepath.Join(root, "openspec", "changes", "archive", "2026-11-02-chat-go-sdk-v1", "design.md")))
 	old := oldTests(t)
 	cur, _ := exec.Command("git", "-C", root, "grep", "-hoE", "func (Test[A-Za-z0-9_]+)\\(", "--", "team-chat").Output()
 	known := map[string]bool{}

@@ -92,14 +92,21 @@ referrer, result position, query, and a `properties` map).
 
 The frontend SHALL fire the tracking beacon asynchronously (`navigator.sendBeacon`, or a
 `keepalive` fetch fallback) so that recording an event never blocks or fails the user's browsing
-action, and the gateway producer SHALL degrade to a no-op when Kafka is disabled
-(`KAFKA_ENABLED=false`) without erroring the request.
+action. The gateway producer SHALL be the Kafka producer in every environment (there is no no-op
+producer and no `KAFKA_ENABLED` switch), SHALL log a produce failure without erroring the request,
+and SHALL bound each publish by `TRACK_PUBLISH_TIMEOUT` (default 2 seconds).
 
 #### Scenario: A browsing action still succeeds when the event cannot be delivered
 
-- **WHEN** the buyer performs a tracked action (view, click, or add-to-cart) while the analytics
-  producer is disabled or the broker is unavailable
+- **WHEN** the buyer performs a tracked action (view, click, or add-to-cart) while the broker is unavailable
 - **THEN** the browsing action completes normally and no user-visible error is shown
+- **VERIFIED BY**: team-gateway `internal/edge` `TestTrackAcceptsBeaconWhenPublishFails`
+
+#### Scenario: A stuck broker does not hold the browser request
+
+- **WHEN** the broker accepts the connection but never acknowledges a record
+- **THEN** the beacon is answered 202 within `TRACK_PUBLISH_TIMEOUT` plus 1 s
+- **VERIFIED BY**: team-gateway `internal/edge` `TestTrackPublishIsBoundedByTimeout`
 
 ### Requirement: A consumer sinks tracking events from analytics.events into the warehouse
 
@@ -137,14 +144,26 @@ Switching drivers SHALL require no change to the consume/unmarshal path — only
 
 The worker SHALL accumulate tracking events and flush them to the warehouse in batches (target
 throughput ~100 events/second), bounded by a batch size and a max flush interval so that a partial
-batch is not held indefinitely. A flush failure SHALL NOT silently drop events — offsets are
-committed only after a successful write.
+batch is not held indefinitely. A flush failure SHALL NOT silently drop events: the batch is attempted 5 times, and offsets are
+committed only after a successful write or after the batch is parked on `KAFKA_DLQ_TOPIC` following 5 failed attempts. A parked record keeps its key and headers and carries `ga_client_id` only when `consent.analytics` is true.
 
 #### Scenario: A burst of events is written as batches
 
 - **WHEN** a burst of tracking events arrives on `analytics.events`
-- **THEN** the worker flushes them to the warehouse in batches and commits consumer offsets only
-  after the batch is durably written, so a crash mid-batch reprocesses rather than loses events
+- **THEN** the batch handler returns nil only after the writer holds the tracking rows of the batch, and returns the writer's error unchanged when a write fails, so the SDK does not commit a batch that was neither written nor parked (the broker-side commit is proven by "A batch that cannot be written is parked, not dropped" and "A 1000-event burst is written at 100 events/s or faster")
+- **VERIFIED BY**: team-analytics `internal/events` `TestBatchHandlerWritesTrackingAndOrderFactsThenAcknowledges`
+
+#### Scenario: A batch that cannot be written is parked, not dropped
+
+- **WHEN** the warehouse write of a batch fails on all 5 attempts
+- **THEN** every record of the batch is on `KAFKA_DLQ_TOPIC` with its original key and value (`ga_client_id` blanked when the record has no analytics consent) before its offset is committed, and the next batch is processed
+- **VERIFIED BY**: team-analytics `internal/app` `TestPoisonBatchIsDeadLetteredAfterFiveAttempts`
+
+#### Scenario: A 1000-event burst is written at 100 events/s or faster
+
+- **WHEN** 1000 tracking events are produced to `analytics.events` on a Redpanda broker in one burst and the consumer runs on a DuckDB file in a temporary directory with the default `BATCH_MAX_SIZE` (500) and `BATCH_FLUSH_INTERVAL_SECONDS` (2)
+- **THEN** the warehouse holds 1000 tracking rows within 10 s of the first produce (at least 100 events/s) and the group offset on `analytics.events` equals the produced end offset
+- **VERIFIED BY**: team-analytics `internal/app` `TestBurstOf1000EventsIsWrittenAtOrAbove100PerSecond`
 
 ### Requirement: Client data layer
 The frontend SHALL push GA4 ecommerce events to `window.dataLayer`, SHALL push `{ ecommerce: null }` before every ecommerce push, and SHALL NOT throw into UI components or during SSR.

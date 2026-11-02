@@ -17,8 +17,6 @@ resources:
     memory: 256Mi
 env:
   ENV: "local"
-  # Saved searches in Postgres; ENV=staging/production refuses to boot with the
-  # in-memory fallback (DATABASE_ENABLED defaults to false in team-search).
   MODEL_SERVER_URL: "http://modelserve-router.marketplace.svc:8100"
   ENABLE_RERANKER: "true"
 probes:

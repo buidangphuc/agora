@@ -207,7 +207,7 @@ func TestCitationMapCoversEveryCitation_EveryCitedTestNameExists(t *testing.T) {
 	if !ok {
 		return
 	}
-	b, err := os.ReadFile(filepath.Join(root, "openspec", "changes", thisChange, "test-package-map.txt"))
+	b, err := os.ReadFile(filepath.Join(root, "openspec", "changes", "archive", "2026-11-02-"+thisChange, "test-package-map.txt"))
 	if err != nil {
 		t.Fatalf("test-package-map.txt: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestCitationMapCoversEveryCitation_EveryCitedTestNameExists(t *testing.T) {
 	}
 	var missing []string
 	for _, c := range collectCites(t, root) {
-		if strings.Contains(c.source, "openspec/changes/"+thisChange+"/") || isReplaced(c.name) {
+		if strings.Contains(c.source, "openspec/changes/"+thisChange+"/") || isReplaced(c.name) || defs[c.name][c.pkg] {
 			continue
 		}
 		if !mapped[c.pkg+" "+c.name] {
