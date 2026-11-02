@@ -37,6 +37,4 @@ class AccountShellPage(BasePage):
         return self.menu.is_visible()
 
     def open(self, route: str) -> None:
-        self.page.goto(
-            f"{self._settings.base_url.rstrip('/')}{route}", wait_until="domcontentloaded"
-        )
+        self.goto(f"{self._settings.base_url.rstrip('/')}{route}")

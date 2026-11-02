@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CheckoutVoucherScope } from "@/generated/platform/order/v1/order_pb.js";
+import { trackEcommerce } from "@/lib/analytics";
 import type { ViewCheckoutGroup, ViewVoucherQuote } from "@/lib/gateway/orders";
 import { setupUser } from "@/test/user";
 
@@ -263,5 +264,94 @@ describe("VoucherModal reasons", () => {
     expect(
       within(screen.getByTestId("shop-voucher-s1")).queryByRole("alert"),
     ).toBeNull();
+  });
+});
+
+describe("VoucherModal tracking", () => {
+  it("apply_promotion still fires for valid and invalid codes: a valid then an invalid platform preview push valid true then false", async () => {
+    const user = setupUser();
+    const view = setup();
+    const slot = () => screen.getByTestId("platform-voucher");
+    await user.type(within(slot()).getByRole("textbox"), "SAVE10");
+    await user.click(within(slot()).getByRole("button", { name: "Áp dụng" }));
+    expect(trackEcommerce).not.toHaveBeenCalled();
+    view.rerender(
+      <VoucherModal
+        state={{ ...baseState, pv: "SAVE10" }}
+        groups={[group("s1"), group("s2")]}
+        quotes={[
+          quote({
+            code: "SAVE10",
+            scope: CheckoutVoucherScope.PLATFORM,
+            discountAmount: 30000,
+          }),
+        ]}
+      />,
+    );
+    await user.type(within(slot()).getByRole("textbox"), "NOPE");
+    await user.click(within(slot()).getByRole("button", { name: "Áp dụng" }));
+    view.rerender(
+      <VoucherModal
+        state={{ ...baseState, pv: "NOPE" }}
+        groups={[group("s1"), group("s2")]}
+        quotes={[
+          quote({
+            code: "NOPE",
+            scope: CheckoutVoucherScope.PLATFORM,
+            valid: false,
+            reason: "voucher not found",
+          }),
+        ]}
+      />,
+    );
+    expect(vi.mocked(trackEcommerce).mock.calls).toEqual([
+      [
+        "apply_promotion",
+        { coupon: "SAVE10", value: 30000, properties: { valid: "true" } },
+      ],
+      [
+        "apply_promotion",
+        { coupon: "NOPE", value: 0, properties: { valid: "false" } },
+      ],
+    ]);
+  });
+
+  it("apply_promotion still fires for valid and invalid codes: a shop preview pushes once with its own quote", async () => {
+    const user = setupUser();
+    const view = setup();
+    const slot = screen.getByTestId("shop-voucher-s1");
+    await user.type(within(slot).getByRole("textbox"), "SHOPA10");
+    await user.click(within(slot).getByRole("button", { name: "Áp dụng" }));
+    const next = (
+      <VoucherModal
+        state={{ ...baseState, sv: { s1: "SHOPA10" } }}
+        groups={[group("s1"), group("s2")]}
+        quotes={[
+          quote({ code: "SHOPA10", sellerId: "s1", discountAmount: 25000 }),
+        ]}
+      />
+    );
+    view.rerender(next);
+    view.rerender(next);
+    expect(vi.mocked(trackEcommerce).mock.calls).toEqual([
+      [
+        "apply_promotion",
+        { coupon: "SHOPA10", value: 25000, properties: { valid: "true" } },
+      ],
+    ]);
+  });
+
+  it("apply_promotion still fires for valid and invalid codes: quotes already in the URL on load push nothing", () => {
+    setup({
+      state: { pv: "SAVE10" },
+      quotes: [
+        quote({
+          code: "SAVE10",
+          scope: CheckoutVoucherScope.PLATFORM,
+          discountAmount: 30000,
+        }),
+      ],
+    });
+    expect(trackEcommerce).not.toHaveBeenCalled();
   });
 });
