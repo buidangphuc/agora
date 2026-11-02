@@ -3,6 +3,7 @@ package voucher
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -83,6 +84,11 @@ func (s *Service) CreateVoucher(ctx context.Context, p CreateVoucherParams) (sto
 	if strings.TrimSpace(p.Code) == "" {
 		return store.Voucher{}, ErrInvalidVoucher
 	}
+	if _, err := s.vouchers.GetByCode(ctx, strings.TrimSpace(p.Code)); err == nil {
+		return store.Voucher{}, store.ErrDuplicateCode
+	} else if !errors.Is(err, store.ErrVoucherNotFound) {
+		return store.Voucher{}, err
+	}
 	v := store.Voucher{
 		Code:          strings.TrimSpace(p.Code),
 		Scope:         p.Scope,
@@ -127,6 +133,110 @@ func (s *Service) CreateVoucher(ctx context.Context, p CreateVoucherParams) (sto
 		return store.Voucher{}, err
 	}
 	return created, nil
+}
+
+type DeactivateVoucherParams struct {
+	VoucherID    string
+	AuditActorID string
+}
+
+type UpdateVoucherParams struct {
+	VoucherID    string
+	EndsAt       *time.Time
+	Quota        *int64
+	AuditActorID string
+}
+
+func (s *Service) DeactivateVoucher(ctx context.Context, p DeactivateVoucherParams) (store.Voucher, error) {
+	cur, err := s.vouchers.GetByID(ctx, p.VoucherID)
+	if err != nil {
+		return store.Voucher{}, err
+	}
+	var out store.Voucher
+	ev := auditx.Event{
+		ActorID:    p.AuditActorID,
+		Action:     "voucher.deactivate",
+		TargetType: "voucher",
+		TargetID:   cur.Code,
+	}
+	err = s.audit.Do(ctx, ev, func(ctx context.Context) error {
+		var derr error
+		out, derr = s.vouchers.Deactivate(ctx, cur.ID, s.nowFn())
+		return derr
+	})
+	if err != nil {
+		return store.Voucher{}, err
+	}
+	return out, nil
+}
+
+func (s *Service) UpdateVoucher(ctx context.Context, p UpdateVoucherParams) (store.Voucher, error) {
+	cur, err := s.vouchers.GetByID(ctx, p.VoucherID)
+	if err != nil {
+		return store.Voucher{}, err
+	}
+	if !cur.Active {
+		return store.Voucher{}, store.ErrVoucherInactive
+	}
+	var endsAt time.Time
+	var quota int64
+	changed := false
+	if p.EndsAt != nil {
+		endsAt = *p.EndsAt
+		if !endsAt.After(s.nowFn()) {
+			return store.Voucher{}, fmt.Errorf("%w: ends_at must be in the future", ErrInvalidVoucher)
+		}
+		if !cur.StartsAt.IsZero() && !endsAt.After(cur.StartsAt) {
+			return store.Voucher{}, fmt.Errorf("%w: ends_at must be after starts_at", ErrInvalidVoucher)
+		}
+		changed = true
+	}
+	if p.Quota != nil {
+		q := *p.Quota
+		if q <= 0 {
+			return store.Voucher{}, fmt.Errorf("%w: quota must be positive", ErrInvalidVoucher)
+		}
+		if cur.Quota <= 0 {
+			return store.Voucher{}, fmt.Errorf("%w: an unlimited voucher cannot get a quota", ErrInvalidVoucher)
+		}
+		if q < cur.Quota || q < cur.Used {
+			return store.Voucher{}, fmt.Errorf("%w: quota cannot be lowered", ErrInvalidVoucher)
+		}
+		if q > cur.Quota {
+			quota = q
+			changed = true
+		}
+	}
+	if !changed {
+		return store.Voucher{}, fmt.Errorf("%w: nothing to change", ErrInvalidVoucher)
+	}
+	meta := map[string]string{}
+	if p.EndsAt != nil {
+		meta["ends_at"] = endsAt.UTC().Format(time.RFC3339)
+	}
+	if quota > 0 {
+		meta["quota"] = strconv.FormatInt(quota, 10)
+	}
+	var out store.Voucher
+	ev := auditx.Event{
+		ActorID:    p.AuditActorID,
+		Action:     "voucher.update",
+		TargetType: "voucher",
+		TargetID:   cur.Code,
+		Metadata:   meta,
+	}
+	err = s.audit.Do(ctx, ev, func(ctx context.Context) error {
+		var uerr error
+		out, uerr = s.vouchers.UpdateEndsAtQuota(ctx, cur.ID, endsAt, quota)
+		return uerr
+	})
+	if err != nil {
+		if errors.Is(err, store.ErrVoucherQuota) {
+			return store.Voucher{}, fmt.Errorf("%w: quota change refused", ErrInvalidVoucher)
+		}
+		return store.Voucher{}, err
+	}
+	return out, nil
 }
 
 // GetVoucher looks a voucher up by code.
