@@ -8861,20 +8861,6 @@ features:
     status: automated
     covered_by: "frontend/user_enforcement_ui.feature::Users UI: Wrong password for a suspended buyer shows the credentials message"
 
-  - id: frontend.user-enforcement-restricted-seller-sees-the-notice-in-the-browser
-    title: "Users UI: Restricted seller sees the notice in the browser"
-    persona: buyer
-    priority: P1
-    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
-    entry_route: /login
-    services: [team-frontend, team-identity, team-gateway]
-    acceptance:
-      - "When an admin has restricted a freshly registered seller, and that seller logs in and opens `/seller/new`"
-      - "Then the browser stays on `/seller/new` and the page shows \"Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.\""
-    tags: [admin, enforcement]
-    status: automated
-    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Restricted seller sees the notice in the browser"
-
   # ---- frontend-order-lifecycle (initiative q10-order-lifecycle)
   - id: frontend.olc-cancel-is-offered-only-for-pending-and-paid-orders
     title: "Order lifecycle: cancel is offered only for pending and paid orders"
