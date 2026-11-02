@@ -71,7 +71,7 @@ CI: `.github/workflows/team-frontend-seller-ci.yml` (check, build, `docker build
 
 ## 7. Spec and verification
 
-- OpenSpec change `openspec/changes/team-frontend-seller-app`.
+- OpenSpec change `openspec/changes/archive/2026-11-02-team-frontend-seller-app`.
 - E2E: `platform-e2e` drives this app at `SELLER_BASE_URL` (default `http://localhost:3001`); seller page objects set `app = "seller"` and `tests/e2e/support/apps.py` routes `/seller*` and `/sell` here.
 - Feature manifest: `FEATURES.yaml` in this directory (96 entries moved from `team-frontend/FEATURES.yaml`: every entry routed under `/seller` or `/sell` or verified by a test in this app). Gate: `make -C platform-e2e features-check`.
 
