@@ -2779,7 +2779,8 @@ features:
       - "And the gateway log since the scenario started does not contain the user's id"
     tags: [security, gateway]
     kind: invariant
-    status: planned
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-14 e2e-observable gateway log check"
 
   - id: gateway.fp-2-http-user
     title: "GW-FP-2 HTTP request by a user logs fingerprint and kind"
@@ -2801,7 +2802,8 @@ features:
       - "And the gateway log since the scenario started does not contain the user's id"
     tags: [security, gateway]
     kind: invariant
-    status: planned
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-2 HTTP request by a user logs fingerprint and kind"
 
   - id: gateway.fp-4b-anonymous-http
     title: "GW-FP-4b anonymous HTTP caller has kind and no fingerprint"
