@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 
@@ -68,6 +69,45 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 		return nil, fail(ctx, h.logger, err)
 	}
 	return &promotionv1.CreateVoucherResponse{Voucher: voucherToProto(v)}, nil
+}
+
+func (h *VoucherHandler) DeactivateVoucher(ctx context.Context, req *promotionv1.DeactivateVoucherRequest) (*promotionv1.DeactivateVoucherResponse, error) {
+	principal, err := requireAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	v, err := h.svc.DeactivateVoucher(ctx, voucher.DeactivateVoucherParams{
+		VoucherID:    req.GetVoucherId(),
+		AuditActorID: principal.ID,
+	})
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.DeactivateVoucherResponse{Voucher: voucherToProto(v)}, nil
+}
+
+func (h *VoucherHandler) UpdateVoucher(ctx context.Context, req *promotionv1.UpdateVoucherRequest) (*promotionv1.UpdateVoucherResponse, error) {
+	principal, err := requireAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p := voucher.UpdateVoucherParams{
+		VoucherID:    req.GetVoucherId(),
+		Quota:        req.Quota,
+		AuditActorID: principal.ID,
+	}
+	if req.EndsAt != nil {
+		t := req.GetEndsAt().AsTime()
+		p.EndsAt = &t
+	}
+	v, err := h.svc.UpdateVoucher(ctx, p)
+	if err != nil {
+		if errors.Is(err, voucher.ErrInvalidVoucher) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.UpdateVoucherResponse{Voucher: voucherToProto(v)}, nil
 }
 
 func (h *VoucherHandler) GetVoucher(ctx context.Context, req *promotionv1.GetVoucherRequest) (*promotionv1.GetVoucherResponse, error) {
