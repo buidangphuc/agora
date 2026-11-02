@@ -7,8 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
+	"github.com/buidangphuc/team-identity/internal/authz"
 	"github.com/buidangphuc/team-identity/internal/identity"
 	"github.com/buidangphuc/team-identity/internal/store"
 	"github.com/buidangphuc/team-identity/internal/store/storetest"
@@ -441,5 +444,588 @@ func TestMintCapIgnoresExpiredAndRedeemed(t *testing.T) {
 	n, err := e.repo.CountLiveHandoffCodes(context.Background(), hoUser, hoNow)
 	if err != nil || n != hoCap {
 		t.Fatalf("live codes = %d (err %v), want %d", n, err, hoCap)
+	}
+}
+
+type rdUsers struct {
+	*storetest.InMemoryUserRepository
+	mu     sync.Mutex
+	status string
+	roles  []string
+	gets   atomic.Int64
+}
+
+func (u *rdUsers) GetByID(ctx context.Context, id string) (store.User, error) {
+	u.gets.Add(1)
+	usr, err := u.InMemoryUserRepository.GetByID(ctx, id)
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.status != "" {
+		usr.Status = u.status
+	}
+	if u.roles != nil {
+		usr.Roles = u.roles
+	}
+	return usr, err
+}
+
+func (u *rdUsers) set(status string, roles []string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.status, u.roles = status, roles
+}
+
+type rdRepo struct {
+	*hoRepo
+	calls atomic.Int64
+}
+
+func (r *rdRepo) RedeemHandoffCode(ctx context.Context, h []byte, app string, now time.Time, inTx func(context.Context, store.HandoffCode) error) (store.HandoffCode, error) {
+	r.calls.Add(1)
+	return r.hoRepo.RedeemHandoffCode(ctx, h, app, now, inTx)
+}
+
+func (r *rdRepo) PeekHandoffCode(ctx context.Context, h []byte, app string, now time.Time) (store.HandoffCode, error) {
+	r.calls.Add(1)
+	return r.hoRepo.PeekHandoffCode(ctx, h, app, now)
+}
+
+type rdEnv struct {
+	svc      *identity.AuthService
+	repo     *rdRepo
+	audit    *hoAudit
+	users    *rdUsers
+	sessions *storetest.InMemorySessionRepository
+	clock    *fakeClock
+	srcSID   string
+}
+
+func newRdEnv(t *testing.T) rdEnv {
+	t.Helper()
+	base := storetest.NewInMemoryUserRepository()
+	if _, err := base.Create(context.Background(), store.User{ID: hoUser, Username: "minter", Roles: []string{"buyer"}, Status: store.StatusActive}); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	users := &rdUsers{InMemoryUserRepository: base}
+	sessions := storetest.NewInMemorySessionRepository()
+	src, err := sessions.CreateSession(context.Background(), store.Session{UserID: hoUser, CreatedAt: hoNow, RefreshHash: "src-refresh-hash", RefreshExpiresAt: hoNow.Add(store.RefreshTTL)})
+	if err != nil {
+		t.Fatalf("seed source session: %v", err)
+	}
+	repo := &rdRepo{hoRepo: &hoRepo{}}
+	audit := &hoAudit{}
+	clock := &fakeClock{t: hoNow}
+	svc := newSvcAudit(t, users, sessions, audit).WithClock(clock.Now).WithHandoff(repo)
+	return rdEnv{svc: svc, repo: repo, audit: audit, users: users, sessions: sessions, clock: clock, srcSID: src.ID}
+}
+
+func (e rdEnv) mintFor(t *testing.T, target identityv1.HandoffApp) string {
+	t.Helper()
+	res, err := e.svc.Mint(userCtx(), e.srcSID, target)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	return res.Code
+}
+
+func (e rdEnv) mintSeller(t *testing.T) string {
+	t.Helper()
+	return e.mintFor(t, identityv1.HandoffApp_HANDOFF_APP_SELLER)
+}
+
+func (e rdEnv) redeem(code string) (identity.AuthResult, error) {
+	return e.svc.Redeem(context.Background(), code, identityv1.HandoffApp_HANDOFF_APP_SELLER)
+}
+
+func (e rdEnv) peek(code string) (identity.PeekResult, error) {
+	return e.svc.Peek(context.Background(), code, identityv1.HandoffApp_HANDOFF_APP_SELLER)
+}
+
+func (e rdEnv) redeems() []auditx.Event {
+	e.audit.mu.Lock()
+	defer e.audit.mu.Unlock()
+	var out []auditx.Event
+	for _, ev := range e.audit.events {
+		if ev.Action == "auth.handoff_redeem" {
+			out = append(out, ev)
+		}
+	}
+	return out
+}
+
+func (e rdEnv) auditCount() int {
+	e.audit.mu.Lock()
+	defer e.audit.mu.Unlock()
+	return len(e.audit.events)
+}
+
+func (e rdEnv) sessionCount(t *testing.T) int {
+	t.Helper()
+	items, err := e.sessions.ListSessions(context.Background(), hoUser)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	return len(items)
+}
+
+func wantFixedUnauthenticated(t *testing.T, label string, err error) string {
+	t.Helper()
+	st, ok := status.FromError(err)
+	if err == nil || !ok || st.Code() != codes.Unauthenticated {
+		t.Fatalf("%s: err = %v, want gRPC Unauthenticated", label, err)
+	}
+	if st.Message() == "" {
+		t.Fatalf("%s: empty message", label)
+	}
+	return st.Message()
+}
+
+func unknownCode() string {
+	raw := make([]byte, 32)
+	for i := range raw {
+		raw[i] = byte(i*7 + 3)
+	}
+	return base64.RawURLEncoding.EncodeToString(raw)
+}
+
+// Scenario: Valid code opens a new session for the target app
+func TestRedeemOpensNewSession(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	e.clock.Advance(10 * time.Second)
+	res, err := e.redeem(code)
+	if err != nil {
+		t.Fatalf("Redeem: %v", err)
+	}
+	if res.Token == "" || res.RefreshToken == "" {
+		t.Fatalf("missing tokens: access %t refresh %t", res.Token != "", res.RefreshToken != "")
+	}
+	if res.UserID != hoUser || res.Username != "minter" {
+		t.Errorf("identity = %q/%q", res.UserID, res.Username)
+	}
+	sid, _ := jwtClaims(t, res.Token)
+	if sid == "" || sid == e.srcSID {
+		t.Fatalf("new sid = %q, source sid = %q; want a different non-empty sid", sid, e.srcSID)
+	}
+	if n := e.sessionCount(t); n != 2 {
+		t.Errorf("sessions = %d, want 2", n)
+	}
+	items, _ := e.sessions.ListSessions(context.Background(), hoUser)
+	for _, s := range items {
+		if s.ID == e.srcSID && s.Revoked {
+			t.Errorf("source session was revoked by redeem")
+		}
+	}
+	if _, err := e.svc.RefreshSession(context.Background(), res.RefreshToken); err != nil {
+		t.Errorf("new session refresh: %v", err)
+	}
+	if rows := e.repo.snapshot(); len(rows) != 1 || rows[0].RedeemedAt.IsZero() {
+		t.Errorf("code row not marked redeemed: %+v", rows)
+	}
+}
+
+// Scenario: Redeem at the TTL boundary is covered by the store; here the domain accepts exactly expires_at
+func TestRedeemAtExpiryInstant(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	e.clock.Advance(60 * time.Second)
+	if _, err := e.redeem(code); err != nil {
+		t.Fatalf("Redeem at expires_at: %v", err)
+	}
+}
+
+// Scenario: Reused code is refused
+func TestRedeemReuseRefused(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	if _, err := e.redeem(code); err != nil {
+		t.Fatalf("first Redeem: %v", err)
+	}
+	_, err := e.redeem(code)
+	wantFixedUnauthenticated(t, "reuse", err)
+	if n := e.sessionCount(t); n != 2 {
+		t.Errorf("sessions = %d, want 2 (source + one derived)", n)
+	}
+}
+
+// Scenario: Expired code is refused
+func TestRedeemExpired(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	e.clock.Advance(61 * time.Second)
+	_, err := e.redeem(code)
+	wantFixedUnauthenticated(t, "expired", err)
+	if n := e.sessionCount(t); n != 1 {
+		t.Errorf("sessions = %d, want 1", n)
+	}
+}
+
+// Scenario: Wrong target is refused
+func TestRedeemWrongTarget(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintFor(t, identityv1.HandoffApp_HANDOFF_APP_BUYER)
+	_, err := e.redeem(code)
+	wantFixedUnauthenticated(t, "wrong target", err)
+	if rows := e.repo.snapshot(); len(rows) != 1 || !rows[0].RedeemedAt.IsZero() {
+		t.Errorf("code must stay unredeemed: %+v", rows)
+	}
+	if _, err := e.svc.Redeem(context.Background(), code, identityv1.HandoffApp_HANDOFF_APP_BUYER); err != nil {
+		t.Errorf("redeem for the true target: %v", err)
+	}
+}
+
+// Scenario: Revoked source session is refused
+func TestRedeemRevokedSource(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	if err := e.sessions.RevokeSession(context.Background(), e.srcSID, hoUser, nil); err != nil {
+		t.Fatalf("revoke source: %v", err)
+	}
+	_, err := e.redeem(code)
+	wantFixedUnauthenticated(t, "revoked source", err)
+	if n := e.sessionCount(t); n != 1 {
+		t.Errorf("sessions = %d, want 1", n)
+	}
+	if e.auditCount() != 1 {
+		t.Errorf("audit entries = %d, want only the mint entry", e.auditCount())
+	}
+}
+
+// Scenario: Account suspended after minting
+func TestRedeemSuspendedAccount(t *testing.T) {
+	for _, st := range []string{store.StatusSuspended, store.StatusBanned, store.StatusRestricted} {
+		e := newRdEnv(t)
+		code := e.mintSeller(t)
+		e.users.set(st, nil)
+		_, err := e.redeem(code)
+		wantFixedUnauthenticated(t, st, err)
+		if n := e.sessionCount(t); n != 1 {
+			t.Errorf("%s: sessions = %d, want 1", st, n)
+		}
+		if len(e.redeems()) != 0 {
+			t.Errorf("%s: redeem audit entry written", st)
+		}
+	}
+}
+
+// Scenario: Every failure is indistinguishable
+func TestRedeemFailuresIndistinguishable(t *testing.T) {
+	e := newRdEnv(t)
+	used := e.mintSeller(t)
+	if _, err := e.redeem(used); err != nil {
+		t.Fatalf("first Redeem: %v", err)
+	}
+	expired := e.mintSeller(t)
+	wrongTarget := e.mintFor(t, identityv1.HandoffApp_HANDOFF_APP_BUYER)
+	revoked := e.mintSeller(t)
+	if err := e.sessions.RevokeSession(context.Background(), e.srcSID, hoUser, nil); err != nil {
+		t.Fatalf("revoke source: %v", err)
+	}
+	e.clock.Advance(61 * time.Second)
+	fresh := e.mintSeller(t)
+	_ = fresh
+	cases := map[string]string{
+		"unknown":       unknownCode(),
+		"used":          used,
+		"expired":       expired,
+		"wrong target":  wrongTarget,
+		"malformed":     "short",
+		"revoked":       revoked,
+		"empty":         "",
+		"too long":      unknownCode() + "A",
+		"fresh-revoked": fresh,
+	}
+	var want string
+	names := make([]string, 0, len(cases))
+	for n := range cases {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		_, err := e.redeem(cases[n])
+		msg := wantFixedUnauthenticated(t, n, err)
+		if want == "" {
+			want = msg
+		}
+		if msg != want {
+			t.Errorf("%s: message %q differs from %q", n, msg, want)
+		}
+	}
+}
+
+// Scenario: Audit down blocks the redeem and keeps the code usable
+func TestRedeemAuditDownKeepsCodeUsable(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	e.audit.mu.Lock()
+	e.audit.err = errors.New("audit unreachable")
+	e.audit.mu.Unlock()
+	_, err := e.redeem(code)
+	if got := status.Code(err); got != codes.Unavailable {
+		t.Fatalf("code = %v (err %v), want Unavailable", got, err)
+	}
+	if rows := e.repo.snapshot(); len(rows) != 1 || !rows[0].RedeemedAt.IsZero() {
+		t.Fatalf("code must stay redeemable after audit failure: %+v", rows)
+	}
+	e.audit.mu.Lock()
+	e.audit.err = nil
+	e.audit.mu.Unlock()
+	e.clock.Advance(30 * time.Second)
+	if _, err := e.redeem(code); err != nil {
+		t.Fatalf("redeem after audit recovered: %v", err)
+	}
+}
+
+// Scenario: Redeem audit entry
+func TestRedeemAuditEntry(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	res, err := e.redeem(code)
+	if err != nil {
+		t.Fatalf("Redeem: %v", err)
+	}
+	evs := e.redeems()
+	if len(evs) != 1 {
+		t.Fatalf("auth.handoff_redeem entries = %d, want 1", len(evs))
+	}
+	ev := evs[0]
+	if ev.ActorID != hoUser {
+		t.Errorf("actor = %q, want the user id stored with the code", ev.ActorID)
+	}
+	newSID, _ := jwtClaims(t, res.Token)
+	sum := sha256.Sum256([]byte(code))
+	secrets := []string{code, hex.EncodeToString(sum[:]), base64.RawURLEncoding.EncodeToString(sum[:]), base64.StdEncoding.EncodeToString(sum[:]), e.srcSID, newSID}
+	fields := []string{ev.ActorID, ev.Action, ev.TargetType, ev.TargetID}
+	hasTarget, hasOK := false, false
+	for k, v := range ev.Metadata {
+		fields = append(fields, k, v)
+		if strings.Contains(strings.ToUpper(v), "SELLER") {
+			hasTarget = true
+		}
+		if v == "ok" {
+			hasOK = true
+		}
+	}
+	if !hasTarget || !hasOK {
+		t.Errorf("metadata %v must carry the target app and result ok", ev.Metadata)
+	}
+	for _, f := range fields {
+		for _, sec := range secrets {
+			if strings.Contains(f, sec) {
+				t.Errorf("audit field %q leaks a secret", f)
+			}
+		}
+	}
+}
+
+// Scenario: Derived session carries the roles at redeem time
+func TestRedeemRolesAtRedeemTime(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	e.users.set("", []string{"buyer", "seller"})
+	res, err := e.redeem(code)
+	if err != nil {
+		t.Fatalf("Redeem: %v", err)
+	}
+	_, scopes := jwtClaims(t, res.Token)
+	want := authz.ScopesForUser([]string{"buyer", "seller"}, store.StatusActive)
+	if len(want) <= len(authz.ScopesForUser([]string{"buyer"}, store.StatusActive)) {
+		t.Fatalf("fixture: seller role adds no scope")
+	}
+	sort.Strings(scopes)
+	sort.Strings(want)
+	if strings.Join(scopes, ",") != strings.Join(want, ",") {
+		t.Errorf("token scopes = %v, want %v", scopes, want)
+	}
+	got := append([]string(nil), res.Scopes...)
+	sort.Strings(got)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("result scopes = %v, want %v", got, want)
+	}
+}
+
+// Scenario: Derived session survives source logout
+func TestRedeemSessionIndependentOfSource(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	res, err := e.redeem(code)
+	if err != nil {
+		t.Fatalf("Redeem: %v", err)
+	}
+	if err := e.sessions.RevokeSession(context.Background(), e.srcSID, hoUser, nil); err != nil {
+		t.Fatalf("logout source: %v", err)
+	}
+	if _, err := e.svc.RefreshSession(context.Background(), res.RefreshToken); err != nil {
+		t.Fatalf("derived session refresh after source logout: %v", err)
+	}
+}
+
+// Scenario: Concurrent redeems create one session
+func TestRedeemConcurrentOneAudit(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	const calls = 20
+	errs := make([]error, calls)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := 0; i < calls; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, errs[i] = e.redeem(code)
+		}()
+	}
+	close(start)
+	wg.Wait()
+	ok := 0
+	for _, err := range errs {
+		if err == nil {
+			ok++
+			continue
+		}
+		wantFixedUnauthenticated(t, "loser", err)
+	}
+	if ok != 1 {
+		t.Fatalf("successes = %d, want 1", ok)
+	}
+	if n := e.sessionCount(t); n != 2 {
+		t.Errorf("sessions = %d, want 2", n)
+	}
+	if n := len(e.redeems()); n != 1 {
+		t.Errorf("auth.handoff_redeem entries = %d, want 1", n)
+	}
+}
+
+// Scenario: Concurrent redeems create one session (losers write no audit and answer within the p95)
+func TestRedeemLoserNoAuditWithinP95(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	if _, err := e.redeem(code); err != nil {
+		t.Fatalf("first Redeem: %v", err)
+	}
+	before := e.auditCount()
+	const calls = 20
+	durs := make([]time.Duration, calls)
+	errs := make([]error, calls)
+	var wg sync.WaitGroup
+	for i := 0; i < calls; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			begin := time.Now()
+			_, errs[i] = e.redeem(code)
+			durs[i] = time.Since(begin)
+		}()
+	}
+	wg.Wait()
+	for _, err := range errs {
+		wantFixedUnauthenticated(t, "loser", err)
+	}
+	if after := e.auditCount(); after != before {
+		t.Errorf("losers wrote %d audit entries", after-before)
+	}
+	sort.Slice(durs, func(a, b int) bool { return durs[a] < durs[b] })
+	if p95 := durs[calls*95/100]; p95 > 150*time.Millisecond {
+		t.Errorf("loser p95 = %v, want <= 150ms", p95)
+	}
+}
+
+// Scenario: Peek returns the username and does not consume
+func TestPeekReturnsUsername(t *testing.T) {
+	e := newRdEnv(t)
+	code := e.mintSeller(t)
+	auditBefore := e.auditCount()
+	for i := 0; i < 3; i++ {
+		res, err := e.peek(code)
+		if err != nil {
+			t.Fatalf("Peek %d: %v", i, err)
+		}
+		if res.Username != "minter" {
+			t.Errorf("username = %q, want minter", res.Username)
+		}
+		if want := hoNow.Add(60 * time.Second); !res.ExpiresAt.Equal(want) {
+			t.Errorf("ExpiresAt = %v, want %v", res.ExpiresAt, want)
+		}
+	}
+	if rows := e.repo.snapshot(); len(rows) != 1 || !rows[0].RedeemedAt.IsZero() {
+		t.Errorf("peek consumed the code: %+v", rows)
+	}
+	if e.auditCount() != auditBefore {
+		t.Errorf("peek wrote audit entries")
+	}
+	if n := e.sessionCount(t); n != 1 {
+		t.Errorf("peek opened a session: %d", n)
+	}
+	if _, err := e.redeem(code); err != nil {
+		t.Fatalf("redeem after peeks: %v", err)
+	}
+}
+
+// Scenario: Peek of an invalid code is indistinguishable
+func TestPeekFailuresIndistinguishable(t *testing.T) {
+	e := newRdEnv(t)
+	used := e.mintSeller(t)
+	if _, err := e.redeem(used); err != nil {
+		t.Fatalf("Redeem: %v", err)
+	}
+	_, redeemErr := e.redeem(used)
+	want := wantFixedUnauthenticated(t, "redeem reference", redeemErr)
+
+	expired := e.mintSeller(t)
+	wrongTarget := e.mintFor(t, identityv1.HandoffApp_HANDOFF_APP_BUYER)
+	e.clock.Advance(61 * time.Second)
+
+	cases := map[string]string{
+		"unknown":      unknownCode(),
+		"used":         used,
+		"expired":      expired,
+		"wrong target": wrongTarget,
+		"malformed":    "short",
+	}
+	for n, c := range cases {
+		_, err := e.peek(c)
+		if msg := wantFixedUnauthenticated(t, n, err); msg != want {
+			t.Errorf("%s: message %q differs from redeem's %q", n, msg, want)
+		}
+	}
+
+	revoked := newRdEnv(t)
+	rc := revoked.mintSeller(t)
+	if err := revoked.sessions.RevokeSession(context.Background(), revoked.srcSID, hoUser, nil); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	_, err := revoked.peek(rc)
+	if msg := wantFixedUnauthenticated(t, "revoked source", err); msg != want {
+		t.Errorf("revoked source: message %q differs from %q", msg, want)
+	}
+
+	for _, st := range []string{store.StatusSuspended, store.StatusBanned, store.StatusRestricted} {
+		ne := newRdEnv(t)
+		c := ne.mintSeller(t)
+		ne.users.set(st, nil)
+		_, err := ne.peek(c)
+		if msg := wantFixedUnauthenticated(t, "non-active "+st, err); msg != want {
+			t.Errorf("non-active %s: message %q differs from %q", st, msg, want)
+		}
+	}
+}
+
+// Scenario: Peek of a malformed code does no lookup
+func TestPeekMalformedNoLookup(t *testing.T) {
+	e := newRdEnv(t)
+	e.mintSeller(t)
+	repoBefore, usersBefore := e.repo.calls.Load(), e.users.gets.Load()
+	for _, c := range []string{"", "short", unknownCode() + "A", unknownCode()[:42]} {
+		_, err := e.peek(c)
+		wantFixedUnauthenticated(t, "peek "+c, err)
+		_, err = e.redeem(c)
+		wantFixedUnauthenticated(t, "redeem "+c, err)
+	}
+	if got := e.repo.calls.Load(); got != repoBefore {
+		t.Errorf("handoff store queried %d times for malformed codes", got-repoBefore)
+	}
+	if got := e.users.gets.Load(); got != usersBefore {
+		t.Errorf("user store queried %d times for malformed codes", got-usersBefore)
 	}
 }
