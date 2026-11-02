@@ -5,6 +5,7 @@ export interface Principal {
   name: string;
   scopes: string[];
   exp?: number;
+  status?: "restricted";
 }
 
 const SKEW_SECONDS = 5;
@@ -50,6 +51,7 @@ export function decodePrincipal(token: string): Principal | null {
       ? payload.scopes.filter((s): s is string => typeof s === "string")
       : [],
     exp: typeof payload.exp === "number" ? payload.exp : undefined,
+    ...(payload.status === "restricted" ? { status: "restricted" } : {}),
   };
 }
 
