@@ -127,6 +127,7 @@ type hsEnv struct {
 	repo     *hsRepo
 	logs     *hsBuf
 	uid, sid string
+	token    string
 }
 
 func newHsEnv(t *testing.T) hsEnv {
@@ -148,6 +149,7 @@ func newHsEnv(t *testing.T) hsEnv {
 		logs:   logs,
 		uid:    reg.UserID,
 		sid:    parseSID(t, reg.Token),
+		token:  reg.Token,
 	}
 }
 
@@ -221,6 +223,31 @@ func TestHandoffRPCAuthz(t *testing.T) {
 			t.Fatalf("rows = %d, want 10", n)
 		}
 	})
+}
+
+func TestHandoffMintedCodeCarriesCallerSIDAndRedeems(t *testing.T) {
+	e := newHsEnv(t)
+	ctx := hsCtx("authorization", "Bearer "+e.token, "x-principal-id", e.uid, "x-principal-type", "user", "x-principal-scopes", "identity.read,identity.write")
+
+	minted, err := e.client.CreateHandoffCode(ctx, &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
+	if err != nil {
+		t.Fatalf("CreateHandoffCode: %v", err)
+	}
+	rows := e.repo.snapshot()
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	if e.sid == "" || rows[0].SourceSID != parseSID(t, e.token) {
+		t.Fatalf("SourceSID = %q, want %q", rows[0].SourceSID, parseSID(t, e.token))
+	}
+
+	res, err := e.client.RedeemHandoffCode(hsCtx(), &identityv1.RedeemHandoffCodeRequest{Code: minted.GetCode(), TargetApp: hsSeller})
+	if err != nil {
+		t.Fatalf("redeem minted code: %v", err)
+	}
+	if res.GetResult().GetToken() == "" {
+		t.Fatalf("redeem result lacks token: %+v", res)
+	}
 }
 
 func TestHandoffPeekAnonymousAllowed(t *testing.T) {
