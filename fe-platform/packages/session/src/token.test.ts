@@ -27,6 +27,14 @@ describe("decodePrincipal and hasScopes", () => {
     expect(decodePrincipal("bad")).toBeNull();
   });
 
+  it("reads the restricted status and ignores any other value", () => {
+    expect(decodePrincipal(jwt({ status: "restricted" }))?.status).toBe(
+      "restricted",
+    );
+    expect(decodePrincipal(jwt({}))?.status).toBeUndefined();
+    expect(decodePrincipal(jwt({ status: "active" }))?.status).toBeUndefined();
+  });
+
   it("ignores non-string scopes and checks every required scope", () => {
     const p = decodePrincipal(jwt({ scopes: ["a", 3 as unknown as string] }));
     expect(p?.scopes).toEqual(["a"]);

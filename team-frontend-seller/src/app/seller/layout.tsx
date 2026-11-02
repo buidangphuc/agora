@@ -1,12 +1,11 @@
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { redirectGuestToLoginFromHeader } from "@/features/auth/guardPath";
+import { SellerAccessDenied } from "@/features/seller/SellerAccessDenied";
 import { SellerNavDrawer } from "@/features/seller/SellerNavDrawer";
 import { SellerSidebar } from "@/features/seller/SellerSidebar";
 import { getPrincipal, hasSellerAccess } from "@/lib/gateway/session";
 import { batchGetShopNames, shopLabel } from "@/lib/gateway/shops";
-import { sellerSession } from "@/lib/session-config";
 
 export default async function SellerLayout({
   children,
@@ -17,7 +16,9 @@ export default async function SellerLayout({
   }
 
   if (!hasSellerAccess(principal)) {
-    return redirect(sellerSession.forbiddenPath);
+    return (
+      <SellerAccessDenied restricted={principal.status === "restricted"} />
+    );
   }
 
   const names = await batchGetShopNames([principal.id]);

@@ -102,4 +102,10 @@ Feature: Admin users page and login enforcement in the browser (frontend-user-en
     And an admin has set that seller to "restricted"
     When the seller logs in on the login page and opens "/seller/new"
     Then the browser is still on "/seller/new"
-    And the seller notice shows "Cần tài khoản Người Bán" and "Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục."
+    And the seller notice shows "Tài khoản Người Bán đang bị hạn chế" and "Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục."
+
+  Scenario: Users UI: Buyer sees the seller-account notice in the browser
+    Given a freshly registered buyer for the users page
+    When the buyer logs in on the login page and opens "/seller/new"
+    Then the browser is still on "/seller/new"
+    And the seller notice shows "Cần tài khoản Người Bán" without the restricted line or a register link

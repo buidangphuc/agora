@@ -1302,7 +1302,7 @@ features:
       login: buyer
     acceptance:
       - "When a signed-in buyer requests `/seller/new`"
-      - "Then the page renders the \"Cần tài khoản Người Bán\" result (text present in `seller/layout.tsx`) and issues no redirect to `/login`"
+      - "Then the seller app renders the \"Cần tài khoản Người Bán\" result in place and the browser stays on `/seller/new`"
     tags: [auth, login-return]
     status: automated
     covered_by: "auth/login_return.feature::Signed-in user without the scope is not redirected to login"
@@ -1396,17 +1396,59 @@ features:
 
   - id: frontend.user-enforcement-seller-layout-shows-the-restricted-notice
     title: "Users UI: Seller layout shows the restricted notice"
-    persona: buyer
+    persona: seller
     priority: P1
-    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
-    entry_route: /login
+    summary: "Change seller-restricted-inline-notice, capability login-enforcement-ui."
+    entry_route: /seller/new
     services: [team-frontend-seller, team-identity, team-gateway]
     acceptance:
-      - "When the seller layout renders for a signed-in principal whose scopes lack `listing.write`"
-      - "Then it shows \"Cần tài khoản Người Bán\" and the line \"Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.\", renders no children, and `redirect` is called zero times"
+      - "When the seller layout renders for a signed-in principal whose scopes lack `listing.write` and whose token carries `status: \"restricted\"`"
+      - "Then it shows \"Tài khoản Người Bán đang bị hạn chế\" and the line \"Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.\", renders no children, and `redirect` is called zero times"
     tags: [admin, enforcement]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/(auth)/forbidden/page.test.tsx` `names the missing seller access and keeps the restricted notice`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/layout.test.tsx` `shows the restricted notice in place for a restricted seller`. Unit level; the browser case is covered by the restricted-seller scenario."
+
+  - id: frontend.user-enforcement-seller-layout-shows-the-seller-account-notice-to-a-buyer
+    title: "Users UI: Seller layout shows the seller-account notice to a buyer"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-restricted-inline-notice, capability login-enforcement-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-identity, team-gateway]
+    acceptance:
+      - "When the seller layout renders for a signed-in principal whose scopes lack `listing.write` and whose token has no `status` claim"
+      - "Then it shows \"Không có quyền\" and \"Cần tài khoản Người Bán\", does not show the restricted line or a \"Đăng ký bán hàng\" link, renders no children, and `redirect` is called zero times"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/layout.test.tsx` `shows the seller-account notice in place for a buyer`. Unit level; the browser case is covered by the buyer scenario."
+
+  - id: frontend.user-enforcement-restricted-seller-sees-the-notice-in-the-browser
+    title: "Users UI: Restricted seller sees the notice in the browser"
+    persona: seller
+    priority: P1
+    summary: "Change seller-restricted-inline-notice, capability login-enforcement-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-identity, team-gateway]
+    acceptance:
+      - "When an admin has restricted a freshly registered seller, and that seller logs in and opens `/seller/new` on the seller app"
+      - "Then the browser stays on `/seller/new` and the page shows \"Tài khoản Người Bán đang bị hạn chế\" and \"Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.\""
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Restricted seller sees the notice in the browser"
+
+  - id: frontend.user-enforcement-buyer-sees-the-seller-account-notice-in-the-browser
+    title: "Users UI: Buyer sees the seller-account notice in the browser"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-restricted-inline-notice, capability login-enforcement-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-identity, team-gateway]
+    acceptance:
+      - "When a freshly registered buyer logs in on the seller app and opens `/seller/new`"
+      - "Then the browser stays on `/seller/new`, the page shows \"Cần tài khoản Người Bán\", and it shows neither the restricted line nor a \"Đăng ký bán hàng\" link"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Buyer sees the seller-account notice in the browser"
 
   - id: frontend.user-enforcement-seller-pages-do-not-send-a-principal-without-the-listing-write-scope-to-login
     title: "Users UI: Seller pages do not send a principal without the listing.write scope to login"

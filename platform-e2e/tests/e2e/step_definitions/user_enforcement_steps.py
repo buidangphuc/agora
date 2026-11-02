@@ -21,7 +21,7 @@ from src.pages.admin_users_page import FORBIDDEN_TITLE, AdminUsersPage
 from src.pages.login_page import LoginPage
 from tests.e2e.support import audit_support as aud
 from tests.e2e.support import user_enforcement_support as ue
-from tests.e2e.support.apps import is_seller_path
+from tests.e2e.support.apps import app_url, is_seller_path
 from tests.e2e.support.world import World
 
 REFUSAL = "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ bộ phận hỗ trợ."
@@ -141,14 +141,14 @@ def login_wrong(world: World) -> None:
     _browser_login(world, "wrong-" + _x(world)["buyer"]["password"])
 
 
-@when(parsers.parse('the seller logs in on the login page and opens "{path}"'))
-def seller_login_open(world: World, path: str) -> None:
+@when(parsers.parse('the {who} logs in on the login page and opens "{path}"'))
+def login_open(world: World, who: str, path: str) -> None:
     host = (
         world.settings.admin_base_url
         if path.startswith("/admin")
         else world.settings.seller_base_url if is_seller_path(path) else world.settings.base_url
     )
-    _browser_login(world, _x(world)["seller"]["password"], host)
+    _browser_login(world, _x(world)[who]["password"], host)
     # Wait until the login submit settles: either off /login or an error shown.
     world.page.wait_for_url(lambda u: "/login" not in u, timeout=timeouts.NAVIGATION)
     world.page.goto(f"{host.rstrip('/')}{path}", wait_until="domcontentloaded")
@@ -263,10 +263,17 @@ def header_signed_in(world: World) -> None:
 
 @then(parsers.parse('the browser is still on "{path}"'))
 def still_on(world: World, path: str) -> None:
-    assert world.page.url == f"{get_settings().base_url.rstrip('/')}{path}", world.page.url
+    assert world.page.url == app_url(get_settings(), path), world.page.url
 
 
 @then(parsers.parse('the seller notice shows "{title}" and "{line}"'))
 def seller_notice(world: World, title: str, line: str) -> None:
     expect(world.page.get_by_text(title).first).to_be_visible(timeout=timeouts.NAVIGATION)
     expect(world.page.get_by_text(line)).to_be_visible(timeout=timeouts.NAVIGATION)
+
+
+@then(parsers.parse('the seller notice shows "{title}" without the restricted line or a register link'))
+def buyer_seller_notice(world: World, title: str) -> None:
+    expect(world.page.get_by_text(title).first).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(world.page.get_by_text("Tài khoản bị hạn chế?")).to_have_count(0)
+    expect(world.page.get_by_role("link", name="Đăng ký bán hàng")).to_have_count(0)

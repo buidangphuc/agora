@@ -39,13 +39,20 @@ export interface SessionPrincipal {
   id: string;
   name: string;
   scopes: string[];
+  status?: "restricted";
 }
 
 export function getPrincipal(): SessionPrincipal | null {
   const token = getToken();
   if (!token) return null;
   const p = decodePrincipal(token);
-  return p ? { id: p.id, name: p.name, scopes: p.scopes } : null;
+  if (!p) return null;
+  return {
+    id: p.id,
+    name: p.name,
+    scopes: p.scopes,
+    ...(p.status ? { status: p.status } : {}),
+  };
 }
 
 export function hasScope(scope: string): boolean {

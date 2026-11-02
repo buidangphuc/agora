@@ -1,5 +1,11 @@
 export function jwt(
-  claims: { exp?: number; sub?: string; name?: string; scopes?: string[] } = {},
+  claims: {
+    exp?: number;
+    sub?: string;
+    name?: string;
+    scopes?: string[];
+    status?: string;
+  } = {},
 ): string {
   const enc = (o: object) =>
     btoa(JSON.stringify(o))
