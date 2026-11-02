@@ -2824,7 +2824,8 @@ features:
       - "And the earlier user request line carried a principal_fp"
     tags: [security, gateway]
     kind: invariant
-    status: planned
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-4b anonymous HTTP caller has kind and no fingerprint"
 
   - id: gateway.fp-5-invalid-token
     title: "GW-FP-5 invalid token is not logged as a user"
@@ -2847,7 +2848,8 @@ features:
       - "And the earlier user request line carried a principal_fp"
     tags: [security, gateway]
     kind: invariant
-    status: planned
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-5 invalid token is not logged as a user"
 
   - id: gateway.fp-6c-distinct-ids
     title: "GW-FP-6c fingerprint distinguishes ids"
@@ -2870,7 +2872,8 @@ features:
       - "And the first user's two lines carry the same principal_fp"
     tags: [security, gateway]
     kind: invariant
-    status: planned
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-6c fingerprint distinguishes ids"
 
   - id: gateway.fp-11-secret-not-logged
     title: "GW-FP-11 secret is never logged"
@@ -2891,7 +2894,8 @@ features:
       - "And the gateway log since the scenario started does not contain the LOG_KEY_FP_SECRET value"
     tags: [security, gateway]
     kind: invariant
-    status: planned
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-11 secret is never logged"
 
   - id: gateway.fp-1
     title: "GW-FP-1 gRPC request by a user logs fingerprint and kind"
