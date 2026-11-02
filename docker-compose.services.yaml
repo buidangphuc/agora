@@ -585,6 +585,7 @@ services:
       # reflects traffic quickly; the PeriodicReader reads this standard variable.
       - OTEL_METRIC_EXPORT_INTERVAL=10000
       - PROMETHEUS_URL=http://prometheus:9090
+      - LOG_KEY_FP_SECRET=local-dev-log-key-fp-secret
       - JAEGER_QUERY_URL=http://jaeger:16686
       - JAEGER_UI_URL=http://localhost:16686
       - ENV=local

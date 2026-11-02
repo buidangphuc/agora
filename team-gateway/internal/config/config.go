@@ -23,6 +23,7 @@ type Settings struct {
 	Kafka    sdkconfig.Kafka
 	OTel     sdkconfig.OTel
 	Mock     sdkconfig.MockData
+	LogKeyFP sdkconfig.LogKeyFP
 	Upstream Upstream
 	Auth     Auth
 	Edge     Edge
