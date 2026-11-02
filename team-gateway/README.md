@@ -175,7 +175,7 @@ is not covered by that gate.
 | `OTEL_ENABLED` | `false` | Tracer and meter providers; also needed for the gRPC RED metrics and revocation gauges |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | |
 | `OTEL_SERVICE_NAME` | `team-gateway` | |
-| `LOG_KEY_FP_SECRET` | empty (`.env.example` sets a local value) | HMAC key for the principal fingerprints in logs. Required; startup fails when empty. Seeded from Vault in gitops, never a literal. |
+| `LOG_KEY_FP_SECRET` | empty (`.env.example` sets a local value) | HMAC key for the principal fingerprints in logs. Seeded from Vault in gitops, never a literal. |
 
 The root compose file sets `TRUSTED_PROXIES=team-frontend-svc,team-frontend-seller-svc,team-frontend-admin-svc` (the three Next apps), `KAFKA_BROKERS=redpanda:9092` and `RATE_LIMIT_RPS=1000` (burst 2000).
 
