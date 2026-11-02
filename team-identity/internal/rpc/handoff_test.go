@@ -24,7 +24,7 @@ import (
 
 const (
 	hsSeller   = identityv1.HandoffApp_HANDOFF_APP_SELLER
-	hsSeedCode = "S3eded-handoff-code-aaaaaaaaaaaaaaaaaaaa"
+	hsSeedCode = "S3eded-handoff-code-aaaaaaaaaaaaaaaaaaaaaaa"
 	hsBadCode  = "B4d-handoff-code-never-minted-zzzzzzzzzzzzz"
 )
 
