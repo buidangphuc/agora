@@ -17,6 +17,14 @@ enum DiscountType {
   DISCOUNT_TYPE_FIXED = 2;   // discount_value = minor-unit amount off
 }
 
+enum CampaignStatus {
+  CAMPAIGN_STATUS_UNSPECIFIED = 0;
+  CAMPAIGN_STATUS_SCHEDULED = 1;
+  CAMPAIGN_STATUS_ACTIVE = 2;
+  CAMPAIGN_STATUS_ENDED = 3;
+  CAMPAIGN_STATUS_CANCELLED = 4;
+}
+
 enum VoucherScope {
   VOUCHER_SCOPE_UNSPECIFIED = 0;
   VOUCHER_SCOPE_SHOP = 1;     // applies to one seller's items (seller_id set)
@@ -29,6 +37,12 @@ service VoucherService {
   rpc CreateVoucher(CreateVoucherRequest) returns (CreateVoucherResponse);
   rpc GetVoucher(GetVoucherRequest) returns (GetVoucherResponse);
   rpc ListVouchers(ListVouchersRequest) returns (ListVouchersResponse);
+  // ADMIN-ONLY: audited. Sets active=false and deactivated_at. Idempotent.
+  // Errors carry google.rpc.ErrorInfo (domain platform.promotion.v1).
+  rpc DeactivateVoucher(DeactivateVoucherRequest) returns (DeactivateVoucherResponse);
+  // ADMIN-ONLY: audited. Only ends_at and quota are mutable.
+  // Errors carry google.rpc.ErrorInfo (domain platform.promotion.v1).
+  rpc UpdateVoucher(UpdateVoucherRequest) returns (UpdateVoucherResponse);
   // Idempotent on reservation_id: same id returns the same discount without
   // decrementing quota twice. Reject (valid=false + reason) if expired,
   // below min_spend, or quota exhausted.
@@ -42,6 +56,14 @@ service FlashSaleService {
   rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
   rpc GetActiveFlashSale(GetActiveFlashSaleRequest) returns (GetActiveFlashSaleResponse);
   rpc ListActiveCampaigns(ListActiveCampaignsRequest) returns (ListActiveCampaignsResponse);
+  // ADMIN-ONLY: lists campaigns of any status, filtered by statuses.
+  rpc ListCampaigns(ListCampaignsRequest) returns (ListCampaignsResponse);
+  // ADMIN-ONLY: audited. Moves a campaign to CAMPAIGN_STATUS_CANCELLED.
+  // Errors carry google.rpc.ErrorInfo (domain platform.promotion.v1).
+  rpc CancelCampaign(CancelCampaignRequest) returns (CancelCampaignResponse);
+  // ADMIN-ONLY: audited. Replaces sale_price, stock_cap, starts_at and ends_at.
+  // Errors carry google.rpc.ErrorInfo (domain platform.promotion.v1).
+  rpc UpdateCampaign(UpdateCampaignRequest) returns (UpdateCampaignResponse);
   // Live remaining stock for the flash-sale banner/meter (frontend LiveFlashSaleStock).
   rpc GetFlashSaleStock(GetFlashSaleStockRequest) returns (GetFlashSaleStockResponse);
 
@@ -160,6 +182,26 @@ message Voucher {
   int64 used = 10;
   google.protobuf.Timestamp starts_at = 11;
   google.protobuf.Timestamp ends_at = 12;
+  bool active = 13;
+  google.protobuf.Timestamp deactivated_at = 14;
+}
+
+message DeactivateVoucherRequest {
+  string voucher_id = 1;
+}
+
+message DeactivateVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message UpdateVoucherRequest {
+  string voucher_id = 1;
+  optional google.protobuf.Timestamp ends_at = 2;
+  optional int64 quota = 3;
+}
+
+message UpdateVoucherResponse {
+  Voucher voucher = 1;
 }
 
 message CreateVoucherRequest {
@@ -239,6 +281,8 @@ message FlashSaleCampaign {
   int64 stock_sold = 6;
   google.protobuf.Timestamp starts_at = 7;
   google.protobuf.Timestamp ends_at = 8;
+  CampaignStatus status = 9;
+  google.protobuf.Timestamp cancelled_at = 10;
 }
 
 message CreateCampaignRequest {
@@ -248,6 +292,7 @@ message CreateCampaignRequest {
   int64 stock_cap = 4;
   google.protobuf.Timestamp starts_at = 5;
   google.protobuf.Timestamp ends_at = 6;
+  string idempotency_key = 7;
 }
 
 message CreateCampaignResponse {
@@ -270,6 +315,38 @@ message ListActiveCampaignsRequest {
 message ListActiveCampaignsResponse {
   repeated FlashSaleCampaign campaigns = 1;
   platform.common.v1.PageResponse page = 2;
+  bool flash_sale_disabled = 3;
+}
+
+message ListCampaignsRequest {
+  repeated CampaignStatus statuses = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListCampaignsResponse {
+  repeated FlashSaleCampaign campaigns = 1;
+  platform.common.v1.PageResponse page = 2;
+  bool flash_sale_disabled = 3;
+}
+
+message CancelCampaignRequest {
+  string campaign_id = 1;
+}
+
+message CancelCampaignResponse {
+  FlashSaleCampaign campaign = 1;
+}
+
+message UpdateCampaignRequest {
+  string campaign_id = 1;
+  int64 sale_price = 2;
+  int64 stock_cap = 3;
+  google.protobuf.Timestamp starts_at = 4;
+  google.protobuf.Timestamp ends_at = 5;
+}
+
+message UpdateCampaignResponse {
+  FlashSaleCampaign campaign = 1;
 }
 
 message GetFlashSaleStockRequest {
