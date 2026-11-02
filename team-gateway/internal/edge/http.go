@@ -101,9 +101,9 @@ func (e *Edge) edgeHTTP(next http.Handler, route string, lim *rateLimiter, logge
 		// Identify the caller for the bucket key and the log line. A verified
 		// user is keyed by id; everyone else (including an invalid token, which
 		// the handler answers itself) by client IP.
-		principal, key := "anonymous", "ip:"+e.httpClientIP(r)
+		principal, key := resolvedPrincipal{id: "anonymous", ptype: "anonymous"}, "ip:"+e.httpClientIP(r)
 		if p := e.beaconPrincipal(r); p.GetId() != "anonymous" { //nolint:contextcheck
-			principal, key = p.GetId(), "user:"+p.GetId()
+			principal, key = resolvedPrincipal{id: p.GetId(), ptype: strings.ToLower(strings.TrimPrefix(p.GetType().String(), "PRINCIPAL_TYPE_"))}, "user:"+p.GetId()
 		}
 
 		if lim != nil && !lim.allow(key) {
@@ -115,15 +115,16 @@ func (e *Edge) edgeHTTP(next http.Handler, route string, lim *rateLimiter, logge
 		if rec.status == 0 {
 			rec.status = http.StatusOK
 		}
-		logger.InfoContext(r.Context(), "edge.request", //nolint:contextcheck
-			"method", route,
-			"principal", principal,
+		attrs := []any{"method", route}
+		attrs = append(attrs, e.principalLogAttrs(principal)...)
+		attrs = append(attrs,
 			"code", httpCode(rec.status),
 			"status", rec.status,
 			"latency_ms", time.Since(start).Milliseconds(),
 			"request_id", rid,
 			"attempts", attempts.value(),
 		)
+		logger.InfoContext(r.Context(), "edge.request", attrs...) //nolint:contextcheck
 	})
 }
 
