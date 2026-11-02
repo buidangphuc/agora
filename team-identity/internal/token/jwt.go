@@ -52,13 +52,22 @@ func (s *Signer) PublicKey() *rsa.PublicKey { return &s.key.PublicKey }
 // Sign issues an RS256-signed token for a subject with the given scopes, stamping
 // the signer's `kid` in the JWT header.
 func (s *Signer) Sign(subject, name, principalType string, scopes []string, ttl time.Duration) (string, error) {
-	return s.SignWithSession(subject, name, principalType, scopes, "", ttl)
+	return s.SignWithSession(subject, name, principalType, scopes, "", "", ttl)
 }
 
-// SignWithSession is Sign plus a `sid` claim carrying the session id.
-func (s *Signer) SignWithSession(subject, name, principalType string, scopes []string, sessionID string, ttl time.Duration) (string, error) {
+// StatusRestricted is the only account status a token carries.
+const StatusRestricted = "restricted"
+
+type tokenClaims struct {
+	jwtx.Claims
+	Status string `json:"status,omitempty"`
+}
+
+// SignWithSession is Sign plus a `sid` claim carrying the session id and a
+// `status` claim set only for a restricted account.
+func (s *Signer) SignWithSession(subject, name, principalType string, scopes []string, sessionID, status string, ttl time.Duration) (string, error) {
 	now := time.Now()
-	claims := jwtx.Claims{
+	claims := tokenClaims{Claims: jwtx.Claims{
 		Name:      name,
 		Type:      principalType,
 		Scopes:    scopes,
@@ -66,6 +75,9 @@ func (s *Signer) SignWithSession(subject, name, principalType string, scopes []s
 		Subject:   subject,
 		IssuedAt:  now.Unix(),
 		ExpiresAt: now.Add(ttl).Unix(),
+	}}
+	if status == StatusRestricted {
+		claims.Status = StatusRestricted
 	}
 	raw, err := json.Marshal(claims)
 	if err != nil {

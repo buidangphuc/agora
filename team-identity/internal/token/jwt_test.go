@@ -70,7 +70,7 @@ func TestSignRS256(t *testing.T) {
 
 	t.Run("A signed token decodes as the shared claims", func(t *testing.T) {
 		ttl := 45 * time.Minute
-		tok, err := signer.SignWithSession("user-123", "Test User", "user", []string{"listing.read", "listing.write"}, "sess-77", ttl)
+		tok, err := signer.SignWithSession("user-123", "Test User", "user", []string{"listing.read", "listing.write"}, "sess-77", "", ttl)
 		if err != nil {
 			t.Fatalf("unexpected error signing token: %v", err)
 		}
@@ -147,7 +147,7 @@ func TestSignedTokenOmitsEmptySID(t *testing.T) {
 				return signer.Sign("svc-1", "Svc", "service", []string{"audit.write"}, time.Hour)
 			},
 			"SignWithSession empty": func() (string, error) {
-				return signer.SignWithSession("svc-1", "Svc", "service", []string{"audit.write"}, "", time.Hour)
+				return signer.SignWithSession("svc-1", "Svc", "service", []string{"audit.write"}, "", "", time.Hour)
 			},
 		} {
 			tok, err := sign()
@@ -170,7 +170,7 @@ func TestSignedTokenOmitsEmptySID(t *testing.T) {
 	})
 
 	t.Run("A signed token with a session keeps the sid key", func(t *testing.T) {
-		tok, err := signer.SignWithSession("u", "U", "user", nil, "sess-1", time.Hour)
+		tok, err := signer.SignWithSession("u", "U", "user", nil, "sess-1", "", time.Hour)
 		if err != nil {
 			t.Fatalf("sign: %v", err)
 		}
@@ -309,4 +309,32 @@ func TestJWKSHandlerMethodsAndPaths(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestSignedTokenStatusClaim(t *testing.T) {
+	signer, _ := newTestSigner(t, "kid-1")
+	for _, tc := range []struct {
+		status string
+		want   any
+	}{
+		{"restricted", "restricted"},
+		{"active", nil},
+		{"", nil},
+	} {
+		tok, err := signer.SignWithSession("u", "U", "user", nil, "sess-1", tc.status, time.Hour)
+		if err != nil {
+			t.Fatalf("%q: sign: %v", tc.status, err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(payload(t, tok), &m); err != nil {
+			t.Fatalf("%q: decode: %v", tc.status, err)
+		}
+		got, ok := m["status"]
+		if tc.want == nil && ok {
+			t.Errorf("%q: payload must have no status key, got %v", tc.status, got)
+		}
+		if tc.want != nil && got != tc.want {
+			t.Errorf("%q: status = %v, want %v", tc.status, got, tc.want)
+		}
+	}
 }

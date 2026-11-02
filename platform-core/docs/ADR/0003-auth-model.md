@@ -23,7 +23,8 @@ static shared-secret bearer; this ADR now specifies real login + authorization.
 - **Identity service = team-identity (Go).** It owns users + credentials
   (bcrypt), exposes `platform.identity.v1.AuthService` (`Register`, `Login`), and
   issues a signed **JWT** whose claims carry `sub`, `name`, `type`, and
-  `scopes`. Roles → scopes is a small in-code map (admin/seller/buyer), a seam to
+  `scopes`, plus `status: "restricted"` for a restricted account (2026-11-02,
+  read only by the frontends; the edge ignores it). Roles → scopes is a small in-code map (admin/seller/buyer), a seam to
   grow later. *(Signing was HS256 here; ADR-0006 changed it to **RS256 + JWKS** —
   the claims are unchanged.)*
 - **Verification happens at the EDGE (Gateway).** The Gateway verifies the JWT
