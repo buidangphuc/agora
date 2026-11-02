@@ -31,7 +31,7 @@ const (
 )
 
 func Run(ctx context.Context, s config.Settings) error {
-	logger := logx.New(s.Runtime, service)
+	logger := slog.New(edge.NewPrincipalScrubHandler(logx.New(s.Runtime, service).Handler()))
 	slog.SetDefault(logger)
 
 	var stack lifecycle.Stack
