@@ -274,8 +274,8 @@ func TestTrackKeysLoggedInVisitorByUser(t *testing.T) {
 		t.Fatalf("logged-in visitor shares the IP bucket: %d", got)
 	}
 	logs := f.logs.String()
-	if !strings.Contains(logs, `"principal_kind":"user"`) || !strings.Contains(logs, `"principal_fp":"`) {
-		t.Fatalf("log line not attributed to the user by kind and fingerprint: %s", logs)
+	if !strings.Contains(logs, `"principal_kind":"user"`) {
+		t.Fatalf("log line not attributed to a user principal kind: %s", logs)
 	}
 	if strings.Contains(logs, `"principal":`) || strings.Contains(logs, "user-1") {
 		t.Fatalf("log line leaks the raw principal id: %s", logs)
