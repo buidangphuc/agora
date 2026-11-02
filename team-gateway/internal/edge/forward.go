@@ -371,14 +371,18 @@ func sanitized(code connect.Code, msg string, original error) error {
 // logUpstreamError records the original (pre-sanitisation) upstream error with
 // the request id so operators can correlate the generic client message. It is a
 // no-op for errors that were not sanitised.
-func logUpstreamError(logger *slog.Logger, procedure, rid string, err error) {
+func logUpstreamError(logger *slog.Logger, procedure, rid, rawID string, err error) {
 	var ue *upstreamError
 	if errors.As(err, &ue) {
+		original := ue.Original().Error()
+		if rawID != "" {
+			original = strings.ReplaceAll(original, rawID, "[redacted]")
+		}
 		logger.Error("edge.upstream_error",
 			"method", procedure,
 			"request_id", rid,
 			"code", connect.CodeOf(err).String(),
-			"original", ue.Original().Error(),
+			"original", original,
 		)
 	}
 }

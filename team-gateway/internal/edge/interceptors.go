@@ -214,14 +214,18 @@ func (e *Edge) authInterceptor(logger *slog.Logger) connect.Interceptor {
 }
 
 func (e *Edge) logRequest(ctx context.Context, logger *slog.Logger, procedure string, start time.Time, err error, attempts *attemptCounter) {
-	code := "ok"
-	if err != nil {
-		code = connect.CodeOf(err).String()
-		logUpstreamError(logger, procedure, requestIDFrom(ctx), err)
-	}
 	p, ok := principalFrom(ctx)
 	if !ok {
 		p = resolvedPrincipal{id: "anonymous", ptype: "anonymous"}
+	}
+	code := "ok"
+	if err != nil {
+		code = connect.CodeOf(err).String()
+		rawID := ""
+		if p.ptype == "user" || p.ptype == "service" {
+			rawID = p.id
+		}
+		logUpstreamError(logger, procedure, requestIDFrom(ctx), rawID, err)
 	}
 	attrs := []any{"method", procedure}
 	attrs = append(attrs, e.principalLogAttrs(p)...)
