@@ -20,15 +20,26 @@ type SessionSweeperConfig struct {
 
 // SweepResult holds the number of rows purged by one sweep.
 type SweepResult struct {
-	Sessions    int
-	LoginEvents int
+	Sessions     int
+	LoginEvents  int
+	HandoffCodes int
+}
+
+type HandoffPurger interface {
+	PurgeHandoffCodes(ctx context.Context, now time.Time, limit int) (int, error)
 }
 
 // SessionSweeper periodically purges ended sessions and old login history.
 type SessionSweeper struct {
-	repo   store.SessionRepository
-	cfg    SessionSweeperConfig
-	logger *slog.Logger
+	repo    store.SessionRepository
+	cfg     SessionSweeperConfig
+	logger  *slog.Logger
+	handoff HandoffPurger
+}
+
+func (s *SessionSweeper) WithHandoffPurger(p HandoffPurger) *SessionSweeper {
+	s.handoff = p
+	return s
 }
 
 func NewSessionSweeper(repo store.SessionRepository, cfg SessionSweeperConfig, logger *slog.Logger) *SessionSweeper {
@@ -66,6 +77,18 @@ func (s *SessionSweeper) SweepOnce(ctx context.Context, now time.Time) (SweepRes
 			break
 		}
 	}
+	if s.handoff != nil {
+		for {
+			n, err := s.handoff.PurgeHandoffCodes(ctx, now, s.cfg.BatchSize)
+			res.HandoffCodes += n
+			if err != nil {
+				return res, err
+			}
+			if n < s.cfg.BatchSize {
+				break
+			}
+		}
+	}
 	return res, nil
 }
 
@@ -79,9 +102,9 @@ func (s *SessionSweeper) Tick(ctx context.Context) error {
 	case err != nil:
 		s.logger.WarnContext(ctx, "session retention sweep failed; will retry",
 			"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents)
-	case res.Sessions > 0 || res.LoginEvents > 0:
+	case res.Sessions > 0 || res.LoginEvents > 0 || res.HandoffCodes > 0:
 		s.logger.InfoContext(ctx, "session retention sweep done",
-			"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents)
+			"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents, "handoff_codes_purged", res.HandoffCodes)
 	}
 	return nil
 }
