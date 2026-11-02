@@ -306,7 +306,7 @@ export function ChatView({
                   type="button"
                   key={m.id}
                   onClick={() => handleSelectSearchResult(m)}
-                  className="w-full text-left flex items-start gap-3 p-3.5 transition cursor-pointer hover:bg-white/80"
+                  className="w-full text-left flex items-start gap-3 p-3.5 transition cursor-pointer hover:bg-surface-card/80"
                 >
                   <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary-600/20 to-primary-100 text-sm font-bold text-action-primary shadow-2xs">
                     💬
@@ -352,7 +352,7 @@ export function ChatView({
                   className={`w-full text-left flex items-start gap-3 p-3.5 transition cursor-pointer ${
                     isSelected
                       ? "bg-primary-50/80 border-l-4 border-action-primary font-medium shadow-2xs"
-                      : "hover:bg-white/80"
+                      : "hover:bg-surface-card/80"
                   }`}
                 >
                   <div className="relative">
@@ -430,7 +430,7 @@ export function ChatView({
                         : `#${activeThread.buyerId.slice(0, 6)}`}
                       )
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-text-success border border-emerald-200">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-success px-2 py-0.5 text-xs font-semibold text-text-success border border-border-success-subtle">
                       <span className="h-1.5 w-1.5 rounded-full bg-success" />
                       Trực tuyến
                     </span>
@@ -469,7 +469,7 @@ export function ChatView({
             {/* Message Stream */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 space-y-3.5 overflow-y-auto p-4 sm:p-6 bg-slate-50/50"
+              className="flex-1 space-y-3.5 overflow-y-auto p-4 sm:p-6 bg-surface-page/50"
             >
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center p-8 max-w-sm mx-auto">

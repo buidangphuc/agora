@@ -41,12 +41,12 @@ export function LoyaltyWidget({ initial }: { initial: ViewLoyalty }) {
   }
 
   return (
-    <section className="flex items-center justify-between gap-3 rounded-xs border border-yellow-200 bg-yellow-50 px-4 py-3 shadow-card">
+    <section className="flex items-center justify-between gap-3 rounded-xs border border-border-warning-subtle bg-surface-warning px-4 py-3 shadow-card">
       <div className="flex items-center gap-3 text-sm">
         <span className="text-2xl">🪙</span>
         <div>
-          <p className="font-bold text-yellow-800">Điểm danh nhận xu</p>
-          <p className="text-xs text-yellow-700">
+          <p className="font-bold text-text-warning">Điểm danh nhận xu</p>
+          <p className="text-xs text-text-warning">
             Chuỗi ngày: <strong>{streak}</strong> · Số dư:{" "}
             <strong>{coins.toLocaleString("vi-VN")} xu</strong>
             {earned !== null && (

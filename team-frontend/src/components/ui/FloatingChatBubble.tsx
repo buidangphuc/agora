@@ -23,8 +23,8 @@ export function FloatingChatBubble() {
           <span className="text-xl leading-none">💬</span>
           {/* Active online pulse dot */}
           <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-400" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-promo opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-promo" />
           </span>
         </div>
 

@@ -32,15 +32,15 @@ export const toneStyles: Record<Tone, ToneStyle> = {
     icon: "text-text-secondary",
   },
   success: {
-    soft: "bg-accent-success/10 text-accent-success-dark border-accent-success/30",
+    soft: "bg-surface-success text-text-success border-border-success-subtle",
     icon: "text-accent-success-dark",
   },
   warning: {
-    soft: "bg-accent-promo/10 text-accent-promo-dark border-accent-promo/40",
+    soft: "bg-surface-warning text-text-warning border-border-warning-subtle",
     icon: "text-accent-promo-dark",
   },
   danger: {
-    soft: "bg-accent-danger/10 text-danger border-accent-danger/30",
+    soft: "bg-surface-danger text-text-danger border-border-danger-subtle",
     icon: "text-danger",
   },
 };

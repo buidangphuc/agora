@@ -96,6 +96,18 @@ describe("Button", () => {
     expect(container.querySelector("[aria-hidden='true']")).toBeNull();
   });
 
+  it("keeps the label in layout under the spinner so the width does not change", () => {
+    const { container, rerender } = render(<Button loading>Saving</Button>);
+    const label = screen.getByText("Saving");
+    expect(label.className).toContain("opacity-0");
+    expect(label.getAttribute("aria-hidden")).toBeNull();
+    const slot = container.querySelector("[aria-hidden='true']");
+    expect(slot?.className).toContain("absolute");
+    expect(container.querySelectorAll(".animate-spin")).toHaveLength(1);
+    rerender(<Button>Saving</Button>);
+    expect(screen.getByText("Saving").className).not.toContain("opacity-0");
+  });
+
   it("renders icons around the label and keeps the accessible name", () => {
     render(
       <Button

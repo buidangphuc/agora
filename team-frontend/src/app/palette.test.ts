@@ -6,8 +6,18 @@ const SRC = join(__dirname, "..");
 const PROP =
   "(?:text|bg|border(?:-[trblxy])?|ring|divide|placeholder|from|via|to|shadow)";
 const warmPalette = new Set(["features/listing/LiveFlashSaleStock.tsx"]);
+const darkOrWarmBlocks = new Set([
+  "features/listing/LiveFlashSaleStock.tsx",
+  "features/student/StudentRentalView.tsx",
+]);
+const gradientLine = /(?<![\w-])bg-gradient-/;
 
-const banned: { name: string; re: RegExp; allow?: Set<string> }[] = [
+const banned: {
+  name: string;
+  re: RegExp;
+  allow?: Set<string>;
+  skipGradients?: boolean;
+}[] = [
   {
     name: "legacy brand colour",
     re: new RegExp(`(?<![\\w-])${PROP}-brand\\b`),
@@ -20,6 +30,20 @@ const banned: { name: string; re: RegExp; allow?: Set<string> }[] = [
     name: "raw orange scale",
     re: new RegExp(`(?<![\\w-])${PROP}-orange-\\d`),
     allow: warmPalette,
+  },
+  {
+    name: "raw tint scale",
+    re: new RegExp(
+      `(?<![\\w-])${PROP}-(?:red|rose|emerald|green|teal|amber|yellow|slate|blue|sky|purple)-\\d`,
+    ),
+    allow: darkOrWarmBlocks,
+    skipGradients: true,
+  },
+  {
+    name: "white or black with an opacity modifier",
+    re: new RegExp(`(?<![\\w-])${PROP}-(?:white|black)/\\d`),
+    allow: darkOrWarmBlocks,
+    skipGradients: true,
   },
 ];
 
@@ -40,16 +64,20 @@ describe("raw palette classes", () => {
     text: readFileSync(path, "utf8"),
   }));
 
-  it.each(banned)("has no $name in app source", ({ re, allow }) => {
-    const hits = files
-      .filter((f) => !allow?.has(f.rel))
-      .flatMap((f) =>
-        f.text
-          .split("\n")
-          .map((line, i) => ({ at: `${f.rel}:${i + 1}`, line }))
-          .filter(({ line }) => re.test(line))
-          .map(({ at }) => at),
-      );
-    expect(hits).toEqual([]);
-  });
+  it.each(banned)(
+    "has no $name in app source",
+    ({ re, allow, skipGradients }) => {
+      const hits = files
+        .filter((f) => !allow?.has(f.rel))
+        .flatMap((f) =>
+          f.text
+            .split("\n")
+            .map((line, i) => ({ at: `${f.rel}:${i + 1}`, line }))
+            .filter(({ line }) => re.test(line))
+            .filter(({ line }) => !(skipGradients && gradientLine.test(line)))
+            .map(({ at }) => at),
+        );
+      expect(hits).toEqual([]);
+    },
+  );
 });

@@ -43,7 +43,7 @@ export function LoanCalculatorView() {
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* ── Header ── */}
       <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-neutral-900 to-red-950 p-6 md:p-8 text-text-inverse shadow-md">
-        <span className="rounded-full bg-red-600/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-text-inverse shadow-xs">
+        <span className="rounded-full bg-action-danger px-3 py-1 text-xs font-bold uppercase tracking-wider text-text-inverse shadow-xs">
           🧮 CÔNG CỤ TÀI CHÍNH BĐS
         </span>
         <h1 className="mt-3 text-2xl md:text-3xl font-black">
@@ -86,7 +86,7 @@ export function LoanCalculatorView() {
                   onClick={() => setPropertyPrice(val)}
                   className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
                     propertyPrice === val
-                      ? "bg-red-50 text-text-danger border border-red-300"
+                      ? "bg-surface-danger text-text-danger border border-border-danger-subtle"
                       : "bg-surface-muted text-text-secondary hover:bg-neutral-200"
                   }`}
                 >
@@ -175,7 +175,7 @@ export function LoanCalculatorView() {
                 onClick={() => setMethod("reducing")}
                 className={`rounded-xl border p-3 text-left transition ${
                   method === "reducing"
-                    ? "border-border-danger bg-red-50/50 text-text-danger ring-1 ring-border-danger"
+                    ? "border-border-danger bg-surface-danger text-text-danger ring-1 ring-border-danger"
                     : "border-border-subtle hover:border-border-strong"
                 }`}
               >
@@ -190,7 +190,7 @@ export function LoanCalculatorView() {
                 onClick={() => setMethod("equal")}
                 className={`rounded-xl border p-3 text-left transition ${
                   method === "equal"
-                    ? "border-border-danger bg-red-50/50 text-text-danger ring-1 ring-border-danger"
+                    ? "border-border-danger bg-surface-danger text-text-danger ring-1 ring-border-danger"
                     : "border-border-subtle hover:border-border-strong"
                 }`}
               >
@@ -211,7 +211,7 @@ export function LoanCalculatorView() {
             </h2>
 
             {/* Monthly First Payment Highlight */}
-            <div className="rounded-xl bg-red-50 p-4 border border-red-200 text-center">
+            <div className="rounded-xl bg-surface-danger p-4 border border-border-danger-subtle text-center">
               <span className="text-xs text-text-secondary font-medium block">
                 Số tiền trả tháng đầu tiên (Gốc + Lãi):
               </span>

@@ -17,14 +17,14 @@ async function AuthNav() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-inverse">
         <NextLink
           href="/register"
-          className="hover:text-white/80 font-medium transition"
+          className="hover:text-text-inverse/80 font-medium transition"
         >
           Đăng Ký
         </NextLink>
-        <span className="hidden text-white/40 sm:inline">|</span>
+        <span className="hidden text-text-inverse/40 sm:inline">|</span>
         <NextLink
           href="/login"
-          className="hover:text-white/80 font-medium transition"
+          className="hover:text-text-inverse/80 font-medium transition"
         >
           Đăng Nhập
         </NextLink>
@@ -36,41 +36,41 @@ async function AuthNav() {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-inverse">
       <NextLink
         href="/account/orders"
-        className="hover:text-white/80 transition"
+        className="hover:text-text-inverse/80 transition"
       >
         Đơn Mua
       </NextLink>
-      <span className="hidden text-white/30 sm:inline">|</span>
+      <span className="hidden text-text-inverse/30 sm:inline">|</span>
       <NextLink
         href="/account/following"
-        className="hover:text-white/80 transition"
+        className="hover:text-text-inverse/80 transition"
       >
         Đang Theo Dõi
       </NextLink>
-      <span className="hidden text-white/30 sm:inline">|</span>
+      <span className="hidden text-text-inverse/30 sm:inline">|</span>
       <NextLink
         href="/account/referral"
-        className="hover:text-white/80 transition"
+        className="hover:text-text-inverse/80 transition"
       >
         Mời bạn
       </NextLink>
-      <span className="hidden text-white/30 sm:inline">|</span>
+      <span className="hidden text-text-inverse/30 sm:inline">|</span>
       <NextLink
         href="/account/verification"
-        className="hover:text-white/80 transition"
+        className="hover:text-text-inverse/80 transition"
       >
         Xác minh
       </NextLink>
-      <span className="hidden text-white/30 sm:inline">|</span>
+      <span className="hidden text-text-inverse/30 sm:inline">|</span>
       <NextLink
         href="/account/security"
-        className="hover:text-white/80 transition"
+        className="hover:text-text-inverse/80 transition"
       >
         Bảo Mật
       </NextLink>
-      <span className="hidden text-white/30 sm:inline">|</span>
+      <span className="hidden text-text-inverse/30 sm:inline">|</span>
       <div className="flex items-center gap-1.5 font-semibold">
-        <div className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-xs text-text-inverse">
+        <div className="grid h-5 w-5 place-items-center rounded-full bg-text-inverse/20 text-xs text-text-inverse">
           👤
         </div>
         <span className="max-w-32 truncate">{principal.name}</span>
@@ -78,7 +78,7 @@ async function AuthNav() {
       <form action={logoutAction} className="inline">
         <button
           type="submit"
-          className="text-white/70 hover:text-text-inverse underline text-xs cursor-pointer ml-1"
+          className="text-text-inverse/70 hover:text-text-inverse underline text-xs cursor-pointer ml-1"
         >
           Đăng xuất
         </button>
@@ -100,25 +100,25 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
       {/* ── Signature Gradient Header ── */}
       <header className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 text-text-inverse sticky top-0 z-30 shadow-md">
         {/* 1. Top Utility Navigation Bar */}
-        <div className="text-sm py-1.5 border-b border-white/10">
+        <div className="text-sm py-1.5 border-b border-text-inverse/10">
           <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4">
             {/* Left Side Links */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/90">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-text-inverse/90">
               <a
                 href={sellerEntryUrl()}
                 className="hover:text-text-inverse transition font-normal"
               >
                 Kênh Người Bán
               </a>
-              <span className="text-white/30">|</span>
+              <span className="text-text-inverse/30">|</span>
               <NextLink
                 href="/assistant"
-                className="hover:text-text-inverse transition font-bold bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
+                className="hover:text-text-inverse transition font-bold bg-text-inverse/20 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
               >
                 <span>🤖</span>
                 <span>AI Assistant</span>
               </NextLink>
-              <span className="text-white/30">|</span>
+              <span className="text-text-inverse/30">|</span>
               <div className="hidden items-center gap-1.5 md:flex">
                 <span>Kết nối</span>
                 <a
@@ -159,7 +159,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             </div>
 
             {/* Right Side Links */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/90">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-text-inverse/90">
               <NextLink
                 href="/notifications"
                 className="flex items-center gap-1 hover:text-text-inverse transition"
@@ -214,7 +214,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 </svg>
                 <span>Tiếng Việt</span>
               </span>
-              <span className="hidden text-white/30 md:inline">|</span>
+              <span className="hidden text-text-inverse/30 md:inline">|</span>
               <AuthNav />
             </div>
           </div>
@@ -227,14 +227,14 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             href="/"
             className="flex items-center gap-2.5 text-text-inverse shrink-0 hover:opacity-95 transition"
           >
-            <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-white/20 text-xl font-bold text-text-inverse shadow-inner">
+            <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-text-inverse/20 text-xl font-bold text-text-inverse shadow-inner">
               🛍️
             </div>
             <div className="flex flex-col">
               <span className="font-black text-2xl tracking-tight leading-none">
                 Marketplace
               </span>
-              <span className="text-xs font-bold tracking-wider text-yellow-200 uppercase mt-0.5">
+              <span className="text-xs font-bold tracking-wider text-text-inverse/80 uppercase mt-0.5">
                 AI Polyrepo Platform
               </span>
             </div>
@@ -271,12 +271,12 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* ── Architectural & Educational Disclaimer Banner ── */}
-      <div className="bg-amber-50 border-b border-amber-200 text-text-primary text-xs py-2.5 px-4 shadow-xs">
+      <div className="bg-surface-warning border-b border-border-warning-subtle text-text-primary text-xs py-2.5 px-4 shadow-xs">
         <div className="mx-auto max-w-page flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-start sm:items-center gap-2.5">
             <span className="text-base leading-none">💡</span>
-            <span className="text-xs text-slate-700 leading-relaxed">
-              <strong className="text-amber-950 font-bold">
+            <span className="text-xs text-text-secondary leading-relaxed">
+              <strong className="text-text-warning font-bold">
                 Tuyên bố đồ án & nghiên cứu kiến trúc:
               </strong>{" "}
               Toàn bộ giao diện và các luồng trải nghiệm này được xây dựng hoàn
@@ -293,7 +293,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
               .
             </span>
           </div>
-          <span className="inline-block self-start sm:self-auto text-xs bg-amber-200/90 text-amber-950 font-bold px-2 py-0.5 rounded uppercase tracking-wider shrink-0">
+          <span className="inline-block self-start sm:self-auto text-xs bg-surface-warning border border-border-warning-subtle text-text-warning font-bold px-2 py-0.5 rounded uppercase tracking-wider shrink-0">
             Polyrepo Showcase
           </span>
         </div>

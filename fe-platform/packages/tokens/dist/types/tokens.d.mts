@@ -31,6 +31,14 @@ export namespace primitives {
         "promo-dark": string;
         success: string;
         "success-dark": string;
+        "danger-subtle": string;
+        "danger-deep": string;
+        "success-subtle": string;
+        "success-light": string;
+        "success-deep": string;
+        "promo-subtle": string;
+        "promo-light": string;
+        "promo-deep": string;
     };
     let space: {
         0: number;
@@ -134,6 +142,12 @@ export namespace semantic {
         "text-danger": string;
         "text-success": string;
         "text-warning": string;
+        "surface-danger": string;
+        "surface-success": string;
+        "surface-warning": string;
+        "border-danger-subtle": string;
+        "border-success-subtle": string;
+        "border-warning-subtle": string;
         "focus-ring": string;
     };
     export { light_1 as light };
@@ -158,6 +172,12 @@ export namespace semantic {
         "text-danger": string;
         "text-success": string;
         "text-warning": string;
+        "surface-danger": string;
+        "surface-success": string;
+        "surface-warning": string;
+        "border-danger-subtle": string;
+        "border-success-subtle": string;
+        "border-warning-subtle": string;
         "focus-ring": string;
     };
     export { dark_1 as dark };
@@ -184,6 +204,9 @@ export namespace components {
         let fullWidth: string;
         let fullWidthMobile: string;
         let icon: string;
+        let content: string;
+        let contentLoading: string;
+        let spinnerSlot: string;
         let spinner: string;
     }
     export namespace field {
@@ -201,7 +224,8 @@ export namespace components {
     }
     export namespace select {
         export let trigger: string;
-        export let content: string;
+        let content_1: string;
+        export { content_1 as content };
         export let item: string;
         export let native: string;
         let icon_1: string;
@@ -215,8 +239,8 @@ export namespace components {
     }
     export namespace dialog {
         export let overlay: string;
-        let content_1: string;
-        export { content_1 as content };
+        let content_2: string;
+        export { content_2 as content };
         export namespace size_1 {
             let sm_2: string;
             export { sm_2 as sm };
@@ -672,8 +696,8 @@ export namespace components {
     export namespace drawer {
         let overlay_1: string;
         export { overlay_1 as overlay };
-        let content_2: string;
-        export { content_2 as content };
+        let content_3: string;
+        export { content_3 as content };
         export namespace placement {
             let left_1: string;
             export { left_1 as left };
@@ -719,8 +743,8 @@ export namespace components {
         export { title_8 as title };
         let description_5: string;
         export { description_5 as description };
-        let content_3: string;
-        export { content_3 as content };
+        let content_4: string;
+        export { content_4 as content };
         let footer_2: string;
         export { footer_2 as footer };
     }

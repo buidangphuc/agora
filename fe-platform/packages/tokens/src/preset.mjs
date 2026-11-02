@@ -1,8 +1,8 @@
 import { primitives, semanticNames, shadowNames } from "./index.mjs";
-import { px } from "./resolve.mjs";
+import { colorVar, px } from "./resolve.mjs";
 
 const colors = Object.fromEntries(
-  semanticNames().map((name) => [name, `var(--color-${name})`]),
+  semanticNames().map((name) => [name, colorVar(name)]),
 );
 
 /** @param {Record<string, number>} scale */

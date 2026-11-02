@@ -151,14 +151,14 @@ export function AssistantChatView() {
       <div className="bg-gradient-to-r from-purple-600 via-primary-600 to-blue-600 rounded-2xl p-6 text-text-inverse shadow-lg mb-4 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 backdrop-blur-sm">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-text-inverse/20 backdrop-blur-sm">
               ✨ RAG AI COPILOT
             </span>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">
               Trợ Lý Mua Sắm AI Thông Minh
             </h1>
           </div>
-          <p className="text-sm text-purple-100 mt-1">
+          <p className="text-sm text-text-inverse/80 mt-1">
             Hiểu ngôn ngữ tự nhiên, gợi ý sản phẩm tức thì kèm thẻ tương tác
             1-click
           </p>
@@ -206,7 +206,7 @@ export function AssistantChatView() {
                           <h4 className="font-bold text-text-primary text-sm line-clamp-1">
                             {p.title}
                           </h4>
-                          <div className="text-xs text-amber-600 font-medium mt-0.5">
+                          <div className="text-xs text-text-warning font-medium mt-0.5">
                             {p.rating_text}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
@@ -214,7 +214,7 @@ export function AssistantChatView() {
                               {p.price.toLocaleString()} ₫
                             </span>
                             {p.discount_rate > 0 && (
-                              <span className="text-xs font-bold bg-red-100 text-text-danger px-1.5 py-0.5 rounded">
+                              <span className="text-xs font-bold bg-surface-danger text-text-danger px-1.5 py-0.5 rounded">
                                 -{p.discount_rate}%
                               </span>
                             )}
@@ -262,7 +262,7 @@ export function AssistantChatView() {
                   </div>
                 )}
 
-                <div className="text-xs text-slate-400 mt-2 text-right">
+                <div className="text-xs text-text-disabled mt-2 text-right">
                   {msg.time}
                 </div>
               </div>
@@ -287,7 +287,7 @@ export function AssistantChatView() {
         ))}
 
         {loading && (
-          <div className="flex items-center gap-2 text-slate-400 text-xs italic pl-10">
+          <div className="flex items-center gap-2 text-text-disabled text-xs italic pl-10">
             <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" />
             <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce [animation-delay:0.2s]" />
             <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce [animation-delay:0.4s]" />
