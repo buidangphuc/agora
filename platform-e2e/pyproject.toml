@@ -74,6 +74,7 @@ markers = [
     "registry: model registry and promotion gates",
     "integration: end-to-end multi-service integration tests",
     "journeys: end-to-end full user journey scenarios",
+    "handoff: one-time hand-off code that opens a session on the other app (change identity-sso-handoff)",
 ]
 
 [tool.ruff]

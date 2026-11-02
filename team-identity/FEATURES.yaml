@@ -3144,3 +3144,991 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY team-identity `internal/app` `TestRunSeedsAdminOnce`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+  - id: handoff.authenticated-user-mints-a-code-for-the-seller-app
+    title: "Authenticated user mints a code for the seller app"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Authenticated user mints a code for the seller app"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.mint-writes-its-audit-entry-and-the-row-commits-together
+    title: "Mint writes its audit entry and the row commits together"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Mint writes its audit entry and the row commits together"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.unspecified-target-is-refused
+    title: "Unspecified target is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Unspecified target is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.service-principal-cannot-mint
+    title: "Service principal cannot mint"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Service principal cannot mint"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/rpc TestHandoffRPCAuthz (service principals cannot be minted at the gateway edge). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.anonymous-caller-cannot-mint
+    title: "Anonymous caller cannot mint"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Anonymous caller cannot mint"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.non-active-account-cannot-mint
+    title: "Non-ACTIVE account cannot mint"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Non-ACTIVE account cannot mint"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.audit-down-blocks-the-mint
+    title: "Audit down blocks the mint"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Audit down blocks the mint"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.eleventh-live-code-is-refused
+    title: "Eleventh live code is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Eleventh live code is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.expired-and-redeemed-codes-do-not-count-toward-the-cap
+    title: "Expired and redeemed codes do not count toward the cap"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Expired and redeemed codes do not count toward the cap"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.concurrent-mints-cannot-exceed-the-cap
+    title: "Concurrent mints cannot exceed the cap"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Concurrent mints cannot exceed the cap"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.peek-returns-the-username-and-does-not-consume
+    title: "Peek returns the username and does not consume"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Peek returns the username and does not consume"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.peek-writes-nothing
+    title: "Peek writes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Peek writes nothing"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.peek-of-an-invalid-code-is-indistinguishable
+    title: "Peek of an invalid code is indistinguishable"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Peek of an invalid code is indistinguishable"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.peek-of-a-malformed-code-does-no-lookup
+    title: "Peek of a malformed code does no lookup"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Peek of a malformed code does no lookup"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/identity handoff unit test with a store that fails on any query. Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.peek-needs-no-token
+    title: "Peek needs no token"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Peek needs no token"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.valid-code-opens-a-new-session-for-the-target-app
+    title: "Valid code opens a new session for the target app"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Valid code opens a new session for the target app"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.redeem-at-the-ttl-boundary
+    title: "Redeem at the TTL boundary"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Redeem at the TTL boundary"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/identity handoff unit test with an injected clock (inclusive expires_at). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.derived-session-carries-the-roles-at-redeem-time
+    title: "Derived session carries the roles at redeem time"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Derived session carries the roles at redeem time"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/identity handoff unit test (role granted after mint; no gateway role-grant path exists before identity-seller-onboarding). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.derived-session-survives-source-logout
+    title: "Derived session survives source logout"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Derived session survives source logout"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.reused-code-is-refused
+    title: "Reused code is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Reused code is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.concurrent-redeems-create-one-session
+    title: "Concurrent redeems create one session"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Concurrent redeems create one session"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.expired-code-is-refused
+    title: "Expired code is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Expired code is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.wrong-target-is-refused
+    title: "Wrong target is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Wrong target is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.revoked-source-session-is-refused
+    title: "Revoked source session is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Revoked source session is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.account-suspended-after-minting
+    title: "Account suspended after minting"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Account suspended after minting"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.every-failure-is-indistinguishable
+    title: "Every failure is indistinguishable"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Every failure is indistinguishable"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.audit-down-blocks-the-redeem-and-keeps-the-code-usable-accepted-oracle
+    title: "Audit down blocks the redeem and keeps the code usable (accepted oracle)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Audit down blocks the redeem and keeps the code usable (accepted oracle)"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.redeem-audit-entry
+    title: "Redeem audit entry"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Redeem audit entry"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.code-absent-from-logs-even-on-failure
+    title: "Code absent from logs even on failure"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Code absent from logs even on failure"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.override-accepted-in-test
+    title: "Override accepted in test"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Override accepted in test"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/config unit test (process startup with ENV=test). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.override-refused-outside-test
+    title: "Override refused outside test"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Override refused outside test"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/config unit test (startup failure under ENV=staging, local, prod). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.default-ttl-without-override
+    title: "Default TTL without override"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Default TTL without override"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/config unit test (ENV=prod; the e2e stack runs ENV=local). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.old-rows-are-purged-recent-ones-kept
+    title: "Old rows are purged, recent ones kept"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Old rows are purged, recent ones kept"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity TestSweeperPurgesHandoffRows. Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.redeem-needs-no-token
+    title: "Redeem needs no token"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Redeem needs no token"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.peek-needs-no-token-at-the-gateway
+    title: "Peek needs no token at the gateway"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Peek needs no token at the gateway"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.mint-without-a-token-is-refused
+    title: "Mint without a token is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Mint without a token is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.redeem-is-never-retried
+    title: "Redeem is never retried"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Redeem is never retried"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway TestAuthForwarderRedeemNotRetried. Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.get-shows-the-confirmation-page-and-consumes-nothing
+    title: "GET shows the confirmation page and consumes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "GET shows the confirmation page and consumes nothing"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.head-and-prefetch-never-consume
+    title: "HEAD and prefetch never consume"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "HEAD and prefetch never consume"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.post-redeems-and-redirects-without-the-code
+    title: "POST redeems and redirects without the code"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "POST redeems and redirects without the code"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.forged-cross-site-post-is-refused
+    title: "Forged cross-site POST is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Forged cross-site POST is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.origin-matching-host-but-not-the-configured-origin-is-refused
+    title: "Origin matching Host but not the configured origin is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Origin matching Host but not the configured origin is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.evil-origin-with-same-origin-sec-fetch-site-is-refused
+    title: "Evil Origin with same-origin Sec-Fetch-Site is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Evil Origin with same-origin Sec-Fetch-Site is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.origin-null-is-refused
+    title: "Origin null is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Origin null is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.refused-post-sends-no-referrer-and-no-next
+    title: "Refused POST sends no-referrer and no next"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Refused POST sends no-referrer and no next"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.already-signed-in-user-gets-the-confirmation-and-the-post-replaces-the
+    title: "Already signed-in user gets the confirmation and the POST replaces the session"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Already signed-in user gets the confirmation and the POST replaces the session"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.post-with-neither-origin-nor-sec-fetch-site-is-refused
+    title: "POST with neither Origin nor Sec-Fetch-Site is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "POST with neither Origin nor Sec-Fetch-Site is refused"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.same-origin-post-via-sec-fetch-site-is-accepted
+    title: "Same-origin POST via Sec-Fetch-Site is accepted"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Same-origin POST via Sec-Fetch-Site is accepted"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.confirmation-page-cannot-be-framed-or-cached
+    title: "Confirmation page cannot be framed or cached"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Confirmation page cannot be framed or cached"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.code-is-in-the-post-body-only
+    title: "Code is in the POST body only"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Code is in the POST body only"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.username-is-escaped-and-truncated
+    title: "Username is escaped and truncated"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Username is escaped and truncated"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.dwelling-past-the-ttl-falls-back-to-login
+    title: "Dwelling past the TTL falls back to login"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Dwelling past the TTL falls back to login"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.attacker-link-needs-the-victim-s-click
+    title: "Attacker link needs the victim's click"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Attacker link needs the victim's click"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.invalid-code-on-get-falls-back-to-login
+    title: "Invalid code on GET falls back to login"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Invalid code on GET falls back to login"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.failed-redemption-on-post-falls-back-to-login
+    title: "Failed redemption on POST falls back to login"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Failed redemption on POST falls back to login"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.missing-or-oversized-code
+    title: "Missing or oversized code"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Missing or oversized code"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.unsafe-next-is-neutralised
+    title: "Unsafe next is neutralised"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Unsafe next is neutralised"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.gateway-outage-on-peek-or-redeem
+    title: "Gateway outage on peek or redeem"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Gateway outage on peek or redeem"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY fe-platform/packages/session handoff.test.ts (gateway UNAVAILABLE fake). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.code-minted-on-click-never-at-render
+    title: "Code minted on click, never at render"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Code minted on click, never at render"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.handler-never-mints-for-an-anonymous-visitor
+    title: "Handler never mints for an anonymous visitor"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Handler never mints for an anonymous visitor"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY fe-platform/packages/session handoff.test.ts (startHandoff without a session cookie, gateway fake counts mint calls). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.admin-never-hands-off
+    title: "Admin never hands off"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Admin never hands off"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.code-never-logged-or-echoed
+    title: "Code never logged or echoed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Code never logged or echoed"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY fe-platform/packages/session handoff.test.ts (console capture). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.code-redacted-in-access-logs
+    title: "Code redacted in access logs"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Code redacted in access logs"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.rejected-hand-off-request-is-still-redacted
+    title: "Rejected hand-off request is still redacted"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Rejected hand-off request is still redacted"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.anonymous-request-is-redacted-without-a-session
+    title: "Anonymous request is redacted without a session"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Anonymous request is redacted without a session"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.other-query-parameters-keep-their-value
+    title: "Other query parameters keep their value"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Other query parameters keep their value"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.buyer-to-seller-signed-in
+    title: "Buyer to seller signed in"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Buyer to seller signed in"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.seller-to-buyer-signed-in
+    title: "Seller to buyer signed in"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Seller to buyer signed in"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.reused-link-shows-the-login-form
+    title: "Reused link shows the login form"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Reused link shows the login form"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.expired-link-shows-the-login-form
+    title: "Expired link shows the login form"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Expired link shows the login form"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.code-for-the-other-app-shows-the-login-form
+    title: "Code for the other app shows the login form"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Code for the other app shows the login form"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.source-logged-out-before-click
+    title: "Source logged out before click"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Source logged out before click"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.mint-failure-still-navigates
+    title: "Mint failure still navigates"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Mint failure still navigates"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend and team-frontend-seller mint failure falls back to login unit tests. Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.cap-reached-still-navigates
+    title: "Cap reached still navigates"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Cap reached still navigates"
+    tags: [auth, handoff]
+    status: planned
+  - id: handoff.logout-stays-per-app
+    title: "Logout stays per app"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (frontend-sso-handoff)."
+    entry_route: /auth/handoff
+    services: [team-identity, team-gateway, team-frontend, team-frontend-seller]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Logout stays per app"
+    tags: [auth, handoff]
+    status: planned
