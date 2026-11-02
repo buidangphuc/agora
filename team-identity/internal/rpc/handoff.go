@@ -2,22 +2,27 @@ package rpc
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
-	"strings"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
 )
 
+const mdPrincipalSessionID = "x-principal-sid"
+
 func (h *AuthHandler) CreateHandoffCode(ctx context.Context, req *identityv1.CreateHandoffCodeRequest) (*identityv1.CreateHandoffCodeResponse, error) {
 	if _, err := auth.RequireUser(ctx); err != nil {
 		return nil, err
 	}
-	res, err := h.svc.Mint(ctx, callerSID(ctx), req.GetTargetApp())
+	sid := callerSID(ctx)
+	if sid == "" {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+	res, err := h.svc.Mint(ctx, sid, req.GetTargetApp())
 	if err != nil {
 		return nil, statusErr(ctx, h.logger, err)
 	}
@@ -41,29 +46,9 @@ func (h *AuthHandler) RedeemHandoffCode(ctx context.Context, req *identityv1.Red
 }
 
 func callerSID(ctx context.Context) string {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return ""
-	}
-	for _, v := range md.Get("authorization") {
-		raw, found := strings.CutPrefix(v, "Bearer ")
-		if !found {
-			continue
-		}
-		parts := strings.Split(raw, ".")
-		if len(parts) != 3 {
-			continue
-		}
-		payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-		if err != nil {
-			continue
-		}
-		var c struct {
-			SID string `json:"sid"`
-		}
-		if json.Unmarshal(payload, &c) == nil && c.SID != "" {
-			return c.SID
-		}
+	md, _ := metadata.FromIncomingContext(ctx)
+	if v := md.Get(mdPrincipalSessionID); len(v) > 0 {
+		return v[0]
 	}
 	return ""
 }
