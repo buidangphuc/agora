@@ -1,10 +1,16 @@
 package promotionv1_test
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -356,5 +362,173 @@ func TestGapsContract_OldPayloadDecodes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+const gbProtoDir = "../../.."
+const gbPromoRel = "platform/promotion/v1/promotion.proto"
+
+func gbRun(t *testing.T, dir string, name string, args ...string) (string, int) {
+	t.Helper()
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	err := cmd.Run()
+	if err == nil {
+		return out.String(), 0
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return out.String(), ee.ExitCode()
+	}
+	t.Fatalf("harness: run %s: %v", name, err)
+	return "", -1
+}
+
+func gbBaseline(t *testing.T) string {
+	t.Helper()
+	return gbCopyModule(t, gbBaselineRaw(t))
+}
+
+func gbBaselineRaw(t *testing.T) string {
+	t.Helper()
+	var lastErr string
+	for _, ref := range []string{"main", "origin/main"} {
+		cmd := exec.Command("git", "archive", "--format=tar", ref, ".")
+		cmd.Dir = gbProtoDir
+		var out, errb bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &out, &errb
+		if err := cmd.Run(); err != nil {
+			lastErr = errb.String()
+			continue
+		}
+		dst := t.TempDir()
+		tr := tar.NewReader(&out)
+		for {
+			h, err := tr.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("harness: read archive: %v", err)
+			}
+			p := filepath.Join(dst, h.Name)
+			if h.Typeflag == tar.TypeDir {
+				if err := os.MkdirAll(p, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				continue
+			}
+			if h.Typeflag != tar.TypeReg {
+				continue
+			}
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			b, _ := io.ReadAll(tr)
+			if err := os.WriteFile(p, b, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return dst
+	}
+	t.Fatalf("harness: no main baseline available: %s", lastErr)
+	return ""
+}
+
+func gbCopyModule(t *testing.T, src string) string {
+	t.Helper()
+	dst := t.TempDir()
+	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, p)
+		if d.IsDir() {
+			if rel == "gen" || rel == "node_modules" {
+				return filepath.SkipDir
+			}
+			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
+		}
+		if rel != "buf.yaml" && !strings.HasPrefix(rel, "platform/promotion/") && !strings.HasPrefix(rel, "platform/common/") {
+			return nil
+		}
+		if rel != "buf.yaml" && !strings.HasSuffix(rel, ".proto") {
+			return nil
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(dst, rel), b, 0o644)
+	})
+	if err != nil {
+		t.Fatalf("harness: copy module: %v", err)
+	}
+	return dst
+}
+
+// Scenario: Existing promotion fields are untouched
+func TestGapsContract_PromotionBreakingClean(t *testing.T) {
+	base := gbBaseline(t)
+	cur := gbCopyModule(t, gbProtoDir)
+	out, rc := gbRun(t, cur, "buf", "breaking", ".", "--against", base)
+	if rc != 0 || strings.TrimSpace(out) != "" {
+		t.Fatalf("buf breaking vs main: exit %d, findings:\n%s", rc, out)
+	}
+}
+
+// Scenario: Existing promotion fields are untouched (detector control: the baseline is the real main proto)
+func TestGapsContract_BreakingBaselineHasEndsAtEight(t *testing.T) {
+	base := gbBaseline(t)
+	b, err := os.ReadFile(filepath.Join(base, gbPromoRel))
+	if err != nil {
+		t.Fatalf("baseline missing promotion.proto: %v", err)
+	}
+	if !strings.Contains(string(b), "google.protobuf.Timestamp ends_at = 8;") {
+		t.Fatal("baseline FlashSaleCampaign.ends_at is not field 8")
+	}
+}
+
+// Scenario: Renumbering an existing promotion field is rejected
+func TestGapsContract_RenumberDetected(t *testing.T) {
+	tmp := gbCopyModule(t, gbProtoDir)
+	p := filepath.Join(tmp, gbPromoRel)
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("harness: %v", err)
+	}
+	const from = "google.protobuf.Timestamp ends_at = 8;"
+	const to = "google.protobuf.Timestamp ends_at = 11;"
+	if strings.Count(string(b), from) != 1 {
+		t.Fatalf("harness: expected exactly one %q in current proto", from)
+	}
+	if err := os.WriteFile(p, []byte(strings.Replace(string(b), from, to, 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := gbCopyModule(t, gbProtoDir)
+	out, rc := gbRun(t, tmp, "buf", "breaking", ".", "--against", orig)
+	if rc == 0 {
+		t.Fatalf("buf breaking accepted a renumbered ends_at; output:\n%s", out)
+	}
+	if !strings.Contains(out, "ends_at") {
+		t.Errorf("finding does not name ends_at:\n%s", out)
+	}
+	if !strings.Contains(out, "FIELD_SAME_NUMBER") && !strings.Contains(out, "changed from 8 to 11") && !strings.Contains(out, `field "8"`) {
+		t.Errorf("finding is not a same-number style finding:\n%s", out)
+	}
+}
+
+// Scenario: Renumbering an existing promotion field is rejected (repo source never edited)
+func TestGapsContract_RenumberLeavesRepoSourceUntouched(t *testing.T) {
+	before, err := os.ReadFile(filepath.Join(gbProtoDir, gbPromoRel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	TestGapsContract_RenumberDetected(t)
+	after, _ := os.ReadFile(filepath.Join(gbProtoDir, gbPromoRel))
+	if !bytes.Equal(before, after) {
+		t.Fatal("repo promotion.proto was modified by the renumber test")
 	}
 }
