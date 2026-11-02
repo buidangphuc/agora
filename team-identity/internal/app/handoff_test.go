@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -23,8 +24,22 @@ const (
 	hsBadCode = "B4d-handoff-code-never-minted-zzzzzzzzzzzzz"
 )
 
-func asSessionUser(ctx context.Context, id, token string) context.Context {
-	return metadata.AppendToOutgoingContext(asUser(ctx, id), "authorization", "Bearer "+token)
+func tokenSID(t *testing.T, token string) string {
+	t.Helper()
+	claims := jwt.MapClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(token, claims); err != nil {
+		t.Fatalf("parse token: %v", err)
+	}
+	sid, _ := claims["sid"].(string)
+	if sid == "" {
+		t.Fatal("token carries no sid")
+	}
+	return sid
+}
+
+func asSessionUser(t *testing.T, ctx context.Context, id, token string) context.Context {
+	t.Helper()
+	return metadata.AppendToOutgoingContext(asUser(ctx, id), "x-principal-sid", tokenSID(t, token))
 }
 
 func TestHandoffRPCWiredOverTheServer(t *testing.T) {
@@ -49,7 +64,7 @@ func TestHandoffRPCWiredOverTheServer(t *testing.T) {
 		t.Fatalf("service CreateHandoffCode = %v, want PermissionDenied", err)
 	}
 
-	minted, err := auth.CreateHandoffCode(asSessionUser(ctx, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
+	minted, err := auth.CreateHandoffCode(asSessionUser(t, ctx, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
 	if err != nil {
 		t.Fatalf("user CreateHandoffCode: %v", err)
 	}
@@ -80,7 +95,7 @@ func TestHandoffCodeNeverReachesLogs(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	minted, err := auth.CreateHandoffCode(asSessionUser(ctx, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
+	minted, err := auth.CreateHandoffCode(asSessionUser(t, ctx, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
 	if err != nil {
 		t.Fatalf("CreateHandoffCode: %v", err)
 	}
