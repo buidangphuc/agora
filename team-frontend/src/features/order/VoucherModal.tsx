@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
 import { CheckoutVoucherScope } from "@/generated/platform/order/v1/order_pb.js";
+import { trackEcommerce } from "@/lib/analytics";
 import type { ViewCheckoutGroup, ViewVoucherQuote } from "@/lib/gateway/orders";
 import type { ViewVoucher } from "@/lib/gateway/promotion";
 import { type CheckoutState, checkoutHref } from "./checkoutParams";
@@ -110,6 +111,29 @@ export function VoucherModal({
   platformAvailable?: ViewVoucher[];
 }) {
   const router = useRouter();
+  const [pending, setPending] = useState<{
+    scope: CheckoutVoucherScope;
+    sellerId: string;
+    code: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!pending) return;
+    const q = quotes.find(
+      (x) =>
+        x.scope === pending.scope &&
+        x.code === pending.code &&
+        (pending.scope === CheckoutVoucherScope.PLATFORM ||
+          x.sellerId === pending.sellerId),
+    );
+    if (!q) return;
+    setPending(null);
+    trackEcommerce("apply_promotion", {
+      coupon: q.code,
+      value: q.valid ? q.discountAmount : 0,
+      properties: { valid: String(q.valid) },
+    });
+  }, [pending, quotes]);
 
   function go(next: Partial<CheckoutState>) {
     router.replace(checkoutHref({ ...state, ...next }));
@@ -143,7 +167,14 @@ export function VoucherModal({
                 appliedCode={code}
                 quote={shopQuote(g.sellerId, code)}
                 available={available[g.sellerId] ?? []}
-                onApply={(c) => go({ sv: { ...state.sv, [g.sellerId]: c } })}
+                onApply={(c) => {
+                  setPending({
+                    scope: CheckoutVoucherScope.SHOP,
+                    sellerId: g.sellerId,
+                    code: c,
+                  });
+                  go({ sv: { ...state.sv, [g.sellerId]: c } });
+                }}
                 onRemove={() => {
                   const { [g.sellerId]: _drop, ...rest } = state.sv;
                   go({ sv: rest });
@@ -170,7 +201,14 @@ export function VoucherModal({
           appliedCode={state.pv}
           quote={platformQuote}
           available={platformAvailable}
-          onApply={(c) => go({ pv: c })}
+          onApply={(c) => {
+            setPending({
+              scope: CheckoutVoucherScope.PLATFORM,
+              sellerId: "",
+              code: c,
+            });
+            go({ pv: c });
+          }}
           onRemove={() => go({ pv: undefined })}
         />
       </div>
