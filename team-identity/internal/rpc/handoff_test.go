@@ -162,7 +162,7 @@ func hsCtx(pairs ...string) context.Context {
 }
 
 func (e hsEnv) userCtx() context.Context {
-	return hsCtx("x-principal-id", e.uid, "x-principal-type", "user", "x-principal-scopes", "identity.read,identity.write")
+	return hsCtx("x-principal-id", e.uid, "x-principal-type", "user", "x-principal-scopes", "identity.read,identity.write", "x-principal-sid", e.sid)
 }
 
 func hsWantCode(t *testing.T, err error, want codes.Code) {
@@ -227,7 +227,7 @@ func TestHandoffRPCAuthz(t *testing.T) {
 
 func TestHandoffMintedCodeCarriesCallerSIDAndRedeems(t *testing.T) {
 	e := newHsEnv(t)
-	ctx := hsCtx("authorization", "Bearer "+e.token, "x-principal-id", e.uid, "x-principal-type", "user", "x-principal-scopes", "identity.read,identity.write")
+	ctx := e.userCtx()
 
 	minted, err := e.client.CreateHandoffCode(ctx, &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
 	if err != nil {
