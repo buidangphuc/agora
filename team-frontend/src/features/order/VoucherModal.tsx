@@ -39,7 +39,7 @@ function Slot({
   const trimmed = code.trim();
   return (
     <div data-testid={testId} className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-h-6 flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-text-primary">{label}</span>
         {appliedCode && (
           <Tag
