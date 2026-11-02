@@ -23,6 +23,10 @@ const (
 	hsBadCode = "B4d-handoff-code-never-minted-zzzzzzzzzzzzz"
 )
 
+func asSessionUser(ctx context.Context, id, token string) context.Context {
+	return metadata.AppendToOutgoingContext(asUser(ctx, id), "authorization", "Bearer "+token)
+}
+
 func TestHandoffRPCWiredOverTheServer(t *testing.T) {
 	// scenarios: Peek needs no token; Anonymous caller cannot mint; Service principal cannot mint
 	url := migratedURL(t)
@@ -30,7 +34,7 @@ func TestHandoffRPCWiredOverTheServer(t *testing.T) {
 	s.Upstream.AuditAddr = startAudit(t, &fakeAudit{})
 	r := start(t, s)
 	waitServing(t, r)
-	userID, _ := registerBuyer(t, r, "gina")
+	userID, reg := registerBuyer(t, r, "gina")
 	auth := identityv1.NewAuthServiceClient(r.conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -45,7 +49,7 @@ func TestHandoffRPCWiredOverTheServer(t *testing.T) {
 		t.Fatalf("service CreateHandoffCode = %v, want PermissionDenied", err)
 	}
 
-	minted, err := auth.CreateHandoffCode(asUser(ctx, userID), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
+	minted, err := auth.CreateHandoffCode(asSessionUser(ctx, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
 	if err != nil {
 		t.Fatalf("user CreateHandoffCode: %v", err)
 	}
@@ -70,13 +74,13 @@ func TestHandoffCodeNeverReachesLogs(t *testing.T) {
 	s.Upstream.AuditAddr = startAudit(t, &fakeAudit{})
 	r := start(t, s)
 	waitServing(t, r)
-	userID, _ := registerBuyer(t, r, "hank")
+	userID, reg := registerBuyer(t, r, "hank")
 	auth := identityv1.NewAuthServiceClient(r.conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	minted, err := auth.CreateHandoffCode(asUser(ctx, userID), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
+	minted, err := auth.CreateHandoffCode(asSessionUser(ctx, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
 	if err != nil {
 		t.Fatalf("CreateHandoffCode: %v", err)
 	}
