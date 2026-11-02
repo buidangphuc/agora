@@ -22,6 +22,7 @@ Implement OpenSpec change `p10-gaps-contract` test-first per its tasks.md; conte
 - team-*/generated/**
 - team-frontend*/src/generated/**
 - openspec/changes/p10-gaps-contract/**
+- platform-core/packages/proto/platform/promotion/v1/flashstock_compat_test.go (widened at build: task 1.1.1)
 - platform-core/packages/proto/platform/identity/v1/identity.proto (widened at build: task 1.3.1)
 
 ## Read-only dependencies
