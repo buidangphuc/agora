@@ -26,4 +26,4 @@
 
 - [x] 5.1 Set ADR-0003 status to accepted (2026-10-29) with the in-place proto source note; update `fe-platform/AGENTS.md`, `docs/agents/project.md` (check order with `proto:check`, layout, cookie `session`, no login in P4) and `docs/agents/frontend.md` (data fetching rule: only through api-client)
 - [x] 5.2 Done-condition: regenerate shows no diff, `npm run check` exits 0 after a fresh `npm ci`, no new disable comments, `npm audit` clean, `openspec validate fe-platform-api-client --strict` passes
-- [ ] 5.3 e2e track: none (no user-facing capability, no FEATURES.yaml entry); confirm `repo-doctor` reports no new drift
+- [x] 5.3 e2e track: none (no user-facing capability, no FEATURES.yaml entry); confirm `repo-doctor` reports no new drift
