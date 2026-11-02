@@ -21,6 +21,10 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - team-identity/FEATURES.yaml
 - team-gateway/internal/edge/auth.go
 - team-gateway/internal/edge/auth_*_test.go
+- platform-core/packages/go-sdk/pkg/auth/** (widened at build: task 1.3.1)
+- team-gateway/internal/edge/forward.go (widened at build: task 1.3.1)
+- team-gateway/internal/edge/forward_test.go (widened at build: task 1.3.1)
+- team-gateway/internal/edge/forward_sid_test.go (widened at build: task 1.3.1)
 - fe-platform/packages/session/src/handoff.ts
 - fe-platform/packages/session/src/handoff.test.ts
 - fe-platform/packages/session/src/index.ts
