@@ -359,3 +359,117 @@ func TestSweepOnceLoginHistoryErrorIsolated(t *testing.T) {
 		t.Fatalf("sessions left = %d, want 0 despite the history failure", n)
 	}
 }
+
+type sweepHandoffRow struct {
+	id        string
+	expiresAt time.Time
+}
+
+type sweepHandoffRepo struct {
+	mu      sync.Mutex
+	rows    []sweepHandoffRow
+	fail    bool
+	batches []int
+}
+
+func (r *sweepHandoffRepo) PurgeHandoffCodes(_ context.Context, now time.Time, limit int) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.fail {
+		return 0, errors.New("simulated handoff purge error")
+	}
+	cutoff := now.Add(-24 * time.Hour)
+	var kept []sweepHandoffRow
+	n := 0
+	for _, row := range r.rows {
+		if n < limit && row.expiresAt.Before(cutoff) {
+			n++
+			continue
+		}
+		kept = append(kept, row)
+	}
+	r.rows = kept
+	r.batches = append(r.batches, n)
+	return n, nil
+}
+
+func (r *sweepHandoffRepo) ids() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]string, 0, len(r.rows))
+	for _, row := range r.rows {
+		out = append(out, row.id)
+	}
+	return out
+}
+
+// Scenario: Old rows are purged, recent ones kept.
+func TestSweeperPurgesHandoffRows(t *testing.T) {
+	hr := &sweepHandoffRepo{rows: []sweepHandoffRow{
+		{"old-25h", sweepNow.Add(-25 * time.Hour)},
+		{"old-30d", sweepNow.Add(-720 * time.Hour)},
+		{"boundary-24h", sweepNow.Add(-24 * time.Hour)},
+		{"recent-23h", sweepNow.Add(-23 * time.Hour)},
+		{"just-expired", sweepNow.Add(-time.Second)},
+		{"live", sweepNow.Add(time.Minute)},
+	}}
+	sw := newSweeper(storetest.NewInMemorySessionRepository(), jsonLogger(&syncBuf{})).WithHandoffPurger(hr)
+
+	if _, err := sw.SweepOnce(context.Background(), sweepNow); err != nil {
+		t.Fatalf("SweepOnce: %v", err)
+	}
+	if got := fmt.Sprint(hr.ids()); got != "[boundary-24h recent-23h just-expired live]" {
+		t.Fatalf("handoff rows left = %s, want only rows not older than 24h past expiry", got)
+	}
+}
+
+// Scenario: Old rows are purged, recent ones kept (batches of the configured size).
+func TestSweeperPurgesHandoffRowsInBatches(t *testing.T) {
+	hr := &sweepHandoffRepo{}
+	for i := 0; i < 1200; i++ {
+		hr.rows = append(hr.rows, sweepHandoffRow{fmt.Sprintf("old-%d", i), sweepNow.Add(-48 * time.Hour)})
+	}
+	hr.rows = append(hr.rows, sweepHandoffRow{"recent", sweepNow.Add(-time.Hour)})
+	sw := newSweeper(storetest.NewInMemorySessionRepository(), jsonLogger(&syncBuf{})).WithHandoffPurger(hr)
+
+	if _, err := sw.SweepOnce(context.Background(), sweepNow); err != nil {
+		t.Fatalf("SweepOnce: %v", err)
+	}
+	if got := fmt.Sprint(hr.batches); got != "[500 500 200]" {
+		t.Fatalf("handoff purge batches = %s, want [500 500 200]", got)
+	}
+	if got := fmt.Sprint(hr.ids()); got != "[recent]" {
+		t.Fatalf("handoff rows left = %s, want [recent]", got)
+	}
+}
+
+// Scenario: Old rows are purged, recent ones kept (a handoff purge failure surfaces and the next sweep recovers).
+func TestSweeperHandoffPurgeErrorRetried(t *testing.T) {
+	hr := &sweepHandoffRepo{fail: true, rows: []sweepHandoffRow{{"old", sweepNow.Add(-48 * time.Hour)}}}
+	mem := storetest.NewInMemorySessionRepository()
+	sw := newSweeper(mem, jsonLogger(&syncBuf{})).WithHandoffPurger(hr)
+
+	if _, err := sw.SweepOnce(context.Background(), sweepNow); err == nil {
+		t.Fatal("SweepOnce: want the handoff purge error, got nil")
+	}
+	if got := fmt.Sprint(hr.ids()); got != "[old]" {
+		t.Fatalf("rows after failed sweep = %s, want [old]", got)
+	}
+	hr.fail = false
+	if _, err := sw.SweepOnce(context.Background(), sweepNow); err != nil {
+		t.Fatalf("second SweepOnce: %v", err)
+	}
+	if got := fmt.Sprint(hr.ids()); got != "[]" {
+		t.Fatalf("rows after retry = %s, want none", got)
+	}
+}
+
+// Scenario: Old rows are purged, recent ones kept (without a handoff repository the sweep is unchanged).
+func TestSweeperWithoutHandoffPurgerUnchanged(t *testing.T) {
+	mem := storetest.NewInMemorySessionRepository()
+	seedDeadSessions(t, mem, 2, "user-nohandoff", "10.0.0.1", "dev")
+	res, err := newSweeper(mem, jsonLogger(&syncBuf{})).SweepOnce(context.Background(), sweepNow)
+	if err != nil || res.Sessions != 2 {
+		t.Fatalf("SweepOnce = %+v, %v; want 2 sessions purged", res, err)
+	}
+}
