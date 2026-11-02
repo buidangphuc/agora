@@ -85,22 +85,6 @@ func (s *AuthService) Mint(ctx context.Context, sourceSID string, target identit
 		return MintResult{}, ErrAccountLocked
 	}
 
-	if sourceSID == "" {
-		sessions, err := s.sessions.ListSessions(ctx, u.ID)
-		if err != nil {
-			return MintResult{}, err
-		}
-		for _, sess := range sessions {
-			if !sess.Revoked {
-				sourceSID = sess.ID
-				break
-			}
-		}
-		if sourceSID == "" {
-			return MintResult{}, status.Error(codes.Unauthenticated, "no active session")
-		}
-	}
-
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return MintResult{}, err

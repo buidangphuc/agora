@@ -2,6 +2,11 @@ package rpc
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"strings"
+
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
@@ -12,7 +17,7 @@ func (h *AuthHandler) CreateHandoffCode(ctx context.Context, req *identityv1.Cre
 	if _, err := auth.RequireUser(ctx); err != nil {
 		return nil, err
 	}
-	res, err := h.svc.Mint(ctx, "", req.GetTargetApp())
+	res, err := h.svc.Mint(ctx, callerSID(ctx), req.GetTargetApp())
 	if err != nil {
 		return nil, statusErr(ctx, h.logger, err)
 	}
@@ -33,4 +38,32 @@ func (h *AuthHandler) RedeemHandoffCode(ctx context.Context, req *identityv1.Red
 		return nil, statusErr(ctx, h.logger, err)
 	}
 	return &identityv1.RedeemHandoffCodeResponse{Result: toResult(res)}, nil
+}
+
+func callerSID(ctx context.Context) string {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ""
+	}
+	for _, v := range md.Get("authorization") {
+		raw, found := strings.CutPrefix(v, "Bearer ")
+		if !found {
+			continue
+		}
+		parts := strings.Split(raw, ".")
+		if len(parts) != 3 {
+			continue
+		}
+		payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+		if err != nil {
+			continue
+		}
+		var c struct {
+			SID string `json:"sid"`
+		}
+		if json.Unmarshal(payload, &c) == nil && c.SID != "" {
+			return c.SID
+		}
+	}
+	return ""
 }
