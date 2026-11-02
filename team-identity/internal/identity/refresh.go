@@ -103,7 +103,7 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 		return AuthResult{}, ErrAccountLocked
 	}
 	scopes := authz.ScopesForUser(u.Roles, u.Status)
-	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, res.Session.ID, s.ttl)
+	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, res.Session.ID, u.Status, s.ttl)
 	if err != nil {
 		return AuthResult{}, ErrRefreshInternal
 	}

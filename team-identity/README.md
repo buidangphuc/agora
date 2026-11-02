@@ -44,7 +44,7 @@ Role to scopes (`internal/authz/scopes.go`):
 | `admin` | seller scopes plus `admin`, `order.admin` |
 
 Token claims (`internal/token/jwt.go`): RS256, header `kid`; `sub`, `name`, `typ` (`user`), `scopes`,
-`sid` (session id, omitted if no session), `iat`, `exp` (`JWT_TTL_SECONDS`). `identity.read` is not in
+`sid` (session id, omitted if no session), `status` (`restricted` only, omitted otherwise; the seller app reads it), `iat`, `exp` (`JWT_TTL_SECONDS`). `identity.read` is not in
 any role, so no user token can carry it, and nothing in this service mints service tokens.
 
 Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), used by `SetUserStatus`. Vendored contracts only: `platform.common.v1.Principal`,

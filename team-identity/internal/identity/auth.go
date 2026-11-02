@@ -188,7 +188,7 @@ func (s *AuthService) issue(ctx context.Context, u store.User) (AuthResult, erro
 	if err != nil {
 		return AuthResult{}, err
 	}
-	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, sess.ID, s.ttl)
+	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, sess.ID, u.Status, s.ttl)
 	if err != nil {
 		return AuthResult{}, err
 	}
