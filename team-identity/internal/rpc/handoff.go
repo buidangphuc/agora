@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
