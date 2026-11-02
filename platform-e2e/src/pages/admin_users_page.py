@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Locator
 
-from src.core.base_page import BasePage
+from src.core.base_page import BasePage, wait_streamed
 
 FORBIDDEN_TITLE = "Không có quyền"
 
@@ -68,3 +68,4 @@ class AdminUsersPage(BasePage):
         if until_local is not None:
             form.get_by_label("Tạm khóa đến").fill(until_local)
         submit.click()
+        wait_streamed(self.page)

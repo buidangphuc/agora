@@ -52,7 +52,10 @@ class BasePage(ABC):
         return getattr(self._settings, self.base_url_setting).rstrip("/")
 
     def navigate(self, **params: str) -> None:
-        self.page.goto(self.url(**params), wait_until="domcontentloaded")
+        self.goto(self.url(**params))
+
+    def goto(self, url: str) -> None:
+        self.page.goto(url, wait_until="domcontentloaded")
         wait_streamed(self.page)
 
     def wait_until_interactive(

@@ -19,7 +19,7 @@ class SavedSearchesPage(BasePage):
     name = "saved searches"
 
     def navigate_query(self, query: str) -> None:
-        self.page.goto(f"{self.url()}?q={query}", wait_until="domcontentloaded")
+        self.goto(f"{self.url()}?q={query}")
 
     # ── Locators (selected by visible Vietnamese text / role) ─────────────
     @property
