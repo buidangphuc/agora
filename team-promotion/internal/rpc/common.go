@@ -5,11 +5,13 @@ import (
 	"log/slog"
 	"time"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	commonv1 "github.com/buidangphuc/team-promotion/generated/platform/common/v1"
@@ -52,6 +54,13 @@ func mustErrorTable() grpcx.ErrorTable {
 }
 
 func fail(ctx context.Context, logger *slog.Logger, err error) error {
+	if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable && st.Message() == auditx.Message {
+		withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Domain: "promotion.platform", Reason: "AUDIT_UNAVAILABLE"})
+		if derr == nil {
+			return withInfo.Err()
+		}
+		return st.Err()
+	}
 	return grpcx.Status(ctx, logger, err, errTable)
 }
 
