@@ -37,6 +37,7 @@ Implement OpenSpec change `gateway-principal-log-fingerprint` test-first per its
 - team-gateway/internal/app/fingerprint_boot_test.go (widened at build: task 1.2)
 - team-gateway/internal/edge/log_audit_test.go (widened at build: task 1.4)
 - scripts/asdlc/tests/test_gateway_log_key_fp_secret_declared.py (widened at build: task 1.6)
+- team-gateway/internal/lintcfg/principal_forbidden_test.go (widened at build: task 1.7)
 
 ## Read-only dependencies
 - team-identity sdkconfig.LogKeyFP embedding (pattern)
