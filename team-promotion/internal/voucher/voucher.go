@@ -347,6 +347,9 @@ func (s *Service) ValidateAndReserve(ctx context.Context, reservationID, code, b
 
 // validate applies the rejection rules; returns (reason, false) on the first miss.
 func (s *Service) validate(v store.Voucher, subtotal int64, sellerID string) (string, bool) {
+	if !v.Active {
+		return "inactive", false
+	}
 	now := s.nowFn()
 	if !v.StartsAt.IsZero() && now.Before(v.StartsAt) {
 		return "voucher not yet active", false
