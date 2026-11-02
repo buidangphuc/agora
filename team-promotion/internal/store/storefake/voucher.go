@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/team-promotion/internal/store"
@@ -35,6 +36,8 @@ func (r *InMemoryVoucherRepository) Create(_ context.Context, v store.Voucher, e
 	if _, err := event(v); err != nil {
 		return store.Voucher{}, err
 	}
+	v.Active = true
+	v.DeactivatedAt = time.Time{}
 	r.vouchers[v.ID] = v
 	return v, nil
 }
@@ -91,6 +94,44 @@ func (r *InMemoryVoucherRepository) IncrementUsed(_ context.Context, id string, 
 	v.Used += delta
 	r.vouchers[id] = v
 	return nil
+}
+
+func (r *InMemoryVoucherRepository) Deactivate(_ context.Context, id string, at time.Time) (store.Voucher, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	v, ok := r.vouchers[id]
+	if !ok {
+		return store.Voucher{}, store.ErrVoucherNotFound
+	}
+	if v.DeactivatedAt.IsZero() {
+		v.DeactivatedAt = at
+	}
+	v.Active = false
+	r.vouchers[id] = v
+	return v, nil
+}
+
+func (r *InMemoryVoucherRepository) UpdateEndsAtQuota(_ context.Context, id string, endsAt time.Time, quota int64) (store.Voucher, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	v, ok := r.vouchers[id]
+	if !ok {
+		return store.Voucher{}, store.ErrVoucherNotFound
+	}
+	if !v.Active {
+		return store.Voucher{}, store.ErrVoucherInactive
+	}
+	if quota > 0 && (v.Quota <= 0 || quota < v.Quota || quota < v.Used) {
+		return store.Voucher{}, store.ErrVoucherQuota
+	}
+	if quota > 0 {
+		v.Quota = quota
+	}
+	if !endsAt.IsZero() {
+		v.EndsAt = endsAt
+	}
+	r.vouchers[id] = v
+	return v, nil
 }
 
 func (r *InMemoryVoucherRepository) Ping(_ context.Context) error { return nil }

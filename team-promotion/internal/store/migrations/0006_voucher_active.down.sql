@@ -1,0 +1,2 @@
+ALTER TABLE vouchers DROP COLUMN IF EXISTS deactivated_at;
+ALTER TABLE vouchers DROP COLUMN IF EXISTS active;
