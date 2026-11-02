@@ -86,15 +86,21 @@ func NewPostgresVoucherRepository(pool *pgxpool.Pool, ob *outbox.Store) *Postgre
 const voucherColumns = `id, code, scope, seller_id, discount_type, discount_value, min_spend, max_discount, quota, used, starts_at, ends_at, active, deactivated_at`
 
 func scanVoucher(row pgx.Row, v *Voucher) error {
-	var deactivatedAt *time.Time
+	var startsAt, endsAt, deactivatedAt *time.Time
 	if err := row.Scan(
 		&v.ID, &v.Code, &v.Scope, &v.SellerID, &v.DiscountType, &v.DiscountValue,
-		&v.MinSpend, &v.MaxDiscount, &v.Quota, &v.Used, &v.StartsAt, &v.EndsAt,
+		&v.MinSpend, &v.MaxDiscount, &v.Quota, &v.Used, &startsAt, &endsAt,
 		&v.Active, &deactivatedAt,
 	); err != nil {
 		return err
 	}
-	v.DeactivatedAt = time.Time{}
+	v.StartsAt, v.EndsAt, v.DeactivatedAt = time.Time{}, time.Time{}, time.Time{}
+	if startsAt != nil {
+		v.StartsAt = *startsAt
+	}
+	if endsAt != nil {
+		v.EndsAt = *endsAt
+	}
 	if deactivatedAt != nil {
 		v.DeactivatedAt = *deactivatedAt
 	}
