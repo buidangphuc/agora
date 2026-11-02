@@ -272,3 +272,52 @@ func TestGWFP1_FingerprintFollowsConfiguredSecret(t *testing.T) {
 		t.Errorf("fingerprints equal across secrets: %v", ma["principal_fp"])
 	}
 }
+
+// Scenario: GW-FP-6a fingerprint is stable across instances with the same secret
+func TestGWFP6a_FingerprintStableAcrossInstancesSameSecret(t *testing.T) {
+	a := newFPFixture(t, fpSecret, 1000, 1000)
+	b := newFPFixture(t, fpSecret, 1000, 1000)
+	if err := a.grpc(t, a.mint(t, "user", "user-1")); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.grpc(t, b.mint(t, "user", "user-1")); err != nil {
+		t.Fatal(err)
+	}
+	ma, mb := a.lastEdgeLine(t, searchRoute), b.lastEdgeLine(t, searchRoute)
+	if ma["principal_fp"] == nil || ma["principal_fp"] != mb["principal_fp"] {
+		t.Errorf("fingerprints differ: %v vs %v", ma["principal_fp"], mb["principal_fp"])
+	}
+}
+
+// Scenario: GW-FP-6b fingerprint depends on the secret
+func TestGWFP6b_FingerprintDiffersForDifferentSecret(t *testing.T) {
+	a := newFPFixture(t, fpSecret, 1000, 1000)
+	b := newFPFixture(t, "other-secret", 1000, 1000)
+	if err := a.grpc(t, a.mint(t, "user", "user-1")); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.grpc(t, b.mint(t, "user", "user-1")); err != nil {
+		t.Fatal(err)
+	}
+	ma, mb := a.lastEdgeLine(t, searchRoute), b.lastEdgeLine(t, searchRoute)
+	if ma["principal_fp"] == nil || ma["principal_fp"] == mb["principal_fp"] {
+		t.Errorf("fingerprints must differ across secrets: %v vs %v", ma["principal_fp"], mb["principal_fp"])
+	}
+}
+
+// Scenario: GW-FP-6c fingerprint distinguishes ids under one secret
+func TestGWFP6c_FingerprintDistinguishesIDs(t *testing.T) {
+	f := newFPFixture(t, fpSecret, 1000, 1000)
+	if err := f.grpc(t, f.mint(t, "user", "user-1")); err != nil {
+		t.Fatal(err)
+	}
+	m1 := f.lastEdgeLine(t, searchRoute)
+	if err := f.grpc(t, f.mint(t, "user", "user-2")); err != nil {
+		t.Fatal(err)
+	}
+	m2 := f.lastEdgeLine(t, searchRoute)
+	if m1["principal_fp"] == nil || m1["principal_fp"] == m2["principal_fp"] {
+		t.Errorf("fingerprints must differ across ids: %v vs %v", m1["principal_fp"], m2["principal_fp"])
+	}
+	assertKind(t, m2, "user", wantFP(t, fpSecret, "user-2"))
+}
