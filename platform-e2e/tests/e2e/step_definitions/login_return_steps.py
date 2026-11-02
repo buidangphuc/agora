@@ -23,6 +23,7 @@ from src.models import User
 from src.utils import data as fake
 from tests.e2e.flows import login_via_api
 from tests.e2e.step_definitions.d1_pdp_steps import _VARIANTS, _detail, _listing_id, _open, _seed
+from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -112,7 +113,7 @@ def visitor_requests_exact(world: World) -> None:
 
 @when(parsers.parse('the signed-in buyer requests "{path}"'))
 def buyer_requests(world: World, path: str) -> None:
-    world.page.goto(f"{BASE}{path}", wait_until="domcontentloaded")
+    world.page.goto(app_url(SETTINGS, path), wait_until="domcontentloaded")
 
 
 @when("the buyer signs in on the login page that opened")
@@ -205,7 +206,7 @@ def page_shows(world: World, text: str) -> None:
 
 @then(parsers.parse('the browser is still on "{path}"'))
 def still_on(world: World, path: str) -> None:
-    assert world.page.url == f"{BASE}{path}", world.page.url
+    assert world.page.url == app_url(SETTINGS, path), world.page.url
 
 
 @then("no add-to-cart call was issued after login")
