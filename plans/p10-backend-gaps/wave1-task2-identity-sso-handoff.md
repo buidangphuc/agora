@@ -11,6 +11,7 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - team-identity/internal/store/**
 - team-identity/internal/identity/handoff.go
 - team-identity/internal/identity/handoff_test.go
+- team-identity/internal/identity/auth.go (widened at build: task 1.2.1)
 - team-identity/internal/identity/session_sweeper.go
 - team-identity/internal/identity/session_sweeper_test.go
 - team-identity/internal/config/**
