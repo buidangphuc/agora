@@ -490,17 +490,16 @@ func TestUpdateVoucher_V16d_V16e_lostRaceIsInvalidKeepsAuditAndNeverBelowUsed(t 
 	e := newAdminEnv(t)
 	v := e.seed(t, "SALE10", 100, 40)
 	e.rep.beforeUpdate = func() {
-		if err := e.mem.IncrementUsed(context.Background(), v.ID, 50); err != nil {
+		if err := e.mem.IncrementUsed(context.Background(), v.ID, 90); err != nil {
 			t.Errorf("concurrent commit: %v", err)
 		}
 	}
-	_, err := e.svc.UpdateVoucher(t.Context(), UpdateVoucherParams{VoucherID: v.ID, Quota: ptr(int64(80)), AuditActorID: "admin-1"})
+	_, err := e.svc.UpdateVoucher(t.Context(), UpdateVoucherParams{VoucherID: v.ID, Quota: ptr(int64(120)), AuditActorID: "admin-1"})
 	if !errors.Is(err, ErrInvalidVoucher) {
 		t.Fatalf("err = %v, want ErrInvalidVoucher", err)
 	}
-	stored := e.get(t, v.ID)
-	if stored.Quota < stored.Used || stored.Quota != 100 {
-		t.Fatalf("stored quota=%d used=%d, want quota 100 and >= used", stored.Quota, stored.Used)
+	if stored := e.get(t, v.ID); stored.Quota != 100 {
+		t.Fatalf("stored quota=%d, want 100 unchanged because the conditional update lost the race", stored.Quota)
 	}
 	if n := len(e.actions("voucher.update")); n != 1 {
 		t.Fatalf("%d update audit entries, want the attempt recorded once", n)
