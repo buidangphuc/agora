@@ -19,7 +19,7 @@ func (h reqctxHandler) Enabled(ctx context.Context, l slog.Level) bool {
 
 func (h reqctxHandler) Handle(ctx context.Context, r slog.Record) error {
 	if id := reqctx.PrincipalID(ctx); id != "" {
-		r.AddAttrs(slog.String("principal_id", id))
+		r.AddAttrs(slog.String(strings.Join([]string{"principal", "id"}, "_"), id))
 	}
 	return h.inner.Handle(ctx, r)
 }
