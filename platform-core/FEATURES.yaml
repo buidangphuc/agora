@@ -7238,3 +7238,408 @@ features:
     - unit
     status: not-testable
     notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx TestStatusGRPCStatusBeatsUniqueViolation."
+
+  - id: p10-gaps-contract.unit-hand-off-rpcs-and-messages-exist
+    title: "Hand-off RPCs and messages exist"
+    persona: guest
+    priority: P2
+    summary: "Hand-off RPCs and messages exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Hand-off RPCs and messages exist (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_HandoffRPCs in platform-core/packages/proto/platform/identity/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-becomeseller-and-event-exist
+    title: "BecomeSeller and event exist"
+    persona: guest
+    priority: P2
+    summary: "BecomeSeller and event exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "BecomeSeller and event exist (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_BecomeSellerAndEvent in platform-core/packages/proto/platform/identity/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-existing-identity-contract-is-untouched
+    title: "Existing identity contract is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing identity contract is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing identity contract is untouched (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_IdentityBreakingClean in platform-core/packages/proto/platform/identity/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-old-authresult-round-trip-still-passes
+    title: "Old AuthResult round trip still passes"
+    persona: guest
+    priority: P2
+    summary: "Old AuthResult round trip still passes"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old AuthResult round trip still passes (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestAuthResultRoundTrip in platform-core/packages/proto/platform/identity/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-unspecified-target-is-the-zero-value
+    title: "Unspecified target is the zero value"
+    persona: guest
+    priority: P2
+    summary: "Unspecified target is the zero value"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unspecified target is the zero value (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_UnspecifiedTargetIsZero in platform-core/packages/proto/platform/identity/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-removing-an-existing-identity-rpc-is-rejected
+    title: "Removing an existing identity RPC is rejected"
+    persona: guest
+    priority: P2
+    summary: "Removing an existing identity RPC is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Removing an existing identity RPC is rejected (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_RemovedRPCDetected in platform-core/packages/proto/platform/identity/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-comments-carry-the-authz-and-secrecy-rules
+    title: "Comments carry the authz and secrecy rules"
+    persona: guest
+    priority: P2
+    summary: "Comments carry the authz and secrecy rules"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Comments carry the authz and secrecy rules (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_IdentityRPCsDocumented in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-missing-secrecy-comment-is-rejected
+    title: "Missing secrecy comment is rejected"
+    persona: guest
+    priority: P2
+    summary: "Missing secrecy comment is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing secrecy comment is rejected (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_IdentityRPCsDocumented in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-identity-copies-match-the-source
+    title: "Identity copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Identity copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Identity copies match the source (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check identity-copies-match in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-a-drifted-or-missing-identity-copy-is-rejected
+    title: "A drifted or missing identity copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "A drifted or missing identity copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A drifted or missing identity copy is rejected (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check identity-copies-drift-rejected in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-generated-code-compiles-in-go-and-typescript-consumers
+    title: "Generated code compiles in Go and TypeScript consumers"
+    persona: guest
+    priority: P2
+    summary: "Generated code compiles in Go and TypeScript consumers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Generated code compiles in Go and TypeScript consumers (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check identity-builds in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-lint-and-breaking-pass
+    title: "Lint and breaking pass"
+    persona: guest
+    priority: P2
+    summary: "Lint and breaking pass"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Lint and breaking pass (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check buf-lint-breaking in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-regeneration-is-reproducible
+    title: "Regeneration is reproducible"
+    persona: guest
+    priority: P2
+    summary: "Regeneration is reproducible"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Regeneration is reproducible (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check regen-reproducible in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-voucher-rpcs-and-fields-exist
+    title: "Voucher RPCs and fields exist"
+    persona: guest
+    priority: P2
+    summary: "Voucher RPCs and fields exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Voucher RPCs and fields exist (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_VoucherRPCsAndFields in platform-core/packages/proto/platform/promotion/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-campaign-rpcs-enum-and-fields-exist
+    title: "Campaign RPCs, enum and fields exist"
+    persona: guest
+    priority: P2
+    summary: "Campaign RPCs, enum and fields exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Campaign RPCs, enum and fields exist (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_CampaignRPCsEnumAndFields in platform-core/packages/proto/platform/promotion/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-existing-promotion-fields-are-untouched
+    title: "Existing promotion fields are untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing promotion fields are untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing promotion fields are untouched (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_PromotionBreakingClean in platform-core/packages/proto/platform/promotion/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-old-payload-decodes-under-the-new-schema
+    title: "Old payload decodes under the new schema"
+    persona: guest
+    priority: P2
+    summary: "Old payload decodes under the new schema"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old payload decodes under the new schema (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_OldPayloadDecodes in platform-core/packages/proto/platform/promotion/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-renumbering-an-existing-promotion-field-is-rejected
+    title: "Renumbering an existing promotion field is rejected"
+    persona: guest
+    priority: P2
+    summary: "Renumbering an existing promotion field is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Renumbering an existing promotion field is rejected (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_RenumberDetected in platform-core/packages/proto/platform/promotion/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-pagination-reuses-the-common-message
+    title: "Pagination reuses the common message"
+    persona: guest
+    priority: P2
+    summary: "Pagination reuses the common message"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Pagination reuses the common message (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_ListCampaignsShape in platform-core/packages/proto/platform/promotion/v1. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-comments-name-the-authz-rule-and-audit-action
+    title: "Comments name the authz rule and audit action"
+    persona: guest
+    priority: P2
+    summary: "Comments name the authz rule and audit action"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Comments name the authz rule and audit action (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_AdminRPCsDocumented in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-missing-authz-comment-is-rejected
+    title: "Missing authz comment is rejected"
+    persona: guest
+    priority: P2
+    summary: "Missing authz comment is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing authz comment is rejected (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: TestGapsContract_AdminRPCsDocumented in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-promotion-copies-match-the-source
+    title: "Promotion copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Promotion copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Promotion copies match the source (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check promotion-copies-match in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-a-drifted-or-missing-promotion-copy-is-rejected
+    title: "A drifted or missing promotion copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "A drifted or missing promotion copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A drifted or missing promotion copy is rejected (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check promotion-copies-drift-rejected in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-generated-code-compiles-in-go-consumers
+    title: "Generated code compiles in Go consumers"
+    persona: guest
+    priority: P2
+    summary: "Generated code compiles in Go consumers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Generated code compiles in Go consumers (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check promotion-go-builds in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-generated-typescript-compiles-in-frontend-consumers
+    title: "Generated TypeScript compiles in frontend consumers"
+    persona: guest
+    priority: P2
+    summary: "Generated TypeScript compiles in frontend consumers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Generated TypeScript compiles in frontend consumers (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check promotion-ts-builds in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-audit-copies-match-the-source
+    title: "Audit copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Audit copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Audit copies match the source (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check audit-copies-match in platform-core/packages/proto. Not producible end to end."
+
+  - id: p10-gaps-contract.unit-a-drifted-or-missing-audit-copy-is-rejected
+    title: "A drifted or missing audit copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "A drifted or missing audit copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A drifted or missing audit copy is rejected (unit-verified)"
+    tags: [p10-gaps-contract, unit]
+    status: not-testable
+    notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check audit-copies-drift-rejected in platform-core/packages/proto. Not producible end to end."
