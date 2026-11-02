@@ -46,8 +46,8 @@ export function FavoriteButton({
       aria-label={fav ? "Bỏ thích" : "Yêu thích"}
       className={`grid h-7 w-7 place-items-center rounded-full transition shadow-xs ${
         fav
-          ? "bg-red-500 text-text-inverse"
-          : "bg-black/30 text-text-inverse hover:bg-black/50 backdrop-blur-xs"
+          ? "bg-action-danger text-text-inverse"
+          : "bg-text-primary/30 text-text-inverse hover:bg-text-primary/50 backdrop-blur-xs"
       }`}
     >
       <span className="text-xs leading-none">{fav ? "♥" : "♡"}</span>

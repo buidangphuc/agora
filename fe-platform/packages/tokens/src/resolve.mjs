@@ -23,6 +23,11 @@ export function semanticNames() {
   return Object.keys(semantic.light);
 }
 
+/** Tailwind colour value for a semantic name that accepts an opacity modifier (`bg-surface-card/80`). */
+export function colorVar(/** @type {string} */ name) {
+  return `color-mix(in srgb, var(--color-${name}) calc(<alpha-value> * 100%), transparent)`;
+}
+
 export function px(/** @type {number} */ n) {
   return n === 0 ? "0px" : `${n}px`;
 }

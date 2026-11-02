@@ -2,7 +2,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { primitives, resolveShadows, resolveTheme } from "@fe-platform/tokens";
+import {
+  colorVar,
+  primitives,
+  resolveShadows,
+  resolveTheme,
+} from "@fe-platform/tokens";
 import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 import { describe, expect, it } from "vitest";
@@ -55,7 +60,7 @@ describe("design tokens", () => {
   it("Tier 2: bg-action-primary reads --color-action-primary, which is the brand colour", async () => {
     const css = await build("bg-action-primary");
     expect(declaration(css, ".bg-action-primary", "background-color")).toBe(
-      "var(--color-action-primary)",
+      "color-mix(in srgb, var(--color-action-primary) calc(var(--tw-bg-opacity, 1) * 100%), transparent)",
     );
     expect(declaration(css, ":root", "--color-action-primary")).toBe(BRAND);
     expect(BRAND).toBe(palette["primary-600"]);
@@ -66,7 +71,7 @@ describe("design tokens", () => {
     const colors = config.theme?.extend?.colors as Record<string, unknown>;
     for (const [name, value] of Object.entries(resolveTheme("light"))) {
       expect(declaration(css, ":root", `--color-${name}`), name).toBe(value);
-      expect(colors[name], `colour ${name}`).toBe(`var(--color-${name})`);
+      expect(colors[name], `colour ${name}`).toBe(colorVar(name));
     }
   });
 
@@ -134,7 +139,7 @@ describe("design tokens", () => {
         `--color-${name}`,
       ).toBeTruthy();
       const colors = config.theme?.extend?.colors as Record<string, unknown>;
-      expect(colors[name], `colour ${name}`).toBe(`var(--color-${name})`);
+      expect(colors[name], `colour ${name}`).toBe(colorVar(name));
     }
   });
 

@@ -1,4 +1,9 @@
-import { primitives, resolveShadows, resolveTheme } from "@fe-platform/tokens";
+import {
+  colorVar,
+  primitives,
+  resolveShadows,
+  resolveTheme,
+} from "@fe-platform/tokens";
 import type { Config } from "tailwindcss";
 import plugin from "tailwindcss/plugin";
 
@@ -60,7 +65,7 @@ const fontSize: Record<string, [string, { lineHeight: string }]> = {
 };
 
 // ---------------------------------------------------------------- Tier 2 (colour aliases)
-const alias = (name: string) => `var(--color-${name})`;
+const alias = colorVar;
 
 const lightTheme = resolveTheme("light");
 const platformAliases = Object.fromEntries(

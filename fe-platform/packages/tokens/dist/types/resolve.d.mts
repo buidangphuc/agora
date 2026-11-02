@@ -4,6 +4,8 @@
  */
 export function resolveTheme(theme: string): Record<string, string>;
 export function semanticNames(): string[];
+/** Tailwind colour value for a semantic name that accepts an opacity modifier (`bg-surface-card/80`). */
+export function colorVar(name: string): string;
 export function px(n: number): string;
 /**
  * @param {{ x: number, y: number, blur: number, spread: number, color: string }[]} layers

@@ -19,6 +19,12 @@
   --color-text-danger: #b91c1c;
   --color-text-success: #047857;
   --color-text-warning: #92400e;
+  --color-surface-danger: #fef2f2;
+  --color-surface-success: #ecfdf5;
+  --color-surface-warning: #fffbeb;
+  --color-border-danger-subtle: #fca5a5;
+  --color-border-success-subtle: #a7f3d0;
+  --color-border-warning-subtle: #fde68a;
   --color-focus-ring: #4f46e5;
   --shadow-card: 0px 1px 2px 0px #0f172a0f, 0px 4px 16px 0px #0f172a0a;
   --shadow-pop: 0px 4px 8px 0px #0f172a14, 0px 16px 40px 0px #0f172a1f;
@@ -45,6 +51,12 @@
   --color-text-danger: #fca5a5;
   --color-text-success: #10b981;
   --color-text-warning: #fbbf24;
+  --color-surface-danger: #450a0a;
+  --color-surface-success: #022c22;
+  --color-surface-warning: #451a03;
+  --color-border-danger-subtle: #991b1b;
+  --color-border-success-subtle: #047857;
+  --color-border-warning-subtle: #92400e;
   --color-focus-ring: #818cf8;
   --shadow-card: 0px 1px 2px 0px #00000066, 0px 4px 16px 0px #00000040;
   --shadow-pop: 0px 4px 8px 0px #00000080, 0px 16px 40px 0px #00000099;
@@ -72,6 +84,12 @@
     --color-text-danger: #fca5a5;
     --color-text-success: #10b981;
     --color-text-warning: #fbbf24;
+    --color-surface-danger: #450a0a;
+    --color-surface-success: #022c22;
+    --color-surface-warning: #451a03;
+    --color-border-danger-subtle: #991b1b;
+    --color-border-success-subtle: #047857;
+    --color-border-warning-subtle: #92400e;
     --color-focus-ring: #818cf8;
     --shadow-card: 0px 1px 2px 0px #00000066, 0px 4px 16px 0px #00000040;
     --shadow-pop: 0px 4px 8px 0px #00000080, 0px 16px 40px 0px #00000099;

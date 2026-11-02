@@ -31,6 +31,14 @@ export const primitives = {
     "promo-dark": "#92400e",
     success: "#10b981",
     "success-dark": "#047857",
+    "danger-subtle": "#fef2f2",
+    "danger-deep": "#450a0a",
+    "success-subtle": "#ecfdf5",
+    "success-light": "#a7f3d0",
+    "success-deep": "#022c22",
+    "promo-subtle": "#fffbeb",
+    "promo-light": "#fde68a",
+    "promo-deep": "#451a03",
   },
   space: {
     0: 0,
@@ -126,6 +134,12 @@ export const semantic = {
     "text-danger": "danger-dark",
     "text-success": "success-dark",
     "text-warning": "promo-dark",
+    "surface-danger": "danger-subtle",
+    "surface-success": "success-subtle",
+    "surface-warning": "promo-subtle",
+    "border-danger-subtle": "danger-light",
+    "border-success-subtle": "success-light",
+    "border-warning-subtle": "promo-light",
     "focus-ring": "primary-600",
   },
   dark: {
@@ -149,13 +163,19 @@ export const semantic = {
     "text-danger": "danger-light",
     "text-success": "success",
     "text-warning": "promo",
+    "surface-danger": "danger-deep",
+    "surface-success": "success-deep",
+    "surface-warning": "promo-deep",
+    "border-danger-subtle": "danger-darker",
+    "border-success-subtle": "success-dark",
+    "border-warning-subtle": "promo-dark",
     "focus-ring": "primary-400",
   },
 };
 
 export const components = {
   button: {
-    base: "inline-flex items-center justify-center gap-2 rounded-xl font-sans font-semibold min-h-touch focus-visible:ring-2 focus-visible:ring-focus-ring",
+    base: "relative inline-flex items-center justify-center gap-2 rounded-xl font-sans font-semibold min-h-touch focus-visible:ring-2 focus-visible:ring-focus-ring",
     variant: {
       primary:
         "bg-action-primary text-text-inverse hover:bg-action-primary-hover shadow-card",
@@ -175,6 +195,9 @@ export const components = {
     fullWidth: "w-full",
     fullWidthMobile: "w-full sm:w-auto",
     icon: "inline-flex shrink-0",
+    content: "inline-flex items-center justify-center gap-2",
+    contentLoading: "opacity-0",
+    spinnerSlot: "absolute inset-0 flex items-center justify-center",
     spinner:
       "size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent",
   },

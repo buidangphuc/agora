@@ -1,6 +1,7 @@
 export { checkPair, contrastRatio, THRESHOLD } from "./contrast.mjs";
 export { pairs } from "./pairs.mjs";
 export {
+  colorVar,
   resolveShadows,
   resolveTheme,
   semanticNames,

@@ -14,7 +14,7 @@ export type ButtonProps = NativeProps<"button"> & {
   rightIcon?: ReactNode;
 };
 
-/** Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones; `fullWidth="mobile"` is full width below the sm breakpoint only. */
+/** Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones; `fullWidth="mobile"` is full width below the sm breakpoint only; `loading` keeps the idle width. */
 export function Button({
   variant = "primary",
   size = "md",
@@ -44,10 +44,16 @@ export function Button({
         inactive && button.disabled,
       )}
     >
-      {loading && <span aria-hidden="true" className={button.spinner} />}
-      {leftIcon && <span className={button.icon}>{leftIcon}</span>}
-      {children}
-      {rightIcon && <span className={button.icon}>{rightIcon}</span>}
+      <span className={cx(button.content, loading && button.contentLoading)}>
+        {leftIcon && <span className={button.icon}>{leftIcon}</span>}
+        {children}
+        {rightIcon && <span className={button.icon}>{rightIcon}</span>}
+      </span>
+      {loading && (
+        <span aria-hidden="true" className={button.spinnerSlot}>
+          <span className={button.spinner} />
+        </span>
+      )}
     </button>
   );
 }

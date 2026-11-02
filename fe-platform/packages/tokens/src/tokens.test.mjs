@@ -3,6 +3,8 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import postcss from "postcss";
+import tailwind from "tailwindcss";
 import { describe, expect, it } from "vitest";
 import { checkPair, contrastRatio } from "./contrast.mjs";
 import { pairs } from "./pairs.mjs";
@@ -156,6 +158,26 @@ describe("tailwind preset", () => {
       plugin({ addUtilities: (u) => Object.assign(added, u) });
     }
     expect(Object.keys(added)).toEqual([".pt-safe", ".pb-safe"]);
+  });
+});
+
+describe("semantic colours with an opacity modifier", () => {
+  it("compile to color-mix with the modifier and to 100% without one", async () => {
+    const { css } = await postcss([
+      tailwind({
+        presets: [preset],
+        content: [
+          { raw: "bg-surface-card/50 text-text-primary", extension: "html" },
+        ],
+        corePlugins: { preflight: false },
+      }),
+    ]).process("@tailwind utilities;", { from: undefined });
+    expect(css).toContain(
+      "background-color: color-mix(in srgb, var(--color-surface-card) calc(0.5 * 100%), transparent)",
+    );
+    expect(css).toContain(
+      "color: color-mix(in srgb, var(--color-text-primary) calc(var(--tw-text-opacity, 1) * 100%), transparent)",
+    );
   });
 });
 

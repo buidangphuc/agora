@@ -165,12 +165,12 @@ export function AiAssistantModal({
 
       {/* AI Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-overlay p-4 backdrop-blur-xs">
           <div className="flex flex-col h-modal w-full max-w-2xl rounded-3xl bg-surface-card shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
             {/* Header */}
             <div className="flex items-center justify-between bg-gradient-to-r from-primary-600 to-primary-600 p-4 text-text-inverse">
               <div className="flex items-center gap-2.5">
-                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/20 text-xl backdrop-blur-xs">
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-text-inverse/20 text-xl backdrop-blur-xs">
                   🤖
                 </span>
                 <div>
@@ -186,7 +186,7 @@ export function AiAssistantModal({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-full bg-black/20 p-2 text-xs text-text-inverse hover:bg-black/40 transition"
+                className="rounded-full bg-text-primary/20 p-2 text-xs text-text-inverse hover:bg-text-primary/40 transition"
               >
                 ✕
               </button>
@@ -268,7 +268,7 @@ export function AiAssistantModal({
                               />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <span className="inline-block rounded-xs bg-emerald-50 px-1.5 py-0.2 text-xs font-bold text-text-success">
+                              <span className="inline-block rounded-xs bg-surface-success px-1.5 py-0.2 text-xs font-bold text-text-success">
                                 ⭐ {matchScore}% Khớp ý định
                               </span>
                               <h4 className="line-clamp-2 text-xs font-bold text-text-primary mt-1">
