@@ -34,6 +34,11 @@ type fpFixture struct {
 
 func newFPFixture(t *testing.T, secret string, rps float64, burst int) *fpFixture {
 	t.Helper()
+	return newFPFixtureWith(t, secret, rps, burst, &upstream.Clients{Search: &ctxCapture{}})
+}
+
+func newFPFixtureWith(t *testing.T, secret string, rps float64, burst int, clients *upstream.Clients) *fpFixture {
+	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +58,7 @@ func newFPFixture(t *testing.T, secret string, rps float64, burst int) *fpFixtur
 	logs := &syncBuf{}
 	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"search:read"}, time.Second, 0, rps, burst).
 		WithFingerprinter(fp)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Search: &ctxCapture{}}, e, nil, edge.CockpitConfig{}, slog.New(slog.NewJSONHandler(logs, nil))))
+	srv := httptest.NewServer(edge.NewMux(clients, e, nil, edge.CockpitConfig{}, slog.New(slog.NewJSONHandler(logs, nil))))
 	t.Cleanup(srv.Close)
 	return &fpFixture{srv: srv, logs: logs, key: key}
 }
