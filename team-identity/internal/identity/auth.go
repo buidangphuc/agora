@@ -74,6 +74,8 @@ type AuthService struct {
 
 	handoff    HandoffRepository
 	handoffTTL time.Duration
+
+	sellerTerms []string
 }
 
 // WithClock injects the time source (default time.Now).
