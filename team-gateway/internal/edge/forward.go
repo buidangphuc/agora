@@ -27,6 +27,8 @@ import (
 	"github.com/buidangphuc/team-gateway/internal/token"
 )
 
+const mdPrincipalSessionID = "x-principal-sid"
+
 type ctxKey int
 
 const (
@@ -213,6 +215,9 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 	md.Set(auth.MDPrincipalID, p.id)
 	md.Set(auth.MDPrincipalType, p.ptype)
 	md.Set(auth.MDPrincipalScopes, strings.Join(p.scopes, ","))
+	if p.sid != "" {
+		md.Set(mdPrincipalSessionID, p.sid)
+	}
 	md.Set(reqctx.MetadataRequestID, rid)
 	// Client context is built here from edge-observed values only, never copied
 	// from inbound headers, so a client-supplied x-client-* cannot pass through.

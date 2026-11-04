@@ -23,6 +23,7 @@ and write the audit entry `auth.handoff_mint` inside the same transaction as the
 #### Scenario: Service principal cannot mint
 - **WHEN** a service principal calls `CreateHandoffCode`
 - **THEN** the call fails `PERMISSION_DENIED` and no row is written
+- **VERIFIED BY**: team-identity `internal/identity` `TestMintServicePrincipalDenied`
 
 #### Scenario: Anonymous caller cannot mint
 - **WHEN** an anonymous caller calls `CreateHandoffCode`
@@ -70,6 +71,7 @@ invalid code (including a non-ACTIVE account) SHALL return the same fixed `UNAUT
 #### Scenario: Peek of a malformed code does no lookup
 - **WHEN** a code of the wrong length is peeked
 - **THEN** the fixed `UNAUTHENTICATED` is returned and the store receives no query
+- **VERIFIED BY**: team-identity `internal/identity` `TestPeekMalformedNoLookup`
 
 #### Scenario: Peek needs no token
 - **WHEN** an anonymous caller peeks a valid code
@@ -90,10 +92,12 @@ session after redeem. Every failure SHALL return `UNAUTHENTICATED` with one fixe
 #### Scenario: Redeem at the TTL boundary
 - **WHEN** a code is redeemed exactly at `expires_at`
 - **THEN** the call succeeds, and a redeem at `expires_at + 1 ms` fails `UNAUTHENTICATED`
+- **VERIFIED BY**: team-identity `internal/identity` `TestRedeemAtExpiryInstant`
 
 #### Scenario: Derived session carries the roles at redeem time
 - **WHEN** a user is granted role seller after minting a seller-target code and the code is redeemed
 - **THEN** the new access token's scopes include seller
+- **VERIFIED BY**: team-identity `internal/identity` `TestRedeemRolesAtRedeemTime`
 
 #### Scenario: Derived session survives source logout
 - **WHEN** a code is redeemed successfully and the source session is then logged out
@@ -152,14 +156,17 @@ under any other `ENV`.
 #### Scenario: Override accepted in test
 - **WHEN** identity starts with `ENV=test` and a 5 s override
 - **THEN** a minted code has `expires_at` 5 s after the server clock
+- **VERIFIED BY**: team-identity `internal/config` `TestTTLOverrideOnlyInTestAccepted`
 
 #### Scenario: Override refused outside test
 - **WHEN** identity starts with `ENV=staging` (or local, prod) and the override set
 - **THEN** startup fails with a config error and no listener opens
+- **VERIFIED BY**: team-identity `internal/config` `TestTTLOverrideOnlyInTestRefusedElsewhere`
 
 #### Scenario: Default TTL without override
 - **WHEN** identity starts with `ENV=prod` and no override
 - **THEN** a minted code has `expires_at` exactly 60 s after the server clock
+- **VERIFIED BY**: team-identity `internal/identity` `TestMintReturnsCodeAndTTL`
 
 ### Requirement: Hand-off code purge
 
@@ -168,6 +175,7 @@ team-identity SHALL delete `handoff_codes` rows whose `expires_at` is more than 
 #### Scenario: Old rows are purged, recent ones kept
 - **WHEN** the sweeper runs with rows expired 25 h ago and 23 h ago
 - **THEN** only the 25 h row is deleted
+- **VERIFIED BY**: team-identity `internal/store` `TestHandoffPurge`
 
 ### Requirement: Gateway exposure
 
@@ -189,3 +197,4 @@ team-gateway SHALL expose `CreateHandoffCode` to authenticated user callers and 
 #### Scenario: Redeem is never retried
 - **WHEN** identity answers `UNAVAILABLE` to a redeem forwarded by the gateway
 - **THEN** identity received exactly one `RedeemHandoffCode` call and the caller gets `UNAVAILABLE`
+- **VERIFIED BY**: team-gateway `internal/edge` `TestAuthForwarderRedeemNotRetriedHandoff`

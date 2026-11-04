@@ -82,8 +82,8 @@ func TestMigrateSubcommandDispatch(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("migrate up exit = %d, want 0\n%s", code, out)
 		}
-		if v, dirty, ok := schemaState(t, url); !ok || v != 19 || dirty {
-			t.Fatalf("schema_migrations = %d dirty=%v exists=%v, want 19 clean", v, dirty, ok)
+		if v, dirty, ok := schemaState(t, url); !ok || v != 20 || dirty {
+			t.Fatalf("schema_migrations = %d dirty=%v exists=%v, want 20 clean", v, dirty, ok)
 		}
 	})
 

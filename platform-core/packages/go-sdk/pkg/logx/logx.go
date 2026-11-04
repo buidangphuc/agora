@@ -2,14 +2,18 @@ package logx
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"io"
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
@@ -43,8 +47,32 @@ func parseLevel(s string) slog.Level {
 	}
 }
 
-// NewHandler wraps inner so records gain request_id, principal_id and trace_id
-// when the record's context carries them.
+var (
+	fpOnce sync.Once
+	fp     *kafkax.Fingerprinter
+)
+
+func principalFingerprinter() *kafkax.Fingerprinter {
+	fpOnce.Do(func() {
+		k := config.LogKeyFP{Secret: os.Getenv("LOG_KEY_FP_SECRET")}
+		if err := k.ResolveFor(config.Runtime{Env: os.Getenv("ENV")}); err != nil {
+			b := make([]byte, 32)
+			_, _ = rand.Read(b)
+			k.Secret = hex.EncodeToString(b)
+		}
+		fp, _ = kafkax.NewFingerprinter(k.Secret)
+	})
+	return fp
+}
+
+// PrincipalFP returns the keyed fingerprint logged as principal_fp.
+func PrincipalFP(id string) string {
+	return principalFingerprinter().Of([]byte(id))
+}
+
+// NewHandler wraps inner so records gain request_id, principal_fp and trace_id
+// when the record's context carries them. The raw principal id is never logged;
+// principal_fp is a keyed fingerprint under LOG_KEY_FP_SECRET.
 func NewHandler(inner slog.Handler) slog.Handler {
 	return ctxHandler{inner: inner}
 }
@@ -66,7 +94,9 @@ func (h ctxHandler) Handle(ctx context.Context, r slog.Record) error {
 		}
 	}
 	add("request_id", reqctx.RequestID(ctx))
-	add("principal_id", reqctx.PrincipalID(ctx))
+	if id := reqctx.PrincipalID(ctx); id != "" {
+		add("principal_fp", PrincipalFP(id))
+	}
 	if sc := trace.SpanContextFromContext(ctx); sc.HasTraceID() {
 		add("trace_id", sc.TraceID().String())
 	}

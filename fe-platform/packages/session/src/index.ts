@@ -30,3 +30,9 @@ export {
   isUsableToken,
   tokenState,
 } from "./token";
+export {
+  type HandoffHandlerDeps,
+  type StartHandoffDeps,
+  createHandoffHandler,
+  startHandoff,
+} from "./handoff";

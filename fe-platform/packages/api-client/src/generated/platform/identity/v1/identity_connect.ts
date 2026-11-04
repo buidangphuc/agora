@@ -8,7 +8,7 @@
 // the edge and turns into a platform.common.v1.Principal (ADR-0003). Downstream
 // services never see credentials — only the resolved Principal.
 
-import { ChangePasswordRequest, ChangePasswordResponse, CreateAddressRequest, CreateAddressResponse, DeleteAddressRequest, DeleteAddressResponse, GetPublicProfilesRequest, GetPublicProfilesResponse, ListAddressesRequest, ListAddressesResponse, ListLoginHistoryRequest, ListLoginHistoryResponse, ListSessionsRequest, ListSessionsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, RefreshSessionRequest, RefreshSessionResponse, RegisterRequest, RegisterResponse, RequestPasswordResetRequest, RequestPasswordResetResponse, ResetPasswordRequest, ResetPasswordResponse, RevokeSessionRequest, RevokeSessionResponse, SetDefaultAddressRequest, SetDefaultAddressResponse, SetUserStatusRequest, SetUserStatusResponse, UpdateAddressRequest, UpdateAddressResponse } from "./identity_pb.js";
+import { BecomeSellerRequest, BecomeSellerResponse, ChangePasswordRequest, ChangePasswordResponse, CreateAddressRequest, CreateAddressResponse, CreateHandoffCodeRequest, CreateHandoffCodeResponse, DeleteAddressRequest, DeleteAddressResponse, GetPublicProfilesRequest, GetPublicProfilesResponse, ListAddressesRequest, ListAddressesResponse, ListLoginHistoryRequest, ListLoginHistoryResponse, ListSessionsRequest, ListSessionsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, PeekHandoffCodeRequest, PeekHandoffCodeResponse, RedeemHandoffCodeRequest, RedeemHandoffCodeResponse, RefreshSessionRequest, RefreshSessionResponse, RegisterRequest, RegisterResponse, RequestPasswordResetRequest, RequestPasswordResetResponse, ResetPasswordRequest, ResetPasswordResponse, RevokeSessionRequest, RevokeSessionResponse, SetDefaultAddressRequest, SetDefaultAddressResponse, SetUserStatusRequest, SetUserStatusResponse, UpdateAddressRequest, UpdateAddressResponse } from "./identity_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -94,6 +94,62 @@ export const AuthService = {
       name: "RefreshSession",
       I: RefreshSessionRequest,
       O: RefreshSessionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * CreateHandoffCode mints a single use code that carries the caller's session
+     * to target_app. Requires a Principal (the caller is signed in); the code is
+     * bound to that Principal and to target_app and is valid for 60 s. The code
+     * is a bearer secret: never logged. UNAUTHENTICATED without a Principal;
+     * INVALID_ARGUMENT for HANDOFF_APP_UNSPECIFIED; RESOURCE_EXHAUSTED once the
+     * caller has 10 live codes.
+     *
+     * @generated from rpc platform.identity.v1.AuthService.CreateHandoffCode
+     */
+    createHandoffCode: {
+      name: "CreateHandoffCode",
+      I: CreateHandoffCodeRequest,
+      O: CreateHandoffCodeResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * RedeemHandoffCode consumes the code and returns an AuthResult for the
+     * bound user. Public (no Principal required): the code is the credential.
+     * Single use; an unknown, expired, used or wrong-target code gets one
+     * fixed UNAUTHENTICATED error. The code is a secret: never logged.
+     *
+     * @generated from rpc platform.identity.v1.AuthService.RedeemHandoffCode
+     */
+    redeemHandoffCode: {
+      name: "RedeemHandoffCode",
+      I: RedeemHandoffCodeRequest,
+      O: RedeemHandoffCodeResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * PeekHandoffCode is read-only: it returns the username a code is bound to
+     * and does not consume the code. Public (no Principal required). Same
+     * fixed UNAUTHENTICATED error as Redeem. The code is a secret: never logged.
+     *
+     * @generated from rpc platform.identity.v1.AuthService.PeekHandoffCode
+     */
+    peekHandoffCode: {
+      name: "PeekHandoffCode",
+      I: PeekHandoffCodeRequest,
+      O: PeekHandoffCodeResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * BecomeSeller grants the seller role to the caller. Authenticated user:
+     * requires a Principal, and the user id comes from the Principal, never from
+     * the request. Publishes one UserRoleGranted event.
+     *
+     * @generated from rpc platform.identity.v1.AuthService.BecomeSeller
+     */
+    becomeSeller: {
+      name: "BecomeSeller",
+      I: BecomeSellerRequest,
+      O: BecomeSellerResponse,
       kind: MethodKind.Unary,
     },
   }

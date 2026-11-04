@@ -18,7 +18,7 @@ describe("next.config headers", () => {
   // Scenario: Referrer hygiene: every response carries the policy header
   it("headers() sets Referrer-Policy and keeps CSP", async () => {
     const all = await rules();
-    const global = all.filter((r) => r.source === "/:path*");
+    const global = all.filter((r) => r.source === "/((?!auth/handoff).*)");
     expect(global.length).toBeGreaterThan(0);
     const headers = global.flatMap((r) => r.headers);
     const rp = headers.find((h) => h.key === "Referrer-Policy");

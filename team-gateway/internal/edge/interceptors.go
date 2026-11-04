@@ -12,6 +12,8 @@ import (
 
 	"connectrpc.com/connect"
 	"golang.org/x/time/rate"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 // defaultLimiterTTL is how long an idle per-key bucket is kept before eviction.
@@ -218,17 +220,23 @@ func (e *Edge) logRequest(ctx context.Context, logger *slog.Logger, procedure st
 	if !ok {
 		p = resolvedPrincipal{id: "anonymous", ptype: "anonymous"}
 	}
+	logPrincipal := p
+	handoff := strings.Contains(procedure, "HandoffCode")
+	if handoff {
+		logPrincipal.id = ""
+		ctx = reqctx.WithPrincipalID(ctx, "")
+	}
 	code := "ok"
 	if err != nil {
 		code = connect.CodeOf(err).String()
 		rawID := ""
-		if p.ptype == "user" || p.ptype == "service" {
+		if !handoff && (p.ptype == "user" || p.ptype == "service") {
 			rawID = p.id
 		}
 		logUpstreamError(logger, procedure, requestIDFrom(ctx), rawID, err)
 	}
 	attrs := []any{"method", procedure}
-	attrs = append(attrs, e.principalLogAttrs(p)...)
+	attrs = append(attrs, e.principalLogAttrs(logPrincipal)...)
 	attrs = append(attrs,
 		"code", code,
 		"latency_ms", time.Since(start).Milliseconds(),

@@ -71,6 +71,9 @@ type AuthService struct {
 	signer   *token.Signer
 	ttl      time.Duration
 	now      func() time.Time
+
+	handoff    HandoffRepository
+	handoffTTL time.Duration
 }
 
 // WithClock injects the time source (default time.Now).
