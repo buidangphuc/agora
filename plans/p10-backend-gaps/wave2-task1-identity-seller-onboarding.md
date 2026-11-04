@@ -26,8 +26,8 @@ Implement OpenSpec change `identity-seller-onboarding` test-first per its tasks.
 - platform-e2e/tests/e2e/support/seller_onboarding_support.py
 - openspec/changes/identity-seller-onboarding/**
 - team-identity/.env.example (widened at build: task 1.1)
-- team-identity/internal/identity/become_seller.go # widened at build: task 1.3
-- team-identity/internal/identity/become_seller_test.go # widened at build: task 1.3
+- team-identity/internal/identity/become_seller.go (widened at build: task 1.3)
+- team-identity/internal/identity/become_seller_test.go (widened at build: task 1.3)
 
 ## Read-only dependencies
 - team-identity ScopesForUser and session token signer
