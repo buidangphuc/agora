@@ -104,3 +104,50 @@ describe("access log redacts handoff code", () => {
     expect(line).toContain("q=shoes");
   });
 });
+
+describe("access log redacts handoff code in alternate encodings", () => {
+  const SECRET = "SECRETVALUE123";
+
+  async function logFor(query: string, path = "/auth/handoff") {
+    await middleware(new NextRequest(`http://app.test${path}?${query}`));
+    return handoffLines();
+  }
+
+  it.each([
+    ["lowercase hex", "c%6fde=SECRETVALUE123"],
+    ["uppercase hex", "c%6Fde=SECRETVALUE123"],
+    ["fully encoded", "%63%6F%64%65=SECRETVALUE123"],
+  ])("[Code redacted in access logs] percent-encoded parameter name (%s) is redacted", async (_n, q) => {
+    const hit = await logFor(`${q}&next=/x`);
+    expect(hit.length).toBeGreaterThan(0);
+    expect(hit.some((l) => l.includes("REDACTED"))).toBe(true);
+    expect(lines.join("\n")).not.toContain(SECRET);
+    expect(hit.some((l) => l.includes("next=/x"))).toBe(true);
+  });
+
+  it("[Code redacted in access logs] a repeated code parameter has every value redacted", async () => {
+    const hit = await logFor("code=SECRETONE&next=/x&code=SECRETTWO");
+    expect(hit.some((l) => l.includes("code=REDACTED"))).toBe(true);
+    const all = lines.join("\n");
+    expect(all).not.toContain("SECRETONE");
+    expect(all).not.toContain("SECRETTWO");
+  });
+
+  it("[Code redacted in access logs] a trailing-slash path is redacted", async () => {
+    const hit = await logFor(`code=${SECRET}&next=/x`, "/auth/handoff/");
+    expect(hit.some((l) => l.includes("code=REDACTED"))).toBe(true);
+    expect(lines.join("\n")).not.toContain(SECRET);
+  });
+
+  it("[Rejected hand-off request is still redacted] an undecodable key redacts the whole query", async () => {
+    const hit = await logFor(`%E0%A4%A=1&code=${SECRET}&next=/x`);
+    expect(hit.length).toBeGreaterThan(0);
+    expect(hit.some((l) => l.includes("REDACTED"))).toBe(true);
+    expect(lines.join("\n")).not.toContain(SECRET);
+  });
+
+  it("[Other query parameters keep their value] a lookalike encoded name is not masked", async () => {
+    const hit = await logFor("xc%6fde=keep&next=/x");
+    expect(hit.some((l) => l.includes("keep"))).toBe(true);
+  });
+});

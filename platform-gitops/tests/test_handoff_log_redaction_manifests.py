@@ -165,6 +165,40 @@ class HandoffLogRedactionChecks:
                 self.assertEqual(r("/auth/handoff?code="), "/auth/handoff?code=REDACTED")
 
 
+    def test_scenario_code_redacted_in_access_logs_encoded_repeated_and_slash_forms(self):
+        for env in ENVS:
+            with self.subTest(env=env):
+                r = redactor(config_text(self.APP, env))
+                secrets = [
+                    "/auth/handoff?c%6fde=SECRET",
+                    "/auth/handoff?c%6Fde=SECRET",
+                    "/auth/handoff?%63%6f%64%65=SECRET",
+                    "/auth/handoff?next=%2Fdash&c%6fde=SECRET&state=abc",
+                    "/auth/handoff?code=SECRET&code=SECRET",
+                    "/auth/handoff?code=SECRET&next=%2Fdash&code=SECRET",
+                    "/auth/handoff/?code=SECRET",
+                    "/auth/handoff/?c%6fde=SECRET&next=%2Fdash",
+                ]
+                for raw in secrets:
+                    self.assertNotIn("SECRET", r(raw), raw)
+
+    def test_scenario_rejected_hand_off_request_is_still_redacted_undecodable_key(self):
+        for env in ENVS:
+            with self.subTest(env=env):
+                r = redactor(config_text(self.APP, env))
+                for raw in ("/auth/handoff?%E0%A4%A=1&code=SECRET",
+                            "/auth/handoff?code=SECRET&%E0%A4%A=1"):
+                    self.assertNotIn("SECRET", r(raw), raw)
+
+    def test_scenario_other_query_parameters_keep_their_value_encoded_lookalikes(self):
+        for env in ENVS:
+            with self.subTest(env=env):
+                r = redactor(config_text(self.APP, env))
+                for uri in ("/auth/handoff?xc%6fde=keep&state=abc",
+                            "/auth/handoff?next=%2Fdash&state=abc"):
+                    self.assertEqual(r(uri), uri)
+
+
 class BuyerHandoffLogRedaction(HandoffLogRedactionChecks, unittest.TestCase):
     APP = "team-frontend"
 
