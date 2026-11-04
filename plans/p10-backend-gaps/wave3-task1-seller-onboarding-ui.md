@@ -31,6 +31,8 @@ Implement OpenSpec change `seller-onboarding-ui` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_login_return.py
 - platform-e2e/tests/e2e/step_definitions/seller_cockpit_steps.py
 - openspec/changes/seller-onboarding-ui/**
+- team-frontend-seller/src/features/seller/onboarding.ts (widened at build: task 1.1)
+- team-frontend-seller/src/features/seller/onboardingTerms.ts (widened at build: task 1.1)
 
 ## Read-only dependencies
 - identity-seller-onboarding BecomeSeller RPC and gateway route
