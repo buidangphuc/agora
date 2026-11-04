@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const refreshSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/gateway/refresh", () => ({ refreshSession }));
 
-import { middleware } from "./middleware";
 import { GET } from "./app/auth/handoff/route";
+import { middleware } from "./middleware";
 
 const CODE = "hc_9f3a7c1e5b2d4a60";
 const BAD = "hc_BADBADBAD0000";
@@ -49,9 +49,7 @@ function handoffLines(): string[] {
 describe("access log redacts handoff code", () => {
   it("[Code redacted in access logs] the request line shows code=REDACTED and never the code", async () => {
     await middleware(
-      new NextRequest(
-        `http://app.test/auth/handoff?code=${CODE}&next=/x`,
-      ),
+      new NextRequest(`http://app.test/auth/handoff?code=${CODE}&next=/x`),
     );
     const hit = handoffLines();
     expect(hit.length).toBeGreaterThan(0);
@@ -117,13 +115,16 @@ describe("access log redacts handoff code in alternate encodings", () => {
     ["lowercase hex", "c%6fde=SECRETVALUE123"],
     ["uppercase hex", "c%6Fde=SECRETVALUE123"],
     ["fully encoded", "%63%6F%64%65=SECRETVALUE123"],
-  ])("[Code redacted in access logs] percent-encoded parameter name (%s) is redacted", async (_n, q) => {
-    const hit = await logFor(`${q}&next=/x`);
-    expect(hit.length).toBeGreaterThan(0);
-    expect(hit.some((l) => l.includes("REDACTED"))).toBe(true);
-    expect(lines.join("\n")).not.toContain(SECRET);
-    expect(hit.some((l) => l.includes("next=/x"))).toBe(true);
-  });
+  ])(
+    "[Code redacted in access logs] percent-encoded parameter name (%s) is redacted",
+    async (_n, q) => {
+      const hit = await logFor(`${q}&next=/x`);
+      expect(hit.length).toBeGreaterThan(0);
+      expect(hit.some((l) => l.includes("REDACTED"))).toBe(true);
+      expect(lines.join("\n")).not.toContain(SECRET);
+      expect(hit.some((l) => l.includes("next=/x"))).toBe(true);
+    },
+  );
 
   it("[Code redacted in access logs] a repeated code parameter has every value redacted", async () => {
     const hit = await logFor("code=SECRETONE&next=/x&code=SECRETTWO");

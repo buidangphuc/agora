@@ -90,3 +90,34 @@ func TestHandlerKeepsExplicitIDs(t *testing.T) {
 		t.Fatalf("record = %v", rec)
 	}
 }
+
+func TestHandlerLogsPrincipalFingerprintNotRawID(t *testing.T) {
+	const raw = "user-8841-secret-id"
+	logOnce := func(id string) (map[string]any, string) {
+		var buf bytes.Buffer
+		log := slog.New(NewHandler(slog.NewJSONHandler(&buf, nil)))
+		log.InfoContext(reqctx.WithPrincipalID(context.Background(), id), "hello")
+		return decode(t, &buf), buf.String()
+	}
+
+	rec, out := logOnce(raw)
+	fp, ok := rec["principal_fp"].(string)
+	if !ok || fp == "" {
+		t.Fatalf("principal_fp missing in %v", rec)
+	}
+	if _, present := rec["principal_id"]; present {
+		t.Fatalf("principal_id present in %v", rec)
+	}
+	if strings.Contains(out, raw) || fp == raw {
+		t.Fatalf("raw id leaked in %s", out)
+	}
+
+	again, _ := logOnce(raw)
+	if again["principal_fp"] != fp {
+		t.Fatalf("fingerprint not stable: %v vs %v", again["principal_fp"], fp)
+	}
+	other, _ := logOnce("user-other")
+	if other["principal_fp"] == fp {
+		t.Fatalf("different principals share fingerprint %v", fp)
+	}
+}

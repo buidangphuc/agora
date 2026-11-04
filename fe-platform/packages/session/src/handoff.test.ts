@@ -134,7 +134,7 @@ function expectLogin(res: Response, next?: string) {
   } else {
     expect(to.searchParams.get("next")).toBe(next);
   }
-  expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+  expect(res.headers.get("referrer-policy")).toBe("same-origin");
 }
 
 function sessionCookies() {
@@ -170,7 +170,7 @@ describe("GET /auth/handoff", () => {
     expect(sessionCookies()).toEqual([]);
     expect(gateway.redeemCalls).toBe(0);
     expect(gateway.isRedeemable(CODE)).toBe(true);
-    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
   });
 
   it("HEAD and prefetch never consume", async () => {
@@ -181,15 +181,15 @@ describe("GET /auth/handoff", () => {
         method: "HEAD",
       }),
     );
-    expect(head.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(head.headers.get("referrer-policy")).toBe("same-origin");
     const prefetch = await handler.GET(
       getReq(`?code=${CODE}`, { purpose: "prefetch" }),
     );
-    expect(prefetch.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(prefetch.headers.get("referrer-policy")).toBe("same-origin");
     const secPrefetch = await handler.GET(
       getReq(`?code=${CODE}`, { "sec-purpose": "prefetch" }),
     );
-    expect(secPrefetch.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(secPrefetch.headers.get("referrer-policy")).toBe("same-origin");
     expect(gateway.redeemCalls).toBe(0);
     expect(sessionCookies()).toEqual([]);
     expect(gateway.isRedeemable(CODE)).toBe(true);
@@ -204,7 +204,7 @@ describe("GET /auth/handoff", () => {
     );
     expect(res.headers.get("x-frame-options")).toBe("DENY");
     expect(res.headers.get("cache-control")).toContain("no-store");
-    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
   });
 
   it("Code is in the POST body only", async () => {
@@ -324,7 +324,7 @@ describe("POST /auth/handoff", () => {
     expect(to.search).toBe("");
     expect(res.headers.get("location")).not.toContain("code");
     expect(res.headers.get("location")).not.toContain(CODE);
-    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
     expect(jar.store.has("seller_session")).toBe(true);
     expect(jar.store.has("seller_refresh")).toBe(true);
     expect(gateway.redeemCalls).toBe(1);
@@ -404,7 +404,7 @@ describe("POST /auth/handoff", () => {
     expect(location(res).pathname).toBe("/login");
     expect(location(res).search).toBe("");
     expect(res.headers.get("location")).not.toContain("next");
-    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
   });
 
   it("POST with neither Origin nor Sec-Fetch-Site is refused", async () => {

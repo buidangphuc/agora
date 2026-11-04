@@ -918,7 +918,7 @@ def hardening_headers(world: World) -> None:
     assert "frame-ancestors 'none'" in h.get("content-security-policy", ""), h.get("content-security-policy")
     assert h.get("x-frame-options", "").upper() == "DENY"
     assert "no-store" in h.get("cache-control", "")
-    assert h.get("referrer-policy") == "no-referrer"
+    assert h.get("referrer-policy") == "same-origin"
 
 
 @given(parsers.parse('the form action is "{action}" with no query'))
@@ -1086,7 +1086,7 @@ def every_login(world: World) -> None:
         assert resp.status_code == 303, f"expected 303, got {resp.status_code}"
         assert unquote(_path(ho.location_of(resp))) == "/login?next=/seller/orders", ho.location_of(resp)
         _assert_no_cookie(resp)
-        assert resp.headers.get("referrer-policy") == "no-referrer"
+        assert resp.headers.get("referrer-policy") == "same-origin"
 
 
 @given(parsers.parse('the admin app receives GET "/auth/handoff" for the code with next "{next_path}"'))

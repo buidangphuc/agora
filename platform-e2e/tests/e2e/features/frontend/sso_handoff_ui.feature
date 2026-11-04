@@ -25,7 +25,7 @@ Feature: Cross-app hand-off on the buyer and seller apps
     When the confirmation form of the seller app is submitted from its own origin with next "/seller/orders"
     Then the response is a 303 to "/seller/orders"
     And the response sets seller_session and seller_refresh cookies
-    And the response has Referrer-Policy "no-referrer"
+    And the response has Referrer-Policy "same-origin"
     And the Location contains no code
 
   Scenario: Forged cross-site POST is refused
@@ -63,7 +63,7 @@ Feature: Cross-app hand-off on the buyer and seller apps
     And a fresh seller-target code of the buyer
     When the confirmation form is posted with next "/seller/orders" with headers "Origin: https://evil.example"
     Then the 303 Location is exactly "/login"
-    And the response has Referrer-Policy "no-referrer"
+    And the response has Referrer-Policy "same-origin"
 
   Scenario: Already signed-in user gets the confirmation and the POST replaces the session
     Given a signed-in seller named bob who holds seller cookies
@@ -145,7 +145,7 @@ Feature: Cross-app hand-off on the buyer and seller apps
     And a fresh seller-target code of the buyer
     When a POST from the seller app's own origin carries an unknown code with next "/seller/orders"
     Then the response is a 303 to "/login?next=/seller/orders" with no cookie
-    And the response has Referrer-Policy "no-referrer"
+    And the response has Referrer-Policy "same-origin"
     And the code still redeems through the gateway
 
   Scenario: Missing or oversized code
