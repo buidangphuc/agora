@@ -12,6 +12,8 @@ import (
 
 	"connectrpc.com/connect"
 	"golang.org/x/time/rate"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 // defaultLimiterTTL is how long an idle per-key bucket is kept before eviction.
@@ -221,6 +223,7 @@ func (e *Edge) logRequest(ctx context.Context, logger *slog.Logger, procedure st
 	}
 	if strings.Contains(procedure, "HandoffCode") {
 		principalID = "redacted"
+		ctx = reqctx.WithPrincipalID(ctx, "")
 	}
 	logger.InfoContext(ctx, "edge.request",
 		"method", procedure,

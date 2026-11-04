@@ -65,6 +65,11 @@ func principalFingerprinter() *kafkax.Fingerprinter {
 	return fp
 }
 
+// PrincipalFP returns the keyed fingerprint logged as principal_fp.
+func PrincipalFP(id string) string {
+	return principalFingerprinter().Of([]byte(id))
+}
+
 // NewHandler wraps inner so records gain request_id, principal_fp and trace_id
 // when the record's context carries them. The raw principal id is never logged;
 // principal_fp is a keyed fingerprint under LOG_KEY_FP_SECRET.
@@ -90,7 +95,7 @@ func (h ctxHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 	add("request_id", reqctx.RequestID(ctx))
 	if id := reqctx.PrincipalID(ctx); id != "" {
-		add("principal_fp", principalFingerprinter().Of([]byte(id)))
+		add("principal_fp", PrincipalFP(id))
 	}
 	if sc := trace.SpanContextFromContext(ctx); sc.HasTraceID() {
 		add("trace_id", sc.TraceID().String())

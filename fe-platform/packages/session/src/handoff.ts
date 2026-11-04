@@ -45,9 +45,9 @@ function truncate(value: string): string {
     : value;
 }
 
-function baseHeaders(): Headers {
+function baseHeaders(referrerPolicy = "no-referrer"): Headers {
   const h = new Headers();
-  h.set("referrer-policy", "no-referrer");
+  h.set("referrer-policy", referrerPolicy);
   h.set("cache-control", "no-store");
   return h;
 }
@@ -59,8 +59,7 @@ function redirectTo(location: string): Response {
 }
 
 function confirmationPage(username: string, code: string, next: string) {
-  const h = baseHeaders();
-  h.set("referrer-policy", "same-origin");
+  const h = baseHeaders("same-origin");
   h.set("content-type", "text/html; charset=utf-8");
   h.set(
     "content-security-policy",

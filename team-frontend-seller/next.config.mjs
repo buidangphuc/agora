@@ -66,7 +66,7 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/:path*",
+        source: "/((?!auth/handoff).*)",
         headers: [
           { key: "Content-Security-Policy", value: buildCsp() },
           {
