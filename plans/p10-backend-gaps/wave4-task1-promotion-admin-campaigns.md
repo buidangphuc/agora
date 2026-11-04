@@ -36,7 +36,7 @@ Implement OpenSpec change `promotion-admin-campaigns` test-first per its tasks.m
 - platform-e2e/tests/e2e/support/admin_campaigns_support.py
 - platform-e2e/src/pages/admin_campaigns_page.py
 - openspec/changes/promotion-admin-campaigns/**
-- team-promotion/internal/listing/owner.go # widened at build: task 5
+- team-promotion/internal/listing/owner.go (widened at build: task 5)
 
 ## Read-only dependencies
 - promotion-admin-vouchers shared admin error mapping
