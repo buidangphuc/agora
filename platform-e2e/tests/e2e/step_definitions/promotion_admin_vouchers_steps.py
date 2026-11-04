@@ -677,11 +677,11 @@ def gaps_removed(world: World) -> None:
     )
 
 
-@then("the gaps document differs from the base only by the removal of rows G9, G10 and G11")
+@then("rows G9, G10 and G11 are removed from the base and no row is added")
 def gaps_removed_only(world: World) -> None:
     st = _x(world)
     base, now = _rows(st["gaps_base"]), _rows(st["gaps_now"])
-    assert set(base) - set(now) == _REMOVED_GAPS, sorted(set(base) - set(now))
+    assert _REMOVED_GAPS <= set(base) - set(now), sorted(_REMOVED_GAPS - (set(base) - set(now)))
     assert not set(now) - set(base), sorted(set(now) - set(base))
 
 

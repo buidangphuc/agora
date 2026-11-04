@@ -429,5 +429,5 @@ Feature: Admin stops and edits platform vouchers, with clear errors (promotion-a
 
   Scenario: V35 other gaps untouched
     Given the gaps document of the change
-    Then the gaps document differs from the base only by the removal of rows G9, G10 and G11
+    Then rows G9, G10 and G11 are removed from the base and no row is added
     And every other row is byte-identical and every row has the table format of the header

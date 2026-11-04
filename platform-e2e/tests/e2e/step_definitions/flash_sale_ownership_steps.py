@@ -9,6 +9,7 @@ through the gateway.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from pytest_bdd import given, parsers, then, when
@@ -21,6 +22,7 @@ from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
 _CREATE = "/platform.promotion.v1.FlashSaleService/CreateCampaign"
+_TS = "%Y-%m-%dT%H:%M:%SZ"
 
 
 def _register_seller(world: World, prefix: str) -> str:
@@ -32,6 +34,7 @@ def _register_seller(world: World, prefix: str) -> str:
 
 
 def _campaign_response(token: str, listing_id: str) -> httpx.Response:
+    now = datetime.now(timezone.utc)
     svc = BaseService(token=token)
     try:
         return svc.send(
@@ -41,8 +44,9 @@ def _campaign_response(token: str, listing_id: str) -> httpx.Response:
                 "listingId": listing_id,
                 "salePrice": 499_000,
                 "stockCap": 10,
-                "startsAt": "2026-09-01T00:00:00Z",
-                "endsAt": "2026-12-31T23:59:59Z",
+                "startsAt": (now - timedelta(hours=1)).strftime(_TS),
+                "endsAt": (now + timedelta(days=30)).strftime(_TS),
+                "idempotencyKey": f"e2e-{uuid.uuid4().hex[:16]}",
             },
         )
     finally:

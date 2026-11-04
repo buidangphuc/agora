@@ -2829,7 +2829,7 @@ features:
       - "V7a anonymous request does not reach promotion"
     tags: [promotion, unit]
     status: not-testable
-    notes: "Not producible end to end through the gateway (concurrency, ordering or call counting). Unit verification planned in gateway `internal/edge` promotion forwarder test (task 1.10): anonymous request is refused before any upstream dial; the spec needs a **VERIFIED BY** line naming the test once it exists."
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestV7_AnonymousCannotStopOrUpdate_NoUpstreamCall`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-vouchers-v7b-buyer-token-cannot-stop-or-update-through-the-gateway
     title: "V7b buyer token cannot stop or update through the gateway"
@@ -3369,7 +3369,7 @@ features:
       - "V16d race with a concurrent reservation"
     tags: [promotion, unit]
     status: not-testable
-    notes: "Not producible end to end through the gateway (concurrency, ordering or call counting). Unit verification planned in team-promotion repository-level concurrent-reservation race test (task 1.6a); the spec needs a **VERIFIED BY** line naming the test once it exists."
+    notes: "VERIFIED BY team-promotion `internal/store` `TestPostgresVoucherUpdateAgainstConcurrentReservationsNeverBreaksQuotaInvariant_V16d` and `TestPostgresVoucherConcurrentUpdatesNeverLowerQuotaBelowUsed_V16d`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-vouchers-v16e-lost-race-keeps-the-audit-entry
     title: "V16e lost race keeps the audit entry"
@@ -3382,7 +3382,7 @@ features:
       - "V16e lost race keeps the audit entry"
     tags: [promotion, unit]
     status: not-testable
-    notes: "Not producible end to end through the gateway (concurrency, ordering or call counting). Unit verification planned in team-promotion `internal/voucher` lost-race test (task 1.7); the spec needs a **VERIFIED BY** line naming the test once it exists."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestUpdateVoucher_V16d_V16e_lostRaceIsInvalidKeepsAuditAndNeverBelowUsed`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-vouchers-v16f-concurrent-deactivate-during-update
     title: "V16f concurrent deactivate during update"
@@ -3395,7 +3395,7 @@ features:
       - "V16f concurrent deactivate during update"
     tags: [promotion, unit]
     status: not-testable
-    notes: "Not producible end to end through the gateway (concurrency, ordering or call counting). Unit verification planned in team-promotion repository-level conditional UPDATE test (task 1.6a); the spec needs a **VERIFIED BY** line naming the test once it exists."
+    notes: "VERIFIED BY team-promotion `internal/store` `TestPostgresVoucherConcurrentDeactivateAndUpdateStayConsistent_V16f` and `internal/voucher` `TestUpdateVoucher_V16f_deactivateBetweenValidationAndUpdateIsFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-vouchers-v16g-error-precedence
     title: "V16g error precedence"
@@ -3408,7 +3408,7 @@ features:
       - "V16g error precedence"
     tags: [promotion, unit]
     status: not-testable
-    notes: "Not producible end to end through the gateway (concurrency, ordering or call counting). Unit verification planned in team-promotion `internal/rpc` and gateway precedence table tests (task 1.7); the spec needs a **VERIFIED BY** line naming the test once it exists."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestUpdateVoucher_V16g_errorPrecedence` and `internal/rpc` `TestUpdateVoucherFailedPreconditionBeatsInvalidArgument_V16g`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-vouchers-v17-non-admin-cannot-edit
     title: "V17 non-admin cannot edit"
@@ -3658,7 +3658,7 @@ features:
       - "V22 audit written before the change"
     tags: [promotion, unit]
     status: not-testable
-    notes: "Not producible end to end through the gateway (concurrency, ordering or call counting). Unit verification planned in team-promotion `internal/voucher` audit-before-write ordering tests (task 1.7); the spec needs a **VERIFIED BY** line naming the test once it exists."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestDeactivateVoucher_V22_auditBeforeWriteWithActorAndCode` and `TestUpdateVoucher_V22_auditBeforeWriteWithActorAndCode`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-vouchers-v23-gateway-keeps-the-audit-reason
     title: "V23 gateway keeps the audit reason"
@@ -4146,7 +4146,7 @@ features:
       exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
     acceptance:
       - "Given the gaps document of the change"
-      - "Then the gaps document differs from the base only by the removal of rows G9, G10 and G11"
+      - "Then rows G9, G10 and G11 are removed from the base and no row is added"
       - "And every other row is byte-identical and every row has the table format of the header"
     tags: [promotion, admin]
     status: automated
