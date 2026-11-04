@@ -5,11 +5,13 @@ import (
 	"log/slog"
 	"time"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	commonv1 "github.com/buidangphuc/team-promotion/generated/platform/common/v1"
@@ -34,6 +36,8 @@ func mustErrorTable() grpcx.ErrorTable {
 	t, err := grpcx.NewErrorTable(
 		grpcx.Rule{Target: voucher.ErrInvalidVoucher, Code: codes.InvalidArgument, Message: "invalid voucher"},
 		grpcx.Rule{Target: store.ErrVoucherNotFound, Code: codes.NotFound, Message: "voucher not found"},
+		grpcx.Rule{Target: store.ErrVoucherInactive, Code: codes.FailedPrecondition, Message: "voucher is inactive"},
+		grpcx.Rule{Target: store.ErrDuplicateCode, Code: codes.AlreadyExists, Message: "voucher code already exists"},
 		grpcx.Rule{Target: flashsale.ErrInvalidCampaign, Code: codes.InvalidArgument, Message: "invalid campaign"},
 		grpcx.Rule{Target: store.ErrCampaignNotFound, Code: codes.NotFound, Message: "campaign not found"},
 		grpcx.Rule{Target: sponsored.ErrInvalidAdCampaign, Code: codes.InvalidArgument, Message: "invalid ad campaign"},
@@ -50,6 +54,13 @@ func mustErrorTable() grpcx.ErrorTable {
 }
 
 func fail(ctx context.Context, logger *slog.Logger, err error) error {
+	if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable && st.Message() == auditx.Message {
+		withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Domain: "promotion.platform", Reason: "AUDIT_UNAVAILABLE"})
+		if derr == nil {
+			return withInfo.Err()
+		}
+		return st.Err()
+	}
 	return grpcx.Status(ctx, logger, err, errTable)
 }
 
@@ -118,6 +129,8 @@ func voucherToProto(v store.Voucher) *promotionv1.Voucher {
 		Used:          v.Used,
 		StartsAt:      protoTime(v.StartsAt),
 		EndsAt:        protoTime(v.EndsAt),
+		Active:        v.Active,
+		DeactivatedAt: protoTime(v.DeactivatedAt),
 	}
 }
 

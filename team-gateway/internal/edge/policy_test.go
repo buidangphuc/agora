@@ -12,6 +12,7 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/identity/v1/identityv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/listing/v1/listingv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
+	"github.com/buidangphuc/team-gateway/generated/platform/promotion/v1/promotionv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/verification/v1/verificationv1connect"
 )
 
@@ -41,6 +42,8 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 		listingv1connect.ListingServiceListModerationQueueProcedure, // domain-listing-moderation: admin-gated
 		identityv1connect.AccountAdminServiceListUsersProcedure,
 		identityv1connect.AccountAdminServiceSetUserStatusProcedure,
+		promotionv1connect.VoucherServiceDeactivateVoucherProcedure,
+		promotionv1connect.VoucherServiceUpdateVoucherProcedure,
 	}
 	var got []string
 	for k := range adminProcedures {

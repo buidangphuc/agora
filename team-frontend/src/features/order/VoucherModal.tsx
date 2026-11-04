@@ -90,7 +90,9 @@ function Slot({
       )}
       {quote && !quote.valid && quote.reason && (
         <p role="alert" className="text-xs text-danger">
-          {quote.reason}
+          {quote.reason === "inactive"
+            ? "Mã giảm giá đã ngừng áp dụng."
+            : quote.reason}
         </p>
       )}
     </div>

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -419,7 +420,14 @@ func toConnectErr(err error) error {
 	case codes.Unauthenticated:
 		code = connect.CodeUnauthenticated
 	case codes.Unavailable:
-		return sanitized(connect.CodeUnavailable, msgServiceUnavailable, err)
+		ce := sanitized(connect.CodeUnavailable, msgServiceUnavailable, err)
+		for _, d := range st.Details() {
+			if info, ok := d.(*errdetails.ErrorInfo); ok {
+				addErrorInfo(ce, info.GetDomain(), info.GetReason())
+				break
+			}
+		}
+		return ce
 	case codes.DeadlineExceeded:
 		// raised by the gateway's own gRPC client while it waits for an upstream
 		// (e.g. a stopped service), so the text is resolver/LB internals
@@ -442,4 +450,14 @@ func toConnectErr(err error) error {
 		return sanitized(connect.CodeInternal, msgInternalError, err)
 	}
 	return connect.NewError(code, errors.New(st.Message()))
+}
+
+func addErrorInfo(err error, domain, reason string) {
+	var ce *connect.Error
+	if !errors.As(err, &ce) {
+		return
+	}
+	if d, e := connect.NewErrorDetail(&errdetails.ErrorInfo{Domain: domain, Reason: reason}); e == nil {
+		ce.AddDetail(d)
+	}
 }

@@ -36,6 +36,7 @@ Implement OpenSpec change `promotion-admin-vouchers` test-first per its tasks.md
 - team-frontend/src/features/voucher/VoucherModal.tsx
 - team-frontend/src/features/voucher/VoucherModal.test.tsx
 - fe-platform/docs/gaps.md
+- fe-platform/scripts/gaps.test.mjs (widened at build: task 1.14)
 - platform-e2e/tests/e2e/features/promo/promotion_admin_vouchers.feature
 - platform-e2e/tests/e2e/features/frontend/admin_vouchers_ui.feature
 - platform-e2e/tests/e2e/step_definitions/promotion_admin_vouchers_steps.py

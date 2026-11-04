@@ -18,6 +18,7 @@ const STATE_VARIANT: Record<VoucherState, BadgeVariant> = {
   active: "success",
   ended: "neutral",
   exhausted: "warning",
+  stopped: "neutral",
 };
 
 export function VoucherStateBadge({

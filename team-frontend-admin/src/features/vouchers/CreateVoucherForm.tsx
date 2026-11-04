@@ -271,7 +271,7 @@ export function CreateVoucherForm() {
         isOpen={reviewOpen}
         onClose={closeReview}
         title="Xác nhận tạo voucher sàn"
-        description="Voucher này áp dụng cho mọi người mua trên toàn sàn. Hiện chưa có cách sửa, ngừng hay xoá voucher sau khi tạo."
+        description="Voucher này áp dụng cho mọi người mua trên toàn sàn."
         footer={
           <>
             <Button

@@ -58,6 +58,7 @@ The system SHALL let an admin deactivate a voucher so that no new reservation is
 #### Scenario: V7a anonymous request does not reach promotion
 - **WHEN** a request without a token calls `DeactivateVoucher` or `UpdateVoucher` through the gateway
 - **THEN** team-promotion SHALL receive no call
+- **VERIFIED BY**: team-gateway `internal/edge` `TestV7_AnonymousCannotStopOrUpdate_NoUpstreamCall`
 
 #### Scenario: V7b buyer token cannot stop or update through the gateway
 - **WHEN** a buyer token calls `DeactivateVoucher` or `UpdateVoucher` through the gateway
@@ -161,18 +162,25 @@ The system SHALL let an admin change only `ends_at` and raise `quota` of an acti
 #### Scenario: V16d race with a concurrent reservation
 - **WHEN** `UpdateVoucher` with `quota=Q` runs concurrently with commits that make `used` exceed `Q` before the conditional UPDATE
 - **THEN** the system SHALL return `INVALID_ARGUMENT` and the stored `quota` SHALL never be below `used`
+- **VERIFIED BY**: team-promotion `internal/store` `TestPostgresVoucherUpdateAgainstConcurrentReservationsNeverBreaksQuotaInvariant_V16d`
+- **VERIFIED BY**: team-promotion `internal/store` `TestPostgresVoucherConcurrentUpdatesNeverLowerQuotaBelowUsed_V16d`
 
 #### Scenario: V16e lost race keeps the audit entry
 - **WHEN** an `UpdateVoucher` loses the race of V16d after its audit append
 - **THEN** the `voucher.update` audit entry SHALL remain and record the attempt (assumption, flagged for the human in LOCK.md)
+- **VERIFIED BY**: team-promotion `internal/voucher` `TestUpdateVoucher_V16d_V16e_lostRaceIsInvalidKeepsAuditAndNeverBelowUsed`
 
 #### Scenario: V16f concurrent deactivate during update
 - **WHEN** a `DeactivateVoucher` commits between the validation and the conditional UPDATE of an `UpdateVoucher`
 - **THEN** the conditional UPDATE, which also requires `active=true`, SHALL match no row and the call SHALL return `FAILED_PRECONDITION`
+- **VERIFIED BY**: team-promotion `internal/store` `TestPostgresVoucherConcurrentDeactivateAndUpdateStayConsistent_V16f`
+- **VERIFIED BY**: team-promotion `internal/voucher` `TestUpdateVoucher_V16f_deactivateBetweenValidationAndUpdateIsFailedPrecondition`
 
 #### Scenario: V16g error precedence
 - **WHEN** an admin write fails several checks at once
 - **THEN** the system SHALL return the first applicable code in the order `UNAUTHENTICATED`, `PERMISSION_DENIED`, `NOT_FOUND`, `FAILED_PRECONDITION`, `INVALID_ARGUMENT`
+- **VERIFIED BY**: team-promotion `internal/voucher` `TestUpdateVoucher_V16g_errorPrecedence`
+- **VERIFIED BY**: team-promotion `internal/rpc` `TestUpdateVoucherFailedPreconditionBeatsInvalidArgument_V16g`
 
 #### Scenario: V17 non-admin cannot edit
 - **WHEN** a seller token calls `UpdateVoucher`
@@ -227,6 +235,8 @@ The system SHALL fail closed on every admin voucher write and SHALL tell the bro
 #### Scenario: V22 audit written before the change
 - **WHEN** an admin write passes validation
 - **THEN** the audit entry (`voucher.platform_create`, `voucher.deactivate` or `voucher.update`) SHALL be appended before the voucher row is written, with the admin id as actor and the voucher code as target
+- **VERIFIED BY**: team-promotion `internal/voucher` `TestDeactivateVoucher_V22_auditBeforeWriteWithActorAndCode`
+- **VERIFIED BY**: team-promotion `internal/voucher` `TestUpdateVoucher_V22_auditBeforeWriteWithActorAndCode`
 
 #### Scenario: V23 gateway keeps the audit reason
 - **WHEN** the gateway receives an upstream `UNAVAILABLE` carrying `ErrorInfo` reason `AUDIT_UNAVAILABLE`
