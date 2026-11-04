@@ -26,7 +26,16 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/server-snippet: |
       set $handoff_log_uri $request_uri;
-      if ($request_uri ~ "^(/auth/handoff\?(?:.*&)?)code=[^&]*(.*)$") {
+      if ($request_uri ~ "^(/auth/handoff\?(?:[^&]*&)*?)code=[^&]*(.*)$") {
+        set $handoff_log_uri "${1}code=REDACTED${2}";
+      }
+      if ($handoff_log_uri ~ "^(/auth/handoff\?(?:[^&]*&)*?)code=(?!REDACTED(?:&|$))[^&]*(.*)$") {
+        set $handoff_log_uri "${1}code=REDACTED${2}";
+      }
+      if ($handoff_log_uri ~ "^(/auth/handoff\?(?:[^&]*&)*?)code=(?!REDACTED(?:&|$))[^&]*(.*)$") {
+        set $handoff_log_uri "${1}code=REDACTED${2}";
+      }
+      if ($handoff_log_uri ~ "^(/auth/handoff\?(?:[^&]*&)*?)code=(?!REDACTED(?:&|$))[^&]*(.*)$") {
         set $handoff_log_uri "${1}code=REDACTED${2}";
       }
       access_log /var/log/nginx/access.log handoff_redacted;
