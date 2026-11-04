@@ -39,6 +39,8 @@ import (
 
 const outboxTable = "promotion_outbox"
 
+const testIdem = "idem_fixture_01"
+
 type recordingAudit struct {
 	mu     sync.Mutex
 	events []auditx.Event
@@ -275,6 +277,6 @@ func newCreateReq(listingID string) *promotionv1.CreateCampaignRequest {
 		ListingId: listingID, SalePrice: 1000, StockCap: 5,
 		StartsAt:       timestamppb.New(time.Now().Add(time.Hour)),
 		EndsAt:         timestamppb.New(time.Now().Add(2 * time.Hour)),
-		IdempotencyKey: "key-12345678",
+		IdempotencyKey: testIdem,
 	}
 }
