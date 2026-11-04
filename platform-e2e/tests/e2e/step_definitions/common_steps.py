@@ -6,7 +6,10 @@ in auth_steps / buyer_steps / seller_steps / etc.
 
 from __future__ import annotations
 
+from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
+
+from src.constants import timeouts
 
 from src.constants import PageName
 from src.utils import get_test_data_manager
@@ -46,3 +49,8 @@ def logged_in_as_admin_api(world: World) -> None:
 def nobody_logged_in(world: World) -> None:
     world.service_factory.set_token(None)
     world.state.current_user = None
+
+
+@then(parsers.parse('the page shows the button "{name}"'))
+def page_shows_button(world: World, name: str) -> None:
+    expect(world.page.get_by_role("button", name=name)).to_be_visible(timeout=timeouts.NAVIGATION)

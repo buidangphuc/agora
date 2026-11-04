@@ -176,12 +176,13 @@ def buyer_opens_workplace(world: World) -> None:
     world.page.goto(f"{world.settings.seller_base_url}/seller", wait_until="domcontentloaded")
 
 
-@then("a result explains the seller role is required and links back to the home page")
-def result_requires_seller_role(world: World) -> None:
-    expect(world.page.get_by_text("Cần tài khoản Người Bán")).to_be_visible(
+@then("the seller onboarding screen is shown with a link back to the shop")
+def onboarding_screen_shown(world: World) -> None:
+    expect(world.page.get_by_role("button", name="Đồng ý và trở thành Người Bán")).to_be_visible(
         timeout=timeouts.NAVIGATION
     )
-    expect(world.page.get_by_role("link", name="Quay lại trang chủ")).to_have_attribute("href", "/")
+    expect(world.page.get_by_role("link", name="Về trang mua sắm").first).to_be_visible()
+    expect(world.page.get_by_text("Cần tài khoản Người Bán")).to_have_count(0)
 
 
 # ── Workplace ────────────────────────────────────────────────────────────
