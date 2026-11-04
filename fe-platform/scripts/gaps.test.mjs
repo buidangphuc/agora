@@ -23,8 +23,12 @@ describe("gaps.md", () => {
     }
   });
 
-  it("V35 other gaps untouched: G1-G7 and G15 rows remain", () => {
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 15]) {
+  it("seller-onboarding-ui gap removed: no row with id G15", () => {
+    expect(rowIds).not.toContain("G15");
+  });
+
+  it("V35 other gaps untouched: G1-G7 rows remain", () => {
+    for (const n of [1, 2, 3, 4, 5, 6, 7]) {
       expect(rowIds).toContain(`G${n}`);
     }
   });
