@@ -12,6 +12,8 @@ const campaign = {
   stockSold: 7,
   startsAt: "2026-11-01T01:00:00.000Z",
   endsAt: "2026-11-01T05:00:00.000Z",
+  status: "scheduled" as const,
+  cancelledAt: "",
 };
 
 describe("CampaignsView", () => {

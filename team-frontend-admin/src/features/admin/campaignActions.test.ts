@@ -39,6 +39,8 @@ const campaign = {
   stockSold: 0,
   startsAt: "2099-11-01T01:00:00.000Z",
   endsAt: "2099-11-01T05:00:00.000Z",
+  status: "scheduled" as const,
+  cancelledAt: "",
 };
 
 beforeEach(() => {
