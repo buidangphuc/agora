@@ -56,7 +56,7 @@
 
 ### Requirement: BecomeSeller publishes UserRoleGranted once
 
-A first grant SHALL enqueue exactly one `UserRoleGranted{user_id, role="seller", granted_at}` on `identity.events` through the outbox in the same transaction as the role write. A call by a user who already holds `seller` SHALL return a fresh token, SHALL NOT change the stored terms version or acceptance time and SHALL NOT enqueue an event. `BecomeSeller` SHALL NOT write an audit entry.
+A first grant SHALL enqueue exactly one `UserRoleGranted{user_id, role="seller", granted_at}` on `identity.events` through the outbox in the same transaction as the role write. A call by a user who already holds `seller` SHALL return a fresh token, SHALL NOT change the stored terms version or acceptance time and SHALL NOT enqueue an event and SHALL NOT write an audit entry. A first grant SHALL write exactly one audit entry with action `auth.become_seller` (actor: the calling user; metadata: the accepted `terms_version` and `result=granted`; never a token, a refresh token or a session id) before the role grant commits, fail-closed like admin mutations: when the audit write fails, `BecomeSeller` SHALL answer `UNAVAILABLE` with `google.rpc.ErrorInfo{domain:"identity.platform", reason:"AUDIT_UNAVAILABLE"}` and SHALL write no role, no terms fields and no `UserRoleGranted` event.
 
 #### Scenario: Seller onboarding: the first grant emits one event
 - **WHEN** an ACTIVE buyer calls `BecomeSeller` once
@@ -78,10 +78,30 @@ A first grant SHALL enqueue exactly one `UserRoleGranted{user_id, role="seller",
 - **THEN** both succeed and exactly one `UserRoleGranted` row exists
 - **VERIFIED BY**: `team-identity/internal/store` `TestGrantSellerConcurrentOneEvent`
 
-#### Scenario: Seller onboarding: no audit entry is written
+#### Scenario: Seller onboarding: a first grant writes one audit entry
+- **WHEN** an ACTIVE buyer calls `BecomeSeller` once with the current terms version
+- **THEN** team-audit holds exactly one entry with action `auth.become_seller`, actor equal to the user id, metadata containing the terms version and `result=granted` and containing no token, refresh token or session id
+- **VERIFIED BY**: `team-identity/internal/identity` `TestBecomeSellerWritesAuditEntry`
+
+#### Scenario: Seller onboarding: audit unavailable refuses the grant
 - **WHEN** an ACTIVE buyer calls `BecomeSeller` while team-audit is unavailable
-- **THEN** the call succeeds and team-audit receives zero entries from it
-- **VERIFIED BY**: `team-identity/internal/identity` `TestBecomeSellerDoesNotAudit`
+- **THEN** the call fails `UNAVAILABLE` with `ErrorInfo` reason `AUDIT_UNAVAILABLE`, the user keeps its roles, `seller_terms_version` and `seller_terms_accepted_at` stay empty and zero `UserRoleGranted` outbox rows exist for the user
+- **VERIFIED BY**: `team-identity/internal/identity` `TestBecomeSellerAuditDownRefusesGrant`
+
+#### Scenario: Seller onboarding: an audit failure after the role write rolls it back
+- **WHEN** the audit write succeeds but the transaction commit fails, or the audit write fails after the role row update inside the transaction (injected errors)
+- **THEN** the user is still a buyer with empty terms fields and no outbox row exists
+- **VERIFIED BY**: `team-identity/internal/store` `TestGrantSellerAuditFailureRollsBack`
+
+#### Scenario: Seller onboarding: a repeat call by a seller does not audit again
+- **WHEN** an ACTIVE user who is already a seller calls `BecomeSeller` again, with team-audit available or unavailable
+- **THEN** the call succeeds with a new token and team-audit holds still exactly one `auth.become_seller` entry for the user
+- **VERIFIED BY**: `team-identity/internal/identity` `TestBecomeSellerRepeatDoesNotAudit`
+
+#### Scenario: Seller onboarding: audit unavailable is refused through the gateway
+- **WHEN** team-audit is stopped and a signed-in buyer calls `POST :8080/platform.identity.v1.AuthService/BecomeSeller` with the current terms version
+- **THEN** the response is Connect `unavailable` with `ErrorInfo` reason `AUDIT_UNAVAILABLE` and a follow-up token refresh still shows no `listing.write`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/identity/seller_onboarding.feature` `Seller onboarding: audit unavailable is refused through the gateway`
 
 ### Requirement: BecomeSeller meets its latency budget
 

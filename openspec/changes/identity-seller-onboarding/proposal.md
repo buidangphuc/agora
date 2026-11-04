@@ -9,7 +9,7 @@ initiative: p10-backend-gaps
 - team-identity implements `AuthService.BecomeSeller(terms_version)` (contract from `p10-gaps-contract`) for an authenticated ACTIVE user: adds role `seller`, stores `seller_terms_version` and `seller_terms_accepted_at`, issues a new access token on the caller's session (same `sid`, refresh token unchanged) carrying seller scopes, and enqueues `UserRoleGranted` on `identity.events` through the existing outbox in the same transaction as the role write.
 - Idempotent for an ACTIVE existing seller: fresh token, no write, no event, original acceptance record kept.
 - `INVALID_ARGUMENT` unless `terms_version` exactly equals the current (first) `SELLER_TERMS_VERSIONS` entry (older listed versions, whitespace or case variants are refused); `PERMISSION_DENIED` for any non-ACTIVE account (RESTRICTED included), also for an existing seller who is no longer ACTIVE (no token); `UNAUTHENTICATED` for no user principal or a revoked/unknown session.
-- No audit entry: self-service, locked decision.
+- Audit entry `auth.become_seller` on a first grant, fail-closed (user decision 2026-11-05, replaces the earlier no-audit decision): written before the role grant commits; audit unavailable means `UNAVAILABLE`/`AUDIT_UNAVAILABLE` and no state change. Repeat calls by an existing seller write no audit entry.
 - team-gateway exposes `BecomeSeller` to authenticated users (any signed-in user scope, not public, not service); admin can still restrict the new seller through `AccountAdminService.SetUserStatus`.
 - Seller-app UI (onboarding screen, layout change, `login-enforcement-ui`, `login-return`, `order-lifecycle-ui` modifications) belongs to slice `seller-onboarding-ui` (owner team-frontend-seller), not this change.
 
@@ -27,12 +27,12 @@ none
 
 ## Non-goals
 
-Admin approval queue, audit entry, domain seller-profile reaction to `UserRoleGranted` (consumers may react later), revoking the seller role, terms text management beyond a version string, un-restricting, any seller-app UI.
+Admin approval queue, domain seller-profile reaction to `UserRoleGranted` (consumers may react later), revoking the seller role, terms text management beyond a version string, un-restricting, any seller-app UI.
 
 ## NFR
 
 - `BecomeSeller` p95 < 200 ms locally (one DB transaction plus one signature); measured by scenario "latency over 50 calls".
-- Availability: depends on team-identity and its Postgres only; no audit or other upstream call, so no fail-closed audit path.
+- Availability: depends on team-identity, its Postgres and team-audit; a first grant is fail-closed when team-audit is unavailable (`UNAVAILABLE`/`AUDIT_UNAVAILABLE`), repeat calls by an existing seller do not call team-audit.
 - Exactly one role write and one `UserRoleGranted` row per user: concurrent calls by one user yield one event (second sees seller, returns the fresh token).
 - Outbox: event delivery at-least-once; the role write and the outbox row commit atomically or not at all.
 
