@@ -4571,3 +4571,354 @@ features:
     tags: [promotion, admin]
     status: automated
     covered_by: "promo/promotion_admin_campaigns.feature::Create retry reuses the key"
+
+  - id: promotion.admin-campaigns-list-with-no-filter-newest-first
+    title: "List with no filter, newest first"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "List with no filter, newest first"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestListCampaignsNewestFirstAllStatuses`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-status-derivation-at-window-edges
+    title: "Status derivation at window edges"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Status derivation at window edges"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCampaignStatusBoundaries`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-page-size-clamp
+    title: "Page size clamp"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Page size clamp"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestListCampaignsPageSizeClamp`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-paging-boundary
+    title: "Paging boundary"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Paging boundary"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestListCampaignsPaging`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-key-is-scoped-per-admin-and-expires
+    title: "Key is scoped per admin and expires"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Key is scoped per admin and expires"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignIdempotencyScopeAndExpiry`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-cancel-is-audited-before-the-write
+    title: "Cancel is audited before the write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancel is audited before the write"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelCampaignAuditBeforeWrite`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-cancel-twice-is-a-no-op
+    title: "Cancel twice is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancel twice is a no-op"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelCampaignIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-cancel-an-ended-or-unknown-campaign
+    title: "Cancel an ended or unknown campaign"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancel an ended or unknown campaign"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelCampaignErrors`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-cancel-audit-outage-identification
+    title: "Cancel audit outage identification"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancel audit outage identification"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCampaignWritesAuditDownErrorInfo`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-reserve-racing-a-cancel
+    title: "Reserve racing a cancel"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve racing a cancel"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelRacesReserve`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-edit-validates-like-create
+    title: "Edit validates like create"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Edit validates like create"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestUpdateCampaignValidation`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-edit-is-audited-before-the-write-and-fails-closed
+    title: "Edit is audited before the write and fails closed"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Edit is audited before the write and fails closed"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestUpdateCampaignAuditBeforeWriteFailsClosed`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-update-unknown-campaign
+    title: "Update unknown campaign"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Update unknown campaign"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestUpdateCampaignNotFound`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-campaign-starts-between-status-check-and-write
+    title: "Campaign starts between status check and write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Campaign starts between status check and write"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestUpdateCampaignStartRace`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-path-is-validated-too
+    title: "Seller path is validated too"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller path is validated too"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignSellerPathValidatesPrice`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-bad-stock-cap-and-window
+    title: "Bad stock cap and window"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Bad stock cap and window"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignFieldValidation`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-boundary-values-accepted
+    title: "Boundary values accepted"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Boundary values accepted"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignBoundaryAccepted`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-of-another-listing-is-denied
+    title: "Seller of another listing is denied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller of another listing is denied"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignSellerOwnershipDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-idempotency-lookup-precedes-validation
+    title: "Idempotency lookup precedes validation"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Idempotency lookup precedes validation"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignReplayAfterEndsAt`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-sending-a-key
+    title: "Seller sending a key"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller sending a key"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignSellerKeyIgnoredOwnershipApplies`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-cannot-cancel
+    title: "Seller cannot cancel"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller cannot cancel"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCancelCampaignRequiresAdmin`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-missing-or-malformed-key
+    title: "Missing or malformed key"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Missing or malformed key"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateCampaignIdempotencyKeyRequired`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-create-needs-no-key
+    title: "Seller create needs no key"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller create needs no key"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateCampaignSellerNoKeyRequired`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-edit-enabled-only-for-scheduled
+    title: "Edit enabled only for scheduled"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Edit enabled only for scheduled"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `edit only when scheduled` in CampaignRow.test.tsx. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-server-errors-map-to-distinct-messages
+    title: "Server errors map to distinct messages"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Server errors map to distinct messages"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `maps each error` in campaignMessages.test.ts. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-kill-switch-banner
+    title: "Kill-switch banner"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Kill-switch banner"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `shows kill-switch banner` in CampaignListView.test.tsx. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-non-admin-reaches-no-campaign-screen
+    title: "Non-admin reaches no campaign screen"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Non-admin reaches no campaign screen"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `forbids non-admin` in app/admin/campaigns/page.test.tsx. Not producible end to end through the gateway (unit level)."
