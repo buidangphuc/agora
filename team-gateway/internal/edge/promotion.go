@@ -85,6 +85,38 @@ func (f *VoucherForwarder) ValidateAndReserve(
 	return connect.NewResponse(out), nil
 }
 
+func (f *VoucherForwarder) DeactivateVoucher(
+	ctx context.Context,
+	req *connect.Request[promotionv1.DeactivateVoucherRequest],
+) (*connect.Response[promotionv1.DeactivateVoucherResponse], error) {
+	var out *promotionv1.DeactivateVoucherResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.DeactivateVoucher(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *VoucherForwarder) UpdateVoucher(
+	ctx context.Context,
+	req *connect.Request[promotionv1.UpdateVoucherRequest],
+) (*connect.Response[promotionv1.UpdateVoucherResponse], error) {
+	var out *promotionv1.UpdateVoucherResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.UpdateVoucher(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
 // CommitReservation and ReleaseReservation are intentionally NOT forwarded: they
 // are saga RPCs called by team-order over gRPC with a service principal, never by
 // a browser. The embedded UnimplementedVoucherServiceHandler answers
