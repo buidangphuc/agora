@@ -87,6 +87,27 @@ Feature: Seller onboarding
     Then the call succeeds with a new token on the same session id
     And the stored terms version and acceptance time equal the first call's values
     And exactly one UserRoleGranted event with role seller was published for the buyer
+    And exactly one auth.become_seller audit entry exists for the buyer
+
+  Scenario: Seller onboarding: a first grant writes one audit entry
+    Given a registered buyer who cannot create listings
+    When the buyer calls BecomeSeller with the current terms version
+    Then the call succeeds with a token carrying listing.write
+    And exactly one auth.become_seller audit entry exists for the buyer
+    And the auth.become_seller entry has the buyer as actor and only the terms version and result granted as metadata
+
+  @destructive
+  Scenario: Seller onboarding: audit unavailable is refused through the gateway
+    Given a registered buyer who cannot create listings
+    And team-audit is stopped for seller onboarding
+    When the buyer calls BecomeSeller with the current terms version
+    Then the call fails with unavailable
+    And the BecomeSeller error carries reason "AUDIT_UNAVAILABLE" and domain "identity.platform"
+    And the response carries no token
+    And the buyer's roles are buyer only
+    And no UserRoleGranted event is published for the buyer
+    When the buyer refreshes the session with the refresh token issued at login
+    Then the refreshed token has no listing.write
 
   Scenario: Seller onboarding: concurrent calls emit one event
     Given a registered buyer who cannot create listings

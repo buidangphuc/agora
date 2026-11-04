@@ -11,6 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from pytest_bdd import given, parsers, scenarios, then, when
 
+from tests.e2e.support import admin_vouchers_support as av
+from tests.e2e.support import audit_support as aud
 from tests.e2e.support import seller_onboarding_support as so
 from tests.e2e.support import user_enforcement_support as ue
 from tests.e2e.support.world import World
@@ -20,6 +22,7 @@ scenarios("identity/seller_onboarding.feature")
 P95_BUDGET_S = 0.2
 EVENT_WAIT_S = 10.0
 QUIET_WAIT_S = 4.0
+BECOME_SELLER_ACTION = "auth.become_seller"
 
 
 def _s(world: World) -> dict:
@@ -329,3 +332,48 @@ def rejected_fast(world: World) -> None:
     assert not bad, f"unexpected codes: {bad[:5]}"
     p95 = _p95([t for _, t in timed])
     assert p95 < P95_BUDGET_S, f"p95 {p95 * 1000:.0f} ms"
+
+
+@given("team-audit is stopped for seller onboarding")
+def audit_stopped(world: World) -> None:
+    aud.stop_audit(world)
+
+
+def _become_seller_entries(world: World) -> list[dict]:
+    uid = _s(world)["buyer"]["id"]
+    found = aud.events_for(world, "user", uid, action=BECOME_SELLER_ACTION)
+    return [e for e in found if e.get("action") == BECOME_SELLER_ACTION]
+
+
+@then("exactly one auth.become_seller audit entry exists for the buyer")
+def one_audit_entry(world: World) -> None:
+    found = _become_seller_entries(world)
+    assert len(found) == 1, f"expected exactly 1 {BECOME_SELLER_ACTION} entry, got {len(found)}"
+
+
+@then("the auth.become_seller entry has the buyer as actor and only the terms version and result granted as metadata")
+def audit_entry_shape(world: World) -> None:
+    s = _s(world)
+    event = aud.assert_one_event(
+        world,
+        target_type="user",
+        target_id=s["buyer"]["id"],
+        action=BECOME_SELLER_ACTION,
+        actor_id=s["buyer"]["id"],
+        metadata={"terms_version": so.current_terms(), "result": "granted"},
+    )
+    assert sorted((event.get("metadata") or {}).keys()) == ["result", "terms_version"], "unexpected metadata keys"
+
+
+@then(parsers.parse('the BecomeSeller error carries reason "{reason}" and domain "{domain}"'))
+def become_seller_error_info(world: World, reason: str, domain: str) -> None:
+    resp = _s(world)["resp"]
+    info = av.error_info(resp)
+    assert info.get("reason") == reason and info.get("domain") == domain, f"{info}: {resp.text[:300]}"
+
+
+@then("the refreshed token has no listing.write")
+def refreshed_no_listing_write(world: World) -> None:
+    resp = _s(world)["refresh_resp"]
+    assert resp.status_code == 200, f"RefreshSession: {resp.status_code} {resp.text[:300]}"
+    assert "listing.write" not in so.scopes_of(ue.body_of(resp)["token"])
