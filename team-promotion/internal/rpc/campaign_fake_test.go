@@ -55,6 +55,7 @@ func (f *campaignFake) apply(c store.FlashSaleCampaign) store.FlashSaleCampaign 
 	if e, ok := f.edits[c.ID]; ok {
 		c.SalePrice, c.StockCap, c.StartsAt, c.EndsAt = e.SalePrice, e.StockCap, e.StartsAt, e.EndsAt
 	}
+	c.CancelledAt = f.cancelled[c.ID]
 	return c
 }
 
