@@ -33,7 +33,7 @@ Implement OpenSpec change `seller-onboarding-ui` test-first per its tasks.md; co
 - openspec/changes/seller-onboarding-ui/**
 - team-frontend-seller/src/features/seller/onboarding.ts (widened at build: task 1.1)
 - team-frontend-seller/src/features/seller/onboardingTerms.ts (widened at build: task 1.1)
-- team-frontend-seller/src/features/seller/onboarding.test.ts # widened at build: task 1.2
+- team-frontend-seller/src/features/seller/onboarding.test.ts (widened at build: task 1.2)
 
 ## Read-only dependencies
 - identity-seller-onboarding BecomeSeller RPC and gateway route
