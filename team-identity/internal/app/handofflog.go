@@ -34,7 +34,7 @@ func (h handoffRedactHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 	clean := slog.NewRecord(r.Time, r.Level, r.Message, r.PC)
 	r.Attrs(func(a slog.Attr) bool {
-		if a.Key != "principal_id" {
+		if a.Key != "principal_id" && a.Key != "principal_fp" {
 			clean.AddAttrs(a)
 		}
 		return true

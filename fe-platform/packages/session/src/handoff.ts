@@ -47,7 +47,7 @@ function truncate(value: string): string {
 
 function baseHeaders(): Headers {
   const h = new Headers();
-  h.set("referrer-policy", "no-referrer");
+  h.set("referrer-policy", "same-origin");
   h.set("cache-control", "no-store");
   return h;
 }
@@ -66,7 +66,7 @@ function confirmationPage(username: string, code: string, next: string) {
     "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
   );
   h.set("x-frame-options", "DENY");
-  const html = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex"><title>Xác nhận đăng nhập</title></head><body><main><h1>Tiếp tục với tài khoản ${escapeHtml(truncate(username))}?</h1><form action="${HANDOFF_PATH}" method="post"><input type="hidden" name="code" value="${escapeHtml(code)}"><input type="hidden" name="next" value="${escapeHtml(next)}"><button type="submit">Tiếp tục</button></form></main></body></html>`;
+  const html = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="referrer" content="same-origin"><meta name="robots" content="noindex"><title>Xác nhận đăng nhập</title></head><body><main><h1>Tiếp tục với tài khoản ${escapeHtml(truncate(username))}?</h1><form action="${HANDOFF_PATH}" method="post"><input type="hidden" name="code" value="${escapeHtml(code)}"><input type="hidden" name="next" value="${escapeHtml(next)}"><button type="submit">Tiếp tục</button></form></main></body></html>`;
   return new Response(html, { status: 200, headers: h });
 }
 
