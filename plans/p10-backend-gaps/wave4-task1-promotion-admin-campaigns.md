@@ -43,6 +43,10 @@ Implement OpenSpec change `promotion-admin-campaigns` test-first per its tasks.m
 - team-promotion/internal/rpc/helpers_test.go (widened at build: task 6)
 - team-gateway/internal/edge/policy.go (widened at build: task 7)
 - team-gateway/internal/edge/policy_test.go (widened at build: task 7)
+- team-frontend-admin/src/features/admin/CampaignsView.test.tsx (widened at build: task 8)
+- team-frontend-admin/src/features/admin/CreateCampaignForm.test.tsx (widened at build: task 8)
+- team-frontend-admin/src/features/admin/campaignActions.test.ts (widened at build: task 8)
+- team-frontend-admin/src/lib/gateway/campaigns.admin.test.ts (widened at build: task 8)
 
 ## Read-only dependencies
 - promotion-admin-vouchers shared admin error mapping
