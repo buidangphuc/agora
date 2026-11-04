@@ -355,3 +355,64 @@ describe("VoucherModal tracking", () => {
     expect(trackEcommerce).not.toHaveBeenCalled();
   });
 });
+
+describe("VoucherModal inactive reason", () => {
+  it("V28a: a shop quote refused with reason inactive shows the Vietnamese text and no raw reason", () => {
+    setup({
+      state: { sv: { s1: "STOPPED" } },
+      quotes: [
+        quote({
+          code: "STOPPED",
+          sellerId: "s1",
+          valid: false,
+          reason: "inactive",
+        }),
+      ],
+    });
+    const slot = screen.getByTestId("shop-voucher-s1");
+    expect(
+      within(slot).getByText("Mã giảm giá đã ngừng áp dụng."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("inactive")).toBeNull();
+  });
+
+  it("V28a: a platform quote refused with reason inactive shows the Vietnamese text and no raw reason", () => {
+    setup({
+      state: { pv: "STOPPED" },
+      quotes: [
+        quote({
+          code: "STOPPED",
+          scope: CheckoutVoucherScope.PLATFORM,
+          valid: false,
+          reason: "inactive",
+        }),
+      ],
+    });
+    expect(
+      within(screen.getByTestId("platform-voucher")).getByText(
+        "Mã giảm giá đã ngừng áp dụng.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("inactive")).toBeNull();
+  });
+
+  it("V28b: a reason other than inactive keeps its text", () => {
+    setup({
+      state: { sv: { s1: "OLD" } },
+      quotes: [
+        quote({
+          code: "OLD",
+          sellerId: "s1",
+          valid: false,
+          reason: "voucher expired",
+        }),
+      ],
+    });
+    expect(
+      within(screen.getByTestId("shop-voucher-s1")).getByText(
+        "voucher expired",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Mã giảm giá đã ngừng áp dụng.")).toBeNull();
+  });
+});
