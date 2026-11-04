@@ -63,6 +63,8 @@ func (r *recordingAudit) requireNone(t *testing.T, what string) {
 	}
 }
 
+const listingPrice int64 = 100000
+
 type ownedListings map[string]string
 
 func (o ownedListings) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
@@ -70,7 +72,7 @@ func (o ownedListings) GetListing(_ context.Context, req *listingv1.GetListingRe
 	if !ok {
 		return nil, status.Error(codes.NotFound, "not_found")
 	}
-	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller}}, nil
+	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller, Price: listingPrice}}, nil
 }
 
 func owned() ownedListings { return ownedListings{"l1": "seller-1", "l2": "seller-2"} }
@@ -103,6 +105,7 @@ type rig struct {
 	vouchers     store.VoucherRepository
 	reservations store.ReservationRepository
 	campaigns    *storefake.InMemoryFlashSaleRepository
+	cf           *campaignFake
 	holds        store.FlashHoldRepository
 	voucherH     *rpc.VoucherHandler
 	flashH       *rpc.FlashSaleHandler
@@ -132,13 +135,14 @@ func startRig(t *testing.T, o rigOpts) *rig {
 
 	campaigns := storefake.NewInMemoryFlashSaleRepository()
 	memHolds := storefake.NewInMemoryFlashHoldRepository(campaigns)
+	cf := newCampaignFake(campaigns)
 	var holds store.FlashHoldRepository = memHolds
 	if o.holds != nil {
 		holds = o.holds(memHolds)
 	}
 
 	voucherSvc := voucher.New(o.vouchers, o.reservations, gate, o.voucherEvent, o.logger)
-	flashSvc := flashsale.New(campaigns, holds, nil, o.listings, gate, noCampaignEvent, o.logger)
+	flashSvc := flashsale.New(cf, holds, nil, o.listings, gate, noCampaignEvent, o.logger)
 	subSvc := subscription.New(storefake.NewInMemorySubscriptionRepository(), o.logger)
 	adSvc := sponsored.New(storefake.NewInMemoryAdCampaignRepository(), o.listings, gate, o.logger).WithLimits(1000, 5000)
 
@@ -156,6 +160,7 @@ func startRig(t *testing.T, o rigOpts) *rig {
 		vouchers:     o.vouchers,
 		reservations: o.reservations,
 		campaigns:    campaigns,
+		cf:           cf,
 		holds:        holds,
 		voucherH:     vh,
 		flashH:       fh,
