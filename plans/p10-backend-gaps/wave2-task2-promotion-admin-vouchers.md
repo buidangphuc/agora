@@ -24,6 +24,8 @@ Implement OpenSpec change `promotion-admin-vouchers` test-first per its tasks.md
 - team-gateway/internal/edge/promotion*_test.go
 - team-gateway/internal/edge/forward.go
 - team-gateway/internal/edge/forward_test.go
+- team-gateway/internal/edge/policy.go (widened at build: task 1.8)
+- team-gateway/internal/edge/policy_test.go (widened at build: task 1.8)
 - team-frontend-admin/src/lib/gateway/vouchers.ts
 - team-frontend-admin/src/lib/gateway/vouchers.test.ts
 - team-frontend-admin/src/features/vouchers/**
