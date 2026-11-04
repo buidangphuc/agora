@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const text = readFileSync(new URL("../docs/gaps.md", import.meta.url), "utf8");
+const text = readFileSync(join(process.cwd(), "docs/gaps.md"), "utf8");
 const lines = text.split("\n");
 const tableLines = lines.filter((l) => l.startsWith("|"));
 const rowIds = tableLines
