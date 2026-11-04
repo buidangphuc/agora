@@ -2,12 +2,27 @@ package edge
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 
 	promotionv1 "github.com/buidangphuc/team-gateway/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-gateway/generated/platform/promotion/v1/promotionv1connect"
 )
+
+const (
+	promotionErrorDomain       = "promotion.platform"
+	reasonPromotionUnavailable = "PROMOTION_UNAVAILABLE"
+)
+
+func promotionErr(err error) error {
+	ce := toConnectErr(err)
+	var c *connect.Error
+	if errors.As(ce, &c) && c.Code() == connect.CodeUnavailable && len(c.Details()) == 0 {
+		addErrorInfo(c, promotionErrorDomain, reasonPromotionUnavailable)
+	}
+	return ce
+}
 
 // ── VoucherService ──
 
@@ -32,7 +47,7 @@ func (f *VoucherForwarder) CreateVoucher(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -48,7 +63,7 @@ func (f *VoucherForwarder) GetVoucher(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -64,7 +79,7 @@ func (f *VoucherForwarder) ListVouchers(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -80,7 +95,7 @@ func (f *VoucherForwarder) ValidateAndReserve(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -96,7 +111,7 @@ func (f *VoucherForwarder) DeactivateVoucher(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -112,7 +127,7 @@ func (f *VoucherForwarder) UpdateVoucher(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -146,7 +161,7 @@ func (f *FlashSaleForwarder) CreateCampaign(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -162,7 +177,7 @@ func (f *FlashSaleForwarder) GetActiveFlashSale(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -178,7 +193,7 @@ func (f *FlashSaleForwarder) ListActiveCampaigns(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -194,7 +209,7 @@ func (f *FlashSaleForwarder) GetFlashSaleStock(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -222,7 +237,7 @@ func (f *SubscriptionForwarder) ListPlans(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -238,7 +253,7 @@ func (f *SubscriptionForwarder) Subscribe(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -254,7 +269,7 @@ func (f *SubscriptionForwarder) GetEntitlements(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -282,7 +297,7 @@ func (f *SponsoredForwarder) CreateAdCampaign(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
@@ -298,7 +313,7 @@ func (f *SponsoredForwarder) ListSponsoredSlots(
 		return e
 	})
 	if err != nil {
-		return nil, toConnectErr(err)
+		return nil, promotionErr(err)
 	}
 	return connect.NewResponse(out), nil
 }
