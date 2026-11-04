@@ -121,3 +121,26 @@ func (f *AuthForwarder) RedeemHandoffCode(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *AuthForwarder) BecomeSeller(
+	ctx context.Context,
+	req *connect.Request[identityv1.BecomeSellerRequest],
+) (*connect.Response[identityv1.BecomeSellerResponse], error) {
+	p, ok := principalFrom(ctx)
+	if !ok || p.ptype == "anonymous" || p.id == "" || p.id == "anonymous" {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+	if p.ptype != "user" {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("user principal required"))
+	}
+	var out *identityv1.BecomeSellerResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.BecomeSeller(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}

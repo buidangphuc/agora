@@ -19,7 +19,7 @@ import (
 	"github.com/buidangphuc/team-identity/internal/store"
 )
 
-const latestMigration = 20
+const latestMigration = 21
 
 func schemaDSN(t testing.TB) string {
 	t.Helper()

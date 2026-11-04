@@ -144,6 +144,19 @@ func (h Handoff) ResolveFor(rt sdkconfig.Runtime) error {
 	return nil
 }
 
+type SellerTerms struct {
+	Versions []string `env:"SELLER_TERMS_VERSIONS"`
+}
+
+func (s SellerTerms) Validate() error {
+	for _, v := range s.Versions {
+		if v != "" {
+			return nil
+		}
+	}
+	return errors.New("SELLER_TERMS_VERSIONS is required (comma-separated accepted terms versions)")
+}
+
 type Settings struct {
 	sdkconfig.Runtime
 	sdkconfig.GRPC
@@ -160,6 +173,7 @@ type Settings struct {
 	Upstream      Upstream
 	Retention     Retention
 	Handoff       Handoff
+	SellerTerms   SellerTerms
 }
 
 func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

@@ -132,6 +132,7 @@ and the session sweeper are always on.
 | `SEED_ADMIN_ENABLED` | `false` | Opt-in first admin |
 | `SEED_ADMIN_USERNAME` | `admin` | |
 | `SEED_ADMIN_PASSWORD` | empty | Required, >= 12 chars, when seeding is enabled |
+| `SELLER_TERMS_VERSIONS` | empty | Required. Comma-separated seller terms versions (`.env.example` sets `V1`); the first entry is current and is the only value `BecomeSeller` accepts, compared byte for byte; older entries are kept for record only. Startup fails when empty |
 | `PASSWORD_RESET_EXPOSE_TOKEN` | `false` | Return the raw reset token from `RequestPasswordReset`. Dev/e2e only; config load fails when `ENV=prod` |
 | `UPSTREAM_AUDIT_ADDR` | empty | Required. team-audit gRPC address; user-status changes fail closed when it is down |
 | `LOG_KEY_FP_SECRET` | empty | |

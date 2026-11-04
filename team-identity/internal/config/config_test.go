@@ -111,6 +111,7 @@ func localEnv(t *testing.T) {
 	t.Setenv("UPSTREAM_AUDIT_ADDR", "audit:50061")
 	t.Setenv("JWT_PRIVATE_KEY", freshPEM(t))
 	t.Setenv("JWT_KID", "k1")
+	t.Setenv("SELLER_TERMS_VERSIONS", "V1")
 }
 
 func strictEnv(t *testing.T, env string) {
