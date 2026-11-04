@@ -37,6 +37,7 @@ const (
 	purgeInterval      = time.Hour
 	holdPurgeInterval  = 24 * time.Hour
 	holdRetention      = 30 * 24 * time.Hour
+	idemPurgeInterval  = time.Hour
 	closeGrace         = 2 * time.Second
 	auditScope         = "audit.write"
 	auditServicePrefix = "service-"
@@ -109,8 +110,9 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	}
 
 	holds := store.NewPostgresFlashHoldRepository(pool)
+	campaigns := store.NewPostgresFlashSaleRepository(pool, outStore)
 	voucherSvc := voucher.New(store.NewPostgresVoucherRepository(pool, outStore), store.NewPostgresReservationRepository(pool), gate, voucherEvent, logger)
-	flashSvc := flashsale.New(store.NewPostgresFlashSaleRepository(pool, outStore), holds, evaluator, listings, gate, campaignEvent, logger)
+	flashSvc := flashsale.New(campaigns, holds, evaluator, listings, gate, campaignEvent, logger)
 	subSvc := subscription.New(store.NewPostgresSubscriptionRepository(pool), logger)
 	adSvc := sponsored.New(store.NewPostgresAdCampaignRepository(pool), listings, gate, logger).WithLimits(s.Ads.MaxBid, s.Ads.MaxBudget)
 
@@ -151,6 +153,18 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		return err
 	}
 
+	idemPurge, err := lifecycle.Every(idemPurgeInterval, func(ctx context.Context) error {
+		n, err := campaigns.PurgeIdempotency(ctx, time.Now())
+		if err != nil {
+			return err
+		}
+		logger.InfoContext(ctx, "purged campaign idempotency keys", "deleted", n)
+		return nil
+	}, lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		return err
+	}
+
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace + 2*closeGrace,
 		CloseGrace:    closeGrace,
@@ -158,5 +172,5 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, outboxPurge, holdPurge))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, outboxPurge, holdPurge, idemPurge))
 }
