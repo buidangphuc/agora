@@ -151,12 +151,27 @@ team-identity and team-gateway SHALL NOT log, trace, audit or error-message the 
 ### Requirement: TTL override only in the test environment
 
 team-identity SHALL honour a hand-off TTL override setting `HANDOFF_TTL_OVERRIDE` only when `ENV=test` and SHALL fail startup when it is set
-under any other `ENV`.
+under any other `ENV`. When the override is set (non-zero, non-negative, `ENV=test`), the service built in `internal/app/app.go` SHALL use it as the TTL of every minted code (wired through `WithHandoffTTL`); when it is unset the TTL SHALL stay the 60 s default. A negative override SHALL still fail startup.
 
 #### Scenario: Override accepted in test
 - **WHEN** identity starts with `ENV=test` and a 5 s override
 - **THEN** a minted code has `expires_at` 5 s after the server clock
 - **VERIFIED BY**: team-identity `internal/config` `TestTTLOverrideOnlyInTestAccepted`
+
+#### Scenario: Override is the TTL of minted codes in the running app
+- **WHEN** the app is built with `ENV=test` and `HANDOFF_TTL_OVERRIDE=5s` and a user calls `CreateHandoffCode`
+- **THEN** the response `expires_at` is 5 s after the server clock and the code is refused once 5 s have passed
+- **VERIFIED BY**: team-identity `internal/app` `TestAppWiresHandoffTTLOverride`
+
+#### Scenario: Unset override keeps 60 s in the running app
+- **WHEN** the app is built with `ENV=test` and no `HANDOFF_TTL_OVERRIDE`
+- **THEN** the response `expires_at` of `CreateHandoffCode` is exactly 60 s after the server clock
+- **VERIFIED BY**: team-identity `internal/app` `TestAppDefaultHandoffTTLWithoutOverride`
+
+#### Scenario: Negative override fails startup
+- **WHEN** identity starts with `ENV=test` and `HANDOFF_TTL_OVERRIDE=-1s`
+- **THEN** startup fails with a config error
+- **VERIFIED BY**: team-identity `internal/config` `TestTTLOverrideNegativeRefused`
 
 #### Scenario: Override refused outside test
 - **WHEN** identity starts with `ENV=staging` (or local, prod) and the override set
@@ -198,3 +213,22 @@ team-gateway SHALL expose `CreateHandoffCode` to authenticated user callers and 
 - **WHEN** identity answers `UNAVAILABLE` to a redeem forwarded by the gateway
 - **THEN** identity received exactly one `RedeemHandoffCode` call and the caller gets `UNAVAILABLE`
 - **VERIFIED BY**: team-gateway `internal/edge` `TestAuthForwarderRedeemNotRetriedHandoff`
+
+### Requirement: The gateway forwards the session id only where it is needed
+
+team-gateway SHALL set the `x-principal-sid` metadata on an upstream call only for the `platform.identity.v1.AuthService` procedures `BecomeSeller`, `CreateHandoffCode`, `PeekHandoffCode` and `RedeemHandoffCode`, and only when the verified token carries a `sid`. It SHALL NOT forward `x-principal-sid` on any other procedure or upstream service (`Register`, `Login`, `RefreshSession` and every non-identity service included).
+
+#### Scenario: Session id is forwarded to BecomeSeller and CreateHandoffCode
+- **WHEN** a user principal whose token has `sid=S` calls `BecomeSeller` and `CreateHandoffCode` through the edge
+- **THEN** the outgoing metadata of each call contains `x-principal-sid=S`
+- **VERIFIED BY**: team-gateway `internal/edge` `TestOutgoingForwardsSidOnlyToAllowlist`
+
+#### Scenario: Session id is never forwarded elsewhere
+- **WHEN** the same principal calls `Login`, `RefreshSession`, `PeekHandoffCode` anonymously, or any procedure of another service (for example listing or order)
+- **THEN** the outgoing metadata of each call has no `x-principal-sid` key and `x-principal-id`, `x-principal-type` and scopes are unchanged
+- **VERIFIED BY**: team-gateway `internal/edge` `TestOutgoingOmitsSidOutsideAllowlist`
+
+#### Scenario: A client-supplied sid header is dropped
+- **WHEN** an anonymous caller sends its own `x-principal-sid` header on `RedeemHandoffCode` or on a non-allow-listed procedure
+- **THEN** the upstream receives no `x-principal-sid`, because the value comes only from the verified token
+- **VERIFIED BY**: team-gateway `internal/edge` `TestOutgoingOmitsSidOutsideAllowlist`
