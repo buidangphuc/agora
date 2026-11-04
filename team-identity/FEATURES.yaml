@@ -4209,9 +4209,9 @@ features:
     acceptance:
       - "Seller onboarding: a signed-in buyer becomes a seller through the gateway"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: a signed-in buyer becomes a seller through the gateway"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.a-buyer-becomes-a-seller
     title: "Seller onboarding: a buyer becomes a seller"
     persona: buyer
@@ -4226,9 +4226,9 @@ features:
     acceptance:
       - "Seller onboarding: a buyer becomes a seller"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: a buyer becomes a seller"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.acceptance-is-recorded
     title: "Seller onboarding: acceptance is recorded"
     persona: buyer
@@ -4243,9 +4243,9 @@ features:
     acceptance:
       - "Seller onboarding: acceptance is recorded"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: acceptance is recorded"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.the-refresh-token-is-unchanged
     title: "Seller onboarding: the refresh token is unchanged"
     persona: buyer
@@ -4260,9 +4260,9 @@ features:
     acceptance:
       - "Seller onboarding: the refresh token is unchanged"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: the refresh token is unchanged"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.an-unknown-terms-version-is-refused
     title: "Seller onboarding: an unknown terms version is refused"
     persona: buyer
@@ -4277,9 +4277,9 @@ features:
     acceptance:
       - "Seller onboarding: an unknown terms version is refused"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: an unknown terms version is refused"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.the-terms-version-must-match-exactly
     title: "Seller onboarding: the terms version must match exactly"
     persona: buyer
@@ -4294,9 +4294,9 @@ features:
     acceptance:
       - "Seller onboarding: the terms version must match exactly"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: the terms version must match exactly"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.a-non-active-account-is-refused
     title: "Seller onboarding: a non-ACTIVE account is refused"
     persona: buyer
@@ -4311,9 +4311,9 @@ features:
     acceptance:
       - "Seller onboarding: a non-ACTIVE account is refused"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: a non-ACTIVE account is refused"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.an-existing-seller-who-is-no-longer-active-gets-no-token
     title: "Seller onboarding: an existing seller who is no longer ACTIVE gets no token"
     persona: buyer
@@ -4328,9 +4328,9 @@ features:
     acceptance:
       - "Seller onboarding: an existing seller who is no longer ACTIVE gets no token"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: an existing seller who is no longer ACTIVE gets no token"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.a-revoked-session-cannot-mint-a-token
     title: "Seller onboarding: a revoked session cannot mint a token"
     persona: buyer
@@ -4345,9 +4345,9 @@ features:
     acceptance:
       - "Seller onboarding: a revoked session cannot mint a token"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: a revoked session cannot mint a token"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.an-anonymous-caller-is-refused-at-the-edge
     title: "Seller onboarding: an anonymous caller is refused at the edge"
     persona: buyer
@@ -4362,9 +4362,9 @@ features:
     acceptance:
       - "Seller onboarding: an anonymous caller is refused at the edge"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: an anonymous caller is refused at the edge"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.the-first-grant-emits-one-event
     title: "Seller onboarding: the first grant emits one event"
     persona: buyer
@@ -4379,9 +4379,9 @@ features:
     acceptance:
       - "Seller onboarding: the first grant emits one event"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: the first grant emits one event"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.a-second-call-is-idempotent
     title: "Seller onboarding: a second call is idempotent"
     persona: buyer
@@ -4396,9 +4396,9 @@ features:
     acceptance:
       - "Seller onboarding: a second call is idempotent"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: a second call is idempotent"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.concurrent-calls-emit-one-event
     title: "Seller onboarding: concurrent calls emit one event"
     persona: buyer
@@ -4413,9 +4413,9 @@ features:
     acceptance:
       - "Seller onboarding: concurrent calls emit one event"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: concurrent calls emit one event"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.an-admin-restriction-after-onboarding-still-applies
     title: "Seller onboarding: an admin restriction after onboarding still applies"
     persona: buyer
@@ -4430,9 +4430,9 @@ features:
     acceptance:
       - "Seller onboarding: an admin restriction after onboarding still applies"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: an admin restriction after onboarding still applies"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.latency-over-50-calls
     title: "Seller onboarding: latency over 50 calls"
     persona: buyer
@@ -4447,9 +4447,9 @@ features:
     acceptance:
       - "Seller onboarding: latency over 50 calls"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: latency over 50 calls"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.a-rejected-call-is-also-fast
     title: "Seller onboarding: a rejected call is also fast"
     persona: buyer
@@ -4464,9 +4464,9 @@ features:
     acceptance:
       - "Seller onboarding: a rejected call is also fast"
     tags: [auth, seller]
-    status: planned
+    status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: a rejected call is also fast"
-    notes: "identity-seller-onboarding: e2e written red-first, red-reason: BecomeSeller answers 501 unimplemented"
+    notes: "identity-seller-onboarding: e2e written red-first (BecomeSeller answered 501 unimplemented), now green"
   - id: seller-onboarding.a-failed-transaction-leaves-no-event
     title: "Seller onboarding: a failed transaction leaves no event"
     persona: buyer
