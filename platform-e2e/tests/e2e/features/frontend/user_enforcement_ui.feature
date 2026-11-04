@@ -108,4 +108,5 @@ Feature: Admin users page and login enforcement in the browser (frontend-user-en
     Given a freshly registered buyer for the users page
     When the buyer logs in on the login page and opens "/seller/new"
     Then the browser is still on "/seller/new"
-    And the seller notice shows "Cần tài khoản Người Bán" without the restricted line or a register link
+    And the page shows the button "Đồng ý và trở thành Người Bán"
+    And the seller page shows no removed notice, restricted line or register link

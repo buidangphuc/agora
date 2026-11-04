@@ -4,6 +4,7 @@ import { redirectGuestToLoginFromHeader } from "@/features/auth/guardPath";
 import { BuyerStorefrontLink } from "@/features/handoff/BuyerStorefrontLink";
 import { SellerAccessDenied } from "@/features/seller/SellerAccessDenied";
 import { SellerNavDrawer } from "@/features/seller/SellerNavDrawer";
+import { SellerOnboarding } from "@/features/seller/SellerOnboarding";
 import { SellerSidebar } from "@/features/seller/SellerSidebar";
 import { getPrincipal, hasSellerAccess } from "@/lib/gateway/session";
 import { batchGetShopNames, shopLabel } from "@/lib/gateway/shops";
@@ -17,8 +18,10 @@ export default async function SellerLayout({
   }
 
   if (!hasSellerAccess(principal)) {
-    return (
-      <SellerAccessDenied restricted={principal.status === "restricted"} />
+    return principal.status === "restricted" ? (
+      <SellerAccessDenied restricted />
+    ) : (
+      <SellerOnboarding />
     );
   }
 

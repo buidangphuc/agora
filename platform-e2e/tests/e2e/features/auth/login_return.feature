@@ -40,7 +40,7 @@ Feature: Login returns the shopper to where they were (frontend-login-return)
     Given a registered buyer for return-to-page
     And the buyer is signed in in the browser
     When the signed-in buyer requests "/seller/new"
-    Then the page shows "Cần tài khoản Người Bán"
+    Then the page shows the button "Đồng ý và trở thành Người Bán"
     And the browser is still on "/seller/new"
 
   Scenario: Returned user passes through the guard after login

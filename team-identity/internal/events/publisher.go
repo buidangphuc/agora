@@ -93,3 +93,33 @@ func BuildUserStatusChangedEnvelope(
 	}
 	return value, nil
 }
+
+const UserRoleGrantedEventType = "platform.identity.v1.UserRoleGranted"
+
+func BuildUserRoleGranted(
+	eventID, userID, role string,
+	grantedAt time.Time,
+	principal *commonv1.Principal,
+	requestID string,
+) ([]byte, error) {
+	payload, err := proto.Marshal(&identityv1.UserRoleGranted{
+		UserId:    userID,
+		Role:      role,
+		GrantedAt: timestamppb.New(grantedAt),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal UserRoleGranted: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       UserRoleGrantedEventType,
+		OccurredAt: timestamppb.Now(),
+		Principal:  principal,
+		RequestId:  requestID,
+		Payload:    payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return value, nil
+}

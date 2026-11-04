@@ -42,7 +42,7 @@ Feature: Seller cockpit
   Scenario: Missing scope shows a recovery Result
     Given a logged-in buyer without the seller scope
     When the buyer opens the seller workplace
-    Then a result explains the seller role is required and links back to the home page
+    Then the seller onboarding screen is shown with a link back to the shop
 
   # ── Workplace and Table List ───────────────────────────────────────────
   @needsSeller @needsListing
