@@ -1,4 +1,4 @@
-# [W3-T1] seller-onboarding-ui
+# [W4-T1] seller-onboarding-ui
 
 ## Role
 feature-run worker (change `openspec/changes/seller-onboarding-ui`)

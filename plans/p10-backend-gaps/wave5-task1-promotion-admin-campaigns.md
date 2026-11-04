@@ -1,4 +1,4 @@
-# [W4-T1] promotion-admin-campaigns
+# [W5-T1] promotion-admin-campaigns
 
 ## Role
 feature-run worker (change `openspec/changes/promotion-admin-campaigns`)

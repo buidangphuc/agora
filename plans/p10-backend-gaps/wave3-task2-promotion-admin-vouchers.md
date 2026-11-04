@@ -1,4 +1,4 @@
-# [W2-T2] promotion-admin-vouchers
+# [W3-T2] promotion-admin-vouchers
 
 ## Role
 feature-run worker (change `openspec/changes/promotion-admin-vouchers`)

@@ -1,4 +1,4 @@
-# [W1-T2] identity-sso-handoff
+# [W2-T1] identity-sso-handoff
 
 ## Role
 feature-run worker (change `openspec/changes/identity-sso-handoff`)

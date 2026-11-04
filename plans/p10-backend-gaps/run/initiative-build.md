@@ -9,10 +9,11 @@
 | wave | slices | base branch | status |
 |---|---|---|---|
 | 0 | p10-gaps-contract | asdlc/p10-backend-gaps | merged (f8a0397e) |
-| 1 | gateway-principal-log-fingerprint, identity-sso-handoff | asdlc/p10-backend-gaps | gateway merged (bd18f1b0, re-run merge 67187e85); sso in progress |
-| 2 | identity-seller-onboarding, promotion-admin-vouchers | asdlc/p10-backend-gaps | vouchers in progress; seller-onboarding not started |
-| 3 | seller-onboarding-ui | asdlc/p10-backend-gaps | pending |
-| 4 | promotion-admin-campaigns | asdlc/p10-backend-gaps | pending |
+| 1 | gateway-principal-log-fingerprint | asdlc/p10-backend-gaps | merged (bd18f1b0, re-run merge 67187e85) |
+| 2 | identity-sso-handoff | asdlc/p10-backend-gaps | in progress |
+| 3 | identity-seller-onboarding, promotion-admin-vouchers | asdlc/p10-backend-gaps | vouchers in progress; seller-onboarding not started |
+| 4 | seller-onboarding-ui | asdlc/p10-backend-gaps | pending |
+| 5 | promotion-admin-campaigns | asdlc/p10-backend-gaps | pending |
 
 ## Wave moves (same-wave write-set overlap)
 

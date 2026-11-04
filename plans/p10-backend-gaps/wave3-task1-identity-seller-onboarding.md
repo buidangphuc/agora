@@ -1,4 +1,4 @@
-# [W2-T1] identity-seller-onboarding
+# [W3-T1] identity-seller-onboarding
 
 ## Role
 feature-run worker (change `openspec/changes/identity-seller-onboarding`)

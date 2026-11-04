@@ -14,7 +14,7 @@ slices:
     uses: [FlashSaleService.ListCampaigns, FlashSaleService.CancelCampaign, FlashSaleService.UpdateCampaign, ListingService.GetListing]
   - id: identity-sso-handoff
     owner: team-identity
-    depends_on: [p10-gaps-contract]
+    depends_on: [p10-gaps-contract, gateway-principal-log-fingerprint]
     uses: [AuthService.CreateHandoffCode, AuthService.RedeemHandoffCode, AuthService.PeekHandoffCode]
   - id: identity-seller-onboarding
     owner: team-identity
