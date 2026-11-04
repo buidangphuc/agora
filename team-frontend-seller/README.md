@@ -40,6 +40,7 @@ No database, no migrations.
 | `OTEL_SERVICE_NAME` | `team-frontend` | `src/lib/gateway/config.ts` |
 | `TRUSTED_PROXY_HOPS` | `1` | `src/lib/gateway/client-context.ts` |
 | `COOKIE_SECURE` | unset (`true` forces `Secure` and the `__Host-` prefix; TLS environments only) | `@fe-platform/session` via `src/lib/gateway/session-cookie.ts` |
+| `SELLER_TERMS_VERSION` | unset (the terms version string sent when a buyer accepts the seller terms during onboarding; server-side only) | seller onboarding |
 
 `NEXT_PUBLIC_*` values are baked in at `next build`; the Dockerfile takes them as build args.
 
