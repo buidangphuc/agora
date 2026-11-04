@@ -16,8 +16,8 @@ from src.core.base_page import BasePage, wait_streamed
 
 NEXT_LINK = re.compile(r"Trang sau|next", re.I)
 MAX_PAGES = 25
-_CANCEL = re.compile(r"^(cancel( campaign)?|hủy( chiến dịch)?)$", re.I)
-_CONFIRM = re.compile(r"^(confirm|yes|cancel campaign|xác nhận|đồng ý|hủy chiến dịch)", re.I)
+_CANCEL = re.compile(r"^(cancel( campaign)?|h(ủy|uỷ)( chiến dịch)?)$", re.I)
+_CONFIRM = re.compile(r"^(confirm|yes|cancel campaign|xác nhận|đồng ý|h(ủy|uỷ) chiến dịch)", re.I)
 _REVIEW_CONFIRM = re.compile(r"^(xác nhận tạo|confirm)", re.I)
 _SUBMIT = re.compile(r"^(create|submit|save|review|tạo|lưu|xem lại)", re.I)
 
@@ -61,7 +61,8 @@ class AdminCampaignsPage(BasePage):
         self.wait_until_interactive(control.first)
         control.first.click()
         self.page.wait_for_url(
-            lambda url, s=status.lower(): f"status={s}" in url, timeout=timeouts.NAVIGATION
+            lambda url, s=status.lower(): (f"status={s}" in url) if s != "all" else ("status=" not in url),
+            timeout=timeouts.NAVIGATION,
         )
         self.wait_loaded()
 

@@ -717,7 +717,7 @@ def ui_row_cancelled(world: World) -> None:
     page.choose_filter("all")
     row = page.find_row(st["listing"], st["campaign"])
     assert row is not None, "the campaign row is gone from the unfiltered list"
-    expect(row).to_contain_text(re.compile(r"cancelled|đã hủy", re.I), timeout=timeouts.DEFAULT)
+    expect(row).to_contain_text(re.compile(r"cancelled|đã h(ủy|uỷ)", re.I), timeout=timeouts.DEFAULT)
 
 
 @then("the active filter no longer lists the campaign")

@@ -102,7 +102,7 @@ func newUpdateEnv(t *testing.T) updateEnv {
 
 func (e updateEnv) seed(t *testing.T, startsAt, endsAt time.Time) store.FlashSaleCampaign {
 	t.Helper()
-	c, err := e.repo.InMemoryFlashSaleRepository.Create(t.Context(), store.FlashSaleCampaign{
+	c, err := e.repo.Create(t.Context(), store.FlashSaleCampaign{
 		ListingID: "l1", SalePrice: 80000, StockCap: 10, StartsAt: startsAt, EndsAt: endsAt,
 	}, noEvent)
 	if err != nil {

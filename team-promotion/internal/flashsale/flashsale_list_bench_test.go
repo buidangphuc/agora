@@ -16,7 +16,7 @@ func BenchmarkListCampaignsPage50(b *testing.B) {
 	for i := 0; i < 500; i++ {
 		starts := listNow.Add(time.Duration(i-250) * time.Hour)
 		c := campaignAt(fmt.Sprintf("listing-%d", i), starts, starts.Add(time.Hour))
-		got, err := repo.InMemoryFlashSaleRepository.Create(b.Context(), c, noEvent)
+		got, err := repo.Create(b.Context(), c, noEvent)
 		if err != nil {
 			b.Fatalf("seed campaign: %v", err)
 		}

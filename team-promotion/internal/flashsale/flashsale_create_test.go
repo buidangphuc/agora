@@ -91,7 +91,7 @@ func (r *idemRepo) CreateIdempotent(ctx context.Context, actorID, key, payloadHa
 		if rec.hash != payloadHash {
 			return store.FlashSaleCampaign{}, false, store.ErrIdempotencyMismatch
 		}
-		out, err := r.InMemoryFlashSaleRepository.GetByID(ctx, rec.campaignID)
+		out, err := r.GetByID(ctx, rec.campaignID)
 		return out, false, err
 	}
 	out, err := r.InMemoryFlashSaleRepository.Create(ctx, c, event)

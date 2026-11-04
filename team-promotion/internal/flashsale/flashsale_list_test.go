@@ -21,7 +21,7 @@ type listRepo struct {
 
 func (r *listRepo) seed(t *testing.T, c store.FlashSaleCampaign) store.FlashSaleCampaign {
 	t.Helper()
-	got, err := r.InMemoryFlashSaleRepository.Create(t.Context(), c, noEvent)
+	got, err := r.Create(t.Context(), c, noEvent)
 	if err != nil {
 		t.Fatalf("seed campaign: %v", err)
 	}
