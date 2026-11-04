@@ -20,6 +20,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
+from src.core.base_page import wait_streamed
 from tests.e2e.support import audit_support as aud
 from tests.e2e.support import handoff_support as ho
 from tests.e2e.support import user_enforcement_support as ue
@@ -129,6 +130,11 @@ def _expires(out_body: dict) -> float:
 @then("a signed-in buyer")
 def signed_in_buyer(world: World) -> None:
     _new_session_owner(world, "buyer")
+
+
+def _settle(page) -> None:
+    page.wait_for_load_state("load")
+    wait_streamed(page)
 
 
 @given(parsers.parse('a signed-in buyer named mallory with a fresh seller-target code'))
@@ -1206,7 +1212,7 @@ def _seller_cookies(world: World) -> dict[str, str]:
 @then("the buyer app renders the home page")
 def buyer_renders(world: World) -> None:
     resp = world.page.goto(f"{SETTINGS.base_url}/")
-    world.page.wait_for_load_state("networkidle")
+    _settle(world.page)
     X(world)["html"] = resp.text() if resp else world.page.content()
 
 
@@ -1226,7 +1232,7 @@ def click_seller_channel(world: World) -> None:
     page = world.page
     if SETTINGS.base_url not in page.url:
         page.goto(f"{SETTINGS.base_url}/")
-        page.wait_for_load_state("networkidle")
+        _settle(page)
     target = page.get_by_text(re.compile("Kênh Người Bán", re.I)).first
     expect(target).to_be_visible(timeout=15_000)
     target.click()
@@ -1253,7 +1259,7 @@ def buyer_confirmation(world: World) -> None:
 @then("the buyer clicks the confirmation button")
 def click_confirm(world: World) -> None:
     _confirm_button(world).click()
-    world.page.wait_for_load_state("networkidle")
+    _settle(world.page)
 
 
 @given("the browser ends on a seller app page without a login form")
@@ -1280,7 +1286,7 @@ def seller_cookie_set(world: World) -> None:
 def click_buyer_storefront(world: World) -> None:
     page = world.page
     page.goto(f"{SETTINGS.seller_base_url}/seller")
-    page.wait_for_load_state("networkidle")
+    _settle(page)
     target = page.get_by_role("link", name=re.compile("mua sắm|người mua|storefront|cửa hàng|trang chủ", re.I)).first
     expect(target).to_be_visible(timeout=15_000)
     target.click()
@@ -1313,7 +1319,7 @@ def open_and_confirm(world: World) -> None:
     world.page.goto(ho.handoff_url("seller", x["code"], "/seller"))
     expect(world.page.get_by_text(re.compile(CONFIRM_TEXT))).to_be_visible(timeout=15_000)
     _confirm_button(world).click()
-    world.page.wait_for_load_state("networkidle")
+    _settle(world.page)
 
 
 @given("the same hand-off URL is opened in a fresh browser context")
@@ -1325,7 +1331,7 @@ def open_fresh_context(world: World) -> None:
     world._cleanups.append(ctx.close)
     page = ctx.new_page()
     page.goto(ho.handoff_url("seller", x["code"], "/seller"))
-    page.wait_for_load_state("networkidle")
+    _settle(page)
     x["fresh_page"], x["fresh_ctx"] = page, ctx
 
 
@@ -1338,7 +1344,7 @@ def open_fresh_context(world: World) -> None:
 def open_in_browser(world: World) -> None:
     x = X(world)
     world.page.goto(ho.handoff_url("seller", x["code"], "/seller"))
-    world.page.wait_for_load_state("networkidle")
+    _settle(world.page)
     x["fresh_page"], x["fresh_ctx"] = world.page, world.context
 
 
@@ -1358,7 +1364,7 @@ def shows_login(world: World) -> None:
 def victim_opens(world: World) -> None:
     x = X(world)
     world.page.goto(ho.handoff_url("seller", x["code"], "/seller"))
-    world.page.wait_for_load_state("networkidle")
+    _settle(world.page)
 
 
 @given("the page names mallory and the browser holds no seller session cookie")
@@ -1394,7 +1400,7 @@ def seller_logout(world: World) -> None:
     button = world.page.get_by_role("button", name=re.compile("Đăng xuất"))
     expect(button.first).to_be_visible(timeout=15_000)
     button.first.click()
-    world.page.wait_for_load_state("networkidle")
+    _settle(world.page)
 
 
 @given("the buyer app session cookie is unchanged and still signed in")
