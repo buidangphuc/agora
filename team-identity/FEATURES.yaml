@@ -3592,6 +3592,93 @@ features:
     tags: [auth, handoff, unit]
     status: not-testable
     notes: "VERIFIED BY team-identity internal/config unit test (ENV=prod; the e2e stack runs ENV=local). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.override-is-the-ttl-of-minted-codes-in-the-running-app
+    title: "Override is the TTL of minted codes in the running app"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.CreateHandoffCode, identity.v1.RedeemHandoffCode]
+    acceptance:
+      - "Override is the TTL of minted codes in the running app"
+    tags: [auth, handoff]
+    status: automated
+    covered_by: "auth/sso_handoff_api.feature::Override is the TTL of minted codes in the running app"
+    notes: "identity-sso-handoff task 2.5: @handoff_ttl_override, needs platform-e2e/compose/handoff-ttl.override.yaml on team-identity (ENV=test, HANDOFF_TTL_OVERRIDE=5s); e2e written red-first 2026-11-05. Unit VERIFIED BY team-identity internal/app TestAppWiresHandoffTTLOverride."
+  - id: handoff.unset-override-keeps-60-s-in-the-running-app
+    title: "Unset override keeps 60 s in the running app"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Unset override keeps 60 s in the running app"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/app TestAppDefaultHandoffTTLWithoutOverride (the e2e stack runs ENV=local). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.negative-override-fails-startup
+    title: "Negative override fails startup"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Negative override fails startup"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity internal/config TestTTLOverrideNegativeRefused (process startup config). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.session-id-is-forwarded-to-becomeseller-and-createhandoffcode
+    title: "Session id is forwarded to BecomeSeller and CreateHandoffCode"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session id is forwarded to BecomeSeller and CreateHandoffCode"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge TestOutgoingForwardsSidOnlyToAllowlist (outgoing gRPC metadata is not observable through the gateway). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.session-id-is-never-forwarded-elsewhere
+    title: "Session id is never forwarded elsewhere"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session id is never forwarded elsewhere"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge TestOutgoingOmitsSidOutsideAllowlist (outgoing gRPC metadata is not observable through the gateway). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.a-client-supplied-sid-header-is-dropped
+    title: "A client-supplied sid header is dropped"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-sso-handoff (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A client-supplied sid header is dropped"
+    tags: [auth, handoff, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge TestOutgoingOmitsSidOutsideAllowlist (outgoing gRPC metadata is not observable through the gateway). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
   - id: handoff.old-rows-are-purged-recent-ones-kept
     title: "Old rows are purged, recent ones kept"
     persona: buyer
@@ -3661,7 +3748,7 @@ features:
       - "Redeem is never retried"
     tags: [auth, handoff, unit]
     status: not-testable
-    notes: "VERIFIED BY team-gateway TestAuthForwarderRedeemNotRetried. Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+    notes: "VERIFIED BY team-gateway TestAuthForwarderRedeemNotRetriedHandoff (internal/edge/auth_handoff_test.go). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
   - id: handoff.get-shows-the-confirmation-page-and-consumes-nothing
     title: "GET shows the confirmation page and consumes nothing"
     persona: buyer
@@ -4509,17 +4596,79 @@ features:
     tags: [auth, seller, unit]
     status: not-testable
     notes: "identity-seller-onboarding: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestBecomeSellerRequiresUserPrincipal`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
-  - id: seller-onboarding.no-audit-entry-is-written
-    title: "Seller onboarding: no audit entry is written"
+  - id: seller-onboarding.a-first-grant-writes-one-audit-entry
+    title: "Seller onboarding: a first grant writes one audit entry"
     persona: buyer
     priority: P1
-    summary: "Seller onboarding: no audit entry is written"
+    summary: "Seller onboarding: a first grant writes one audit entry"
+    entry_route: /
+    services: [team-identity, team-gateway, team-audit]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.BecomeSeller]
+    acceptance:
+      - "Seller onboarding: a first grant writes one audit entry"
+    tags: [auth, seller]
+    status: automated
+    covered_by: "identity/seller_onboarding.feature::Seller onboarding: a first grant writes one audit entry"
+    notes: "identity-seller-onboarding: e2e written red-first 2026-11-05 (reopen for converge fixes); unit VERIFIED BY team-identity `internal/identity` `TestBecomeSellerWritesAuditEntry`"
+  - id: seller-onboarding.audit-unavailable-refuses-the-grant
+    title: "Seller onboarding: audit unavailable refuses the grant"
+    persona: buyer
+    priority: P1
+    summary: "Seller onboarding: audit unavailable refuses the grant"
     entry_route: /
     services: [team-identity, team-gateway]
     preconditions:
       login: buyer
     acceptance:
-      - "Seller onboarding: no audit entry is written (unit-verified)"
+      - "Seller onboarding: audit unavailable refuses the grant (unit-verified)"
     tags: [auth, seller, unit]
     status: not-testable
-    notes: "identity-seller-onboarding: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestBecomeSellerDoesNotAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-seller-onboarding: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestBecomeSellerAuditDownRefusesGrant`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+  - id: seller-onboarding.an-audit-failure-after-the-role-write-rolls-it-back
+    title: "Seller onboarding: an audit failure after the role write rolls it back"
+    persona: buyer
+    priority: P1
+    summary: "Seller onboarding: an audit failure after the role write rolls it back"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Seller onboarding: an audit failure after the role write rolls it back (unit-verified)"
+    tags: [auth, seller, unit]
+    status: not-testable
+    notes: "identity-seller-onboarding: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestGrantSellerAuditFailureRollsBack`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+  - id: seller-onboarding.a-repeat-call-by-a-seller-does-not-audit-again
+    title: "Seller onboarding: a repeat call by a seller does not audit again"
+    persona: buyer
+    priority: P1
+    summary: "Seller onboarding: a repeat call by a seller does not audit again"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Seller onboarding: a repeat call by a seller does not audit again (unit-verified)"
+    tags: [auth, seller, unit]
+    status: not-testable
+    notes: "identity-seller-onboarding: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestBecomeSellerRepeatDoesNotAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+  - id: seller-onboarding.audit-unavailable-is-refused-through-the-gateway
+    title: "Seller onboarding: audit unavailable is refused through the gateway"
+    persona: buyer
+    priority: P1
+    summary: "Seller onboarding: audit unavailable is refused through the gateway"
+    entry_route: /
+    services: [team-identity, team-gateway, team-audit]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.BecomeSeller]
+    acceptance:
+      - "Seller onboarding: audit unavailable is refused through the gateway"
+    tags: [auth, seller, destructive]
+    status: automated
+    covered_by: "identity/seller_onboarding.feature::Seller onboarding: audit unavailable is refused through the gateway"
+    notes: "identity-seller-onboarding: e2e written red-first 2026-11-05 (reopen for converge fixes); @destructive, stops team-audit and restarts it in teardown"
