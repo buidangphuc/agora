@@ -1,7 +1,9 @@
+import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { SellerAccessDenied } from "@/features/seller/SellerAccessDenied";
 import { getPrincipal } from "@/lib/gateway/session";
 
 class GuestRedirect extends Error {}
@@ -21,6 +23,7 @@ vi.mock("@/features/auth/guardPath", () => ({
   }),
   redirectGuestToLoginFromHeader: vi.fn(),
 }));
+vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
 vi.mock("@/lib/gateway/session", () => ({
   getPrincipal: vi.fn(),
   hasScope: vi.fn(),
@@ -125,5 +128,22 @@ describe("Users UI: Seller pages do not send a principal without the listing.wri
       expect(redirectGuestToLogin).toHaveBeenCalledTimes(1);
       expect(vi.mocked(redirectGuestToLogin).mock.calls[0][0]).toBe(page.path);
     });
+  });
+});
+
+describe("Users UI: Seller pages do not send a principal without the listing.write scope to login: access denied screen", () => {
+  it("renders only the restricted notice with shopping and logout actions", () => {
+    render(<SellerAccessDenied />);
+    expect(
+      screen.getByText("Tài khoản Người Bán đang bị hạn chế"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Không có quyền")).toBeNull();
+    expect(screen.queryByText("Cần tài khoản Người Bán")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Về trang mua sắm" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Đăng xuất" }),
+    ).toBeInTheDocument();
   });
 });

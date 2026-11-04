@@ -13,7 +13,7 @@ Status: compose service `team-frontend-seller`, port `:3001`. Stack: React 19, T
 | `/` | Redirects to `/seller` | none |
 | `/login` | Seller login form (same `LoginForm` and server action as the buyer app). Takes `?next=<path>` (the buyer app's "Kênh Người Bán" link sends `next=/seller`) or the older `?returnUrl=`, both checked by `safeReturnUrl`; a user who already has a seller session with `listing.write` is sent straight to it (default `/seller`) | none |
 | `/sell` | Redirects to `/seller/new` | none |
-| `/seller/*` | Workplace, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `src/app/seller/layout.tsx`: `/login?returnUrl=` when anonymous; without `listing.write` it renders `SellerAccessDenied` in place ("Tài khoản Người Bán đang bị hạn chế" when the token's `status` is `restricted`, otherwise "Cần tài khoản Người Bán"), with a link back to the buyer app and a "Đăng xuất" button; the gateway re-enforces scopes on the data |
+| `/seller/*` | Workplace, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `src/app/seller/layout.tsx`: `/login?returnUrl=` when anonymous; without `listing.write` it renders `SellerAccessDenied` in place ("Tài khoản Người Bán đang bị hạn chế") when the token's `status` is `restricted`, otherwise the `SellerOnboarding` terms screen ("Đồng ý và trở thành Người Bán"), each with a link back to the buyer app and a "Đăng xuất" button; the gateway re-enforces scopes on the data |
 
 There is no `/admin` route and no link to the admin app.
 
@@ -40,6 +40,7 @@ No database, no migrations.
 | `OTEL_SERVICE_NAME` | `team-frontend` | `src/lib/gateway/config.ts` |
 | `TRUSTED_PROXY_HOPS` | `1` | `src/lib/gateway/client-context.ts` |
 | `COOKIE_SECURE` | unset (`true` forces `Secure` and the `__Host-` prefix; TLS environments only) | `@fe-platform/session` via `src/lib/gateway/session-cookie.ts` |
+| `SELLER_TERMS_VERSION` | unset (the terms version string sent when a buyer accepts the seller terms during onboarding; server-side only) | seller onboarding |
 
 `NEXT_PUBLIC_*` values are baked in at `next build`; the Dockerfile takes them as build args.
 

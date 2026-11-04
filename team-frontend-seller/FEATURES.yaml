@@ -1302,7 +1302,7 @@ features:
       login: buyer
     acceptance:
       - "When a signed-in buyer requests `/seller/new`"
-      - "Then the seller app renders the \"Cần tài khoản Người Bán\" result in place and the browser stays on `/seller/new`"
+      - "Then the page renders the seller onboarding screen with the button \"Đồng ý và trở thành Người Bán\" and issues no redirect to `/login`"
     tags: [auth, login-return]
     status: automated
     covered_by: "auth/login_return.feature::Signed-in user without the scope is not redirected to login"
@@ -1417,10 +1417,10 @@ features:
     services: [team-frontend-seller, team-identity, team-gateway]
     acceptance:
       - "When the seller layout renders for a signed-in principal whose scopes lack `listing.write` and whose token has no `status` claim"
-      - "Then it shows \"Không có quyền\" and \"Cần tài khoản Người Bán\", does not show the restricted line or a \"Đăng ký bán hàng\" link, renders no children, and `redirect` is called zero times"
+      - "Then it shows the button \"Đồng ý và trở thành Người Bán\", does not show \"Cần tài khoản Người Bán\", the restricted line or a \"Đăng ký bán hàng\" link, renders no children, and `redirect` is called zero times"
     tags: [admin, enforcement]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/layout.test.tsx` `shows the seller-account notice in place for a buyer`. Unit level; the browser case is covered by the buyer scenario."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/layout.test.tsx` `shows onboarding in place for a buyer`. Unit level; the browser case is covered by the buyer scenario."
 
   - id: frontend.user-enforcement-restricted-seller-sees-the-notice-in-the-browser
     title: "Users UI: Restricted seller sees the notice in the browser"
@@ -1445,7 +1445,7 @@ features:
     services: [team-frontend-seller, team-identity, team-gateway]
     acceptance:
       - "When a freshly registered buyer logs in on the seller app and opens `/seller/new`"
-      - "Then the browser stays on `/seller/new`, the page shows \"Cần tài khoản Người Bán\", and it shows neither the restricted line nor a \"Đăng ký bán hàng\" link"
+      - "Then the browser stays on `/seller/new`, the page shows the button \"Đồng ý và trở thành Người Bán\", and it shows neither \"Cần tài khoản Người Bán\", the restricted line nor a \"Đăng ký bán hàng\" link"
     tags: [admin, enforcement]
     status: automated
     covered_by: "frontend/user_enforcement_ui.feature::Users UI: Buyer sees the seller-account notice in the browser"
@@ -1743,3 +1743,311 @@ features:
     tags: [seller, order]
     status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: another seller cannot open the new-order link"
+
+  - id: seller-onboarding-ui.a-buyer-sees-the-onboarding-screen
+    title: "Seller onboarding UI: a buyer sees the onboarding screen"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the seller layout renders for a signed-in principal whose scopes lack `listing.write` and whose token has no `status` claim"
+      - "Then it shows the terms text, the terms version and the button \"Đồng ý và trở thành Người Bán\", renders no children, calls `redirect` zero times and shows no \"Cần tài khoản Người Bán\""
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/layout.test.tsx` `shows onboarding in place for a buyer`"
+
+  - id: seller-onboarding-ui.an-existing-seller-never-sees-onboarding
+    title: "Seller onboarding UI: an existing seller never sees onboarding"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the seller layout renders for a principal with `listing.write`"
+      - "Then it renders its children and the sidebar, and the button \"Đồng ý và trở thành Người Bán\" is absent"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/layout.test.tsx` `seller with listing.write sees no onboarding`"
+
+  - id: seller-onboarding-ui.accepting-sends-the-displayed-version-and-updates-the-session-cookie
+    title: "Seller onboarding UI: accepting sends the displayed version and updates the session cookie"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the accept action runs with a `seller_session` cookie and `BecomeSeller` answers a new access token"
+      - "Then `BecomeSeller` is called exactly once with the displayed terms version, `seller_session` holds the new token, `seller_refresh` is not written, and the action redirects to `/seller/new`"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/onboarding.test.ts` `accept sets only the session cookie and redirects`"
+
+  - id: seller-onboarding-ui.the-access-token-never-reaches-the-client
+    title: "Seller onboarding UI: the access token never reaches the client"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the accept action succeeds"
+      - "Then the action result and the rendered HTML contain no part of the new access token"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/onboarding.test.ts` `token is not exposed to the client`"
+
+  - id: seller-onboarding-ui.the-accept-action-refuses-to-run-without-a-session
+    title: "Seller onboarding UI: the accept action refuses to run without a session"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the accept action runs with no `seller_session` cookie"
+      - "Then it returns an error, calls zero RPCs and sets no cookie"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/onboarding.test.ts` `accept without session sets no cookie`"
+
+  - id: seller-onboarding-ui.an-unknown-terms-version-shows-an-error
+    title: "Seller onboarding UI: an unknown terms version shows an error"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When `BecomeSeller` answers INVALID_ARGUMENT"
+      - "Then the onboarding screen stays with a visible error line, the button is enabled again and no cookie changes"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/onboarding.test.ts` `invalid terms version shows error and keeps cookies`"
+
+  - id: seller-onboarding-ui.an-unavailable-gateway-shows-an-error
+    title: "Seller onboarding UI: an unavailable gateway shows an error"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When `BecomeSeller` answers UNAVAILABLE"
+      - "Then the onboarding screen stays with a visible error line beginning \"Không thể\" and no cookie changes"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/onboarding.test.ts` `unavailable shows error and keeps cookies`"
+
+  - id: seller-onboarding-ui.an-expired-session-on-accept-goes-to-login
+    title: "Seller onboarding UI: an expired session on accept goes to login"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When `BecomeSeller` answers UNAUTHENTICATED"
+      - "Then the action redirects to the seller login with `returnUrl` equal to `/seller/new` (the path the layout was rendered on) and sets no cookie"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/onboarding.test.ts` `unauthenticated redirects to login`"
+
+  - id: seller-onboarding-ui.an-empty-token-is-an-error
+    title: "Seller onboarding UI: an empty token is an error"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When `BecomeSeller` answers success with an empty access token"
+      - "Then the onboarding screen stays with a visible error line, `seller_session` is unchanged and no redirect happens"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/onboarding.test.ts` `empty token shows error and keeps cookies`"
+
+  - id: seller-onboarding-ui.the-accept-button-is-disabled-while-pending
+    title: "Seller onboarding UI: the accept button is disabled while pending"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the buyer clicks the button and the action has not returned"
+      - "Then the button is disabled, and a second click within that time sends no second action call"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerOnboarding.test.tsx` `button disabled while pending`"
+
+  - id: seller-onboarding-ui.the-screens-offer-the-shopping-and-logout-actions
+    title: "Seller onboarding UI: the screens offer the shopping and logout actions"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the onboarding screen renders for a buyer, and when the denied notice renders"
+      - "Then each of the two shows a link \"Về trang mua sắm\" to the buyer app and a button \"Đăng xuất\""
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerOnboarding.test.tsx` `onboarding and denied notice offer shopping and logout`"
+
+  - id: seller-onboarding-ui.sell-keeps-redirecting
+    title: "Seller onboarding UI: /sell keeps redirecting"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When a request opens `/sell`"
+      - "Then the response redirects to `/seller/new`"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/sell/page.test.tsx` `sell redirects to seller new`"
+
+  - id: seller-onboarding-ui.a-buyer-becomes-a-seller-in-the-browser
+    title: "Seller onboarding UI: a buyer becomes a seller in the browser"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When a freshly registered buyer logs in on the seller app, opens `/sell` and clicks \"Đồng ý và trở thành Người Bán\""
+      - "Then the browser ends on `/seller/new` with the new-listing form visible, the `seller_session` cookie carries `listing.write`, the `seller_refresh` cookie value is unchanged, and the page shows no \"Cần tài khoản Người Bán\""
+    tags: [seller, onboarding]
+    status: automated
+    covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a buyer becomes a seller in the browser"
+
+  - id: seller-onboarding-ui.no-source-file-shows-the-removed-text
+    title: "Seller onboarding UI: no source file shows the removed text"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When `Cần tài khoản Người Bán` is searched with grep across `team-frontend-seller` (excluding `node_modules`, `.next` and test files asserting its absence), `platform-e2e/tests/e2e/step_definitions` and the feature files"
+      - "Then zero matches remain, except in assertions that the text is absent"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/removedText.test.ts` `no source shows the removed seller notice text` (static scan, cannot be produced end to end)"
+
+  - id: seller-onboarding-ui.a-returning-seller-is-not-asked-again
+    title: "Seller onboarding UI: a returning seller is not asked again"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the same user reloads `/seller` after becoming a seller"
+      - "Then the seller centre renders and the onboarding screen is absent"
+    tags: [seller, onboarding]
+    status: automated
+    covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a returning seller is not asked again"
+
+  - id: seller-onboarding-ui.an-anonymous-visitor-is-sent-to-login
+    title: "Seller onboarding UI: an anonymous visitor is sent to login"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When a visitor with no session opens `/sell`"
+      - "Then the browser lands on the seller `/login` with `returnUrl` equal to the seller path, not on the onboarding screen"
+    tags: [seller, onboarding]
+    status: automated
+    covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: an anonymous visitor is sent to login"
+
+  - id: seller-onboarding-ui.a-denied-acceptance-shows-the-denied-notice
+    title: "Seller onboarding UI: a denied acceptance shows the denied notice"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When `BecomeSeller` answers PERMISSION_DENIED with the raw message \"account restricted\""
+      - "Then the screen shows the title \"Không thể trở thành Người Bán\" and the fixed line, no button \"Đồng ý và trở thành Người Bán\", no part of the raw message, and the `seller_session` cookie is unchanged"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/onboarding.test.ts` `permission denied shows fixed denied notice`"
+
+  - id: seller-onboarding-ui.a-restricted-account-sees-no-onboarding-button
+    title: "Seller onboarding UI: a restricted account sees no onboarding button"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When the seller layout renders for a principal without `listing.write` whose token carries `status: \"restricted\"`"
+      - "Then it shows \"Tài khoản Người Bán đang bị hạn chế\", renders no accept button and calls `BecomeSeller` zero times"
+    tags: [seller, onboarding]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/layout.test.tsx` `restricted principal gets no onboarding`"
+
+  - id: seller-onboarding-ui.a-suspended-buyer-is-sent-to-login-in-the-browser
+    title: "Seller onboarding UI: a suspended buyer is sent to login in the browser"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When a buyer is signed in on the seller app, an admin sets the buyer to \"suspended\" (sessions revoked), and the buyer clicks \"Đồng ý và trở thành Người Bán\""
+      - "Then `BecomeSeller` answers UNAUTHENTICATED, the browser lands on the seller `/login`, no onboarding is shown, and the `seller_session` cookie does not carry `listing.write`"
+    tags: [seller, onboarding]
+    status: automated
+    covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a suspended buyer is sent to login in the browser"
+
+  - id: seller-onboarding-ui.a-banned-buyer-is-sent-to-login-in-the-browser
+    title: "Seller onboarding UI: a banned buyer is sent to login in the browser"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When a buyer is signed in on the seller app, an admin sets the buyer to \"banned\" (sessions revoked), and the buyer clicks \"Đồng ý và trở thành Người Bán\""
+      - "Then `BecomeSeller` answers UNAUTHENTICATED, the browser lands on the seller `/login`, never reaches `/seller/new`, and the `seller_session` cookie does not carry `listing.write`"
+    tags: [seller, onboarding]
+    status: automated
+    covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a banned buyer is sent to login in the browser"
+
+  - id: seller-onboarding-ui.a-restricted-seller-sees-the-inline-403-in-the-browser
+    title: "Seller onboarding UI: a restricted seller sees the inline 403 in the browser"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When an admin has restricted a buyer, and that buyer logs in on the seller app and opens `/seller/new`"
+      - "Then the browser stays on `/seller/new`, the page shows \"Tài khoản Người Bán đang bị hạn chế\", and no button \"Đồng ý và trở thành Người Bán\" is present"
+    tags: [seller, onboarding]
+    status: automated
+    covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a restricted seller sees the inline 403 in the browser"
+
+  - id: seller-onboarding-ui.a-buyer-restricted-after-page-load-is-refused
+    title: "Seller onboarding UI: a buyer restricted after page load is refused"
+    persona: buyer
+    priority: P1
+    summary: "Change seller-onboarding-ui (initiative p10-backend-gaps), capability seller-onboarding-ui."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    acceptance:
+      - "When a buyer sees onboarding, an admin sets the buyer to \"restricted\", and the buyer clicks the button"
+      - "Then the page shows \"Không thể trở thành Người Bán\" and the `seller_session` cookie does not carry `listing.write`"
+    tags: [seller, onboarding]
+    status: automated
+    covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a buyer restricted after page load is refused"

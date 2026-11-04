@@ -5,8 +5,8 @@ import SellPage from "./page";
 
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 
-describe("/sell", () => {
-  it("is a server redirect to the listing studio", () => {
+describe("Seller onboarding UI: /sell keeps redirecting", () => {
+  it("sell redirects to seller new", () => {
     SellPage();
     expect(redirect).toHaveBeenCalledWith("/seller/new");
   });

@@ -269,8 +269,8 @@ def seller_notice(world: World, title: str, line: str) -> None:
     expect(world.page.get_by_text(line)).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
-@then(parsers.parse('the seller notice shows "{title}" without the restricted line or a register link'))
-def buyer_seller_notice(world: World, title: str) -> None:
-    expect(world.page.get_by_text(title).first).to_be_visible(timeout=timeouts.NAVIGATION)
+@then("the seller page shows no removed notice, restricted line or register link")
+def buyer_seller_page_clean(world: World) -> None:
+    expect(world.page.get_by_text("Cần tài khoản Người Bán")).to_have_count(0)
     expect(world.page.get_by_text("Tài khoản bị hạn chế?")).to_have_count(0)
     expect(world.page.get_by_role("link", name="Đăng ký bán hàng")).to_have_count(0)
