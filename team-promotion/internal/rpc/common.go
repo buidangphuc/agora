@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -40,6 +41,10 @@ func mustErrorTable() grpcx.ErrorTable {
 		grpcx.Rule{Target: store.ErrDuplicateCode, Code: codes.AlreadyExists, Message: "voucher code already exists"},
 		grpcx.Rule{Target: flashsale.ErrInvalidCampaign, Code: codes.InvalidArgument, Message: "invalid campaign"},
 		grpcx.Rule{Target: store.ErrCampaignNotFound, Code: codes.NotFound, Message: "campaign not found"},
+		grpcx.Rule{Target: store.ErrCampaignEnded, Code: codes.FailedPrecondition, Message: "campaign has ended"},
+		grpcx.Rule{Target: store.ErrCampaignNotScheduled, Code: codes.FailedPrecondition, Message: "campaign is not scheduled"},
+		grpcx.Rule{Target: store.ErrCampaignCancelled, Code: codes.FailedPrecondition, Message: "campaign is cancelled"},
+		grpcx.Rule{Target: store.ErrIdempotencyMismatch, Code: codes.AlreadyExists, Message: "idempotency_key already used with a different payload"},
 		grpcx.Rule{Target: sponsored.ErrInvalidAdCampaign, Code: codes.InvalidArgument, Message: "invalid ad campaign"},
 		grpcx.Rule{Target: subscription.ErrInvalidSubscription, Code: codes.InvalidArgument, Message: "invalid subscription"},
 		grpcx.Rule{Target: store.ErrPlanNotFound, Code: codes.NotFound, Message: "plan not found"},
@@ -61,7 +66,14 @@ func fail(ctx context.Context, logger *slog.Logger, err error) error {
 		}
 		return st.Err()
 	}
-	return grpcx.Status(ctx, logger, err, errTable)
+	origErr := err
+	err = grpcx.Status(ctx, logger, err, errTable)
+	if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable && errors.Is(origErr, listing.ErrLookupFailed) {
+		if withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Domain: "promotion.platform", Reason: "LISTING_UNAVAILABLE"}); derr == nil {
+			return withInfo.Err()
+		}
+	}
+	return err
 }
 
 func orDefault(logger *slog.Logger) *slog.Logger {
@@ -136,14 +148,45 @@ func voucherToProto(v store.Voucher) *promotionv1.Voucher {
 
 func campaignToProto(c store.FlashSaleCampaign) *promotionv1.FlashSaleCampaign {
 	return &promotionv1.FlashSaleCampaign{
-		Id:        c.ID,
-		ListingId: c.ListingID,
-		VariantId: c.VariantID,
-		SalePrice: c.SalePrice,
-		StockCap:  c.StockCap,
-		StockSold: c.StockSold,
-		StartsAt:  protoTime(c.StartsAt),
-		EndsAt:    protoTime(c.EndsAt),
+		Id:          c.ID,
+		ListingId:   c.ListingID,
+		VariantId:   c.VariantID,
+		SalePrice:   c.SalePrice,
+		StockCap:    c.StockCap,
+		StockSold:   c.StockSold,
+		StartsAt:    protoTime(c.StartsAt),
+		EndsAt:      protoTime(c.EndsAt),
+		CancelledAt: protoTime(c.CancelledAt),
+	}
+}
+
+func campaignStatusToProto(s string) promotionv1.CampaignStatus {
+	switch s {
+	case store.CampaignStatusScheduled:
+		return promotionv1.CampaignStatus_CAMPAIGN_STATUS_SCHEDULED
+	case store.CampaignStatusActive:
+		return promotionv1.CampaignStatus_CAMPAIGN_STATUS_ACTIVE
+	case store.CampaignStatusEnded:
+		return promotionv1.CampaignStatus_CAMPAIGN_STATUS_ENDED
+	case store.CampaignStatusCancelled:
+		return promotionv1.CampaignStatus_CAMPAIGN_STATUS_CANCELLED
+	default:
+		return promotionv1.CampaignStatus_CAMPAIGN_STATUS_UNSPECIFIED
+	}
+}
+
+func campaignStatusFromProto(s promotionv1.CampaignStatus) string {
+	switch s {
+	case promotionv1.CampaignStatus_CAMPAIGN_STATUS_SCHEDULED:
+		return store.CampaignStatusScheduled
+	case promotionv1.CampaignStatus_CAMPAIGN_STATUS_ACTIVE:
+		return store.CampaignStatusActive
+	case promotionv1.CampaignStatus_CAMPAIGN_STATUS_ENDED:
+		return store.CampaignStatusEnded
+	case promotionv1.CampaignStatus_CAMPAIGN_STATUS_CANCELLED:
+		return store.CampaignStatusCancelled
+	default:
+		return ""
 	}
 }
 

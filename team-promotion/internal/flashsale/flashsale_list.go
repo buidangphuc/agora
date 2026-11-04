@@ -39,6 +39,8 @@ type ListActiveResult struct {
 
 func campaignStatus(c store.FlashSaleCampaign, now time.Time) string {
 	switch {
+	case !c.CancelledAt.IsZero():
+		return store.CampaignStatusCancelled
 	case !c.StartsAt.IsZero() && c.StartsAt.After(now):
 		return store.CampaignStatusScheduled
 	case !c.EndsAt.IsZero() && !c.EndsAt.After(now):

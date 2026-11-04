@@ -41,7 +41,7 @@ func (r *PostgresFlashSaleRepository) ListCampaigns(ctx context.Context, statuse
 	if offset < 0 {
 		offset = 0
 	}
-	const q = `SELECT ` + campaignColumns + ` FROM flash_sale_campaigns
+	const q = `SELECT ` + campaignSelectColumns + ` FROM flash_sale_campaigns
 		WHERE cardinality($1::text[]) = 0 OR (CASE
 			WHEN cancelled_at IS NOT NULL THEN 'cancelled'
 			WHEN starts_at IS NOT NULL AND starts_at > $2 THEN 'scheduled'
@@ -123,7 +123,7 @@ func (r *PostgresFlashSaleRepository) UpdateIfScheduled(ctx context.Context, id 
 		); err != nil {
 			return fmt.Errorf("update campaign %q: %w", id, err)
 		}
-		return scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignColumns+` FROM flash_sale_campaigns WHERE id = $1`, id), &out)
+		return scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignSelectColumns+` FROM flash_sale_campaigns WHERE id = $1`, id), &out)
 	})
 	if err != nil {
 		return FlashSaleCampaign{}, err
@@ -161,7 +161,7 @@ func lookupIdempotentTx(ctx context.Context, tx pgx.Tx, actorID, key string, now
 	if err != nil {
 		return false, fmt.Errorf("lookup idempotency: %w", err)
 	}
-	if err := scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignColumns+` FROM flash_sale_campaigns WHERE id = $1`, campaignID), &out.Campaign); err != nil {
+	if err := scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignSelectColumns+` FROM flash_sale_campaigns WHERE id = $1`, campaignID), &out.Campaign); err != nil {
 		return false, fmt.Errorf("load idempotent campaign %q: %w", campaignID, err)
 	}
 	return true, nil
