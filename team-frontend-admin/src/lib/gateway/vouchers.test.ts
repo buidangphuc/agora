@@ -125,6 +125,7 @@ describe("listPlatformVouchers over a fake transport", () => {
           maxDiscount: 50000,
           quota: 1000,
           used: 12,
+          active: false,
           startsAt: STARTS.toISOString(),
           endsAt: ENDS.toISOString(),
         },
