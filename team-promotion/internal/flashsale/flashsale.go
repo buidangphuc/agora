@@ -69,6 +69,8 @@ type CreateCampaignParams struct {
 	// CallerID is the authenticated principal id; IsAdmin skips the ownership check.
 	CallerID string
 	IsAdmin  bool
+
+	IdempotencyKey string
 }
 
 func (s *Service) CreateCampaign(ctx context.Context, p CreateCampaignParams) (store.FlashSaleCampaign, error) {

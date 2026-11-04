@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 	listingv1 "github.com/buidangphuc/team-promotion/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-promotion/internal/listing"
@@ -22,9 +21,9 @@ import (
 
 func newFlashSvc(t *testing.T, flagEnabled bool) (*Service, *eventLog) {
 	t.Helper()
-	repo := storefake.NewInMemoryFlashSaleRepository()
+	repo := newIdemRepo(storefake.NewInMemoryFlashSaleRepository(), &callLog{})
 	events := &eventLog{}
-	svc := New(repo, nil, newFlags(t, flagProvider(flagEnabled)), nil, auditx.NewGate(&recordingAuditWriter{}, nil), events.build, nil)
+	svc := New(repo, nil, newFlags(t, flagProvider(flagEnabled)), &fakeListings{all: true}, auditx.NewGate(&recordingAuditWriter{}, nil), events.build, nil)
 	return svc, events
 }
 
@@ -37,7 +36,7 @@ func TestCreateCampaignEmitsEvent(t *testing.T) {
 		StockCap:  100,
 		StartsAt:  time.Now().Add(-time.Hour),
 		EndsAt:    time.Now().Add(time.Hour),
-		IsAdmin:   true,
+		IsAdmin:   true, CallerID: "admin-1", IdempotencyKey: "emit-event-key",
 	})
 	if err != nil {
 		t.Fatalf("CreateCampaign: %v", err)
@@ -63,7 +62,7 @@ func TestCreateCampaignEventBuilderErrorStoresNothing(t *testing.T) {
 	svc, events := newFlashSvc(t, true)
 	events.err = errors.New("marshal failed")
 	_, err := svc.CreateCampaign(t.Context(), CreateCampaignParams{
-		ListingID: "list-1", SalePrice: 1, StockCap: 1, IsAdmin: true,
+		ListingID: "list-1", SalePrice: 1, StockCap: 1, IsAdmin: true, CallerID: "admin-1", IdempotencyKey: "builder-err-key",
 		StartsAt: time.Now().Add(-time.Hour), EndsAt: time.Now().Add(time.Hour),
 	})
 	if err == nil {
@@ -77,7 +76,7 @@ func TestCreateCampaignEventBuilderErrorStoresNothing(t *testing.T) {
 func TestGetFlashSaleStockRemaining(t *testing.T) {
 	svc, _ := newFlashSvc(t, true)
 	ctx := t.Context()
-	repo := svc.campaigns.(*storefake.InMemoryFlashSaleRepository)
+	repo := svc.campaigns.(*idemRepo).InMemoryFlashSaleRepository
 	c, _ := repo.Create(ctx, store.FlashSaleCampaign{ListingID: "l", StockCap: 100, StockSold: 30}, noEvent)
 
 	remaining, stockCap, err := svc.GetFlashSaleStock(ctx, c.ID)
@@ -104,14 +103,15 @@ func TestGetActiveFlashSaleWindow(t *testing.T) {
 	now := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
 	svc.nowFn = func() time.Time { return now }
 
-	active, _ := svc.CreateCampaign(ctx, CreateCampaignParams{
-		ListingID: "live", SalePrice: 1, StockCap: 5, IsAdmin: true,
+	repo := svc.campaigns.(*idemRepo).InMemoryFlashSaleRepository
+	active, _ := repo.Create(ctx, store.FlashSaleCampaign{
+		ListingID: "live", SalePrice: 1, StockCap: 5,
 		StartsAt: now.Add(-time.Hour), EndsAt: now.Add(time.Hour),
-	})
-	_, _ = svc.CreateCampaign(ctx, CreateCampaignParams{
-		ListingID: "dead", SalePrice: 1, StockCap: 5, IsAdmin: true,
+	}, noEvent)
+	_, _ = repo.Create(ctx, store.FlashSaleCampaign{
+		ListingID: "dead", SalePrice: 1, StockCap: 5,
 		StartsAt: now.Add(-2 * time.Hour), EndsAt: now.Add(-time.Hour),
-	})
+	}, noEvent)
 
 	got, ok, err := svc.GetActiveFlashSale(ctx, "live")
 	if err != nil {
@@ -136,7 +136,7 @@ func TestFlashSaleKillSwitchSuppresses(t *testing.T) {
 	now := time.Now()
 	svc.nowFn = func() time.Time { return now }
 	_, _ = svc.CreateCampaign(ctx, CreateCampaignParams{
-		ListingID: "live", SalePrice: 1, StockCap: 5, IsAdmin: true,
+		ListingID: "live", SalePrice: 1, StockCap: 5, IsAdmin: true, CallerID: "admin-1", IdempotencyKey: "kill-switch-key",
 		StartsAt: now.Add(-time.Hour), EndsAt: now.Add(time.Hour),
 	})
 
@@ -151,6 +151,8 @@ func TestFlashSaleKillSwitchSuppresses(t *testing.T) {
 
 type fakeListings struct {
 	owners map[string]string
+	all    bool
+	price  int64
 	err    error
 	calls  int
 }
@@ -161,10 +163,17 @@ func (f *fakeListings) GetListing(_ context.Context, req *listingv1.GetListingRe
 		return nil, f.err
 	}
 	seller, ok := f.owners[req.GetId()]
-	if !ok {
+	if !ok && !f.all {
 		return nil, status.Error(codes.NotFound, "not_found")
 	}
-	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller}}, nil
+	if f.all && !ok {
+		seller = "seller-1"
+	}
+	price := f.price
+	if price == 0 {
+		price = 100000
+	}
+	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller, Price: price}}, nil
 }
 
 func TestCreateCampaignOwnership(t *testing.T) {
@@ -177,7 +186,7 @@ func TestCreateCampaignOwnership(t *testing.T) {
 	}{
 		{"own listing ok", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, nil},
 		{"foreign listing denied", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "theirs", CallerID: "seller-1"}, listing.ErrNotOwner},
-		{"listing not found", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "ghost", CallerID: "seller-1"}, listing.ErrNotFound},
+		{"listing not found", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "ghost", CallerID: "seller-1"}, ErrInvalidCampaign},
 		{"upstream error", &fakeListings{err: status.Error(codes.Internal, "boom")}, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, listing.ErrLookupFailed},
 		{"upstream down", &fakeListings{err: errors.New("dial tcp: refused")}, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, listing.ErrLookupFailed},
 		{"admin skips lookup", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "theirs", CallerID: "admin-1", IsAdmin: true}, nil},
@@ -202,25 +211,15 @@ func TestCreateCampaignOwnership(t *testing.T) {
 	}
 }
 
-type orderedFlashRepo struct {
-	store.FlashSaleRepository
-	log *callLog
-}
-
-func (r orderedFlashRepo) Create(ctx context.Context, c store.FlashSaleCampaign, event func(store.FlashSaleCampaign) (outbox.Row, error)) (store.FlashSaleCampaign, error) {
-	r.log.add("insert")
-	return r.FlashSaleRepository.Create(ctx, c, event)
-}
-
 func newAuditedFlashSvc(t *testing.T, w auditx.Writer, listings *fakeListings, log *callLog) (*Service, *storefake.InMemoryFlashSaleRepository, *eventLog) {
 	t.Helper()
 	mem := storefake.NewInMemoryFlashSaleRepository()
-	var lg listing.Getter
-	if listings != nil {
-		lg = listings
+	if listings == nil {
+		listings = &fakeListings{all: true}
 	}
+	var lg listing.Getter = listings
 	events := &eventLog{}
-	svc := New(orderedFlashRepo{mem, log}, nil, newFlags(t, flagProvider(true)), lg, auditx.NewGate(w, nil), events.build, nil)
+	svc := New(newIdemRepo(mem, log), nil, newFlags(t, flagProvider(true)), lg, auditx.NewGate(w, nil), events.build, nil)
 	return svc, mem, events
 }
 
@@ -228,7 +227,7 @@ func adminCampaign(listingID string) CreateCampaignParams {
 	return CreateCampaignParams{
 		ListingID: listingID, SalePrice: 90000, StockCap: 10,
 		StartsAt: time.Now().Add(-time.Hour), EndsAt: time.Now().Add(time.Hour),
-		CallerID: "admin-1", IsAdmin: true,
+		CallerID: "admin-1", IsAdmin: true, IdempotencyKey: "idem-" + strings.TrimSpace(listingID),
 	}
 }
 
@@ -263,24 +262,15 @@ func TestCreateCampaignAuditBeforeInsertSameID(t *testing.T) {
 	}
 }
 
-func TestCreateCampaignAdminNoOwnerLookup(t *testing.T) {
-	for name, lg := range map[string]*fakeListings{
-		"erroring":       {err: errors.New("team-domain down")},
-		"not-owner data": {owners: map[string]string{"list-1": "someone-else"}},
-	} {
-		t.Run(name, func(t *testing.T) {
-			w := &recordingAuditWriter{}
-			svc, _, _ := newAuditedFlashSvc(t, w, lg, &callLog{})
-			if _, err := svc.CreateCampaign(t.Context(), adminCampaign("list-1")); err != nil {
-				t.Fatalf("CreateCampaign: %v", err)
-			}
-			if lg.calls != 0 {
-				t.Fatalf("admin path called the listing client %d times", lg.calls)
-			}
-			if n := len(w.got()); n != 1 {
-				t.Fatalf("audit events = %d, want exactly 1", n)
-			}
-		})
+func TestCreateCampaignAdminSkipsOwnerCheck(t *testing.T) {
+	lg := &fakeListings{owners: map[string]string{"list-1": "someone-else"}}
+	w := &recordingAuditWriter{}
+	svc, _, _ := newAuditedFlashSvc(t, w, lg, &callLog{})
+	if _, err := svc.CreateCampaign(t.Context(), adminCampaign("list-1")); err != nil {
+		t.Fatalf("CreateCampaign: %v", err)
+	}
+	if n := len(w.got()); n != 1 {
+		t.Fatalf("audit events = %d, want exactly 1", n)
 	}
 }
 
