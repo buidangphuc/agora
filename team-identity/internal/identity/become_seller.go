@@ -8,11 +8,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	"github.com/buidangphuc/team-identity/internal/authz"
+	"github.com/buidangphuc/team-identity/internal/events"
 	"github.com/buidangphuc/team-identity/internal/store"
 )
-
-const roleGrantedEventType = "platform.identity.v1.UserRoleGranted"
 
 type sellerGranter interface {
 	GrantSeller(ctx context.Context, userID, version string, now time.Time, enqueue store.SellerEnqueueFn) (store.SellerGrantResult, error)
@@ -26,11 +26,18 @@ func (s *AuthService) WithSellerTerms(versions []string) *AuthService {
 func (s *AuthService) roleGrantedEvent(ctx context.Context) store.SellerEnqueueFn {
 	requestID := requestIDFromCtx(ctx)
 	return func(g store.SellerGrant) (store.OutboxRow, error) {
+		eventID := uuid.NewString()
+		principal := &commonv1.Principal{Id: g.UserID, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER}
+		payload, err := events.BuildUserRoleGranted(eventID, g.UserID, g.Role, g.GrantedAt, principal, requestID)
+		if err != nil {
+			return store.OutboxRow{}, err
+		}
 		return store.OutboxRow{
-			EventID:       uuid.NewString(),
+			EventID:       eventID,
 			AggregateType: "User",
 			AggregateID:   g.UserID,
-			EventType:     roleGrantedEventType,
+			EventType:     events.UserRoleGrantedEventType,
+			Payload:       payload,
 			RequestID:     requestID,
 		}, nil
 	}
