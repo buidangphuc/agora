@@ -202,12 +202,12 @@ func TestLoggingRecordsCallWithoutPayload(t *testing.T) {
 	}
 
 	logs := e.logs.String()
-	for _, want := range []string{`"grpc.method":"Ping"`, `"grpc.code":"OK"`, `"request_id":"r1"`, `"principal_id":"u1"`} {
+	for _, want := range []string{`"grpc.method":"Ping"`, `"grpc.code":"OK"`, `"request_id":"r1"`, `"principal_fp":"`} {
 		if !strings.Contains(logs, want) {
 			t.Errorf("log lacks %s in:\n%s", want, logs)
 		}
 	}
-	for _, leak := range []string{"payload-secret", "scope-secret"} {
+	for _, leak := range []string{"payload-secret", "scope-secret", `"principal_id"`} {
 		if strings.Contains(logs, leak) {
 			t.Errorf("log leaks %q:\n%s", leak, logs)
 		}

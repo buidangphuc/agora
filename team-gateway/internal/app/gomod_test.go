@@ -28,12 +28,16 @@ func TestGoModRequiresSDKTagWithoutReplace(t *testing.T) {
 	}
 	mod := string(raw)
 
-	require := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+v1\.0\.2(?:\s|$)`)
+	require := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+v1\.0\.3(?:\s|$)`)
 	if !require.MatchString(mod) {
-		t.Errorf("go.mod must require %s v1.0.2", sdkModule)
+		t.Errorf("go.mod must require %s v1.0.3", sdkModule)
 	}
-	if regexp.MustCompile(`(?m)^\s*replace\b`).MatchString(mod) {
-		t.Errorf("go.mod must have no replace directive")
+	replace := regexp.MustCompile(`(?m)^\s*replace\s+` + regexp.QuoteMeta(sdkModule) + `\s+=>\s+\.\./platform-core/packages/go-sdk\s*$`)
+	if !replace.MatchString(mod) {
+		t.Errorf("go.mod must carry the temporary replace of %s to ../platform-core/packages/go-sdk", sdkModule)
+	}
+	if n := len(regexp.MustCompile(`(?m)^\s*replace\b`).FindAllString(mod, -1)); n != 1 {
+		t.Errorf("go.mod has %d replace directives, want 1", n)
 	}
 	if _, err := os.Stat(filepath.Join(root, "third_party")); err == nil {
 		t.Errorf("team-gateway/third_party must not exist")
