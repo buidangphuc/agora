@@ -199,6 +199,14 @@ func (e *Edge) resolve(header http.Header) (resolvedPrincipal, error) {
 // outgoing builds the outbound gRPC context carrying the resolved Principal +
 // request id as trusted metadata.
 func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context {
+	return e.outgoingMD(ctx, header, false)
+}
+
+func (e *Edge) outgoingWithSID(ctx context.Context, header http.Header) context.Context {
+	return e.outgoingMD(ctx, header, true)
+}
+
+func (e *Edge) outgoingMD(ctx context.Context, header http.Header, withSID bool) context.Context {
 	p, ok := principalFrom(ctx)
 	if !ok {
 		// Reached only when the auth interceptor did not run (direct forwarder
@@ -216,7 +224,7 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 	md.Set(auth.MDPrincipalID, p.id)
 	md.Set(auth.MDPrincipalType, p.ptype)
 	md.Set(auth.MDPrincipalScopes, strings.Join(p.scopes, ","))
-	if p.sid != "" {
+	if withSID && p.sid != "" {
 		md.Set(mdPrincipalSessionID, p.sid)
 	}
 	md.Set(reqctx.MetadataRequestID, rid)

@@ -79,7 +79,7 @@ func (f *AuthForwarder) CreateHandoffCode(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 	var out *identityv1.CreateHandoffCodeResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+	err := f.edge.callWrite(f.edge.outgoingWithSID(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.CreateHandoffCode(c, req.Msg)
 		return e
@@ -95,7 +95,7 @@ func (f *AuthForwarder) PeekHandoffCode(
 	req *connect.Request[identityv1.PeekHandoffCodeRequest],
 ) (*connect.Response[identityv1.PeekHandoffCodeResponse], error) {
 	var out *identityv1.PeekHandoffCodeResponse
-	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+	err := f.edge.callRead(f.edge.outgoingWithSID(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.PeekHandoffCode(c, req.Msg)
 		return e
@@ -111,7 +111,7 @@ func (f *AuthForwarder) RedeemHandoffCode(
 	req *connect.Request[identityv1.RedeemHandoffCodeRequest],
 ) (*connect.Response[identityv1.RedeemHandoffCodeResponse], error) {
 	var out *identityv1.RedeemHandoffCodeResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+	err := f.edge.callWrite(f.edge.outgoingWithSID(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.RedeemHandoffCode(c, req.Msg)
 		return e
@@ -134,7 +134,7 @@ func (f *AuthForwarder) BecomeSeller(
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("user principal required"))
 	}
 	var out *identityv1.BecomeSellerResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+	err := f.edge.callWrite(f.edge.outgoingWithSID(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.BecomeSeller(c, req.Msg)
 		return e

@@ -58,7 +58,7 @@ rate limit (`internal/edge/interceptors.go`).
 
 The gateway checks only the token against the procedure policy, not per-RPC scopes. **Scope gates live in the services**; the
 gateway forwards `x-principal-id`, `x-principal-type`, `x-principal-scopes`, `x-principal-sid` (the
-token's `sid`, when present) and `x-request-id`, built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
+token's `sid`, when present, and only to `AuthService` `BecomeSeller`, `CreateHandoffCode`, `PeekHandoffCode` and `RedeemHandoffCode` via `outgoingWithSID`, `internal/edge/forward.go:205`) and `x-request-id`, built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
 `x-client-ip` / `x-client-user-agent` (see `TRUSTED_PROXIES`). Inbound `x-client-*` headers are
 never copied through. The edge-level RPC gates are the `adminProcedures` map (`policy.go`): each
 listed procedure needs an authenticated principal with the `admin` scope (anonymous gets
