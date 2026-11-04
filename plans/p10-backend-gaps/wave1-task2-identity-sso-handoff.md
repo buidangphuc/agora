@@ -72,6 +72,16 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - team-frontend-seller/vendor/fe-platform-api-client.tgz (widened at build: converge)
 - team-frontend-admin/vendor/fe-platform-api-client.tgz (widened at build: converge)
 - team-frontend-admin/vendor/fe-platform-session.tgz (widened at build: converge)
+- platform-core/packages/go-sdk/pkg/grpcx/** (widened at build: converge)
+- platform-core/packages/go-sdk/pkg/logx/** (widened at build: converge)
+- team-identity/go.mod (widened at build: converge)
+- team-identity/go.sum (widened at build: converge)
+- team-gateway/go.mod (widened at build: converge)
+- team-gateway/go.sum (widened at build: converge)
+- team-gateway/internal/edge/interceptors.go (widened at build: converge)
+- team-frontend/next.config.mjs (widened at build: converge)
+- team-frontend-seller/next.config.mjs (widened at build: converge)
+- team-frontend-admin/package-lock.json (widened at build: converge)
 
 ## Read-only dependencies
 - team-identity login session issuer (pattern)
