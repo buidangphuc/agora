@@ -24,6 +24,20 @@ import {
 } from "@/lib/gateway/session-cookie";
 import { isUsableToken } from "@/lib/gateway/token-expiry";
 
+const HANDOFF_HEADERS: Record<string, string> = {
+  "content-security-policy":
+    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
+  "referrer-policy": "no-referrer",
+  "cache-control": "no-store",
+  "x-frame-options": "DENY",
+};
+
+function hardenHandoff(req: NextRequest, res: NextResponse): NextResponse {
+  if (req.nextUrl.pathname !== "/auth/handoff") return res;
+  for (const [k, v] of Object.entries(HANDOFF_HEADERS)) res.headers.set(k, v);
+  return res;
+}
+
 // Rebuilds the forwarded Cookie header: drops `remove` names, then sets `set`.
 function rewriteCookie(
   header: string | null,
@@ -40,6 +54,10 @@ function rewriteCookie(
 }
 
 export async function middleware(req: NextRequest) {
+  return hardenHandoff(req, await handle(req));
+}
+
+async function handle(req: NextRequest) {
   logAccess(req);
   const headers = new Headers(req.headers);
   headers.set("x-pathname", req.nextUrl.pathname + req.nextUrl.search);

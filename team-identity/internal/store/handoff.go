@@ -73,7 +73,10 @@ func (r *PostgresHandoffRepository) RedeemHandoffCode(ctx context.Context, codeH
 
 	var c HandoffCode
 	err = tx.QueryRow(ctx, `UPDATE handoff_codes SET redeemed_at = $3
-		WHERE code_hash = $1 AND target_app = $2 AND redeemed_at IS NULL AND expires_at >= $3
+		WHERE code_hash = (
+			SELECT code_hash FROM handoff_codes
+			WHERE code_hash = $1 AND target_app = $2 AND redeemed_at IS NULL AND expires_at >= $3
+			FOR UPDATE SKIP LOCKED)
 		RETURNING code_hash, user_id, source_sid, target_app, expires_at, created_at`,
 		codeHash, targetApp, now).Scan(&c.CodeHash, &c.UserID, &c.SourceSID, &c.TargetApp, &c.ExpiresAt, &c.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {

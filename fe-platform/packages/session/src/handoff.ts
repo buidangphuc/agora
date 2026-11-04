@@ -41,7 +41,7 @@ function escapeHtml(value: string): string {
 function truncate(value: string): string {
   const chars = Array.from(value);
   return chars.length > MAX_NAME_LENGTH
-    ? `${chars.slice(0, MAX_NAME_LENGTH).join("")}…`
+    ? `${chars.slice(0, MAX_NAME_LENGTH - 1).join("")}…`
     : value;
 }
 
