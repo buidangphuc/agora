@@ -21,9 +21,7 @@ export function redactedRequestTarget(url: URL): string {
   const names = params.map(keyName);
   const query = names.includes(null)
     ? REDACTED
-    : params
-        .map((p, i) => (names[i] === "code" ? REDACTED : p))
-        .join("&");
+    : params.map((p, i) => (names[i] === "code" ? REDACTED : p)).join("&");
   return query ? `${url.pathname}?${query}` : url.pathname;
 }
 

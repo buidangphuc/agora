@@ -60,7 +60,7 @@ func Run(ctx context.Context, s config.Settings) error {
 }
 
 func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *built, err error) {
-	logger := logx.New(s.Runtime, serviceName)
+	logger := redactHandoffPrincipal(logx.New(s.Runtime, serviceName))
 
 	signer, err := token.NewSigner(s.JWT.PrivateKey, s.JWT.KID)
 	if err != nil {

@@ -219,6 +219,9 @@ func (e *Edge) logRequest(ctx context.Context, logger *slog.Logger, procedure st
 	if p, ok := principalFrom(ctx); ok {
 		principalID = p.id
 	}
+	if strings.Contains(procedure, "HandoffCode") {
+		principalID = "redacted"
+	}
 	logger.InfoContext(ctx, "edge.request",
 		"method", procedure,
 		"principal", principalID,

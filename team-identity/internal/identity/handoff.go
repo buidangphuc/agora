@@ -8,12 +8,10 @@ import (
 	"errors"
 	"time"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
+	"github.com/buidangphuc/team-identity/internal/handoffstatus"
 	"github.com/buidangphuc/team-identity/internal/store"
 )
 
@@ -38,7 +36,7 @@ const handoffCodeLen = 43
 var errHandoffRejected = errors.New("handoff rejected")
 
 func errHandoffUnauthenticated() error {
-	return status.Error(codes.Unauthenticated, "invalid or expired handoff code")
+	return handoffstatus.InvalidCode()
 }
 
 type MintResult struct {
@@ -59,10 +57,10 @@ func (s *AuthService) WithHandoffTTL(d time.Duration) *AuthService {
 func (s *AuthService) Mint(ctx context.Context, sourceSID string, target identityv1.HandoffApp) (MintResult, error) {
 	p, ok := auth.FromContext(ctx)
 	if !ok || p.Type == auth.TypeAnonymous || p.ID == "" {
-		return MintResult{}, status.Error(codes.Unauthenticated, "authentication required")
+		return MintResult{}, handoffstatus.AuthRequired()
 	}
 	if p.Type != auth.TypeUser {
-		return MintResult{}, status.Error(codes.PermissionDenied, "only users may mint a handoff code")
+		return MintResult{}, handoffstatus.UsersOnly()
 	}
 	if target == identityv1.HandoffApp_HANDOFF_APP_UNSPECIFIED {
 		return MintResult{}, ErrInvalidInput
@@ -71,7 +69,7 @@ func (s *AuthService) Mint(ctx context.Context, sourceSID string, target identit
 		return MintResult{}, ErrInvalidInput
 	}
 	if s.handoff == nil {
-		return MintResult{}, status.Error(codes.Unavailable, "handoff is not configured")
+		return MintResult{}, handoffstatus.NotConfigured()
 	}
 	u, err := s.repo.GetByID(ctx, p.ID)
 	if err != nil {
