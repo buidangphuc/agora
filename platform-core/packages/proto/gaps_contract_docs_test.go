@@ -118,8 +118,8 @@ func catalogueProblems(src string, actions []string) []string {
 		return []string{"audit catalogue: WriteAuditEventRequest not found"}
 	}
 	var problems []string
-	if !strings.Contains(c, "Action catalogue (24)") {
-		problems = append(problems, "audit catalogue: header is not 'Action catalogue (24)'")
+	if !strings.Contains(c, "Action catalogue (25)") {
+		problems = append(problems, "audit catalogue: header is not 'Action catalogue (25)'")
 	}
 	for _, a := range actions {
 		if !strings.Contains(c, a) {
@@ -225,8 +225,8 @@ func TestGapsContract_IdentityRPCsDocumented(t *testing.T) {
 		}
 	})
 
-	t.Run("audit_catalogue_lists_24_with_six_new_actions", func(t *testing.T) {
-		all := []string{"voucher.deactivate", "voucher.update", "campaign.cancel", "campaign.update", "auth.handoff_mint", "auth.handoff_redeem"}
+	t.Run("audit_catalogue_lists_25_with_seven_new_actions", func(t *testing.T) {
+		all := []string{"voucher.deactivate", "voucher.update", "campaign.cancel", "campaign.update", "auth.handoff_mint", "auth.handoff_redeem", "auth.become_seller"}
 		for _, p := range catalogueProblems(audit, all) {
 			t.Error(p)
 		}
