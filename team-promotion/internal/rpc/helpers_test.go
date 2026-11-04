@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
@@ -266,4 +268,13 @@ func outboxCount(t *testing.T, pool *pgxpool.Pool) int {
 		t.Fatalf("count outbox: %v", err)
 	}
 	return n
+}
+
+func newCreateReq(listingID string) *promotionv1.CreateCampaignRequest {
+	return &promotionv1.CreateCampaignRequest{
+		ListingId: listingID, SalePrice: 1000, StockCap: 5,
+		StartsAt:       timestamppb.New(time.Now().Add(time.Hour)),
+		EndsAt:         timestamppb.New(time.Now().Add(2 * time.Hour)),
+		IdempotencyKey: "key-12345678",
+	}
 }

@@ -104,7 +104,7 @@ func TestCreateVoucherAuditDownUnavailable(t *testing.T) {
 func TestCreateCampaignAdminAudited(t *testing.T) {
 	rec := &recordingAudit{}
 	fc := startRig(t, rigOpts{audit: rec}).fc
-	resp, err := fc.CreateCampaign(adminCtx(t), &promotionv1.CreateCampaignRequest{ListingId: "l2", SalePrice: 1000, StockCap: 5})
+	resp, err := fc.CreateCampaign(adminCtx(t), newCreateReq("l2"))
 	if err != nil {
 		t.Fatalf("CreateCampaign: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestCreateCampaignAdminAudited(t *testing.T) {
 func TestCreateCampaignSellerNotAudited(t *testing.T) {
 	rec := &recordingAudit{err: errors.New("audit down")}
 	fc := startRig(t, rigOpts{audit: rec}).fc
-	if _, err := fc.CreateCampaign(sellerCtx(t), &promotionv1.CreateCampaignRequest{ListingId: "l1", SalePrice: 1000, StockCap: 5}); err != nil {
+	if _, err := fc.CreateCampaign(sellerCtx(t), newCreateReq("l1")); err != nil {
 		t.Fatalf("seller campaign: %v", err)
 	}
 	rec.requireNone(t, "seller flash sale")
@@ -135,7 +135,7 @@ func TestCreateCampaignAuditDownUnavailable(t *testing.T) {
 	for name, audit := range map[string]auditx.Writer{"failing": &recordingAudit{err: errors.New("down")}} {
 		t.Run(name, func(t *testing.T) {
 			fc := startRig(t, rigOpts{audit: audit}).fc
-			_, err := fc.CreateCampaign(adminCtx(t), &promotionv1.CreateCampaignRequest{ListingId: "l1", SalePrice: 1000, StockCap: 5})
+			_, err := fc.CreateCampaign(adminCtx(t), newCreateReq("l1"))
 			requireAuditUnavailable(t, err)
 			got, err := fc.GetActiveFlashSale(adminCtx(t), &promotionv1.GetActiveFlashSaleRequest{ListingId: "l1"})
 			if err != nil || got.GetActive() {
@@ -149,7 +149,7 @@ func TestCreateCampaignAuditDownUnavailable(t *testing.T) {
 func TestCreateCampaignInvalidWritesNoAudit(t *testing.T) {
 	rec := &recordingAudit{}
 	fc := startRig(t, rigOpts{audit: rec}).fc
-	_, err := fc.CreateCampaign(adminCtx(t), &promotionv1.CreateCampaignRequest{ListingId: "", SalePrice: 1000, StockCap: 5})
+	_, err := fc.CreateCampaign(adminCtx(t), newCreateReq(""))
 	if code(err) != codes.InvalidArgument {
 		t.Fatalf("got %v, want InvalidArgument", code(err))
 	}
@@ -170,7 +170,7 @@ func TestCreateCampaignDeniedWritesNoAudit(t *testing.T) {
 		{"anonymous", anonCtx(t), "l1", codes.Unauthenticated},
 		{"seller foreign listing", sellerCtx(t), "l2", codes.PermissionDenied},
 	} {
-		_, err := fc.CreateCampaign(tc.ctx, &promotionv1.CreateCampaignRequest{ListingId: tc.listing, SalePrice: 1000, StockCap: 5})
+		_, err := fc.CreateCampaign(tc.ctx, newCreateReq(tc.listing))
 		if code(err) != tc.want {
 			t.Errorf("%s: got %v, want %v", tc.name, code(err), tc.want)
 		}
@@ -268,7 +268,7 @@ func TestSellerPathsIgnoreAuditAvailability(t *testing.T) {
 	if _, err := vc.CreateVoucher(sellerCtx(t), platformVoucher("SHOP-NIL", promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP)); err != nil {
 		t.Errorf("shop voucher: %v", err)
 	}
-	if _, err := fc.CreateCampaign(sellerCtx(t), &promotionv1.CreateCampaignRequest{ListingId: "l1", SalePrice: 1000, StockCap: 5}); err != nil {
+	if _, err := fc.CreateCampaign(sellerCtx(t), newCreateReq("l1")); err != nil {
 		t.Errorf("flash sale: %v", err)
 	}
 	if _, err := ads.CreateAdCampaign(sellerCtx(t), &promotionv1.CreateAdCampaignRequest{ListingId: "l1", Bid: 10, Budget: 100}); err != nil {
