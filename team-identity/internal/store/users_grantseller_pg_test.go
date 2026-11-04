@@ -96,7 +96,7 @@ func TestGrantSellerFirstGrantEmitsOneEvent(t *testing.T) {
 	e.seed(t, "gs-1")
 	var calls []store.SellerGrant
 
-	res, err := e.users.GrantSeller(context.Background(), "gs-1", "V1", gsNow, grantBuilder(&calls, nil))
+	res, err := e.users.GrantSeller(context.Background(), "gs-1", "V1", gsNow, grantBuilder(&calls, nil), nil)
 	if err != nil {
 		t.Fatalf("GrantSeller: %v", err)
 	}
@@ -127,11 +127,11 @@ func TestGrantSellerSecondCallIsIdempotent(t *testing.T) {
 	e.seed(t, "gs-2")
 	ctx := context.Background()
 	var calls []store.SellerGrant
-	if _, err := e.users.GrantSeller(ctx, "gs-2", "V1", gsNow, grantBuilder(&calls, nil)); err != nil {
+	if _, err := e.users.GrantSeller(ctx, "gs-2", "V1", gsNow, grantBuilder(&calls, nil), nil); err != nil {
 		t.Fatalf("first: %v", err)
 	}
 
-	res, err := e.users.GrantSeller(ctx, "gs-2", "V1", gsNow.Add(time.Hour), grantBuilder(&calls, nil))
+	res, err := e.users.GrantSeller(ctx, "gs-2", "V1", gsNow.Add(time.Hour), grantBuilder(&calls, nil), nil)
 	if err != nil {
 		t.Fatalf("second: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestGrantSellerExistingSellerWithoutTermsIsNotRewritten(t *testing.T) {
 	e := newGrantEnv(t)
 	e.seed(t, "gs-3", "buyer", "seller")
 
-	res, err := e.users.GrantSeller(context.Background(), "gs-3", "V1", gsNow, grantBuilder(nil, nil))
+	res, err := e.users.GrantSeller(context.Background(), "gs-3", "V1", gsNow, grantBuilder(nil, nil), nil)
 	if err != nil {
 		t.Fatalf("GrantSeller: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestGrantSellerRollsBackOutbox(t *testing.T) {
 
 	_, err := e.users.GrantSeller(context.Background(), "gs-4", "V1", gsNow, func(store.SellerGrant) (store.OutboxRow, error) {
 		return store.OutboxRow{}, boom
-	})
+	}, nil)
 	if !errors.Is(err, boom) {
 		t.Fatalf("err = %v, want it to wrap the enqueue error", err)
 	}
@@ -212,7 +212,7 @@ func TestGrantSellerRollsBackRoleWhenOutboxInsertRefused(t *testing.T) {
 
 	_, err := e.users.GrantSeller(context.Background(), "gs-5", "V1", gsNow, func(g store.SellerGrant) (store.OutboxRow, error) {
 		return store.OutboxRow{EventID: "", AggregateType: "User", AggregateID: g.UserID, EventType: evRoleGranted, Payload: []byte("seller")}, nil
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("want an error when the outbox insert is refused")
 	}
@@ -241,7 +241,7 @@ func TestGrantSellerConcurrentOneEvent(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			results[i], errs[i] = e.users.GrantSeller(context.Background(), "gs-6", "V1", gsNow, grantBuilder(&calls, &mu))
+			results[i], errs[i] = e.users.GrantSeller(context.Background(), "gs-6", "V1", gsNow, grantBuilder(&calls, &mu), nil)
 		}()
 	}
 	close(start)
@@ -292,7 +292,7 @@ func TestGrantSellerRechecksStatusUnderLock(t *testing.T) {
 	}
 	done := make(chan out, 1)
 	go func() {
-		res, err := e.users.GrantSeller(ctx, "gs-7", "V1", gsNow, grantBuilder(nil, nil))
+		res, err := e.users.GrantSeller(ctx, "gs-7", "V1", gsNow, grantBuilder(nil, nil), nil)
 		done <- out{res, err}
 	}()
 
@@ -350,7 +350,7 @@ func TestGrantSellerRefusesNonActiveStatuses(t *testing.T) {
 			e.seed(t, "gs-8")
 			e.setStatus(t, "gs-8", status)
 
-			_, err := e.users.GrantSeller(context.Background(), "gs-8", "V1", gsNow, grantBuilder(nil, nil))
+			_, err := e.users.GrantSeller(context.Background(), "gs-8", "V1", gsNow, grantBuilder(nil, nil), nil)
 			if !errors.Is(err, store.ErrNotActive) {
 				t.Fatalf("err = %v, want store.ErrNotActive", err)
 			}
@@ -373,7 +373,7 @@ func TestGrantSellerExistingSellerNotActiveIsRefused(t *testing.T) {
 	e.seed(t, "gs-9", "buyer", "seller")
 	e.setStatus(t, "gs-9", store.StatusRestricted)
 
-	_, err := e.users.GrantSeller(context.Background(), "gs-9", "V1", gsNow, grantBuilder(nil, nil))
+	_, err := e.users.GrantSeller(context.Background(), "gs-9", "V1", gsNow, grantBuilder(nil, nil), nil)
 	if !errors.Is(err, store.ErrNotActive) {
 		t.Fatalf("err = %v, want store.ErrNotActive before the idempotent path", err)
 	}
@@ -383,11 +383,76 @@ func TestGrantSellerExistingSellerNotActiveIsRefused(t *testing.T) {
 func TestGrantSellerUnknownUserIsNotFound(t *testing.T) {
 	e := newGrantEnv(t)
 
-	_, err := e.users.GrantSeller(context.Background(), "gs-missing", "V1", gsNow, grantBuilder(nil, nil))
+	_, err := e.users.GrantSeller(context.Background(), "gs-missing", "V1", gsNow, grantBuilder(nil, nil), nil)
 	if !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("err = %v, want store.ErrNotFound", err)
 	}
 	if got := e.eventCount(t, "gs-missing"); got != 0 {
 		t.Errorf("outbox rows = %d, want 0", got)
 	}
+}
+
+// Scenario: Seller onboarding: an audit failure after the role write rolls it back
+func TestGrantSellerAuditFailureRollsBack(t *testing.T) {
+	assertUntouched := func(t *testing.T, e grantEnv, id string) {
+		t.Helper()
+		if slices.Contains(e.roles(t, id), "seller") {
+			t.Errorf("seller role persisted after the audit failure")
+		}
+		if v, at := e.terms(t, id); v != nil || at != nil {
+			t.Errorf("terms persisted after rollback: (%v, %v)", v, at)
+		}
+		if got := e.eventCount(t, id); got != 0 {
+			t.Errorf("outbox rows = %d, want 0", got)
+		}
+	}
+
+	t.Run("audit write fails after the role update", func(t *testing.T) {
+		e := newGrantEnv(t)
+		e.seed(t, "gs-a1")
+		boom := errors.New("audit unavailable")
+		var ran bool
+		_, err := e.users.GrantSeller(context.Background(), "gs-a1", "V1", gsNow, grantBuilder(nil, nil), func(context.Context) error {
+			ran = true
+			return boom
+		})
+		if !errors.Is(err, boom) {
+			t.Fatalf("err = %v, want it to wrap the audit error", err)
+		}
+		if !ran {
+			t.Fatal("audit callback was not run")
+		}
+		assertUntouched(t, e, "gs-a1")
+	})
+
+	t.Run("audit write succeeds but the commit fails", func(t *testing.T) {
+		e := newGrantEnv(t)
+		e.seed(t, "gs-a2")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		_, err := e.users.GrantSeller(ctx, "gs-a2", "V1", gsNow, grantBuilder(nil, nil), func(context.Context) error {
+			cancel()
+			return nil
+		})
+		if err == nil {
+			t.Fatal("want an error when the commit fails")
+		}
+		assertUntouched(t, e, "gs-a2")
+	})
+
+	t.Run("a repeat call by a seller does not run the audit callback", func(t *testing.T) {
+		e := newGrantEnv(t)
+		e.seed(t, "gs-a3", "buyer", "seller")
+		calls := 0
+		res, err := e.users.GrantSeller(context.Background(), "gs-a3", "V1", gsNow, grantBuilder(nil, nil), func(context.Context) error {
+			calls++
+			return errors.New("audit unavailable")
+		})
+		if err != nil {
+			t.Fatalf("repeat GrantSeller: %v", err)
+		}
+		if res.Granted || calls != 0 {
+			t.Fatalf("Granted = %v audit calls = %d, want false and 0", res.Granted, calls)
+		}
+	})
 }

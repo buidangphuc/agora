@@ -2,14 +2,18 @@ package rpc_test
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
 	"github.com/buidangphuc/team-identity/internal/rpc"
 	"github.com/buidangphuc/team-identity/internal/store"
@@ -38,7 +42,7 @@ func (f *bsUsers) GetByID(ctx context.Context, id string) (store.User, error) {
 	return u, nil
 }
 
-func (f *bsUsers) GrantSeller(ctx context.Context, userID, _ string, now time.Time, enqueue store.SellerEnqueueFn) (store.SellerGrantResult, error) {
+func (f *bsUsers) GrantSeller(ctx context.Context, userID, _ string, now time.Time, enqueue store.SellerEnqueueFn, audit func(context.Context) error) (store.SellerGrantResult, error) {
 	u, err := f.GetByID(ctx, userID)
 	if err != nil {
 		return store.SellerGrantResult{}, err
@@ -56,6 +60,11 @@ func (f *bsUsers) GrantSeller(ctx context.Context, userID, _ string, now time.Ti
 	row, err := enqueue(store.SellerGrant{UserID: userID, Role: "seller", GrantedAt: now})
 	if err != nil {
 		return store.SellerGrantResult{}, err
+	}
+	if audit != nil {
+		if err := audit(ctx); err != nil {
+			return store.SellerGrantResult{}, err
+		}
 	}
 	f.outbox = append(f.outbox, row)
 	u.Roles = append(u.Roles, "seller")
@@ -76,11 +85,16 @@ type bsRPC struct {
 
 func newBSRPC(t *testing.T) *bsRPC {
 	t.Helper()
+	return newBSRPCAudit(t, nopAudit{})
+}
+
+func newBSRPCAudit(t *testing.T, w auditx.Writer) *bsRPC {
+	t.Helper()
 	e := &bsRPC{
 		users: &bsUsers{InMemoryUserRepository: storetest.NewInMemoryUserRepository(), roles: map[string][]string{}},
 		sess:  storetest.NewInMemorySessionRepository(),
 	}
-	svc := newSvc(t, e.users, e.sess).WithSellerTerms([]string{bsCurrent, "V0"})
+	svc := newSvcWith(t, e.users, e.sess, w, nil).WithSellerTerms([]string{bsCurrent, "V0"})
 	reg, err := svc.Register(context.Background(), "alice", "password123", "buyer")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
@@ -186,4 +200,38 @@ func TestBecomeSellerRPCRevokedSessionUnauthenticated(t *testing.T) {
 func TestBecomeSellerRPCMissingSidUnauthenticated(t *testing.T) {
 	e := newBSRPC(t)
 	e.wantCode(bsCtx(t, "x-principal-id", e.uid, "x-principal-type", "user"), t, bsCurrent, codes.Unauthenticated)
+}
+
+type downAudit struct{}
+
+func (downAudit) WriteAuditEvent(context.Context, auditx.Event) error {
+	return errors.New("audit store connection refused at 10.0.0.7:5432")
+}
+
+// Seller onboarding: audit unavailable refuses the grant
+func TestBecomeSellerRPCAuditUnavailableErrorInfo(t *testing.T) {
+	e := newBSRPCAudit(t, downAudit{})
+	resp, err := e.client.BecomeSeller(e.userCtx(t), &identityv1.BecomeSellerRequest{TermsVersion: bsCurrent})
+	st, _ := status.FromError(err)
+	if st.Code() != codes.Unavailable {
+		t.Fatalf("BecomeSeller = %v, want Unavailable", err)
+	}
+	if resp.GetResult().GetToken() != "" {
+		t.Fatalf("a refused call must carry no token")
+	}
+	var info *errdetails.ErrorInfo
+	for _, d := range st.Details() {
+		if i, ok := d.(*errdetails.ErrorInfo); ok {
+			info = i
+		}
+	}
+	if info == nil || info.GetDomain() != "identity.platform" || info.GetReason() != "AUDIT_UNAVAILABLE" {
+		t.Fatalf("ErrorInfo = %v, want identity.platform/AUDIT_UNAVAILABLE", info)
+	}
+	if strings.Contains(st.Message(), "10.0.0.7") {
+		t.Fatalf("message leaks the upstream error: %q", st.Message())
+	}
+	if e.users.rows() != 0 {
+		t.Fatalf("outbox rows = %d, want 0", e.users.rows())
+	}
 }

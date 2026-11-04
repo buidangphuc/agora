@@ -39,3 +39,12 @@ func TestTTLOverrideOnlyInTestRefusedElsewhere(t *testing.T) {
 		mustContain(t, err, handoffTTLKey)
 	}
 }
+
+// Scenario: Negative override fails startup
+func TestTTLOverrideNegativeRefused(t *testing.T) {
+	localEnv(t)
+	t.Setenv("ENV", "test")
+	t.Setenv(handoffTTLKey, "-1s")
+	_, err := config.Load()
+	mustContain(t, err, handoffTTLKey)
+}

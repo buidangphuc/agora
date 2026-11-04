@@ -7,13 +7,13 @@ package identity_test
 //   - (*AuthService).BecomeSeller(ctx, sid, termsVersion string) (AuthResult, error)
 //     principal comes from auth.FromContext(ctx); sid is the caller's session id
 //   - the user repository passed to NewAuthService implements
-//     GrantSeller(ctx, userID, version string, now time.Time, enqueue store.SellerEnqueueFn) (store.SellerGrantResult, error)
+//     GrantSeller(ctx, userID, version string, now time.Time, enqueue store.SellerEnqueueFn, audit func(context.Context) error) (store.SellerGrantResult, error)
 //     with the semantics of PostgresUserRepository.GrantSeller (store.ErrNotActive for a non-ACTIVE
-//     user, idempotent for a seller, enqueue called only on a first grant)
+//     user, idempotent for a seller, enqueue and audit called only on a first grant, an audit error rolls back)
 //   - errors: ErrInvalidInput (bad terms version), store.ErrNotActive or ErrAccountLocked
 //     (non-ACTIVE), store.ErrSessionNotFound (revoked or unknown session)
 //   - the access token is signed on the caller's sid; AuthResult.RefreshToken stays empty; no
-//     session refresh rotation; no audit gate call.
+//     session refresh rotation; a first grant goes through the audit gate (auth.become_seller).
 
 import (
 	"context"
@@ -21,6 +21,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
@@ -66,7 +69,7 @@ func (f *sellerUsers) GetByID(ctx context.Context, id string) (store.User, error
 	return u, nil
 }
 
-func (f *sellerUsers) GrantSeller(ctx context.Context, userID, version string, now time.Time, enqueue store.SellerEnqueueFn) (store.SellerGrantResult, error) {
+func (f *sellerUsers) GrantSeller(ctx context.Context, userID, version string, now time.Time, enqueue store.SellerEnqueueFn, audit func(context.Context) error) (store.SellerGrantResult, error) {
 	u, err := f.GetByID(ctx, userID)
 	if err != nil {
 		return store.SellerGrantResult{}, err
@@ -85,6 +88,11 @@ func (f *sellerUsers) GrantSeller(ctx context.Context, userID, version string, n
 	row, err := enqueue(store.SellerGrant{UserID: userID, Role: "seller", GrantedAt: now})
 	if err != nil {
 		return store.SellerGrantResult{}, err
+	}
+	if audit != nil {
+		if err := audit(ctx); err != nil {
+			return store.SellerGrantResult{}, err
+		}
 	}
 	f.outbox = append(f.outbox, row)
 	u.Roles = append(u.Roles, "seller")
@@ -105,15 +113,39 @@ func (f *sellerUsers) rolesOf(t *testing.T, id string) []string {
 func (f *sellerUsers) outboxLen() int { f.mu.Lock(); defer f.mu.Unlock(); return len(f.outbox) }
 
 type countingAudit struct {
-	mu sync.Mutex
-	n  int
+	mu     sync.Mutex
+	n      int
+	down   bool
+	events []auditx.Event
 }
 
-func (c *countingAudit) WriteAuditEvent(context.Context, auditx.Event) error {
+func (c *countingAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.n++
-	return errors.New("audit unavailable")
+	if c.down {
+		return errors.New("audit unavailable")
+	}
+	c.events = append(c.events, ev)
+	return nil
+}
+
+func (c *countingAudit) setDown(down bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.down = down
+}
+
+func (c *countingAudit) written(action string) []auditx.Event {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var out []auditx.Event
+	for _, ev := range c.events {
+		if ev.Action == action {
+			out = append(out, ev)
+		}
+	}
+	return out
 }
 
 type bsEnv struct {
@@ -143,6 +175,7 @@ func newBSEnv(t *testing.T, role string) *bsEnv {
 	}
 	e.audit.mu.Lock()
 	e.audit.n = 0
+	e.audit.events = nil
 	e.audit.mu.Unlock()
 	return e
 }
@@ -284,15 +317,85 @@ func TestBecomeSellerRevokedSession(t *testing.T) {
 	}
 }
 
-func TestBecomeSellerDoesNotAudit(t *testing.T) {
+const becomeSellerAction = "auth.become_seller"
+
+// Scenario: Seller onboarding: a first grant writes one audit entry
+func TestBecomeSellerWritesAuditEntry(t *testing.T) {
+	e := newBSEnv(t, "buyer")
+	res, err := e.call(e.sid, bsCurrent)
+	if err != nil {
+		t.Fatalf("BecomeSeller: %v", err)
+	}
+	got := e.audit.written(becomeSellerAction)
+	if len(got) != 1 {
+		t.Fatalf("%s entries = %d, want 1", becomeSellerAction, len(got))
+	}
+	ev := got[0]
+	if ev.ActorID != e.uid || ev.TargetID != e.uid || ev.TargetType != "user" {
+		t.Fatalf("entry actor=%q target=%s/%q, want the user %q", ev.ActorID, ev.TargetType, ev.TargetID, e.uid)
+	}
+	want := map[string]string{"terms_version": bsCurrent, "result": "granted"}
+	if len(ev.Metadata) != len(want) {
+		t.Fatalf("metadata = %v, want exactly %v", ev.Metadata, want)
+	}
+	for k, v := range want {
+		if ev.Metadata[k] != v {
+			t.Fatalf("metadata[%s] = %q, want %q", k, ev.Metadata[k], v)
+		}
+	}
+	for k, v := range ev.Metadata {
+		if v == e.sid || v == res.Token || v == e.first.Token || v == e.first.RefreshToken {
+			t.Fatalf("metadata %s carries a secret or the session id", k)
+		}
+	}
+}
+
+// Scenario: Seller onboarding: audit unavailable refuses the grant
+func TestBecomeSellerAuditDownRefusesGrant(t *testing.T) {
+	e := newBSEnv(t, "buyer")
+	e.audit.setDown(true)
+	res, err := e.call(e.sid, bsCurrent)
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("err = %v, want Unavailable", err)
+	}
+	if res.Token != "" {
+		t.Fatalf("a refused call must carry no token")
+	}
+	if roles := e.users.rolesOf(t, e.uid); hasString(roles, "seller") || !hasString(roles, "buyer") {
+		t.Fatalf("roles = %v, want buyer only", roles)
+	}
+	if _, ok := e.users.terms[e.uid]; ok {
+		t.Fatalf("terms recorded although the audit write failed")
+	}
+	if e.users.outboxLen() != 0 {
+		t.Fatalf("outbox rows = %d, want 0", e.users.outboxLen())
+	}
+	if n := len(e.audit.written(becomeSellerAction)); n != 0 {
+		t.Fatalf("%s entries = %d, want 0", becomeSellerAction, n)
+	}
+}
+
+// Scenario: Seller onboarding: a repeat call by a seller does not audit again
+func TestBecomeSellerRepeatDoesNotAudit(t *testing.T) {
 	e := newBSEnv(t, "buyer")
 	if _, err := e.call(e.sid, bsCurrent); err != nil {
-		t.Fatalf("BecomeSeller must succeed while audit is down: %v", err)
+		t.Fatalf("first call: %v", err)
 	}
-	e.audit.mu.Lock()
-	defer e.audit.mu.Unlock()
-	if e.audit.n != 0 {
-		t.Fatalf("audit writes = %d, want 0", e.audit.n)
+	for _, down := range []bool{false, true} {
+		e.audit.setDown(down)
+		res, err := e.call(e.sid, bsCurrent)
+		if err != nil {
+			t.Fatalf("repeat call (audit down=%v): %v", down, err)
+		}
+		if sid, scopes := jwtClaims(t, res.Token); sid != e.sid || !hasString(scopes, "listing.write") {
+			t.Fatalf("repeat token sid=%q scopes=%v", sid, scopes)
+		}
+		if n := len(e.audit.written(becomeSellerAction)); n != 1 {
+			t.Fatalf("%s entries = %d after a repeat (audit down=%v), want 1", becomeSellerAction, n, down)
+		}
+	}
+	if e.users.outboxLen() != 1 {
+		t.Fatalf("outbox rows = %d, want 1", e.users.outboxLen())
 	}
 }
 

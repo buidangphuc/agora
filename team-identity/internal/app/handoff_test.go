@@ -137,3 +137,48 @@ func TestHandoffCodeNeverReachesLogs(t *testing.T) {
 		}
 	}
 }
+
+func mintExpiry(t *testing.T, override time.Duration) (time.Time, time.Time, func() error) {
+	t.Helper()
+	url := migratedURL(t)
+	s := logSettings(t, url)
+	s.Env = "test"
+	s.Handoff.TTLOverride = override
+	s.Upstream.AuditAddr = startAudit(t, &fakeAudit{})
+	r := start(t, s)
+	waitServing(t, r)
+	userID, reg := registerBuyer(t, r, "ttl-user")
+	auth := identityv1.NewAuthServiceClient(r.conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	before := time.Now()
+	minted, err := auth.CreateHandoffCode(asSessionUser(ctx, t, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
+	if err != nil {
+		t.Fatalf("CreateHandoffCode: %v", err)
+	}
+	redeem := func() error {
+		_, err := auth.RedeemHandoffCode(ctx, &identityv1.RedeemHandoffCodeRequest{Code: minted.GetCode(), TargetApp: hsSeller})
+		return err
+	}
+	return before, minted.GetExpiresAt().AsTime(), redeem
+}
+
+func TestAppWiresHandoffTTLOverride(t *testing.T) {
+	// scenario: Override is the TTL of minted codes in the running app
+	before, expires, redeem := mintExpiry(t, 5*time.Second)
+	if d := expires.Sub(before); d < 4*time.Second || d > 6*time.Second {
+		t.Fatalf("expires_at - now = %v, want about 5s", d)
+	}
+	time.Sleep(time.Until(expires) + 500*time.Millisecond)
+	if err := redeem(); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("redeem after the override TTL = %v, want Unauthenticated", err)
+	}
+}
+
+func TestAppDefaultHandoffTTLWithoutOverride(t *testing.T) {
+	// scenario: Unset override keeps 60 s in the running app
+	before, expires, _ := mintExpiry(t, 0)
+	if d := expires.Sub(before); d < 59*time.Second || d > 61*time.Second {
+		t.Fatalf("expires_at - now = %v, want about 60s", d)
+	}
+}
