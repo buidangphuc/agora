@@ -15,7 +15,6 @@ const sessionMiddleware = createSessionMiddleware(sellerSession, {
 const HANDOFF_HEADERS: Record<string, string> = {
   "content-security-policy":
     "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
-  "referrer-policy": "no-referrer",
   "cache-control": "no-store",
   "x-frame-options": "DENY",
 };

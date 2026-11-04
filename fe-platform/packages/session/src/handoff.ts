@@ -47,7 +47,7 @@ function truncate(value: string): string {
 
 function baseHeaders(): Headers {
   const h = new Headers();
-  h.set("referrer-policy", "same-origin");
+  h.set("referrer-policy", "no-referrer");
   h.set("cache-control", "no-store");
   return h;
 }
@@ -60,6 +60,7 @@ function redirectTo(location: string): Response {
 
 function confirmationPage(username: string, code: string, next: string) {
   const h = baseHeaders();
+  h.set("referrer-policy", "same-origin");
   h.set("content-type", "text/html; charset=utf-8");
   h.set(
     "content-security-policy",
