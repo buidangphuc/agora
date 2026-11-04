@@ -58,6 +58,7 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - platform-gitops/charts/service/templates/ingress.yaml (widened at build: task 1.6.2)
 - platform-gitops/tests/test_handoff_log_redaction_manifests.py (widened at build: task 1.6.2)
 - team-frontend-seller/src/access-log.test.ts (widened at build: task 1.6.2)
+- fe-platform/scripts/tests/gaps_g8_removed.test.sh (widened at build: task 1.7.1)
 - team-frontend-seller/src/lib/access-log.ts (widened at build: task 1.6.2)
 - team-frontend/src/access-log.test.ts (widened at build: task 1.6.2)
 - team-frontend/src/lib/access-log.ts (widened at build: task 1.6.2)
