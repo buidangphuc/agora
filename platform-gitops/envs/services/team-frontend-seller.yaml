@@ -25,3 +25,4 @@ ingress:
       if ($request_uri ~ "^(/auth/handoff\?(?:.*&)?)code=[^&]*(.*)$") {
         set $handoff_log_uri "${1}code=REDACTED${2}";
       }
+      access_log /var/log/nginx/access.log handoff_redacted;
