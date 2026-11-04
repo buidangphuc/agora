@@ -17,8 +17,14 @@ describe("gaps.md", () => {
     }
   });
 
-  it("V35 other gaps untouched: G1-G8 and G12-G15 rows remain", () => {
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 15]) {
+  it("promotion-admin-campaigns gaps removed: no row with id G12, G13 or G14", () => {
+    for (const id of ["G12", "G13", "G14"]) {
+      expect(rowIds).not.toContain(id);
+    }
+  });
+
+  it("V35 other gaps untouched: G1-G8 and G15 rows remain", () => {
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 15]) {
       expect(rowIds).toContain(`G${n}`);
     }
   });
