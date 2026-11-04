@@ -62,6 +62,9 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - team-frontend/src/access-log.test.ts (widened at build: task 1.6.2)
 - team-frontend/src/lib/access-log.ts (widened at build: task 1.6.2)
 - platform-gitops/platform/ingress-nginx/values.yaml (widened at build: task 1.6.2)
+- platform-gitops/argocd/apps/ingress-nginx-config.yaml # widened at build: task 1.6.2
+- platform-gitops/platform/ingress-nginx/configmap.yaml # widened at build: task 1.6.2
+- platform-gitops/platform/ingress-nginx/kustomization.yaml # widened at build: task 1.6.2
 
 ## Read-only dependencies
 - team-identity login session issuer (pattern)
