@@ -41,6 +41,8 @@ Implement OpenSpec change `promotion-admin-campaigns` test-first per its tasks.m
 - team-promotion/internal/rpc/authz_test.go (widened at build: task 6)
 - team-promotion/internal/rpc/grpc_test.go (widened at build: task 6)
 - team-promotion/internal/rpc/helpers_test.go (widened at build: task 6)
+team-gateway/internal/edge/policy.go # widened at build: task 7
+team-gateway/internal/edge/policy_test.go # widened at build: task 7
 
 ## Read-only dependencies
 - promotion-admin-vouchers shared admin error mapping
