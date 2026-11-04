@@ -60,7 +60,7 @@ func TestCallLogsCarryRequestAndPrincipalID(t *testing.T) {
 
 	testkit.Eventually(t, 10*time.Second, func() bool {
 		for _, l := range logs.Lines() {
-			if l["request_id"] == "abc" && l["principal_id"] == userID && l["service"] == "team-identity" {
+			if l["request_id"] == "abc" && hasFingerprintOnly(l, userID) && l["service"] == "team-identity" {
 				return true
 			}
 		}
@@ -87,7 +87,7 @@ func TestDeniedCallLogsCarryNoRequestBody(t *testing.T) {
 
 	testkit.Eventually(t, 10*time.Second, func() bool {
 		for _, l := range logs.Lines() {
-			if l["principal_id"] == "seller-9" && strings.Contains(toJSON(l), "PermissionDenied") {
+			if hasFingerprintOnly(l, "seller-9") && strings.Contains(toJSON(l), "PermissionDenied") {
 				return true
 			}
 		}
@@ -192,4 +192,13 @@ func TestSecretsNeverReachLogsOrSpans(t *testing.T) {
 			t.Errorf("a span attribute carries the %s", name)
 		}
 	}
+}
+
+func hasFingerprintOnly(l map[string]any, rawID string) bool {
+	fp, _ := l["principal_fp"].(string)
+	if fp == "" || fp == rawID {
+		return false
+	}
+	_, raw := l["principal_id"]
+	return !raw
 }
