@@ -228,3 +228,12 @@ Feature: One-time hand-off code through the gateway
     Then the call fails with "unauthenticated"
     And the hand-off table holds no row for the buyer
     And a mint for the seller app by the same buyer then succeeds
+
+  # TTL override stack: compose/handoff-ttl.override.yaml (ENV=test, HANDOFF_TTL_OVERRIDE=5s on team-identity).
+  @handoff_ttl_override
+  Scenario: Override is the TTL of minted codes in the running app
+    Given a signed-in buyer
+    When the buyer mints a code for the seller app
+    Then the mint succeeds with a 43-character base64url code
+    And the code expires 5 seconds after the gateway clock under the TTL override
+    And once the override TTL has passed the code is refused with "unauthenticated"

@@ -326,6 +326,28 @@ def ttl_60(world: World) -> None:
     assert abs(delta - ho.TTL_S) <= 2, f"expires_at is {delta}s after the gateway clock"
 
 
+OVERRIDE_TTL_S = 5
+
+
+@given("the code expires 5 seconds after the gateway clock under the TTL override")
+@when("the code expires 5 seconds after the gateway clock under the TTL override")
+@then("the code expires 5 seconds after the gateway clock under the TTL override")
+def ttl_override(world: World) -> None:
+    out = X(world)["out"]
+    assert out.date, "gateway sent no Date header"
+    delta = _expires(out.body) - out.date
+    assert abs(delta - OVERRIDE_TTL_S) <= 2, f"expires_at is {delta}s after the gateway clock, want about {OVERRIDE_TTL_S}s"
+
+
+@given(parsers.parse('once the override TTL has passed the code is refused with "{code}"'))
+@when(parsers.parse('once the override TTL has passed the code is refused with "{code}"'))
+@then(parsers.parse('once the override TTL has passed the code is refused with "{code}"'))
+def refused_after_override_ttl(world: World, code: str) -> None:
+    out = X(world)["out"]
+    time.sleep(max(0.0, _expires(out.body) - time.time()) + 1.5)
+    _expect_failure(ho.redeem(ho.minted_code(out)), code)
+
+
 @given("the hand-off table holds one row keyed by the SHA-256 of the code and no row contains the plaintext")
 @when("the hand-off table holds one row keyed by the SHA-256 of the code and no row contains the plaintext")
 @then("the hand-off table holds one row keyed by the SHA-256 of the code and no row contains the plaintext")

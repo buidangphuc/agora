@@ -1,0 +1,9 @@
+# Short hand-off TTL for the TTL override e2e scenario (change identity-sso-handoff, task 2.5).
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/handoff-ttl.override.yaml up -d team-identity
+# HANDOFF_TTL_OVERRIDE is honoured only with ENV=test; minted codes then live 5 s instead of 60 s.
+# Keys by service name only (no container_name), so it works under any project.
+services:
+  team-identity:
+    environment:
+      ENV: test
+      HANDOFF_TTL_OVERRIDE: 5s
