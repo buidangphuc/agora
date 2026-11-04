@@ -3,19 +3,19 @@ import type { Metadata } from "next";
 import { LinkButton } from "@/components/LinkButton";
 import { Result } from "@/components/ui/Result";
 import {
-  type CampaignLookup,
-  CampaignsView,
-} from "@/features/admin/CampaignsView";
+  type CampaignFilter,
+  CampaignListView,
+} from "@/features/campaigns/CampaignListView";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import {
-  getActiveFlashSale,
-  listActiveCampaigns,
+  type CampaignFilterStatus,
+  listCampaigns,
 } from "@/lib/gateway/campaigns";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
   title: "Chiến dịch flash sale | Sàn Thương Mại Điện Tử",
-  description: "Xem chiến dịch flash sale đang chạy và tra cứu theo tin đăng.",
+  description: "Xem, lọc, sửa và huỷ chiến dịch flash sale.",
   referrer: "no-referrer",
 };
 
@@ -43,19 +43,12 @@ function Forbidden({ subTitle }: { subTitle: string }) {
   );
 }
 
-async function lookupFor(listingId: string): Promise<CampaignLookup | null> {
-  if (!listingId) return null;
-  const res = await getActiveFlashSale(listingId);
-  if (res.status !== "ok") {
-    return {
-      listingId,
-      status: res.status === "invalid" ? "invalid" : "unavailable",
-    };
-  }
-  return res.active
-    ? { listingId, status: "active", campaign: res.campaign }
-    : { listingId, status: "none" };
-}
+const STATUSES: CampaignFilterStatus[] = [
+  "scheduled",
+  "active",
+  "ended",
+  "cancelled",
+];
 
 export default async function CampaignsPage({
   searchParams,
@@ -76,11 +69,10 @@ export default async function CampaignsPage({
   }
 
   const cursor = param(sp, "cursor");
-  const listingId = param(sp, "listing");
-  const [list, lookup] = await Promise.all([
-    listActiveCampaigns(cursor),
-    lookupFor(listingId),
-  ]);
+  const raw = param(sp, "status");
+  const status = STATUSES.find((s) => s === raw);
+  const filter: CampaignFilter = status ?? "all";
+  const list = await listCampaigns(status ? [status] : [], cursor);
   if (list.status === "unauthenticated") {
     redirectGuestToLogin(PATH, sp);
     return null;
@@ -90,21 +82,14 @@ export default async function CampaignsPage({
       <Forbidden subTitle="Gateway từ chối quyền admin cho phiên đăng nhập này." />
     );
   }
-  if (list.status === "ok") {
-    return (
-      <CampaignsView
-        campaigns={list.campaigns}
-        nextCursor={list.nextCursor}
-        lookup={lookup}
-      />
-    );
-  }
   return (
-    <CampaignsView
-      campaigns={[]}
-      nextCursor=""
-      lookup={lookup}
-      error="unavailable"
+    <CampaignListView
+      campaigns={list.status === "ok" ? list.campaigns : []}
+      nextCursor={list.status === "ok" ? list.nextCursor : ""}
+      cursor={cursor}
+      filter={filter}
+      flashSaleDisabled={list.status === "ok" && list.flashSaleDisabled}
+      error={list.status === "ok" ? undefined : "unavailable"}
     />
   );
 }

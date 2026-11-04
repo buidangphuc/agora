@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { LinkButton } from "@/components/LinkButton";
 import { Link } from "@/components/ui/Link";
 import { Result } from "@/components/ui/Result";
-import { CreateCampaignForm } from "@/features/admin/CreateCampaignForm";
+import { CreateCampaignForm } from "@/features/campaigns/CreateCampaignForm";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
@@ -37,7 +37,7 @@ export default async function NewCampaignPage() {
       <header className="flex flex-col items-start gap-3">
         <div className="-ml-4">
           <Link href="/admin/campaigns" variant="ghost" size="sm">
-            Chiến dịch đang chạy
+            Danh sách chiến dịch
           </Link>
         </div>
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
