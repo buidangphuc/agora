@@ -34,8 +34,8 @@ func TestMigrateUpMigratesEmptyDatabase(t *testing.T) {
 		}
 	}
 	v, dirty := schemaVersion(t, url)
-	if dirty || v != 5 || v != embeddedMigrationCount(t) {
-		t.Fatalf("schema version = %d dirty=%v, want 5 clean", v, dirty)
+	if dirty || v != 6 || v != embeddedMigrationCount(t) {
+		t.Fatalf("schema version = %d dirty=%v, want 6 clean", v, dirty)
 	}
 }
 
@@ -48,8 +48,8 @@ func TestMigrateUpTwiceIsNoop(t *testing.T) {
 			t.Fatalf("migrate up run %d: %v", i, err)
 		}
 	}
-	if v, dirty := schemaVersion(t, url); dirty || v != 5 {
-		t.Fatalf("schema version = %d dirty=%v, want 5 clean", v, dirty)
+	if v, dirty := schemaVersion(t, url); dirty || v != 6 {
+		t.Fatalf("schema version = %d dirty=%v, want 6 clean", v, dirty)
 	}
 }
 

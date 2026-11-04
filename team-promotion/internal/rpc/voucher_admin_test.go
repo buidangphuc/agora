@@ -86,7 +86,7 @@ func (a *adminRig) requireOneAudit(t *testing.T, action, code string) {
 	}
 }
 
-func deactivate(a *adminRig, ctx context.Context, id string) (*promotionv1.DeactivateVoucherResponse, error) {
+func deactivate(ctx context.Context, a *adminRig, id string) (*promotionv1.DeactivateVoucherResponse, error) {
 	return a.vc.DeactivateVoucher(ctx, &promotionv1.DeactivateVoucherRequest{VoucherId: id})
 }
 
@@ -96,7 +96,7 @@ func TestDeactivateVoucherReturnsInactiveWithTimestamp_V1(t *testing.T) {
 	if !v.GetActive() || v.GetDeactivatedAt() != nil {
 		t.Fatalf("created voucher active=%v deactivated_at=%v, want active and no timestamp", v.GetActive(), v.GetDeactivatedAt())
 	}
-	resp, err := deactivate(a, adminCtx(t), v.GetId())
+	resp, err := deactivate(adminCtx(t), a, v.GetId())
 	if err != nil {
 		t.Fatalf("DeactivateVoucher: %v", err)
 	}
@@ -117,11 +117,11 @@ func TestDeactivateVoucherReturnsInactiveWithTimestamp_V1(t *testing.T) {
 func TestDeactivateVoucherTwiceKeepsOriginalTimestampAuditedPerCall_V4_V4a(t *testing.T) {
 	a := newAdminRig(t)
 	v := a.create(t, "STOP2", 5)
-	first, err := deactivate(a, adminCtx(t), v.GetId())
+	first, err := deactivate(adminCtx(t), a, v.GetId())
 	if err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	second, err := deactivate(a, adminCtx(t), v.GetId())
+	second, err := deactivate(adminCtx(t), a, v.GetId())
 	if err != nil {
 		t.Fatalf("second: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestDeactivateVoucherTwiceKeepsOriginalTimestampAuditedPerCall_V4_V4a(t *te
 
 func TestDeactivateVoucherUnknownIsNotFoundWithoutAudit_V5_V5a(t *testing.T) {
 	a := newAdminRig(t)
-	_, err := deactivate(a, adminCtx(t), "no-such-id")
+	_, err := deactivate(adminCtx(t), a, "no-such-id")
 	if code(err) != codes.NotFound {
 		t.Fatalf("got %v, want NotFound", err)
 	}
@@ -154,7 +154,7 @@ func TestDeactivateVoucherNonAdminDeniedLeavesNoTrace_V6_V6a(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			a := newAdminRig(t)
 			v := a.create(t, "STOP3", 5)
-			_, err := deactivate(a, tc.ctx(t), v.GetId())
+			_, err := deactivate(tc.ctx(t), a, v.GetId())
 			if code(err) != tc.want {
 				t.Fatalf("got %v, want %v", err, tc.want)
 			}
@@ -166,7 +166,7 @@ func TestDeactivateVoucherNonAdminDeniedLeavesNoTrace_V6_V6a(t *testing.T) {
 
 func TestDeactivateVoucherNonAdminUnknownIdIsPermissionDenied_V6_V16g(t *testing.T) {
 	a := newAdminRig(t)
-	_, err := deactivate(a, sellerCtx(t), "no-such-id")
+	_, err := deactivate(sellerCtx(t), a, "no-such-id")
 	if code(err) != codes.PermissionDenied {
 		t.Fatalf("got %v, want PermissionDenied before NotFound", err)
 	}
@@ -331,7 +331,7 @@ func TestUpdateVoucherNeitherFieldIsInvalid_V14(t *testing.T) {
 func TestUpdateVoucherInactiveIsFailedPrecondition_V15(t *testing.T) {
 	a := newAdminRig(t)
 	v := a.create(t, "UPD10", 5)
-	if _, err := deactivate(a, adminCtx(t), v.GetId()); err != nil {
+	if _, err := deactivate(adminCtx(t), a, v.GetId()); err != nil {
 		t.Fatalf("stop: %v", err)
 	}
 	stopped := a.get(t, "UPD10")
@@ -409,7 +409,7 @@ func TestUpdateVoucherNonAdminUnknownIdIsPermissionDenied_V17_V16g(t *testing.T)
 func TestUpdateVoucherFailedPreconditionBeatsInvalidArgument_V16g(t *testing.T) {
 	a := newAdminRig(t)
 	v := a.create(t, "UPD13", 5)
-	if _, err := deactivate(a, adminCtx(t), v.GetId()); err != nil {
+	if _, err := deactivate(adminCtx(t), a, v.GetId()); err != nil {
 		t.Fatalf("stop: %v", err)
 	}
 	_, err := a.vc.UpdateVoucher(adminCtx(t), &promotionv1.UpdateVoucherRequest{VoucherId: v.GetId(), Quota: proto.Int64(0)})

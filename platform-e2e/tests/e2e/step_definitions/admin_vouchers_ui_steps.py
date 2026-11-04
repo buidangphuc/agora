@@ -108,7 +108,7 @@ def stop_dialog_open(world: World) -> None:
     page.navigate()
     row = page.find_row(st["code"])
     assert row is not None, f"voucher {st['code']} is not listed"
-    page.press(row, re.compile(r"^stop$", re.I))
+    page.press(row, re.compile(r"^(stop|ngừng voucher)$", re.I))
     expect(page.dialog.first).to_be_visible(timeout=timeouts.DEFAULT)
     st["ui_mode"] = "stop"
 
@@ -136,7 +136,7 @@ def list_with_stop(world: World) -> None:
     page.navigate()
     row = page.find_row(st["code"])
     assert row is not None, "control: the admin does not see the voucher"
-    expect(row.get_by_role("button", name=re.compile(r"^stop$", re.I)).first).to_be_visible(
+    expect(row.get_by_role("button", name=re.compile(r"^(stop|ngừng voucher)$", re.I)).first).to_be_visible(
         timeout=timeouts.DEFAULT
     )
 
@@ -147,7 +147,7 @@ def submit_form(world: World) -> None:
     st = _st(world)
     page = _page(world)
     if st.get("ui_mode") == "stop":
-        page.press(page.dialog.first, re.compile(r"^(confirm|stop|yes)", re.I))
+        page.press(page.dialog.first, re.compile(r"^(confirm|stop|yes|xác nhận|ngừng)", re.I))
     else:
         page.submit_form()
 
@@ -166,7 +166,7 @@ def edit_form_filled(world: World, quota: int) -> None:
     page = _page(world)
     page.navigate()
     page.open_detail(st["code"])
-    page.press(page.page, re.compile(r"^edit$", re.I))
+    page.press(page.page, re.compile(r"^(edit|sửa voucher)$", re.I))
     st["sent_end"] = av.iso(days=60)
     page.field("quota").first.fill(str(quota))
     page.fill_date("end", st["sent_end"])
@@ -177,7 +177,7 @@ def edit_form_filled(world: World, quota: int) -> None:
 @when("the admin opens the edit form")
 def open_edit_form(world: World) -> None:
     page = _page(world)
-    page.press(page.page, re.compile(r"^edit$", re.I))
+    page.press(page.page, re.compile(r"^(edit|sửa voucher)$", re.I))
     _st(world)["ui_mode"] = "edit"
     _requests(world)
 
@@ -246,7 +246,7 @@ def seller_opens(world: World) -> None:
 def form_shows(world: World, message: str) -> None:
     page = _page(world)
     expect(page.text(message).first).to_be_visible(timeout=timeouts.DEFAULT)
-    assert page.field(r"^code").first.input_value() == _st(world)["typed_code"]
+    assert page.field(r"^(code|mã voucher)").first.input_value() == _st(world)["typed_code"]
 
 
 @then(parsers.parse('the admin app shows "{message}"'))
@@ -354,8 +354,9 @@ def no_quota_field(world: World) -> None:
 
 @then(parsers.parse('the voucher shows status "{status}"'))
 def shows_status(world: World, status: str) -> None:
+    pattern = {"stopped": r"stopped|Đã ngừng"}.get(status, status)
     expect(_page(world).page.locator("body")).to_contain_text(
-        re.compile(status, re.I), timeout=timeouts.DEFAULT
+        re.compile(pattern, re.I), timeout=timeouts.DEFAULT
     )
 
 

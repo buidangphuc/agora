@@ -23,9 +23,9 @@ AUDIT_DOWN_CHANGE = "audit is down, nothing changed"
 PROMOTION_DOWN_CREATE = "promotion is down, nothing created"
 PROMOTION_DOWN_CHANGE = "promotion is down, nothing changed"
 
-_STOP = re.compile(r"^stop$", re.I)
-_EDIT = re.compile(r"^edit$", re.I)
-_CONFIRM = re.compile(r"^(confirm|stop|save|create|submit|yes)", re.I)
+_STOP = re.compile(r"^(stop|ngừng voucher)$", re.I)
+_EDIT = re.compile(r"^(edit|sửa voucher)$", re.I)
+_CONFIRM = re.compile(r"^(confirm|stop|save|create|submit|yes|xác nhận|ngừng|lưu|tạo)", re.I)
 _SUBMIT = re.compile(r"^(create|review|submit|save)", re.I)
 
 
@@ -121,7 +121,7 @@ class AdminVouchersPage(BasePage):
             box.fill(value_iso[:10])
 
     def fill_create_form(self, code: str, quota: int, start_iso: str, end_iso: str) -> None:
-        self.field(r"^code").first.fill(code)
+        self.field(r"^(code|mã voucher)").first.fill(code)
         for label, value in (
             ("discount value|^value", "10"),
             ("min.?spend", "0"),

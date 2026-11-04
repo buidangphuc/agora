@@ -53,7 +53,7 @@ func TestAdminVoucherWritesAuditDownUnavailableWithReason_V21_V21a(t *testing.T)
 			return err
 		},
 		"deactivate": func(t *testing.T, a *adminRig, id string) error {
-			_, err := deactivate(a, adminCtx(t), id)
+			_, err := deactivate(adminCtx(t), a, id)
 			return err
 		},
 		"update quota": func(t *testing.T, a *adminRig, id string) error {
@@ -94,7 +94,7 @@ func TestAdminVoucherWritesAuditDownInvalidInputKeepsOwnCode_V21b(t *testing.T) 
 			return err
 		}},
 		"deactivate unknown id": {codes.NotFound, func(t *testing.T, a *adminRig, _ string) error {
-			_, err := deactivate(a, adminCtx(t), "no-such-id")
+			_, err := deactivate(adminCtx(t), a, "no-such-id")
 			return err
 		}},
 	}

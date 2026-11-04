@@ -1,4 +1,4 @@
-import { proto3, ScalarType, Timestamp } from "@bufbuild/protobuf";
+import { ScalarType, Timestamp, proto3 } from "@bufbuild/protobuf";
 import {
   Code,
   ConnectError,

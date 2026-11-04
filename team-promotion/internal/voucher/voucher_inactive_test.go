@@ -63,7 +63,7 @@ func TestValidateAndReserve_V1c_inactiveWinsOverExpiredAndOtherRules(t *testing.
 		seller   string
 		stopAt   func(e *inactiveEnv, id string)
 	}{
-		{name: "expired", subtotal: 100000, stopAt: func(e *inactiveEnv, id string) {
+		{name: "expired", subtotal: 100000, stopAt: func(e *inactiveEnv, _ string) {
 			e.svc.nowFn = func() time.Time { return adminNow.Add(48 * time.Hour) }
 		}},
 		{name: "below min spend", subtotal: 1},
