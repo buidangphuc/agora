@@ -7,7 +7,15 @@ import { getVoucher } from "@/lib/gateway/vouchers";
 
 import VoucherDetailPage from "./page";
 
-vi.mock("next/navigation", () => ({ redirect: vi.fn(), notFound: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+vi.mock("@/features/vouchers/actions", () => ({
+  deactivateVoucherAction: vi.fn(),
+  updateVoucherAction: vi.fn(),
+}));
 vi.mock("@/lib/gateway/session", () => ({
   getPrincipal: vi.fn(),
   getToken: vi.fn(),
@@ -27,6 +35,7 @@ const voucher = {
   maxDiscount: 50000,
   quota: 10,
   used: 10,
+  active: true,
   startsAt: "2020-01-01T00:00:00.000Z",
   endsAt: "2099-01-01T00:00:00.000Z",
 };
@@ -50,6 +59,36 @@ describe("VoucherDetailPage", () => {
     expect(details).toHaveTextContent("Giảm 15%, tối đa ₫50.000");
     expect(details).toHaveTextContent("10 / 10");
     expect(screen.getByTestId("voucher-state")).toHaveTextContent("Hết lượt");
+  });
+
+  it("V28 shows Stop and Edit on an active voucher", async () => {
+    render(await page("SALE11"));
+    expect(
+      screen.getByRole("button", { name: "Ngừng voucher" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sửa voucher" }),
+    ).toBeInTheDocument();
+  });
+
+  it("V31 a stopped voucher shows state Đã ngừng and no Stop or Edit control", async () => {
+    vi.mocked(getVoucher).mockResolvedValue({
+      status: "ok",
+      voucher: { ...voucher, active: false },
+    });
+    render(await page("SALE11"));
+    expect(screen.getByTestId("voucher-state")).toHaveTextContent("Đã ngừng");
+    expect(screen.queryByRole("button", { name: "Ngừng voucher" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sửa voucher" })).toBeNull();
+  });
+
+  it("V32 a non-admin sees the forbidden screen and no controls", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({ ...admin, scopes: [] });
+    render(await page("SALE11"));
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ngừng voucher" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sửa voucher" })).toBeNull();
+    expect(getVoucher).not.toHaveBeenCalled();
   });
 
   it("shows not found for an unknown code", async () => {

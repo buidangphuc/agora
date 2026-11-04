@@ -25,6 +25,7 @@ const stored = {
   maxDiscount: 0,
   quota: 100,
   used: 0,
+  active: true,
   startsAt: "2098-12-31T17:00:00.000Z",
   endsAt: "2099-01-31T17:00:00.000Z",
 };
@@ -123,6 +124,55 @@ describe("CreateVoucherForm", () => {
     );
     expect(dialog()).toBeInTheDocument();
     expect(screen.queryByTestId("voucher-created")).toBeNull();
+  });
+
+  it("V33 the confirmation dialog does not claim the voucher is immutable", () => {
+    render(<CreateVoucherForm />);
+    fill();
+    review();
+    const text = dialog().textContent ?? "";
+    expect(text).not.toMatch(/chưa có cách/i);
+    expect(text).not.toMatch(/không (thể )?(sửa|thay đổi|đổi|ngừng|xoá)/i);
+    expect(text).not.toMatch(/sau khi tạo/i);
+  });
+
+  it("V20 shows the duplicate message on the code field and returns to the form", async () => {
+    vi.mocked(createPlatformVoucherAction).mockResolvedValue({
+      ok: false,
+      error: VOUCHER_MESSAGES.fields,
+      fieldErrors: { code: VOUCHER_MESSAGES.duplicate },
+    });
+    render(<CreateVoucherForm />);
+    fill();
+    review();
+    fireEvent.click(within(dialog()).getByTestId("voucher-confirm-ack"));
+    fireEvent.click(createButton());
+    await waitFor(() =>
+      expect(screen.getByText(VOUCHER_MESSAGES.duplicate)).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByTestId("voucher-created")).toBeNull();
+    expect(screen.getByLabelText(/^Mã voucher/)).toBeInTheDocument();
+  });
+
+  it("V27 keeps the dialog open with the promotion-down message, not the audit one", async () => {
+    vi.mocked(createPlatformVoucherAction).mockResolvedValue({
+      ok: false,
+      error: VOUCHER_MESSAGES.promotionDown,
+    });
+    render(<CreateVoucherForm />);
+    fill();
+    review();
+    fireEvent.click(within(dialog()).getByTestId("voucher-confirm-ack"));
+    fireEvent.click(createButton());
+    await waitFor(() =>
+      expect(screen.getByTestId("voucher-create-error")).toHaveTextContent(
+        VOUCHER_MESSAGES.promotionDown,
+      ),
+    );
+    expect(screen.getByTestId("voucher-create-error")).not.toHaveTextContent(
+      "kiểm toán",
+    );
   });
 
   it("goes back to the form with server field errors", async () => {
