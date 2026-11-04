@@ -47,6 +47,7 @@ Implement OpenSpec change `promotion-admin-campaigns` test-first per its tasks.m
 - team-frontend-admin/src/features/admin/CreateCampaignForm.test.tsx (widened at build: task 8)
 - team-frontend-admin/src/features/admin/campaignActions.test.ts (widened at build: task 8)
 - team-frontend-admin/src/lib/gateway/campaigns.admin.test.ts (widened at build: task 8)
+- fe-platform/scripts/gaps.test.mjs (widened at build: task 9)
 
 ## Read-only dependencies
 - promotion-admin-vouchers shared admin error mapping
