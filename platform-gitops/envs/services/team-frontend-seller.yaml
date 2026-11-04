@@ -19,3 +19,9 @@ ingress:
   enabled: true
   host: seller.localtest.me
   path: /
+  annotations:
+    nginx.ingress.kubernetes.io/server-snippet: |
+      set $handoff_log_uri $request_uri;
+      if ($request_uri ~ "^(/auth/handoff\?(?:.*&)?)code=[^&]*(.*)$") {
+        set $handoff_log_uri "${1}code=REDACTED${2}";
+      }

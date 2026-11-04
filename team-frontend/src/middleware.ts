@@ -12,6 +12,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { logAccess } from "@/lib/access-log";
 import { clientContextFrom } from "@/lib/gateway/client-context";
 import { refreshSession } from "@/lib/gateway/refresh";
 import {
@@ -39,6 +40,7 @@ function rewriteCookie(
 }
 
 export async function middleware(req: NextRequest) {
+  logAccess(req);
   const headers = new Headers(req.headers);
   headers.set("x-pathname", req.nextUrl.pathname + req.nextUrl.search);
 
