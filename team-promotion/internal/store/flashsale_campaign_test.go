@@ -177,7 +177,7 @@ func TestCancelCampaign_CancelIsAtomicAndIdempotent(t *testing.T) {
 	}
 }
 
-func TestCancelRacesReserve_ReserveRacingACancel(t *testing.T) {
+func TestCancelRacesReserve(t *testing.T) {
 	pool, repo := newCampaignRepo(t)
 	holds := store.NewPostgresFlashHoldRepository(pool)
 	now := campaignClock
@@ -284,7 +284,7 @@ func TestCancelKeepsExistingHoldsAndSold_CancelStopsNewHoldsKeepsExisting(t *tes
 	}
 }
 
-func TestUpdateCampaignStartRace_CampaignStartsBetweenStatusCheckAndWrite(t *testing.T) {
+func TestUpdateCampaignStartRace(t *testing.T) {
 	_, repo := newCampaignRepo(t)
 	starts := campaignClock.Add(time.Hour)
 	before := seedCampaign(t, repo, "c-upd", starts, starts.Add(time.Hour), 5)
@@ -352,7 +352,7 @@ func TestUpdateIfScheduledRefusals_EditStartedCampaignIsRefused(t *testing.T) {
 	}
 }
 
-func TestCampaignIdempotencyConcurrent_ConcurrentDuplicatesCreateOneCampaign(t *testing.T) {
+func TestCampaignIdempotencyConcurrent(t *testing.T) {
 	pool, repo := newCampaignRepo(t)
 	now := campaignClock
 	const workers = 8

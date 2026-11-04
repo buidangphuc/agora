@@ -56,21 +56,10 @@ class AdminCampaignsPage(BasePage):
         self.table.first.wait_for(state="visible", timeout=timeouts.NAVIGATION)
 
     def choose_filter(self, status: str) -> None:
-        name = re.compile(rf"^{status}$|^{status}\b", re.I)
-        control = (
-            self.page.get_by_role("tab", name=name)
-            .or_(self.page.get_by_role("link", name=name))
-            .or_(self.page.get_by_role("button", name=name))
-        )
-        if control.count():
-            self.wait_until_interactive(control.first)
-            control.first.click()
-            return
-        select = self.page.get_by_role("combobox")
-        assert select.count() > 0, (
-            f"no status filter control for '{status}' on the campaigns screen"
-        )
-        select.first.select_option(value=status.lower())
+        control = self.page.get_by_test_id(f"campaign-filter-{status.lower()}")
+        control.first.wait_for(state="visible", timeout=timeouts.NAVIGATION)
+        self.wait_until_interactive(control.first)
+        control.first.click()
 
     def find_row(self, *needles: str) -> Locator | None:
         for _ in range(MAX_PAGES):

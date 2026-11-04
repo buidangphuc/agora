@@ -148,7 +148,7 @@ func TestListCampaignsReportsCancelledAt_NonAdminCannotListAllCampaigns(t *testi
 	}
 }
 
-func TestCancelCampaignErrors_CancelAnEndedOrUnknownCampaign(t *testing.T) {
+func TestCancelCampaignErrors(t *testing.T) {
 	c := newCampaignRig(t)
 	ended := c.seed(t, "l1", -3*time.Hour, -time.Hour)
 	for _, tc := range []struct {
@@ -186,7 +186,7 @@ func TestCancelCampaignAdminSucceeds_CancelAnEndedOrUnknownCampaign(t *testing.T
 	}
 }
 
-func TestCancelCampaignRequiresAdmin_SellerCannotCancel(t *testing.T) {
+func TestCancelCampaignRequiresAdmin(t *testing.T) {
 	c := newCampaignRig(t)
 	id := c.seed(t, "l1", -time.Hour, time.Hour)
 	for _, tc := range []struct {
@@ -213,7 +213,7 @@ func TestCancelCampaignRequiresAdmin_SellerCannotCancel(t *testing.T) {
 	c.rec.requireNone(t, "refused cancel")
 }
 
-func TestCampaignWritesAuditDownErrorInfo_CancelAuditOutageIdentification(t *testing.T) {
+func TestCampaignWritesAuditDownErrorInfo(t *testing.T) {
 	writes := map[string]func(*testing.T, *campaignRig, string) error{
 		"cancel": func(t *testing.T, c *campaignRig, id string) error {
 			_, err := c.fc.CancelCampaign(adminCtx(t), &promotionv1.CancelCampaignRequest{CampaignId: id})
@@ -246,7 +246,7 @@ func TestCampaignWritesAuditDownErrorInfo_CancelAuditOutageIdentification(t *tes
 	}
 }
 
-func TestUpdateCampaignRequiresAdmin_SellerCannotEdit(t *testing.T) {
+func TestUpdateCampaignRequiresAdmin(t *testing.T) {
 	c := newCampaignRig(t)
 	id := c.seed(t, "l1", time.Hour, 2*time.Hour)
 	req := &promotionv1.UpdateCampaignRequest{
@@ -285,7 +285,7 @@ func TestUpdateCampaignAdminSucceeds_SellerCannotEdit(t *testing.T) {
 	}
 }
 
-func TestUpdateCampaignNotFound_UpdateUnknownCampaign(t *testing.T) {
+func TestUpdateCampaignNotFound(t *testing.T) {
 	c := newCampaignRig(t)
 	_, err := c.fc.UpdateCampaign(adminCtx(t), &promotionv1.UpdateCampaignRequest{
 		CampaignId: "no-such-campaign", SalePrice: 40000, StockCap: 5,
@@ -318,7 +318,7 @@ func createReq(listingID, key string) *promotionv1.CreateCampaignRequest {
 	}
 }
 
-func TestCreateCampaignSellerOwnershipDenied_SellerOfAnotherListingIsDenied(t *testing.T) {
+func TestCreateCampaignSellerOwnershipDenied(t *testing.T) {
 	c := newCampaignRig(t)
 	_, err := c.fc.CreateCampaign(sellerCtx(t), createReq("l2", ""))
 	if code(err) != codes.PermissionDenied {
@@ -329,7 +329,7 @@ func TestCreateCampaignSellerOwnershipDenied_SellerOfAnotherListingIsDenied(t *t
 	}
 }
 
-func TestCreateCampaignIdempotencyKeyRequired_MissingOrMalformedKey(t *testing.T) {
+func TestCreateCampaignIdempotencyKeyRequired(t *testing.T) {
 	for name, key := range map[string]string{"empty": "", "seven chars": "abcdefg", "contains space": "abcd efgh"} {
 		t.Run(name, func(t *testing.T) {
 			c := newCampaignRig(t)
@@ -358,7 +358,7 @@ func TestCreateCampaignAdminValidKeyOK_MissingOrMalformedKey(t *testing.T) {
 	}
 }
 
-func TestCreateCampaignSellerNoKeyRequired_SellerCreateNeedsNoKey(t *testing.T) {
+func TestCreateCampaignSellerNoKeyRequired(t *testing.T) {
 	c := newCampaignRig(t)
 	resp, err := c.fc.CreateCampaign(sellerCtx(t), createReq("l1", ""))
 	if err != nil {

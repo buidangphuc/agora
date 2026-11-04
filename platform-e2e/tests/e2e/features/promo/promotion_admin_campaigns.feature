@@ -119,7 +119,7 @@ Feature: Admin lists, cancels and edits flash-sale campaigns, and creates them s
     And an admin create with a valid payload succeeds on another listing
     And team-listing is stopped for the campaign admin checks
     When the admin creates a campaign on the listing and the time is measured
-    Then the call is refused with "unavailable" and reason "LISTING_UNAVAILABLE" within 2.5 seconds
+    Then the call fails with "unavailable" and reason "LISTING_UNAVAILABLE" within 2.5 seconds
     And once team-listing is back no campaign exists for the listing
 
   @destructive
@@ -128,7 +128,7 @@ Feature: Admin lists, cancels and edits flash-sale campaigns, and creates them s
     And a seller with a published listing for the campaign admin checks
     And team-audit is stopped for the campaign admin checks
     When the admin creates a campaign on the listing with a fresh key
-    Then the call is refused with "unavailable" and reason "AUDIT_UNAVAILABLE" in domain "promotion.platform"
+    Then the call fails with "unavailable" and reason "AUDIT_UNAVAILABLE" in domain "promotion.platform"
     And once team-audit is back no campaign exists for the listing
     And retrying the create with the same key succeeds
 

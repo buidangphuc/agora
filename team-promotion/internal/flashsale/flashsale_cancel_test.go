@@ -36,7 +36,7 @@ func (r *cancelRepo) Cancel(ctx context.Context, id string, now time.Time) (time
 	r.log.add("store")
 	r.state.mu.Lock()
 	defer r.state.mu.Unlock()
-	c, err := r.InMemoryFlashSaleRepository.GetByID(ctx, id)
+	c, err := r.GetByID(ctx, id)
 	if err != nil {
 		return time.Time{}, err
 	}

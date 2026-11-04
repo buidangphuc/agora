@@ -7,6 +7,7 @@ scenarios drive the admin app in the browser.
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from datetime import datetime
@@ -25,7 +26,21 @@ from tests.e2e.support import flash_hold_support as fh
 from tests.e2e.support.world import World
 
 _KEY = re.compile(r"idempotency_?key\W+([A-Za-z0-9_-]{8,64})", re.I)
+_KEY_VALUE = re.compile(r"[A-Za-z0-9_-]{8,64}")
 _SNAPSHOT_KEYS = ("salePrice", "stockCap", "startsAt", "endsAt", "status", "cancelledAt")
+
+
+def _action_key(body: str) -> str:
+    try:
+        args = json.loads(body)
+    except ValueError:
+        args = None
+    if isinstance(args, list):
+        for item in reversed(args):
+            if isinstance(item, str) and _KEY_VALUE.fullmatch(item):
+                return item
+    found = _KEY.search(body)
+    return found.group(1) if found else ""
 
 
 def _x(world: World) -> dict:
@@ -657,8 +672,7 @@ def ui_first_lost(world: World) -> None:
         if request.method != "POST":
             route.continue_()
             return
-        found = _KEY.search(request.post_data or "")
-        st["keys"].append(found.group(1) if found else "")
+        st["keys"].append(_action_key(request.post_data or ""))
         if len(st["keys"]) == 1:
             route.fetch()
             route.abort("timedout")

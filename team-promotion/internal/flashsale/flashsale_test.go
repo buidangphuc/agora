@@ -262,7 +262,7 @@ func TestCreateCampaignAuditBeforeInsertSameID(t *testing.T) {
 	}
 }
 
-func TestCreateCampaignAdminSkipsOwnerCheck(t *testing.T) {
+func TestCreateCampaignAdminNoOwnerLookup(t *testing.T) {
 	lg := &fakeListings{owners: map[string]string{"list-1": "someone-else"}}
 	w := &recordingAuditWriter{}
 	svc, _, _ := newAuditedFlashSvc(t, w, lg, &callLog{})

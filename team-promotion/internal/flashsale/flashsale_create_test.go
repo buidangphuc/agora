@@ -55,7 +55,7 @@ func (r *idemRepo) Create(ctx context.Context, c store.FlashSaleCampaign, event 
 
 func (r *idemRepo) Cancel(ctx context.Context, id string, now time.Time) (time.Time, error) {
 	r.log.add("store")
-	if _, err := r.InMemoryFlashSaleRepository.GetByID(ctx, id); err != nil {
+	if _, err := r.GetByID(ctx, id); err != nil {
 		return time.Time{}, err
 	}
 	r.mu.Lock()
@@ -75,7 +75,7 @@ func (r *idemRepo) LookupIdempotent(ctx context.Context, actorID, key string, no
 	if !ok || now.Sub(rec.at) > idemTTL {
 		return store.IdempotentCampaign{}, store.ErrIdempotencyNotFound
 	}
-	c, err := r.InMemoryFlashSaleRepository.GetByID(ctx, rec.campaignID)
+	c, err := r.GetByID(ctx, rec.campaignID)
 	if err != nil {
 		return store.IdempotentCampaign{}, err
 	}
