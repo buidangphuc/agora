@@ -37,6 +37,7 @@ Implement OpenSpec change `seller-onboarding-ui` test-first per its tasks.md; co
 - team-frontend-seller/src/app/sell/page.test.ts (widened at build: task 1.3)
 - team-frontend-seller/src/app/seller/restrictedGuard.test.tsx (widened at build: task 1.3)
 - team-frontend-seller/src/app/seller/removedText.test.ts (widened at build: task 1.6)
+- tests/seller-onboarding-ui/docs_2_1.sh (widened at build: task 2.1)
 
 ## Read-only dependencies
 - identity-seller-onboarding BecomeSeller RPC and gateway route
