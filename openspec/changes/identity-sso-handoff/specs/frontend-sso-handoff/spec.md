@@ -8,7 +8,7 @@
 through the gateway for the signed-in user and returns the target app's `/auth/handoff?code=<code>&next=<path>` URL,
 and a route handler factory for `/auth/handoff`. GET SHALL peek the code and render a confirmation page "Tiếp tục với
 tài khoản <username>?" with a submit button; only POST SHALL redeem server-side, set that app's own cookies and
-redirect (303) to `next` without the code. GET and HEAD SHALL NOT consume the code. The code SHALL travel in the POST body, never in the form action URL. POST SHALL be accepted only from the app's own origin, being its configured public origin and never the request Host or Forwarded headers: when `Origin` is present it MUST equal the own origin (`null` is refused), otherwise `Sec-Fetch-Site` MUST be `same-origin`; any other POST SHALL respond 303 to `/login` carrying no `next` and `Referrer-Policy: no-referrer`, with no redeem call and no cookie. A user already signed in to the target app SHALL still get the confirmation page, and the POST SHALL replace that app's session with the new account. The 200 page SHALL send `Cache-Control: no-store`, `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`, load no external resource, and HTML-escape and truncate the username. Every response SHALL carry
+redirect (303) to `next` without the code. GET and HEAD SHALL NOT consume the code. The code SHALL travel in the POST body, never in the form action URL. POST SHALL be accepted only from the app's own origin, being its configured public origin and never the request Host or Forwarded headers: when `Origin` is present it MUST equal the own origin (`null` is refused), otherwise `Sec-Fetch-Site` MUST be `same-origin`; any other POST SHALL respond 303 to `/login` carrying no `next` and `Referrer-Policy: no-referrer`, with no redeem call and no cookie. A user already signed in to the target app SHALL still get the confirmation page, and the POST SHALL replace that app's session with the new account. The 200 page SHALL send `Cache-Control: no-store`, `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`, load no external resource, and HTML-escape and truncate the username. The confirmation page SHALL send `Referrer-Policy: same-origin` both as a header and as a `<meta name="referrer">` element, so that a same-origin form POST carries the real `Origin` and a cross-origin navigation gets no referrer; every other response SHALL carry
 `Referrer-Policy: no-referrer`. Only `buyer` and `seller` presets enable it.
 
 #### Scenario: GET shows the confirmation page and consumes nothing
@@ -57,7 +57,7 @@ redirect (303) to `next` without the code. GET and HEAD SHALL NOT consume the co
 
 #### Scenario: Confirmation page cannot be framed or cached
 - **WHEN** the 200 confirmation page is served
-- **THEN** it has `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY` and `Cache-Control: no-store`
+- **THEN** it has `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Cache-Control: no-store` and `Referrer-Policy: same-origin` (header and meta), and a cross-origin navigation from it carries no referrer
 
 #### Scenario: Code is in the POST body only
 - **WHEN** the confirmation page is rendered for code C
@@ -95,6 +95,7 @@ redirect (303) to `next` without the code. GET and HEAD SHALL NOT consume the co
 - **IF** the gateway answers `UNAVAILABLE`
 - **WHEN** the handler runs
 - **THEN** it redirects to `/login?next=<safe next>` and no cookie is set
+- **VERIFIED BY**: fe-platform `packages/session` `gateway outage falls back to login`
 
 #### Scenario: Code minted on click, never at render
 - **WHEN** a page with a cross-app link is server-rendered and then the link is clicked
@@ -103,6 +104,7 @@ redirect (303) to `next` without the code. GET and HEAD SHALL NOT consume the co
 #### Scenario: Handler never mints for an anonymous visitor
 - **WHEN** `startHandoff` runs with no session cookie
 - **THEN** it returns the plain target `/login?next=<path>` URL and makes no mint call to the gateway
+- **VERIFIED BY**: fe-platform `packages/session` `anonymous startHandoff returns login url`
 
 #### Scenario: Admin never hands off
 - **WHEN** the admin preset requests `startHandoff` or the handler
@@ -111,6 +113,7 @@ redirect (303) to `next` without the code. GET and HEAD SHALL NOT consume the co
 #### Scenario: Code never logged or echoed
 - **WHEN** the handler runs GET and POST with console capture
 - **THEN** the output does not contain the code
+- **VERIFIED BY**: fe-platform `packages/session` `never logs the code`
 
 ### Requirement: Access logs redact the hand-off code
 
@@ -166,6 +169,7 @@ team-frontend (buyer) and team-frontend-seller SHALL start every cross-app navig
 - **IF** minting fails
 - **WHEN** the buyer clicks "Kênh người bán"
 - **THEN** the browser opens the seller app's `/login?next=<path>` as before
+- **VERIFIED BY**: fe-platform `packages/session` `mint failure falls back to the plain login url`
 
 #### Scenario: Cap reached still navigates
 - **IF** the user already holds 10 live codes

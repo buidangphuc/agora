@@ -22,14 +22,14 @@ require (
 	// otelgrpc pins to contrib v0.53.0, the release paired with otel core v1.28.0.
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.72.0
 	go.opentelemetry.io/otel v1.47.0
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.47.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.47.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0
-	go.opentelemetry.io/otel/sdk v1.47.0
+	go.opentelemetry.io/otel/sdk v1.47.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.47.0
 
 	// h2c: serve HTTP/2 (gRPC) over cleartext for local/dev.
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/time v0.11.0
 
 	// gRPC client to upstream services + protobuf runtime.
@@ -39,7 +39,7 @@ require (
 
 require (
 	connectrpc.com/grpcreflect v1.3.0
-	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2
+	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.3
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/redpanda v0.44.0
 	github.com/twmb/franz-go/pkg/kmsg v1.14.0
@@ -316,3 +316,5 @@ require (
 // Indirect dependencies and go.sum are produced by `go mod tidy` on first build.
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+
+replace github.com/buidangphuc/agora/platform-core/packages/go-sdk => ../platform-core/packages/go-sdk

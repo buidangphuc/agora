@@ -23,8 +23,9 @@ describe("buy-bar space", () => {
 describe("seller channel links", () => {
   const shell = readFileSync(join(__dirname, "ConsumerShell.tsx"), "utf8");
 
-  it("open the seller app login with a next param, never a bare seller URL", () => {
-    expect(shell.match(/href=\{sellerEntryUrl\(\)\}/g)).toHaveLength(2);
+  it("[Buyer to seller signed in] go through SellerChannelLink, never a bare seller URL or href", () => {
+    expect(shell.match(/<SellerChannelLink/g)).toHaveLength(2);
+    expect(shell).not.toContain("sellerEntryUrl(");
     expect(shell).not.toContain("sellerAppUrl(");
   });
 });

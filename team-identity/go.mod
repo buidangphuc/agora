@@ -3,7 +3,7 @@ module github.com/buidangphuc/team-identity
 go 1.26.0
 
 require (
-	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2
+	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.3
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
@@ -293,3 +293,5 @@ require (
 )
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+
+replace github.com/buidangphuc/agora/platform-core/packages/go-sdk => ../platform-core/packages/go-sdk

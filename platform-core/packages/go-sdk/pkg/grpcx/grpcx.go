@@ -21,6 +21,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/lifecycle"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
@@ -116,7 +117,7 @@ func principalLogStream() grpc.StreamServerInterceptor {
 
 func addPrincipalField(ctx context.Context) {
 	if id := reqctx.PrincipalID(ctx); id != "" {
-		logging.AddFields(ctx, logging.Fields{"principal_id", id})
+		logging.AddFields(ctx, logging.Fields{"principal_fp", logx.PrincipalFP(id)})
 	}
 }
 

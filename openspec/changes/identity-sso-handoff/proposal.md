@@ -21,7 +21,7 @@ theft, ADR-0006 / D3). Identity needs a one-time hand-off code so the target app
 - fe-platform/packages/session: a `startHandoff` server action (mints on click, never at render, code never in
   markup) and an `/auth/handoff` route handler factory. GET peeks and renders the confirmation page "Tiếp tục với
   tài khoản <username>?" with a button; only the POST from that button redeems server-side, sets that app's cookies
-  and redirects (303) to `next` without the code. All responses carry `Referrer-Policy: no-referrer`. HEAD and
+  and redirects (303) to `next` without the code. The 200 confirmation page carries `Referrer-Policy: same-origin` (header and meta) so a same-origin form POST carries the real `Origin` while a cross-origin navigation gets no referrer; every other response carries `Referrer-Policy: no-referrer`. HEAD and
   prefetch never consume.
 - The confirmation page is `no-store`, framed by nobody (`Content-Security-Policy: frame-ancestors 'none'`,
   `X-Frame-Options: DENY`), loads no external resource, HTML-escapes and truncates the peeked username, and the code
@@ -59,7 +59,7 @@ Logs carry no code, no hash, no user id; only result category (`ok`, `rejected`,
 
 ## Threat model
 - Assets: the code (grants a session), the source session, the new session.
-- Abuse: code theft from history/referrer/log (mitigated: one use, 60 s, redirect strips it, no-referrer, never logged);
+- Abuse: code theft from history/referrer/log (mitigated: one use, 60 s, redirect strips it, same-origin referrer policy so the code never leaves the app, never logged);
   replay (atomic single use); cross-target use (bound to `target_app`); guessing (256-bit entropy, hash lookup);
   user enumeration or oracle (one fixed UNAUTHENTICATED message for all failures); minting after logout or suspension
   (source session and ACTIVE checked at redeem; ACTIVE at mint); DB leak (only hashes); open redirect via `next`
@@ -84,6 +84,6 @@ Logs carry no code, no hash, no user id; only result category (`ok`, `rejected`,
   source session does not end it (and vice versa). Accepted by decision.
 - Residual risk: the code is in the `?code=` query of the GET and can reach ingress and Next access logs, browser
   history and the address bar until the POST redirect. Mitigation: ingress and Next server logs redact the `code`
-  query on `/auth/handoff`, 60 s TTL, single use, redirect strips it, `Referrer-Policy: no-referrer`.
+  query on `/auth/handoff`, 60 s TTL, single use, redirect strips it, `Referrer-Policy: same-origin` on the confirmation page and `no-referrer` on every other response.
 - Authz: mint requires a user principal (service principals refused `PERMISSION_DENIED`); the code is bound to the
   caller's own `sid` from the token, never from the request; redeem needs no principal, the code is the credential.

@@ -11,6 +11,7 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - team-identity/internal/store/**
 - team-identity/internal/identity/handoff.go
 - team-identity/internal/identity/handoff_test.go
+- team-identity/internal/identity/auth.go (widened at build: task 1.2.1)
 - team-identity/internal/identity/session_sweeper.go
 - team-identity/internal/identity/session_sweeper_test.go
 - team-identity/internal/config/**
@@ -20,6 +21,10 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - team-identity/FEATURES.yaml
 - team-gateway/internal/edge/auth.go
 - team-gateway/internal/edge/auth_*_test.go
+- platform-core/packages/go-sdk/pkg/auth/** (widened at build: task 1.3.1)
+- team-gateway/internal/edge/forward.go (widened at build: task 1.3.1)
+- team-gateway/internal/edge/forward_test.go (widened at build: task 1.3.1)
+- team-gateway/internal/edge/forward_sid_test.go (widened at build: task 1.3.1)
 - fe-platform/packages/session/src/handoff.ts
 - fe-platform/packages/session/src/handoff.test.ts
 - fe-platform/packages/session/src/index.ts
@@ -48,6 +53,35 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/support/sso_handoff_support.py
 - platform-e2e/src/pages/handoff_confirm_page.py
 - openspec/changes/identity-sso-handoff/**
+- team-frontend-admin/src/app/handoffAbsent.test.ts (widened at build: task 1.6.1)
+- team-frontend-seller/src/app/seller/layout.handoff.test.tsx (widened at build: task 1.6.1)
+- platform-gitops/charts/service/templates/ingress.yaml (widened at build: task 1.6.2)
+- platform-gitops/tests/test_handoff_log_redaction_manifests.py (widened at build: task 1.6.2)
+- team-frontend-seller/src/access-log.test.ts (widened at build: task 1.6.2)
+- fe-platform/scripts/tests/gaps_g8_removed.test.sh (widened at build: task 1.7.1)
+- team-frontend-seller/src/lib/access-log.ts (widened at build: task 1.6.2)
+- team-frontend/src/access-log.test.ts (widened at build: task 1.6.2)
+- team-frontend/src/lib/access-log.ts (widened at build: task 1.6.2)
+- platform-gitops/platform/ingress-nginx/values.yaml (widened at build: task 1.6.2)
+- platform-gitops/argocd/apps/ingress-nginx-config.yaml (widened at build: task 1.6.2)
+- platform-gitops/platform/ingress-nginx/configmap.yaml (widened at build: task 1.6.2)
+- platform-gitops/platform/ingress-nginx/kustomization.yaml (widened at build: task 1.6.2)
+- platform-core/packages/go-sdk/pkg/logx/logx.go (widened at build: converge)
+- fe-platform/packages/api-client/src/generated/** (widened at build: converge)
+- team-frontend/vendor/fe-platform-api-client.tgz (widened at build: converge)
+- team-frontend-seller/vendor/fe-platform-api-client.tgz (widened at build: converge)
+- team-frontend-admin/vendor/fe-platform-api-client.tgz (widened at build: converge)
+- team-frontend-admin/vendor/fe-platform-session.tgz (widened at build: converge)
+- platform-core/packages/go-sdk/pkg/grpcx/** (widened at build: converge)
+- platform-core/packages/go-sdk/pkg/logx/** (widened at build: converge)
+- team-identity/go.mod (widened at build: converge)
+- team-identity/go.sum (widened at build: converge)
+- team-gateway/go.mod (widened at build: converge)
+- team-gateway/go.sum (widened at build: converge)
+- team-gateway/internal/edge/interceptors.go (widened at build: converge)
+- team-frontend/next.config.mjs (widened at build: converge)
+- team-frontend-seller/next.config.mjs (widened at build: converge)
+- team-frontend-admin/package-lock.json (widened at build: converge)
 
 ## Read-only dependencies
 - team-identity login session issuer (pattern)
