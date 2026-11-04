@@ -23,8 +23,8 @@ describe("gaps.md", () => {
     }
   });
 
-  it("V35 other gaps untouched: G1-G8 and G15 rows remain", () => {
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 15]) {
+  it("V35 other gaps untouched: G1-G7 and G15 rows remain", () => {
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 15]) {
       expect(rowIds).toContain(`G${n}`);
     }
   });
