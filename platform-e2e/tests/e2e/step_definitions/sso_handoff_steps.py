@@ -1086,7 +1086,7 @@ def every_login(world: World) -> None:
         assert resp.status_code == 303, f"expected 303, got {resp.status_code}"
         assert unquote(_path(ho.location_of(resp))) == "/login?next=/seller/orders", ho.location_of(resp)
         _assert_no_cookie(resp)
-        assert resp.headers.get("referrer-policy") == "same-origin"
+        assert resp.headers.get("referrer-policy") == "no-referrer"
 
 
 @given(parsers.parse('the admin app receives GET "/auth/handoff" for the code with next "{next_path}"'))
