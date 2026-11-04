@@ -1,10 +1,12 @@
 package store_test
 
 import (
+	"io/fs"
 	"testing"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
 func TestOutboxMigrationMatchesSDKSchema(t *testing.T) {
@@ -47,8 +49,8 @@ func TestMigrateFromVersion4AppliesOutboxOnly(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT version, dirty FROM schema_migrations`).Scan(&version, &dirty); err != nil {
 		t.Fatalf("read schema_migrations: %v", err)
 	}
-	if version != 6 || dirty {
-		t.Fatalf("schema_migrations = version %d dirty %v, want 6 false", version, dirty)
+	if version != 7 || dirty {
+		t.Fatalf("schema_migrations = version %d dirty %v, want 7 false", version, dirty)
 	}
 	var exists bool
 	if err := pool.QueryRow(ctx, `SELECT to_regclass('`+outboxTable+`') IS NOT NULL`).Scan(&exists); err != nil || !exists {
@@ -72,5 +74,47 @@ func TestMigrateFromVersion4AppliesOutboxOnly(t *testing.T) {
 	}
 	if err := pool.QueryRow(ctx, `SELECT to_regclass('`+outboxTable+`') IS NOT NULL`).Scan(&exists); err != nil || exists {
 		t.Fatalf("%s exists=%v err=%v after down, want false", outboxTable, exists, err)
+	}
+}
+
+func TestMigration0007CampaignCancelAndIdempotency_CancelledAtColumn(t *testing.T) {
+	dsn := schemaDSN(t)
+	pool := openPool(t, dsn)
+	ctx := t.Context()
+	ups, err := fs.Glob(store.Migrations, "migrations/0007_*.up.sql")
+	if err != nil || len(ups) != 1 {
+		t.Fatalf("0007 up migration = %v err=%v, want exactly one", ups, err)
+	}
+	downs, err := fs.Glob(store.Migrations, "migrations/0007_*.down.sql")
+	if err != nil || len(downs) != 1 {
+		t.Fatalf("0007 down migration = %v err=%v, want exactly one", downs, err)
+	}
+	if err := migrate.Up(ctx, dsn, migrationsFS(t)); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	hasColumn := func() bool {
+		var ok bool
+		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = 'flash_sale_campaigns' AND column_name = 'cancelled_at')`).Scan(&ok); err != nil {
+			t.Fatalf("inspect columns: %v", err)
+		}
+		return ok
+	}
+	if !hasColumn() {
+		t.Fatal("flash_sale_campaigns.cancelled_at missing after migrate up")
+	}
+	var nulls int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM flash_sale_campaigns WHERE cancelled_at IS NOT NULL`).Scan(&nulls); err != nil || nulls != 0 {
+		t.Fatalf("cancelled rows on fresh table = %d err=%v", nulls, err)
+	}
+	body, err := fs.ReadFile(store.Migrations, downs[0])
+	if err != nil {
+		t.Fatalf("read down: %v", err)
+	}
+	if _, err := pool.Exec(ctx, string(body)); err != nil {
+		t.Fatalf("apply 0007 down: %v", err)
+	}
+	if hasColumn() {
+		t.Fatal("cancelled_at still present after 0007 down")
 	}
 }
