@@ -5,10 +5,12 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,6 +18,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/golang-jwt/jwt/v5"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -254,5 +257,34 @@ func TestBecomeSellerRequiresUserPrincipal(t *testing.T) {
 				t.Fatalf("identity calls = %d, want 0", n)
 			}
 		})
+	}
+}
+
+// Scenario: Seller onboarding: audit unavailable is refused through the gateway
+func TestBecomeSellerAuditUnavailablePassesErrorInfo(t *testing.T) {
+	f := newBecomeSellerFixture(t, errWithInfo(t, codes.Unavailable, "audit trail unavailable at 10.0.0.7", "identity.platform", "AUDIT_UNAVAILABLE"))
+	err := f.call(f.bearer(t, "user", "user-1", "sid-1", []string{"order.read"}), nil)
+	var ce *connect.Error
+	if !errors.As(err, &ce) || ce.Code() != connect.CodeUnavailable {
+		t.Fatalf("got %v, want unavailable", err)
+	}
+	if strings.Contains(ce.Message(), "10.0.0.7") {
+		t.Fatalf("message leaks the upstream text: %q", ce.Message())
+	}
+	var info *errdetails.ErrorInfo
+	for _, d := range ce.Details() {
+		v, derr := d.Value()
+		if derr != nil {
+			continue
+		}
+		if i, ok := v.(*errdetails.ErrorInfo); ok {
+			info = i
+		}
+	}
+	if info == nil || info.GetReason() != "AUDIT_UNAVAILABLE" || info.GetDomain() != "identity.platform" {
+		t.Fatalf("ErrorInfo = %v, want identity.platform/AUDIT_UNAVAILABLE", info)
+	}
+	if n := f.spy.calls.Load(); n != 1 {
+		t.Fatalf("identity calls = %d, want exactly 1", n)
 	}
 }
