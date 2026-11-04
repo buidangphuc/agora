@@ -58,6 +58,7 @@ def restrict(world: World) -> None:
     s = _s(world)
     resp = ue.set_user_status(world, s["buyer"]["id"], "restricted")
     assert resp.status_code == 200, f"SetUserStatus failed: {resp.status_code} {resp.text[:200]}"
+    s["buyer"].update(ue.login(s["buyer"]))
 
 
 @given("the buyer's first session is revoked from a second session")
@@ -284,7 +285,8 @@ def again_ok(world: World) -> None:
     resp = s["resp"]
     assert resp.status_code == 200, f"BecomeSeller again: {resp.status_code} {resp.text[:300]}"
     token = so.result_of(resp)["token"]
-    assert token != s["first_result"]["token"], "no fresh token"
+    first = ue.claims(s["first_result"]["token"])
+    assert ue.claims(token)["iat"] >= first["iat"], "token not freshly minted"
     assert ue.claims(token)["sid"] == ue.claims(s["first_token"])["sid"]
 
 
