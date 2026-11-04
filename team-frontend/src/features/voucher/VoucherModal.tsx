@@ -78,7 +78,10 @@ export function VoucherModal({
         properties: { valid: String(res.valid) },
       });
       if (!res.valid) {
-        const msg = res.reason || "Mã giảm giá không hợp lệ.";
+        const msg =
+          res.reason === "inactive"
+            ? "Mã giảm giá đã ngừng áp dụng."
+            : res.reason || "Mã giảm giá không hợp lệ.";
         setError(msg);
         toast.error(msg);
         return;
