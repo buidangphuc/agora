@@ -53,6 +53,8 @@ Implement OpenSpec change `identity-sso-handoff` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/support/sso_handoff_support.py
 - platform-e2e/src/pages/handoff_confirm_page.py
 - openspec/changes/identity-sso-handoff/**
+- team-frontend-admin/src/app/handoffAbsent.test.ts (widened at build: task 1.6.1)
+- team-frontend-seller/src/app/seller/layout.handoff.test.tsx (widened at build: task 1.6.1)
 
 ## Read-only dependencies
 - team-identity login session issuer (pattern)
