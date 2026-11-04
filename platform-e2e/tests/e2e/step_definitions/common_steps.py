@@ -9,9 +9,7 @@ from __future__ import annotations
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
-from src.constants import timeouts
-
-from src.constants import PageName
+from src.constants import PageName, timeouts
 from src.utils import get_test_data_manager
 from tests.e2e.flows import login_via_api, scenario_buyer
 from tests.e2e.support.world import World

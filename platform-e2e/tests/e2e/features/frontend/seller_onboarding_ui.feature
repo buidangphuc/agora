@@ -80,7 +80,7 @@ Feature: Seller onboarding in the seller app (seller-onboarding-ui, initiative p
     Then the onboarding button is shown
     When an admin sets that buyer to "restricted" after the page loaded
     And the buyer clicks the onboarding button
-    Then the seller page shows "Không thể trở thành Người Bán"
-    And the seller page shows "Tài khoản của bạn không đủ điều kiện trở thành Người Bán. Vui lòng liên hệ bộ phận hỗ trợ."
+    Then the browser lands on the seller login with returnUrl "/seller/new"
     And the onboarding button is not shown
     And the seller_session cookie does not carry listing.write
+    And the gateway lists the buyer without the seller role

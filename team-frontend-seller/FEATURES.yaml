@@ -1304,7 +1304,7 @@ features:
       - "When a signed-in buyer requests `/seller/new`"
       - "Then the page renders the seller onboarding screen with the button \"Đồng ý và trở thành Người Bán\" and issues no redirect to `/login`"
     tags: [auth, login-return]
-    status: planned
+    status: automated
     covered_by: "auth/login_return.feature::Signed-in user without the scope is not redirected to login"
 
   - id: frontend-ai-interaction-events.a-generated-draft-reports-shown-once
@@ -1447,7 +1447,7 @@ features:
       - "When a freshly registered buyer logs in on the seller app and opens `/seller/new`"
       - "Then the browser stays on `/seller/new`, the page shows the button \"Đồng ý và trở thành Người Bán\", and it shows neither \"Cần tài khoản Người Bán\", the restricted line nor a \"Đăng ký bán hàng\" link"
     tags: [admin, enforcement]
-    status: planned
+    status: automated
     covered_by: "frontend/user_enforcement_ui.feature::Users UI: Buyer sees the seller-account notice in the browser"
 
   - id: frontend.user-enforcement-seller-pages-do-not-send-a-principal-without-the-listing-write-scope-to-login
@@ -2049,5 +2049,5 @@ features:
       - "When a buyer sees onboarding, an admin sets the buyer to \"restricted\", and the buyer clicks the button"
       - "Then the page shows \"Không thể trở thành Người Bán\" and the `seller_session` cookie does not carry `listing.write`"
     tags: [seller, onboarding]
-    status: planned
+    status: automated
     covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a buyer restricted after page load is refused"
