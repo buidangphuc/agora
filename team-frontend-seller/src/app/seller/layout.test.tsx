@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listSellerOrders } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 import { batchGetShopNames } from "@/lib/gateway/shops";
+import { SELLER_TERMS_VERSION } from "@/features/seller/onboardingTerms";
 import SellerLayout from "./layout";
 
 vi.mock("next/navigation", () => ({
@@ -25,6 +26,9 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("@/lib/gateway/orders", () => ({ listSellerOrders: vi.fn() }));
 vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
+vi.mock("@/features/seller/onboarding", () => ({
+  acceptSellerTerms: vi.fn(),
+}));
 vi.mock("@/lib/gateway/session", () => ({
   getPrincipal: vi.fn(),
   hasSellerAccess: (p: { scopes: string[] } | null) =>
@@ -92,14 +96,19 @@ describe("SellerLayout", () => {
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
-  it("[Signed-in user without the scope is not redirected to login] shows the seller-account notice in place for a buyer", async () => {
+  it("[Users UI: Seller layout shows the seller-account notice to a buyer] shows onboarding in place for a buyer", async () => {
     vi.mocked(getPrincipal).mockReturnValue({ ...seller, scopes: [] });
     headerValues.pathname = "/seller/new";
     await renderLayout();
     expect(redirect).not.toHaveBeenCalled();
     expect(screen.queryByText("page body")).toBeNull();
-    expect(screen.getByText("Không có quyền")).toBeInTheDocument();
-    expect(screen.getByText("Cần tài khoản Người Bán")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Đồng ý và trở thành Người Bán" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(SELLER_TERMS_VERSION)),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Cần tài khoản Người Bán")).toBeNull();
     expect(screen.queryByText(/Tài khoản bị hạn chế\?/)).toBeNull();
     expect(screen.queryByRole("link", { name: "Đăng ký bán hàng" })).toBeNull();
     expect(
@@ -108,6 +117,14 @@ describe("SellerLayout", () => {
     expect(
       screen.getByRole("button", { name: "Đăng xuất" }),
     ).toBeInTheDocument();
+  });
+
+  it("[Seller onboarding UI: an existing seller never sees onboarding] seller with listing.write sees no onboarding", async () => {
+    await renderLayout();
+    expect(screen.getByText("page body")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Đồng ý và trở thành Người Bán" }),
+    ).toBeNull();
   });
 
   it("[Users UI: Seller layout shows the restricted notice] shows the restricted notice in place for a restricted seller", async () => {
@@ -128,6 +145,9 @@ describe("SellerLayout", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Cần tài khoản Người Bán")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Đồng ý và trở thành Người Bán" }),
+    ).toBeNull();
     expect(screen.queryByRole("link", { name: "Đăng ký bán hàng" })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Đăng xuất" }),
