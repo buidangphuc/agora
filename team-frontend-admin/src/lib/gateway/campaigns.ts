@@ -27,7 +27,11 @@ export interface CampaignView {
 }
 
 export type CampaignStatusName =
-  "scheduled" | "active" | "ended" | "cancelled" | "unspecified";
+  | "scheduled"
+  | "active"
+  | "ended"
+  | "cancelled"
+  | "unspecified";
 
 export type CampaignFilterStatus = Exclude<CampaignStatusName, "unspecified">;
 
@@ -68,7 +72,8 @@ export type GetActiveFlashSaleResult =
   | { status: ReadFailure | "invalid" };
 
 export type ListPlansResult =
-  { status: "ok"; plans: PlanView[] } | { status: ReadFailure };
+  | { status: "ok"; plans: PlanView[] }
+  | { status: ReadFailure };
 
 export type CampaignWriteFailure =
   | "unauthenticated"
@@ -83,7 +88,8 @@ export type CampaignWriteFailure =
   | "timeout";
 
 export type CreateCampaignResult =
-  { status: "ok"; campaign: CampaignView } | { status: CampaignWriteFailure };
+  | { status: "ok"; campaign: CampaignView }
+  | { status: CampaignWriteFailure };
 
 export type CancelCampaignResult = CreateCampaignResult;
 export type UpdateCampaignResult = CreateCampaignResult;

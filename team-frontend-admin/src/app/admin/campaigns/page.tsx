@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 
 import { LinkButton } from "@/components/LinkButton";
 import { Result } from "@/components/ui/Result";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import {
   type CampaignFilter,
   CampaignListView,
 } from "@/features/campaigns/CampaignListView";
-import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import {
   type CampaignFilterStatus,
   listCampaigns,

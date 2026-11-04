@@ -49,6 +49,10 @@ func campaignStatus(c store.FlashSaleCampaign, now time.Time) string {
 	return store.CampaignStatusActive
 }
 
+func (s *Service) StatusOf(c store.FlashSaleCampaign) string {
+	return campaignStatus(c, s.nowFn())
+}
+
 func parseOffset(cursor string) int {
 	if cursor == "" {
 		return 0

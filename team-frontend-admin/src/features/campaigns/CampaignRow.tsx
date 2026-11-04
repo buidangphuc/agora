@@ -2,8 +2,8 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { Alert } from "@/components/ui/Alert";
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";

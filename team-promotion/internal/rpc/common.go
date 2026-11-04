@@ -39,7 +39,6 @@ func mustErrorTable() grpcx.ErrorTable {
 		grpcx.Rule{Target: store.ErrVoucherNotFound, Code: codes.NotFound, Message: "voucher not found"},
 		grpcx.Rule{Target: store.ErrVoucherInactive, Code: codes.FailedPrecondition, Message: "voucher is inactive"},
 		grpcx.Rule{Target: store.ErrDuplicateCode, Code: codes.AlreadyExists, Message: "voucher code already exists"},
-		grpcx.Rule{Target: flashsale.ErrInvalidCampaign, Code: codes.InvalidArgument, Message: "invalid campaign"},
 		grpcx.Rule{Target: store.ErrCampaignNotFound, Code: codes.NotFound, Message: "campaign not found"},
 		grpcx.Rule{Target: store.ErrCampaignEnded, Code: codes.FailedPrecondition, Message: "campaign has ended"},
 		grpcx.Rule{Target: store.ErrCampaignNotScheduled, Code: codes.FailedPrecondition, Message: "campaign is not scheduled"},
@@ -67,6 +66,9 @@ func fail(ctx context.Context, logger *slog.Logger, err error) error {
 		return st.Err()
 	}
 	origErr := err
+	if errors.Is(err, flashsale.ErrInvalidCampaign) {
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
 	err = grpcx.Status(ctx, logger, err, errTable)
 	if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable && errors.Is(origErr, listing.ErrLookupFailed) {
 		if withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Domain: "promotion.platform", Reason: "LISTING_UNAVAILABLE"}); derr == nil {

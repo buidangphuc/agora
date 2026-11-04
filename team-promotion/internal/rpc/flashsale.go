@@ -55,7 +55,9 @@ func (h *FlashSaleHandler) CreateCampaign(ctx context.Context, req *promotionv1.
 	if err != nil {
 		return nil, fail(ctx, h.logger, err)
 	}
-	return &promotionv1.CreateCampaignResponse{Campaign: campaignToProto(c)}, nil
+	cp := campaignToProto(c)
+	cp.Status = campaignStatusToProto(h.svc.StatusOf(c))
+	return &promotionv1.CreateCampaignResponse{Campaign: cp}, nil
 }
 
 func (h *FlashSaleHandler) ListCampaigns(ctx context.Context, req *promotionv1.ListCampaignsRequest) (*promotionv1.ListCampaignsResponse, error) {
@@ -139,15 +141,15 @@ func (h *FlashSaleHandler) GetActiveFlashSale(ctx context.Context, req *promotio
 }
 
 func (h *FlashSaleHandler) ListActiveCampaigns(ctx context.Context, req *promotionv1.ListActiveCampaignsRequest) (*promotionv1.ListActiveCampaignsResponse, error) {
-	items, next, err := h.svc.ListActiveCampaigns(ctx, req.GetPage().GetCursor(), req.GetPage().GetPageSize())
+	res, err := h.svc.ListActiveCampaignsPage(ctx, req.GetPage().GetCursor(), req.GetPage().GetPageSize())
 	if err != nil {
 		return nil, fail(ctx, h.logger, err)
 	}
-	out := make([]*promotionv1.FlashSaleCampaign, 0, len(items))
-	for _, c := range items {
+	out := make([]*promotionv1.FlashSaleCampaign, 0, len(res.Campaigns))
+	for _, c := range res.Campaigns {
 		out = append(out, campaignToProto(c))
 	}
-	return &promotionv1.ListActiveCampaignsResponse{Campaigns: out, Page: pageResponse(next)}, nil
+	return &promotionv1.ListActiveCampaignsResponse{Campaigns: out, Page: pageResponse(res.NextCursor), FlashSaleDisabled: res.FlashSaleDisabled}, nil
 }
 
 func (h *FlashSaleHandler) GetFlashSaleStock(ctx context.Context, req *promotionv1.GetFlashSaleStockRequest) (*promotionv1.GetFlashSaleStockResponse, error) {

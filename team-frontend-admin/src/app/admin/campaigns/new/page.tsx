@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { LinkButton } from "@/components/LinkButton";
 import { Link } from "@/components/ui/Link";
 import { Result } from "@/components/ui/Result";
-import { CreateCampaignForm } from "@/features/campaigns/CreateCampaignForm";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { CreateCampaignForm } from "@/features/campaigns/CreateCampaignForm";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
