@@ -38,7 +38,7 @@ func (f *bsUsers) GetByID(ctx context.Context, id string) (store.User, error) {
 	return u, nil
 }
 
-func (f *bsUsers) GrantSeller(ctx context.Context, userID, version string, now time.Time, enqueue store.SellerEnqueueFn) (store.SellerGrantResult, error) {
+func (f *bsUsers) GrantSeller(ctx context.Context, userID, _ string, now time.Time, enqueue store.SellerEnqueueFn) (store.SellerGrantResult, error) {
 	u, err := f.GetByID(ctx, userID)
 	if err != nil {
 		return store.SellerGrantResult{}, err
@@ -102,7 +102,7 @@ func (e *bsRPC) userCtx(t *testing.T) context.Context {
 	return bsCtx(t, "x-principal-id", e.uid, "x-principal-type", "user", "x-principal-sid", e.sid)
 }
 
-func (e *bsRPC) wantCode(t *testing.T, ctx context.Context, version string, want codes.Code) {
+func (e *bsRPC) wantCode(ctx context.Context, t *testing.T, version string, want codes.Code) {
 	t.Helper()
 	resp, err := e.client.BecomeSeller(ctx, &identityv1.BecomeSellerRequest{TermsVersion: version})
 	if status.Code(err) != want {
@@ -151,7 +151,7 @@ func TestBecomeSellerRPCReturnsSellerToken(t *testing.T) {
 func TestBecomeSellerRPCUnknownTermsInvalidArgument(t *testing.T) {
 	for _, v := range []string{"", "bogus", "V0", "v1", " V1", "V1 "} {
 		e := newBSRPC(t)
-		e.wantCode(t, e.userCtx(t), v, codes.InvalidArgument)
+		e.wantCode(e.userCtx(t), t, v, codes.InvalidArgument)
 	}
 }
 
@@ -163,14 +163,14 @@ func TestBecomeSellerRPCNonActivePermissionDenied(t *testing.T) {
 	if _, err := e.users.SetStatus(context.Background(), e.uid, store.StatusRestricted, "test", time.Now().Add(time.Hour), time.Now(), noRow, chg); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
-	e.wantCode(t, e.userCtx(t), bsCurrent, codes.PermissionDenied)
+	e.wantCode(e.userCtx(t), t, bsCurrent, codes.PermissionDenied)
 }
 
 // Seller onboarding: a service or anonymous caller is refused
 func TestBecomeSellerRPCRequiresUserPrincipal(t *testing.T) {
 	e := newBSRPC(t)
-	e.wantCode(t, bsCtx(t), bsCurrent, codes.Unauthenticated)
-	e.wantCode(t, bsCtx(t, "x-principal-id", "svc-orders", "x-principal-type", "service", "x-principal-sid", e.sid), bsCurrent, codes.PermissionDenied)
+	e.wantCode(bsCtx(t), t, bsCurrent, codes.Unauthenticated)
+	e.wantCode(bsCtx(t, "x-principal-id", "svc-orders", "x-principal-type", "service", "x-principal-sid", e.sid), t, bsCurrent, codes.PermissionDenied)
 }
 
 // Seller onboarding: a revoked session cannot mint a token
@@ -179,11 +179,11 @@ func TestBecomeSellerRPCRevokedSessionUnauthenticated(t *testing.T) {
 	if err := e.sess.RevokeSession(context.Background(), e.sid, e.uid, nil); err != nil {
 		t.Fatalf("RevokeSession: %v", err)
 	}
-	e.wantCode(t, e.userCtx(t), bsCurrent, codes.Unauthenticated)
+	e.wantCode(e.userCtx(t), t, bsCurrent, codes.Unauthenticated)
 }
 
 // Seller onboarding: a revoked session cannot mint a token (forwarded sid missing)
 func TestBecomeSellerRPCMissingSidUnauthenticated(t *testing.T) {
 	e := newBSRPC(t)
-	e.wantCode(t, bsCtx(t, "x-principal-id", e.uid, "x-principal-type", "user"), bsCurrent, codes.Unauthenticated)
+	e.wantCode(bsCtx(t, "x-principal-id", e.uid, "x-principal-type", "user"), t, bsCurrent, codes.Unauthenticated)
 }
