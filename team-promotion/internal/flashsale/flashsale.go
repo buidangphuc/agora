@@ -189,6 +189,8 @@ const (
 
 var errHoldsNotConfigured = errors.New("flash sale holds are not configured")
 
+var errCancelNotConfigured = errors.New("flash sale cancel is not supported by the repository")
+
 // replayOutcome maps a stored hold to the Reserve outcome: a live or committed hold
 // is reserved, a released or expired one is not active.
 func (s *Service) replayOutcome(h store.FlashHold) (bool, string) {
@@ -243,7 +245,7 @@ func (s *Service) ReserveFlashSaleStock(ctx context.Context, reservationID, camp
 	switch {
 	case errors.Is(err, store.ErrFlashStockInsufficient):
 		return false, reasonInsufficientStock, nil
-	case errors.Is(err, store.ErrCampaignNotFound):
+	case errors.Is(err, store.ErrCampaignNotFound), errors.Is(err, store.ErrCampaignCancelled):
 		return false, reasonNotActive, nil
 	case err != nil:
 		return false, "", err
