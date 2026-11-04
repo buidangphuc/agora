@@ -126,7 +126,7 @@ func (i edgeInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc)
 func (e *Edge) Interceptors(logger *slog.Logger) []connect.Interceptor {
 	return []connect.Interceptor{
 		e.requestIDInterceptor(),
-		e.authInterceptor(),
+		e.authInterceptor(logger),
 		e.loggingInterceptor(logger),
 		e.rateLimitInterceptor(),
 	}
@@ -177,12 +177,14 @@ func (e *Edge) admit(ctx context.Context, procedure, peer string, header http.He
 	return ctx, nil
 }
 
-func (e *Edge) authInterceptor() connect.Interceptor {
+func (e *Edge) authInterceptor(logger *slog.Logger) connect.Interceptor {
 	return edgeInterceptor{
 		unary: func(next connect.UnaryFunc) connect.UnaryFunc {
 			return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+				start := time.Now()
 				ctx, err := e.admit(ctx, req.Spec().Procedure, req.Peer().Addr, req.Header())
 				if err != nil {
+					e.logRequest(ctx, logger, req.Spec().Procedure, start, err, &attemptCounter{})
 					return nil, err
 				}
 				return next(ctx, req)
@@ -190,8 +192,10 @@ func (e *Edge) authInterceptor() connect.Interceptor {
 		},
 		stream: func(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 			return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+				start := time.Now()
 				ctx, err := e.admit(ctx, conn.Spec().Procedure, conn.Peer().Addr, conn.RequestHeader())
 				if err != nil {
+					e.logRequest(ctx, logger, conn.Spec().Procedure, start, err, &attemptCounter{})
 					return err
 				}
 				// The token was valid at open; end the stream when it expires or
@@ -212,27 +216,34 @@ func (e *Edge) authInterceptor() connect.Interceptor {
 }
 
 func (e *Edge) logRequest(ctx context.Context, logger *slog.Logger, procedure string, start time.Time, err error, attempts *attemptCounter) {
+	p, ok := principalFrom(ctx)
+	if !ok {
+		p = resolvedPrincipal{id: "anonymous", ptype: "anonymous"}
+	}
+	logPrincipal := p
+	handoff := strings.Contains(procedure, "HandoffCode")
+	if handoff {
+		logPrincipal.id = ""
+		ctx = reqctx.WithPrincipalID(ctx, "")
+	}
 	code := "ok"
 	if err != nil {
 		code = connect.CodeOf(err).String()
-		logUpstreamError(logger, procedure, requestIDFrom(ctx), err)
+		rawID := ""
+		if !handoff && (p.ptype == "user" || p.ptype == "service") {
+			rawID = p.id
+		}
+		logUpstreamError(logger, procedure, requestIDFrom(ctx), rawID, err)
 	}
-	principalID := "anonymous"
-	if p, ok := principalFrom(ctx); ok {
-		principalID = p.id
-	}
-	if strings.Contains(procedure, "HandoffCode") {
-		principalID = "redacted"
-		ctx = reqctx.WithPrincipalID(ctx, "")
-	}
-	logger.InfoContext(ctx, "edge.request",
-		"method", procedure,
-		"principal", principalID,
+	attrs := []any{"method", procedure}
+	attrs = append(attrs, e.principalLogAttrs(logPrincipal)...)
+	attrs = append(attrs,
 		"code", code,
 		"latency_ms", time.Since(start).Milliseconds(),
 		"request_id", requestIDFrom(ctx),
 		"attempts", attempts.value(),
 	)
+	logger.InfoContext(ctx, "edge.request", attrs...)
 }
 
 func (e *Edge) loggingInterceptor(logger *slog.Logger) connect.Interceptor {

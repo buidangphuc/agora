@@ -28,7 +28,7 @@ var managedKeys = append([]string{
 	"CALL_TIMEOUT_SECONDS", "RETRY_MAX", "CORS_ORIGINS", "TRACK_RATE_LIMIT_RPS", "TRACK_RATE_LIMIT_BURST",
 	"AI_CALL_TIMEOUT_SECONDS", "STREAM_MAX_REQUEST_BYTES", "STREAM_REVOCATION_CHECK_SECONDS",
 	"PROMETHEUS_URL", "JAEGER_QUERY_URL", "JAEGER_UI_URL", "TRUSTED_PROXIES", "DIAL_TIMEOUT_SECONDS",
-	"TRACK_PUBLISH_TIMEOUT",
+	"TRACK_PUBLISH_TIMEOUT", "LOG_KEY_FP_SECRET",
 	"HTTP_HOST", "HTTP_PORT", "SHUTDOWN_GRACE_SECONDS", "EDGE_REFLECTION_ENABLED", "KAFKA_ENABLED",
 }, upstreamKeys...)
 
@@ -323,6 +323,7 @@ func TestStrictEnvRequiresKafkaBrokers(t *testing.T) {
 		t.Run(env, func(t *testing.T) {
 			baseEnv(t)
 			t.Setenv("ENV", env)
+			t.Setenv("LOG_KEY_FP_SECRET", "s3cret")
 			_, err := config.Load()
 			mustErrNaming(t, err, "KAFKA_BROKERS")
 
@@ -387,4 +388,64 @@ func TestEnvOutsideBothSetsRefusesOnlyReflection(t *testing.T) {
 	t.Setenv("GRPC_REFLECTION_ENABLED", "true")
 	_, err = config.Load()
 	mustErrNaming(t, err, "GRPC_REFLECTION_ENABLED")
+}
+
+func TestGWFP9_StrictEnvEmptyLogKeySecretFailsBoot(t *testing.T) {
+	for _, env := range []string{"staging", "stage", "prod", "production"} {
+		for _, mode := range []string{"unset", "empty"} {
+			t.Run(env+"/"+mode, func(t *testing.T) {
+				baseEnv(t)
+				t.Setenv("ENV", env)
+				t.Setenv("KAFKA_BROKERS", "kafka:9092")
+				if mode == "empty" {
+					t.Setenv("LOG_KEY_FP_SECRET", "")
+				}
+				_, err := config.Load()
+				mustErrNaming(t, err, "LOG_KEY_FP_SECRET")
+			})
+		}
+	}
+}
+
+func TestGWFP9_StrictEnvWithSecretLoadsAndExposesIt(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("ENV", "staging")
+	t.Setenv("KAFKA_BROKERS", "kafka:9092")
+	t.Setenv("LOG_KEY_FP_SECRET", "s3cret")
+	s, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := text(t, s, "LOG_KEY_FP_SECRET"); got != "s3cret" {
+		t.Errorf("LOG_KEY_FP_SECRET = %q, want s3cret", got)
+	}
+}
+
+func TestGWFP10_WhitespaceOnlyLogKeySecretFailsBoot(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("ENV", "staging")
+	t.Setenv("KAFKA_BROKERS", "kafka:9092")
+	t.Setenv("LOG_KEY_FP_SECRET", "   ")
+	_, err := config.Load()
+	mustErrNaming(t, err, "LOG_KEY_FP_SECRET")
+}
+
+func TestGWFP10b_LocalEnvUsesSDKDefaultLogKeySecret(t *testing.T) {
+	baseEnv(t)
+	s, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := text(t, s, "LOG_KEY_FP_SECRET"); got != "local-dev-log-key-fp-secret" {
+		t.Errorf("LOG_KEY_FP_SECRET = %q, want the SDK local default", got)
+	}
+}
+
+func TestGWFP10_LogKeySecretKeyIsDeclared(t *testing.T) {
+	for _, k := range sdkconfig.DeclaredEnvKeys(config.Settings{}) {
+		if k == "LOG_KEY_FP_SECRET" {
+			return
+		}
+	}
+	t.Error("LOG_KEY_FP_SECRET is not declared by Settings")
 }

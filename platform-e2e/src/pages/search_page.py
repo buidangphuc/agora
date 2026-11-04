@@ -25,7 +25,7 @@ class SearchPage(BasePage):
         return self.page.get_by_text("Không tìm thấy sản phẩm", exact=False)
 
     def navigate_query(self, query: str) -> None:
-        self.page.goto(f"{self.url()}?q={query}", wait_until="domcontentloaded")
+        self.goto(f"{self.url()}?q={query}")
 
     def has_results(self) -> bool:
         return self.results.count() > 0

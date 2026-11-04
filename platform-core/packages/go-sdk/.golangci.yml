@@ -24,6 +24,7 @@ linters:
         - buyer_id
         - seller_id
         - actor_id
+        - principal
         - principal_id
         - owner_id
         - recipient_id

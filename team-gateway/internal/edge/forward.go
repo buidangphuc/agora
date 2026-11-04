@@ -21,6 +21,7 @@ import (
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/idempotency"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/resilience"
 	"github.com/buidangphuc/team-gateway/internal/token"
@@ -49,13 +50,14 @@ type resolvedPrincipal struct {
 // Edge holds the request-scoped machinery: auth resolution, upstream call
 // timeout + retry, and the rate limiter.
 type Edge struct {
-	verifier     *token.Verifier
-	revocations  SessionRevocations
-	trusted      *TrustedProxies
-	publicScopes []string
-	callTimeout  time.Duration
-	retryMax     int
-	limiter      *rateLimiter
+	fingerprinter *kafkax.Fingerprinter
+	verifier      *token.Verifier
+	revocations   SessionRevocations
+	trusted       *TrustedProxies
+	publicScopes  []string
+	callTimeout   time.Duration
+	retryMax      int
+	limiter       *rateLimiter
 	// trackLimiter is the collector's own bucket (nil = unlimited) so a beacon
 	// burst never drains the caller's RPC bucket.
 	trackLimiter   *rateLimiter
@@ -98,6 +100,11 @@ func (e *Edge) WithStreamMaxBytes(n int) *Edge {
 }
 
 // WithReflection mounts gRPC reflection (off by default).
+func (e *Edge) WithFingerprinter(f *kafkax.Fingerprinter) *Edge {
+	e.fingerprinter = f
+	return e
+}
+
 func (e *Edge) WithReflection(on bool) *Edge {
 	e.reflection = on
 	return e
@@ -369,14 +376,18 @@ func sanitized(code connect.Code, msg string, original error) error {
 // logUpstreamError records the original (pre-sanitisation) upstream error with
 // the request id so operators can correlate the generic client message. It is a
 // no-op for errors that were not sanitised.
-func logUpstreamError(logger *slog.Logger, procedure, rid string, err error) {
+func logUpstreamError(logger *slog.Logger, procedure, rid, rawID string, err error) {
 	var ue *upstreamError
 	if errors.As(err, &ue) {
+		original := ue.Original().Error()
+		if rawID != "" {
+			original = strings.ReplaceAll(original, rawID, "[redacted]")
+		}
 		logger.Error("edge.upstream_error",
 			"method", procedure,
 			"request_id", rid,
 			"code", connect.CodeOf(err).String(),
-			"original", ue.Original().Error(),
+			"original", original,
 		)
 	}
 }
