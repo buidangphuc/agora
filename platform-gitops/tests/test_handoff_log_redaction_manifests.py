@@ -49,6 +49,11 @@ def config_text(app: str, env: str) -> str:
     return "\n".join(parts)
 
 
+def controller_http_snippet() -> str:
+    values = yq_json((ROOT / "platform/ingress-nginx/values.yaml").read_text())
+    return str(((values.get("controller") or {}).get("config") or {}).get("http-snippet") or "")
+
+
 def log_directives(text: str) -> list:
     return [ln for ln in text.splitlines() if re.search(r"\b(access_log|log_format)\b|log-format", ln)]
 
@@ -104,14 +109,18 @@ class HandoffLogRedactionChecks:
 
 
     def test_scenario_code_redacted_in_access_logs_variable_is_written_to_the_access_log(self):
+        formats = [ln for ln in log_directives(controller_http_snippet()) if "log_format" in ln]
+        named = [re.search(r"log_format\s+(\S+)", ln).group(1) for ln in formats if "$handoff_log_uri" in ln]
+        self.assertTrue(named, f"controller http-snippet has no log_format using $handoff_log_uri: {formats}")
         for env in ENVS:
             with self.subTest(env=env):
-                text = config_text(self.APP, env)
-                lines = log_directives(text)
-                self.assertTrue(any("$handoff_log_uri" in ln for ln in lines),
-                                f"no access_log/log_format line references $handoff_log_uri: {lines}")
+                lines = log_directives(config_text(self.APP, env))
+                used = [ln for ln in lines if "access_log" in ln and any(n in ln.replace(";", " ").split() for n in named)]
+                self.assertTrue(used, f"ingress has no access_log using {named}: {lines}")
 
     def test_scenario_code_redacted_in_access_logs_raw_request_is_not_logged(self):
+        for ln in log_directives(controller_http_snippet()):
+            self.assertIsNone(re.search(r"\$request(_uri)?\b", ln), ln)
         for env in ENVS:
             with self.subTest(env=env):
                 for ln in log_directives(config_text(self.APP, env)):
