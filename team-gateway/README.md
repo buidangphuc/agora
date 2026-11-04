@@ -36,7 +36,14 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 
 Upstream calls get a deadline (`CALL_TIMEOUT_SECONDS`). Idempotent reads (`callRead`) retry up to
 `RETRY_MAX` times on `Unavailable`; writes (`callWrite`) never retry. Upstream gRPC statuses map to
-the matching Connect codes.
+the matching Connect codes. An upstream `Unavailable` keeps its first `ErrorInfo` detail (domain, reason)
+behind the sanitized message; the promotion forwarders add `promotion.platform/PROMOTION_UNAVAILABLE`
+when the upstream sent none (`internal/edge/promotion.go`).
+
+Identity `AuthService` extras at the edge (`internal/edge/auth.go`): `CreateHandoffCode` needs an
+authenticated principal (`UNAUTHENTICATED` for anonymous); `BecomeSeller` needs a `user` principal
+(`UNAUTHENTICATED` for anonymous, `PERMISSION_DENIED` otherwise); `PeekHandoffCode` (read) and
+`RedeemHandoffCode` (write) are open, the code is the credential.
 
 ### Authorization at the edge
 
@@ -50,12 +57,17 @@ rate limit (`internal/edge/interceptors.go`).
 | Bearer present but malformed, bad signature, unknown `kid`, expired or session revoked | `401 Unauthenticated`, never downgraded to anonymous |
 
 The gateway checks only the token against the procedure policy, not per-RPC scopes. **Scope gates live in the services**; the
-gateway forwards `x-principal-id`, `x-principal-type`, `x-principal-scopes` and `x-request-id`,
-built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
+gateway forwards `x-principal-id`, `x-principal-type`, `x-principal-scopes`, `x-principal-sid` (the
+token's `sid`, when present) and `x-request-id`, built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
 `x-client-ip` / `x-client-user-agent` (see `TRUSTED_PROXIES`). Inbound `x-client-*` headers are
 never copied through. The edge-level RPC gates are the `adminProcedures` map (`policy.go`): each
 listed procedure needs an authenticated principal with the `admin` scope (anonymous gets
 `UNAUTHENTICATED`, otherwise `PERMISSION_DENIED`). The owning services enforce the rule again.
+
+Logging: each `edge.request` line carries `principal_kind` (`user`, `service` or `anonymous`) and, for a
+user or service, `principal_fp`, an HMAC fingerprint of the id under `LOG_KEY_FP_SECRET`, never the raw id
+(`internal/edge/principal_log.go:10`). `*HandoffCode` procedures log no fingerprint, and the raw principal
+id is replaced by `[redacted]` in logged upstream error text.
 
 Rate limiting is a per-instance token bucket (`RATE_LIMIT_RPS` / `RATE_LIMIT_BURST`), keyed by
 principal id, or by client IP for anonymous callers. Idle buckets are evicted after 10 minutes.
@@ -213,7 +225,7 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (112 features: 63 `automated`, 49 `not-testable`). Session
+- Feature manifest: `FEATURES.yaml` (201 features: 69 `automated`, 132 `not-testable`). Session
   revocation and client-IP behaviour are covered by `platform-e2e` (`auth/session_revocation.feature`).
 - E2E coverage is verified in `platform-e2e`: `make -C platform-e2e features-check` and
   `make -C platform-e2e spec-check CHANGE=<id>`.
@@ -250,9 +262,13 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 - The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
   or `/api/admin/metrics`, which read only the `Authorization` header.
 - Revocation is fail-open and per replica. Edge-side admin gating is the `adminProcedures` map
-  in `policy.go` (14 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListReports`,
+  in `policy.go` (20 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
   `ResolveReport`, `QueryAuditLog`, `ModerateListing`, `ListModerationQueue`, `ForceFailSaga`,
-  `AccountAdmin` `ListUsers` / `SetUserStatus`, and three analytics reports).
+  `AccountAdmin` `ListUsers` / `SetUserStatus`, three analytics reports, and promotion
+  `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).
+- `go.mod` pins go-sdk `v1.0.3`, which has no tag, through `replace ... => ../platform-core/packages/go-sdk`
+  (`go.mod:320`); a plain `docker build` from this directory (the compose build context is `./team-gateway`)
+  cannot resolve it.
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at

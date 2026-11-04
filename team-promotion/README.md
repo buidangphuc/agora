@@ -21,9 +21,14 @@ these into a principal; each RPC handler in `internal/rpc` enforces its own rule
 | `VoucherService/CreateVoucher` | Principal required. Scope `PLATFORM` (and unspecified) needs `admin`. Scope `SHOP` needs `listing.write` or `admin`; `seller_id` is forced to the caller's id. |
 | `VoucherService/GetVoucher` | None (public read by code). |
 | `VoucherService/ListVouchers` | None. Filters by `seller_id` from the request (empty = platform). |
+| `VoucherService/DeactivateVoucher` | Scope `admin`. Writes a `voucher.deactivate` audit event first (fail-closed, `Unavailable` with `ErrorInfo` `promotion.platform/AUDIT_UNAVAILABLE`), then sets `active = false`; idempotent (keeps the first `deactivated_at`). An inactive voucher is refused by `ValidateAndReserve` (`internal/voucher/voucher.go:350`). |
+| `VoucherService/UpdateVoucher` | Scope `admin`. Only `ends_at` (must be in the future and after `starts_at`) and `quota` (positive, never lowered, not on an unlimited voucher) change; nothing to change is `InvalidArgument`, an inactive voucher `FailedPrecondition`. Audited as `voucher.update` (fail-closed) (`internal/voucher/voucher.go:173`). |
 | `VoucherService/ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | `Commit`/`Release`: SERVICE principal holding `promotion.reserve` only (user/admin tokens are `PermissionDenied`). `ValidateAndReserve` is dual-mode: a SERVICE principal with `promotion.reserve` is trusted (request `buyer_id`/`seller_id` honoured); any other authenticated principal gets `buyer_id` forced to its own id and `reservation_id` must start `preview:<its id>:` (else `PermissionDenied`), so a preview hold can never be committed. |
-| `FlashSaleService/CreateCampaign` | Principal required plus `listing.write` or `admin`. Non-admins must own the listing: team-domain `GetListing` (as the caller) must return `seller_id` equal to the caller id. Foreign listing is `PermissionDenied`, unknown listing `InvalidArgument`, lookup failure or `UPSTREAM_DOMAIN_ADDR` unset is `Unavailable` (fails closed). Admins skip the lookup. |
-| `FlashSaleService/GetActiveFlashSale`, `ListActiveCampaigns`, `GetFlashSaleStock` | None (public reads). |
+| `FlashSaleService/CreateCampaign` | Principal required plus `listing.write` or `admin`. Non-admins must own the listing: team-domain `GetListing` (as the caller) must return `seller_id` equal to the caller id. Foreign listing is `PermissionDenied`, unknown listing `InvalidArgument`, lookup failure or `UPSTREAM_DOMAIN_ADDR` unset is `Unavailable` (fails closed, `ErrorInfo` `promotion.platform/LISTING_UNAVAILABLE`). `sale_price` and `stock_cap` must be positive, `ends_at` after `starts_at` and in the future, and `sale_price` below the listing price. Admins must send an `idempotency_key` (8-64 of `[A-Za-z0-9_-]`): a replay with the same payload returns the first campaign, a different payload is `AlreadyExists`; the admin path now also looks the listing up (no owner check) (`internal/flashsale/flashsale.go`, `internal/rpc/flashsale.go`). |
+| `FlashSaleService/GetActiveFlashSale`, `ListActiveCampaigns`, `GetFlashSaleStock` | None (public reads). `ListActiveCampaigns` sets `flash_sale_disabled` when the kill-switch is off. |
+| `FlashSaleService/ListCampaigns` | Scope `admin`. Every campaign, newest first, optional `statuses` filter (`SCHEDULED`, `ACTIVE`, `ENDED`, `CANCELLED`, derived from the window and `cancelled_at`), offset cursor; also returns `flash_sale_disabled` (`internal/flashsale/flashsale_list.go:66`). |
+| `FlashSaleService/CancelCampaign` | Scope `admin`. Scheduled or active only (ended is `FailedPrecondition`, unknown `NotFound`); audited as `campaign.cancel` (fail-closed); sets `cancelled_at`, after which reserve refuses the campaign (`internal/flashsale/flashsale_cancel.go:21`). |
+| `FlashSaleService/UpdateCampaign` | Scope `admin`. Scheduled campaigns only (`FailedPrecondition` otherwise); same price, stock cap and window checks as create, price checked against the listing; audited as `campaign.update` (fail-closed) (`internal/flashsale/flashsale_update.go:33`). |
 | `FlashSaleService/ReserveFlashSaleStock`, `CommitFlashSaleStock`, `ReleaseFlashSaleStock` | SERVICE principal holding `promotion.reserve` only (user/admin tokens are `PermissionDenied`); see [Flash stock holds](#flash-stock-holds). |
 | `SubscriptionService/ListPlans` | None. |
 | `SubscriptionService/Subscribe` | Requires `listing.write` (buyer-only is `PermissionDenied`); seller id is the caller's id. |
@@ -81,7 +86,7 @@ by the SDK outbox relay, so a Kafka outage delays publication but never fails th
 
 ## Data
 
-Own database `promotion_db` (user `promotion_svc`). Migrations in `migrations/` (golang-migrate,
+Own database `promotion_db` (user `promotion_svc`). Migrations in `internal/store/migrations/` (golang-migrate,
 `.up.sql`/`.down.sql`):
 
 | Migration | Tables |
@@ -91,6 +96,8 @@ Own database `promotion_db` (user `promotion_svc`). Migrations in `migrations/` 
 | `0003_sponsored` | `ad_campaigns` (index on `(status, bid DESC)`) |
 | `0004_flash_sale_holds` | Flash-sale stock holds (`reserve`, `commit`, `release`; see Flash stock holds) |
 | `0005_outbox` | `outbox` (transactional event outbox) |
+| `0006_voucher_active` | adds `vouchers.active` (default true), `deactivated_at` |
+| `0007_campaign_cancel_idempotency` | adds `flash_sale_campaigns.cancelled_at`; `campaign_idempotency` (PK `actor_id`, `key`; payload hash, campaign id) |
 
 Migrations are embedded in `internal/store/migrations` and applied by `server migrate up` (the
 `team-promotion-migrate` one-shot container in the root compose runs it; it needs only `ENV` and
@@ -124,13 +131,13 @@ Startup fails when a required key is missing or invalid.
 | `OUTBOX_POLL_INTERVAL` | SDK default | outbox relay poll interval |
 | `OUTBOX_BATCH_SIZE` | SDK default | rows per relay batch |
 | `OUTBOX_CLAIM_LOCK` | SDK default | relay row claim lock duration |
-| `UPSTREAM_AUDIT_ADDR` | none | required. team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher` (`voucher.admin_create`), admin `CreateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; an audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
+| `UPSTREAM_AUDIT_ADDR` | none | required. team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher` (`voucher.admin_create`), `DeactivateVoucher`, `UpdateVoucher`, admin `CreateCampaign`, `CancelCampaign`, `UpdateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; an audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
 | `MAX_AD_BID` | `1000000` | Upper bound on a sponsored ad bid; larger is `InvalidArgument` |
 | `MAX_AD_BUDGET` | `1000000000` | Upper bound on an ad campaign budget; larger is `InvalidArgument` |
 | `UPSTREAM_DOMAIN_ADDR` | none | required. team-domain gRPC address (`team-domain-svc:50051` in compose) |
 
 The only flag is `flash-sale-enabled` (fail-open, default true). Switched off, it makes
-`GetActiveFlashSale` and `ListActiveCampaigns` return nothing.
+`GetActiveFlashSale` and `ListActiveCampaigns` return nothing; `ListActiveCampaigns` and `ListCampaigns` report it in `flash_sale_disabled`.
 
 ## Run locally
 
@@ -176,8 +183,8 @@ Database tests run against Docker Postgres and never skip; a skip is a gate fail
 
 ## Spec and verification
 
-- `FEATURES.yaml` declares 85 features: 32 `automated` (each with a `covered_by` scenario, mostly in
-  `platform-e2e/tests/e2e/features/promo/` and `security/promotion_access.feature`) and 53 `not-testable`.
+- `FEATURES.yaml` declares 301 features: 130 `automated` (each with a `covered_by` scenario, mostly in
+  `platform-e2e/tests/e2e/features/promo/` and `security/promotion_access.feature`), 169 `not-testable` and 2 `planned`.
 - Verify coverage with `make -C platform-e2e features-check` and, per change,
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC.
@@ -211,6 +218,7 @@ Database tests run against Docker Postgres and never skip; a skip is a gate fail
 - **Quota counts commits only.** Outstanding (`reserved`) holds are not counted against `quota`, so
   concurrent reservations can exceed it before commits land.
 - **No event on redemption or release.** `VoucherChanged` fires only on create, not when `used` changes.
+- **No event on admin changes.** `DeactivateVoucher`, `UpdateVoucher`, `CancelCampaign` and `UpdateCampaign` write audit events but no `VoucherChanged`/`FlashSaleChanged` outbox row (`internal/voucher/voucher.go:150`, `internal/flashsale/flashsale_cancel.go:21`).
 - The `flash-sale-enabled` kill-switch only gates reads; it does not block `CreateCampaign`.
 
 ## Links

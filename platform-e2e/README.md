@@ -28,7 +28,7 @@ fixtures are in `test-data/`).
 
 ## Test lanes
 
-Markers are registered in `pyproject.toml` (39, `--strict-markers`: an unregistered tag
+Markers are registered in `pyproject.toml` (44, `--strict-markers`: an unregistered tag
 fails collection). Select with `pytest -m <marker>`.
 
 | Lane | Command | Notes |

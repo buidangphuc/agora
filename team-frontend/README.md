@@ -11,6 +11,7 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 | Surface | What | Authorization |
 |---|---|---|
 | 24 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, chat, assistant, checkout (route groups below); the seller centre is the separate `team-frontend-seller` app and the admin screens the separate `team-frontend-admin` app | Per page/layout, from the gateway scopes in the session JWT |
+| `GET`/`HEAD`/`POST /auth/handoff` | SSO hand-off landing (`src/app/auth/handoff/route.ts`, `createHandoffHandler` from `@fe-platform/session`): `GET ?code=&next=` peeks the code (`PeekHandoffCode`, target `BUYER`) and renders a "Tiếp tục với tài khoản ..." confirmation form; `POST` (same-origin only) redeems it (`RedeemHandoffCode`), sets `session`/`agora_refresh` and redirects to `next`. Any failure redirects to `/login?next=`. The middleware adds `no-store`, a `default-src 'none'` CSP and `X-Frame-Options: DENY`, and the access log writes `code=REDACTED` (`src/lib/access-log.ts`) | Public; the code is the credential |
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
 | `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
@@ -59,7 +60,8 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `TRUSTED_PROXY_HOPS` | `1` (values below 1 or non-numeric fall back to 1) | `src/lib/gateway/client-context.ts` |
 | `NEXT_PUBLIC_GTM_ID` | empty, GTM disabled (Dockerfile build `ARG`, inlined at build) | `src/lib/analytics/destinations/gtm.ts` |
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` | `src/lib/media.ts` |
-| `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); every link to the seller app goes through `src/lib/apps.ts`: "Kênh Người Bán" uses `sellerEntryUrl()`, which opens the seller `/login?next=/seller` (the seller app skips the form when it already has a seller session) | `src/lib/apps.ts` |
+| `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); every link to the seller app goes through `src/lib/apps.ts`. "Kênh Người Bán" (`SellerChannelLink`) first mints a hand-off code for the seller app (`CreateHandoffCode`) and opens its `/auth/handoff`; without a usable session or on any error it falls back to `sellerEntryUrl()`, the seller `/login?next=/seller` | `src/lib/apps.ts`, `src/features/handoff/` |
+| `NEXT_PUBLIC_BUYER_APP_URL` | `http://localhost:3000` (build-time); this app's own origin, checked against the `Origin` of a hand-off `POST` | `src/features/handoff/config.ts` |
 | `NEXT_PUBLIC_APP_ENV` | unset; `staging` turns on GA4 `debug_mode` (build-time) | `src/lib/analytics/destinations/gtm.ts` |
 | `GA4_USER_ID_HMAC_KEY` | unset (server-only secret from Vault): `user_id` disabled, `/api/analytics/identity` returns 204 | `src/lib/analytics/ga4/userId.ts` |
 
@@ -133,7 +135,8 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 - `/seller*` and `/sell` moved to `team-frontend-seller` (`:3001`) and are a 404 here (`src/app/sellerRoutes.test.ts`).
 - `/vouchers` still renders `VoucherManager` (create a voucher) for a session with `listing.write`; it is seller work that has not moved to the seller app yet.
 - `/listing/[id]` still shows the admin review-moderation controls when the buyer session carries scope `admin`.
-- No single sign-on across the three apps (gap G8 in `fe-platform/docs/gaps.md`): a buyer session does not open the seller or admin app; each app signs in on its own and logout clears only that app's cookies.
+- SSO covers the buyer and seller apps only (one-time hand-off code); the admin app is excluded by design, and logout still clears only this app's cookies.
+- `NEXT_PUBLIC_BUYER_APP_URL` is not in `.env.example` and not a Dockerfile build arg, so the image bakes `http://localhost:3000` as its own origin and a hand-off `POST` from any other host is refused (`src/features/handoff/config.ts`).
 
 ## 10. Links
 

@@ -99,8 +99,8 @@ Shared library (not a service): **`platform-core/packages/py-modelregistry`** (p
   the **only** JWT verifier: it fetches + caches identity's JWKS and verifies the
   bearer by `kid` (holding **no** signing secret), resolves a
   `Principal{id,type,scopes}`, and forwards it to services as trusted
-  `x-principal-{id,type,scopes}` gRPC metadata (rebuilt each hop, so a client
-  cannot spoof it). Anonymous → public scopes. Services trust the forwarded
+  `x-principal-{id,type,scopes}` gRPC metadata, plus `x-principal-sid` from the
+  token's `sid` (rebuilt each hop, so a client cannot spoof it). Anonymous → public scopes. Services trust the forwarded
   principal and gate RPCs with scope checks (`RequireScopes`). Identity reads
   `JWT_PRIVATE_KEY`+`JWT_KID` (Vault, identity-only); the gateway reads only
   `JWKS_URL`. There is no shared `JWT_SECRET`.
