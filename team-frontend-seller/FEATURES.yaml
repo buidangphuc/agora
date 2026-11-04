@@ -1923,7 +1923,7 @@ features:
       - "When a freshly registered buyer logs in on the seller app, opens `/sell` and clicks \"Đồng ý và trở thành Người Bán\""
       - "Then the browser ends on `/seller/new` with the new-listing form visible, the `seller_session` cookie carries `listing.write`, the `seller_refresh` cookie value is unchanged, and the page shows no \"Cần tài khoản Người Bán\""
     tags: [seller, onboarding]
-    status: planned
+    status: automated
     covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a buyer becomes a seller in the browser"
 
   - id: seller-onboarding-ui.no-source-file-shows-the-removed-text
@@ -1951,7 +1951,7 @@ features:
       - "When the same user reloads `/seller` after becoming a seller"
       - "Then the seller centre renders and the onboarding screen is absent"
     tags: [seller, onboarding]
-    status: planned
+    status: automated
     covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a returning seller is not asked again"
 
   - id: seller-onboarding-ui.an-anonymous-visitor-is-sent-to-login
@@ -1965,7 +1965,7 @@ features:
       - "When a visitor with no session opens `/sell`"
       - "Then the browser lands on the seller `/login` with `returnUrl` equal to the seller path, not on the onboarding screen"
     tags: [seller, onboarding]
-    status: planned
+    status: automated
     covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: an anonymous visitor is sent to login"
 
   - id: seller-onboarding-ui.a-denied-acceptance-shows-the-denied-notice
@@ -2007,7 +2007,7 @@ features:
       - "When a buyer is signed in on the seller app, an admin sets the buyer to \"suspended\" (sessions revoked), and the buyer clicks \"Đồng ý và trở thành Người Bán\""
       - "Then `BecomeSeller` answers UNAUTHENTICATED, the browser lands on the seller `/login`, no onboarding is shown, and the `seller_session` cookie does not carry `listing.write`"
     tags: [seller, onboarding]
-    status: planned
+    status: automated
     covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a suspended buyer is sent to login in the browser"
 
   - id: seller-onboarding-ui.a-banned-buyer-is-sent-to-login-in-the-browser
@@ -2021,7 +2021,7 @@ features:
       - "When a buyer is signed in on the seller app, an admin sets the buyer to \"banned\" (sessions revoked), and the buyer clicks \"Đồng ý và trở thành Người Bán\""
       - "Then `BecomeSeller` answers UNAUTHENTICATED, the browser lands on the seller `/login`, never reaches `/seller/new`, and the `seller_session` cookie does not carry `listing.write`"
     tags: [seller, onboarding]
-    status: planned
+    status: automated
     covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a banned buyer is sent to login in the browser"
 
   - id: seller-onboarding-ui.a-restricted-seller-sees-the-inline-403-in-the-browser
@@ -2035,7 +2035,7 @@ features:
       - "When an admin has restricted a buyer, and that buyer logs in on the seller app and opens `/seller/new`"
       - "Then the browser stays on `/seller/new`, the page shows \"Tài khoản Người Bán đang bị hạn chế\", and no button \"Đồng ý và trở thành Người Bán\" is present"
     tags: [seller, onboarding]
-    status: planned
+    status: automated
     covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a restricted seller sees the inline 403 in the browser"
 
   - id: seller-onboarding-ui.a-buyer-restricted-after-page-load-is-refused

@@ -92,7 +92,13 @@ def click_onboarding(world: World) -> None:
 @when(parsers.parse('an admin sets that buyer to "{status}" after the page loaded'))
 def admin_sets_after_load(world: World, status: str) -> None:
     user = _x(world)["buyer"]
-    resp = ue.set_user_status(world, user["id"], status, reason="abuse")
+    resp = ue.set_user_status(
+        world,
+        user["id"],
+        status,
+        reason="abuse",
+        until=ue.in_future(3600) if status == "suspended" else None,
+    )
     assert resp.status_code == 200, f"SetUserStatus failed: {resp.status_code} {resp.text[:200]}"
     assert ue.stored_user(world, user["id"]).get("status") == f"USER_STATUS_{status.upper()}"
 
