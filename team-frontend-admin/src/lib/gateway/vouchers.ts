@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Timestamp } from "@bufbuild/protobuf";
+import { proto3, ScalarType, Timestamp } from "@bufbuild/protobuf";
 import { Code, ConnectError } from "@connectrpc/connect";
 
 import {
@@ -35,6 +35,9 @@ export type VoucherErrorStatus =
   | "forbidden"
   | "invalid"
   | "not_found"
+  | "duplicate"
+  | "audit_unavailable"
+  | "promotion_unavailable"
   | "unavailable"
   | "timeout"
   | "failed";
@@ -44,12 +47,18 @@ export type ListVouchersResult =
   | { status: VoucherErrorStatus };
 
 export type GetVoucherResult =
-  | { status: "ok"; voucher: VoucherView }
-  | { status: VoucherErrorStatus };
+  { status: "ok"; voucher: VoucherView } | { status: VoucherErrorStatus };
 
 export type CreateVoucherResult =
-  | { status: "ok"; voucher: VoucherView }
-  | { status: VoucherErrorStatus };
+  { status: "ok"; voucher: VoucherView } | { status: VoucherErrorStatus };
+
+export type DeactivateVoucherResult = CreateVoucherResult;
+export type UpdateVoucherResult = CreateVoucherResult;
+
+export interface UpdateVoucherInput {
+  quota?: number;
+  endsAt?: Date;
+}
 
 export interface CreatePlatformVoucherInput {
   code: string;
@@ -99,6 +108,18 @@ export function toVoucherView(v: Voucher): VoucherView {
   };
 }
 
+const ErrorInfo = proto3.makeMessageType("google.rpc.ErrorInfo", [
+  { no: 1, name: "reason", kind: "scalar", T: ScalarType.STRING },
+  { no: 2, name: "domain", kind: "scalar", T: ScalarType.STRING },
+]);
+
+function unavailableStatus(err: ConnectError): VoucherErrorStatus {
+  const reason = err.findDetails(ErrorInfo)[0]?.reason;
+  if (reason === "AUDIT_UNAVAILABLE") return "audit_unavailable";
+  if (reason === "PROMOTION_UNAVAILABLE") return "promotion_unavailable";
+  return "unavailable";
+}
+
 function errorStatus(err: unknown): VoucherErrorStatus {
   if (!(err instanceof ConnectError)) return "unavailable";
   switch (err.code) {
@@ -110,8 +131,10 @@ function errorStatus(err: unknown): VoucherErrorStatus {
       return "invalid";
     case Code.NotFound:
       return "not_found";
+    case Code.AlreadyExists:
+      return "duplicate";
     case Code.Unavailable:
-      return "unavailable";
+      return unavailableStatus(err);
     case Code.DeadlineExceeded:
     case Code.Canceled:
       return "timeout";
@@ -172,6 +195,43 @@ export async function createPlatformVoucher(
         quota: BigInt(input.quota),
         startsAt: Timestamp.fromDate(input.startsAt),
         endsAt: Timestamp.fromDate(input.endsAt),
+      },
+      { timeoutMs: WRITE_TIMEOUT_MS },
+    );
+    if (!res.voucher) return { status: "failed" };
+    return { status: "ok", voucher: toVoucherView(res.voucher) };
+  } catch (err) {
+    return { status: errorStatus(err) };
+  }
+}
+
+export async function deactivateVoucher(
+  voucherId: string,
+): Promise<DeactivateVoucherResult> {
+  try {
+    const { voucher } = makeClients(getToken());
+    const res = await voucher.deactivateVoucher(
+      { voucherId },
+      { timeoutMs: WRITE_TIMEOUT_MS },
+    );
+    if (!res.voucher) return { status: "failed" };
+    return { status: "ok", voucher: toVoucherView(res.voucher) };
+  } catch (err) {
+    return { status: errorStatus(err) };
+  }
+}
+
+export async function updateVoucher(
+  voucherId: string,
+  input: UpdateVoucherInput,
+): Promise<UpdateVoucherResult> {
+  try {
+    const { voucher } = makeClients(getToken());
+    const res = await voucher.updateVoucher(
+      {
+        voucherId,
+        quota: input.quota === undefined ? undefined : BigInt(input.quota),
+        endsAt: input.endsAt ? Timestamp.fromDate(input.endsAt) : undefined,
       },
       { timeoutMs: WRITE_TIMEOUT_MS },
     );
