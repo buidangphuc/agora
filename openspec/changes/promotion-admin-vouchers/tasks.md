@@ -32,4 +32,4 @@
 - [ ] 2.3 gateway-level: duplicate code returns `already_exists` (V18, V19)
 - [ ] 2.4 gateway-level: stop team-audit then create/stop/edit shows `AUDIT_UNAVAILABLE`; stop team-promotion shows `PROMOTION_UNAVAILABLE`; nothing changed (V21, V23, V24)
 - [ ] 2.5 admin UI: stop, edit, duplicate message, audit-down vs promotion-down messages, non-admin forbidden (V20, V26-V33)
-- [ ] 2.6 docs check: gaps.md has no G9-G11 (V34, V35)
+- [ ] 2.6 docs check: gaps.md has no G9-G11; diff against the base shows only G9, G10, G11 removed, nothing added, every other row byte-identical (V34, V35)

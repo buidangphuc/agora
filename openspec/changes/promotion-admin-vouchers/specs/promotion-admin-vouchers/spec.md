@@ -329,5 +329,5 @@ The documentation SHALL no longer list gaps G9, G10 and G11.
 - **THEN** the file SHALL contain no row whose id is G9, G10 or G11
 
 #### Scenario: V35 other gaps untouched
-- **WHEN** a reader compares `fe-platform/docs/gaps.md` before and after this change
-- **THEN** every row of another gap SHALL be unchanged, with no error in the table format
+- **WHEN** a reader compares `fe-platform/docs/gaps.md` on the branch with the base this change is applied to
+- **THEN** rows G9, G10 and G11 are removed, no row is added, and every remaining row is byte-identical to the base, without any other change
