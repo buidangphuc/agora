@@ -1,6 +1,6 @@
 import "server-only";
 
-import { proto3, ScalarType, Timestamp } from "@bufbuild/protobuf";
+import { ScalarType, Timestamp, proto3 } from "@bufbuild/protobuf";
 import { Code, ConnectError } from "@connectrpc/connect";
 
 import {
@@ -28,6 +28,7 @@ export interface VoucherView {
   used: number;
   startsAt: string;
   endsAt: string;
+  active: boolean;
 }
 
 export type VoucherErrorStatus =
@@ -47,10 +48,12 @@ export type ListVouchersResult =
   | { status: VoucherErrorStatus };
 
 export type GetVoucherResult =
-  { status: "ok"; voucher: VoucherView } | { status: VoucherErrorStatus };
+  | { status: "ok"; voucher: VoucherView }
+  | { status: VoucherErrorStatus };
 
 export type CreateVoucherResult =
-  { status: "ok"; voucher: VoucherView } | { status: VoucherErrorStatus };
+  | { status: "ok"; voucher: VoucherView }
+  | { status: VoucherErrorStatus };
 
 export type DeactivateVoucherResult = CreateVoucherResult;
 export type UpdateVoucherResult = CreateVoucherResult;
@@ -105,6 +108,7 @@ export function toVoucherView(v: Voucher): VoucherView {
     used: Number(v.used),
     startsAt: iso(v.startsAt),
     endsAt: iso(v.endsAt),
+    active: v.active,
   };
 }
 
