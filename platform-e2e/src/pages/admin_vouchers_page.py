@@ -17,16 +17,29 @@ FORBIDDEN_TITLE = "Không có quyền"
 NEXT_LINK = re.compile(r"Trang sau|next", re.I)
 MAX_PAGES = 25
 
-DUPLICATE_MESSAGE = "code already exists"
-AUDIT_DOWN_CREATE = "audit is down, nothing created"
-AUDIT_DOWN_CHANGE = "audit is down, nothing changed"
-PROMOTION_DOWN_CREATE = "promotion is down, nothing created"
-PROMOTION_DOWN_CHANGE = "promotion is down, nothing changed"
+DUPLICATE_MESSAGE = "Mã này đã được dùng cho voucher khác"
+AUDIT_DOWN_CREATE = "Chưa tạo được voucher: hệ thống kiểm toán đang tạm ngưng"
+AUDIT_DOWN_CHANGE = "Chưa thay đổi được voucher: hệ thống kiểm toán đang tạm ngưng"
+PROMOTION_DOWN_CREATE = "Chưa tạo được voucher: dịch vụ khuyến mãi đang tạm ngưng"
+PROMOTION_DOWN_CHANGE = "Chưa thay đổi được voucher: dịch vụ khuyến mãi đang tạm ngưng"
+
+SPEC_MESSAGES = {
+    "code already exists": DUPLICATE_MESSAGE,
+    "audit is down, nothing created": AUDIT_DOWN_CREATE,
+    "audit is down, nothing changed": AUDIT_DOWN_CHANGE,
+    "promotion is down, nothing created": PROMOTION_DOWN_CREATE,
+    "promotion is down, nothing changed": PROMOTION_DOWN_CHANGE,
+    "promotion is down": "dịch vụ khuyến mãi đang tạm ngưng",
+}
+
+QUOTA_LABEL = "quota|lượt dùng tối đa"
+START_LABEL = "start|bắt đầu"
+END_LABEL = "end|kết thúc"
 
 _STOP = re.compile(r"^(stop|ngừng voucher)$", re.I)
 _EDIT = re.compile(r"^(edit|sửa voucher)$", re.I)
 _CONFIRM = re.compile(r"^(confirm|stop|save|create|submit|yes|xác nhận|ngừng|lưu|tạo)", re.I)
-_SUBMIT = re.compile(r"^(create|review|submit|save)", re.I)
+_SUBMIT = re.compile(r"^(create|review|submit|save|xem lại|lưu)", re.I)
 
 
 class AdminVouchersPage(BasePage):
@@ -62,7 +75,7 @@ class AdminVouchersPage(BasePage):
         )
 
     def text(self, message: str) -> Locator:
-        return self.page.get_by_text(message, exact=False)
+        return self.page.get_by_text(SPEC_MESSAGES.get(message, message), exact=False)
 
     def field(self, label: str) -> Locator:
         return self.page.get_by_label(re.compile(label, re.I))
@@ -123,19 +136,23 @@ class AdminVouchersPage(BasePage):
     def fill_create_form(self, code: str, quota: int, start_iso: str, end_iso: str) -> None:
         self.field(r"^(code|mã voucher)").first.fill(code)
         for label, value in (
-            ("discount value|^value", "10"),
-            ("min.?spend", "0"),
-            ("max.?discount", "50000"),
+            ("discount value|^value|phần trăm giảm", "10"),
+            ("số tiền giảm", "10000"),
+            ("min.?spend|đơn tối thiểu", "0"),
+            ("max.?discount|giảm tối đa", "50000"),
         ):
             box = self.field(label)
             if box.count():
                 box.first.fill(value)
-        self.field("quota").first.fill(str(quota))
-        self.fill_date("start", start_iso)
-        self.fill_date("end", end_iso)
+        self.field(QUOTA_LABEL).first.fill(str(quota))
+        self.fill_date(START_LABEL, start_iso)
+        self.fill_date(END_LABEL, end_iso)
 
     def submit_form(self) -> None:
         self.press(self.page, _SUBMIT)
         dialog = self.dialog
         if dialog.count():
+            ack = dialog.get_by_role("checkbox")
+            if ack.count():
+                ack.first.check()
             self.press(dialog, _CONFIRM)

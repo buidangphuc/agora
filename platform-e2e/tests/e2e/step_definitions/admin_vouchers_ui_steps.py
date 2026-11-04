@@ -8,6 +8,7 @@ stored state read back through the gateway. Fresh accounts per scenario.
 from __future__ import annotations
 
 import re
+import time
 from datetime import datetime, timedelta, timezone
 
 from playwright.sync_api import expect
@@ -17,6 +18,8 @@ from src.constants import PageName, timeouts
 from src.models import User
 from src.pages import CheckoutPage
 from src.pages.admin_vouchers_page import (
+    END_LABEL,
+    QUOTA_LABEL,
     AdminVouchersPage,
 )
 from src.utils import data as fake
@@ -155,7 +158,7 @@ def submit_form(world: World) -> None:
 @when("the admin opens the create confirmation dialog")
 def open_confirm_dialog(world: World) -> None:
     page = _page(world)
-    page.press(page.page, re.compile(r"^(create|review|submit)", re.I))
+    page.press(page.page, re.compile(r"^(create|review|submit|xem lại)", re.I))
     expect(page.dialog.first).to_be_visible(timeout=timeouts.DEFAULT)
 
 
@@ -168,8 +171,8 @@ def edit_form_filled(world: World, quota: int) -> None:
     page.open_detail(st["code"])
     page.press(page.page, re.compile(r"^(edit|sửa voucher)$", re.I))
     st["sent_end"] = av.iso(days=60)
-    page.field("quota").first.fill(str(quota))
-    page.fill_date("end", st["sent_end"])
+    page.field(QUOTA_LABEL).first.fill(str(quota))
+    page.fill_date(END_LABEL, st["sent_end"])
     st["ui_mode"] = "edit"
     st["ui_quota"] = quota
 
@@ -187,7 +190,7 @@ def _attempt(world: World, label: str, value: str) -> None:
     page = _page(world)
     box = page.field(label).first
     box.fill(value)
-    page.press(page.page, re.compile(r"^(save|submit|update)", re.I))
+    page.press(page.page, re.compile(r"^(save|submit|update|lưu)", re.I))
     invalid = box.get_attribute("aria-invalid") == "true"
     alert = page.page.get_by_role("alert").filter(has_text=re.compile(r".+")).count() > 0
     st.setdefault("attempts", []).append(invalid or alert)
@@ -195,15 +198,15 @@ def _attempt(world: World, label: str, value: str) -> None:
 
 @when(parsers.parse("the admin enters a quota of {quota:d} and submits"))
 def enter_quota(world: World, quota: int) -> None:
-    _attempt(world, "quota", str(quota))
+    _attempt(world, QUOTA_LABEL, str(quota))
 
 
 @when("the admin enters an end date before the start date and submits")
 def enter_bad_end(world: World) -> None:
     page = _page(world)
-    page.fill_date("end", av.iso(days=-3))
-    page.press(page.page, re.compile(r"^(save|submit|update)", re.I))
-    box = page.field("end").first
+    page.fill_date(END_LABEL, av.iso(days=-3))
+    page.press(page.page, re.compile(r"^(save|submit|update|lưu)", re.I))
+    box = page.field(END_LABEL).first
     _st(world).setdefault("attempts", []).append(
         box.get_attribute("aria-invalid") == "true" or page.page.get_by_role("alert").count() > 0
     )
@@ -272,10 +275,13 @@ def one_row(world: World) -> None:
 def row_status(world: World, status: str) -> None:
     st = _st(world)
     page = _page(world)
+    if st.get("ui_mode") == "stop":
+        expect(page.dialog).to_have_count(0, timeout=timeouts.NAVIGATION)
     page.navigate()
     row = page.find_row(st["code"])
     assert row is not None, f"voucher {st['code']} is not listed"
-    expect(row).to_contain_text(re.compile(status, re.I), timeout=timeouts.DEFAULT)
+    pattern = {"stopped": r"stopped|đã ngừng"}.get(status, status)
+    expect(row).to_contain_text(re.compile(pattern, re.I), timeout=timeouts.DEFAULT)
 
 
 @then(parsers.parse('the checkout voucher alert reads "{text}" and no raw reason'))
@@ -299,10 +305,14 @@ def alert_other(world: World) -> None:
 def detail_shows(world: World) -> None:
     st = _st(world)
     page = _page(world)
+    deadline = time.monotonic() + 15
     stored = av.get_voucher(st["admin"], st["code"]) or {}
+    while str(stored.get("quota")) != "8" and time.monotonic() < deadline:
+        time.sleep(0.5)
+        stored = av.get_voucher(st["admin"], st["code"]) or {}
     assert str(stored.get("quota")) == "8", f"stored voucher not updated: {stored}"
     body = page.page.locator("body")
-    expect(body).to_contain_text(re.compile(r"\b8\b"), timeout=timeouts.DEFAULT)
+    expect(body).to_contain_text(re.compile(r"(?<!\d)8(?!\d)"), timeout=timeouts.DEFAULT)
     ends = datetime.now(timezone.utc) + timedelta(days=60)
     text = body.inner_text()
     assert any(
@@ -314,7 +324,7 @@ def detail_shows(world: World) -> None:
 def money_readonly(world: World) -> None:
     page = _page(world)
     shown = 0
-    for label in ("discount", "min.?spend", "max.?discount", "scope"):
+    for label in ("discount|mức giảm", "min.?spend|đơn tối thiểu", "max.?discount|, tối đa", "scope|phạm vi"):
         boxes = page.field(label)
         for i in range(boxes.count()):
             assert not boxes.nth(i).is_editable(), f"{label} field is editable"
@@ -325,13 +335,13 @@ def money_readonly(world: World) -> None:
 @then("the end date and quota fields are editable")
 def date_quota_editable(world: World) -> None:
     page = _page(world)
-    expect(page.field("quota").first).to_be_editable(timeout=timeouts.DEFAULT)
-    expect(page.field("end").first).to_be_editable(timeout=timeouts.DEFAULT)
+    expect(page.field(QUOTA_LABEL).first).to_be_editable(timeout=timeouts.DEFAULT)
+    expect(page.field(END_LABEL).first).to_be_editable(timeout=timeouts.DEFAULT)
 
 
 @then("the end date field is editable")
 def date_editable(world: World) -> None:
-    expect(_page(world).field("end").first).to_be_editable(timeout=timeouts.DEFAULT)
+    expect(_page(world).field(END_LABEL).first).to_be_editable(timeout=timeouts.DEFAULT)
 
 
 @then("every attempt shows an error on its field")
@@ -348,8 +358,8 @@ def no_update_request(world: World) -> None:
 @then("the form renders no quota field")
 def no_quota_field(world: World) -> None:
     page = _page(world)
-    expect(page.field("end").first).to_be_visible(timeout=timeouts.DEFAULT)
-    expect(page.field("quota")).to_have_count(0)
+    expect(page.field(END_LABEL).first).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(page.field(QUOTA_LABEL)).to_have_count(0)
 
 
 @then(parsers.parse('the voucher shows status "{status}"'))
