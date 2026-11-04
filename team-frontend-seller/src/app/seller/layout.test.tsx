@@ -2,10 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SELLER_TERMS_VERSION } from "@/features/seller/onboardingTerms";
 import { listSellerOrders } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 import { batchGetShopNames } from "@/lib/gateway/shops";
-import { SELLER_TERMS_VERSION } from "@/features/seller/onboardingTerms";
 import SellerLayout from "./layout";
 
 vi.mock("next/navigation", () => ({

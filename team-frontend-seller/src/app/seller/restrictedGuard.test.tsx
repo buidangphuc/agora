@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SellerAccessDenied } from "@/features/seller/SellerAccessDenied";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { SellerAccessDenied } from "@/features/seller/SellerAccessDenied";
 import { getPrincipal } from "@/lib/gateway/session";
 
 class GuestRedirect extends Error {}
