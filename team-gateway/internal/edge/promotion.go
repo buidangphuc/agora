@@ -214,6 +214,54 @@ func (f *FlashSaleForwarder) GetFlashSaleStock(
 	return connect.NewResponse(out), nil
 }
 
+func (f *FlashSaleForwarder) ListCampaigns(
+	ctx context.Context,
+	req *connect.Request[promotionv1.ListCampaignsRequest],
+) (*connect.Response[promotionv1.ListCampaignsResponse], error) {
+	var out *promotionv1.ListCampaignsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListCampaigns(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *FlashSaleForwarder) CancelCampaign(
+	ctx context.Context,
+	req *connect.Request[promotionv1.CancelCampaignRequest],
+) (*connect.Response[promotionv1.CancelCampaignResponse], error) {
+	var out *promotionv1.CancelCampaignResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.CancelCampaign(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *FlashSaleForwarder) UpdateCampaign(
+	ctx context.Context,
+	req *connect.Request[promotionv1.UpdateCampaignRequest],
+) (*connect.Response[promotionv1.UpdateCampaignResponse], error) {
+	var out *promotionv1.UpdateCampaignResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.UpdateCampaign(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
 // ── SubscriptionService (seller subscription plans + entitlements) ──
 
 type SubscriptionForwarder struct {
