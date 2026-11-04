@@ -29,7 +29,7 @@ Implement OpenSpec change `identity-seller-onboarding` test-first per its tasks.
 - team-identity/internal/identity/become_seller.go (widened at build: task 1.3)
 - team-identity/internal/identity/become_seller_test.go (widened at build: task 1.3)
 - team-identity/internal/identity/become_seller.go (widened at build: task 1.4)
-- team-identity/cmd/server/main_test.go # widened at build: task 1.5
+- team-identity/cmd/server/main_test.go (widened at build: task 1.5)
 
 ## Read-only dependencies
 - team-identity ScopesForUser and session token signer
