@@ -2,7 +2,10 @@ package flashsale
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -73,10 +76,45 @@ type CreateCampaignParams struct {
 	IdempotencyKey string
 }
 
+type idempotentCreator interface {
+	LookupIdempotent(ctx context.Context, actorID, key string, now time.Time) (store.IdempotentCampaign, error)
+	CreateIdempotent(ctx context.Context, actorID, key, payloadHash string, c store.FlashSaleCampaign, now time.Time, event func(store.FlashSaleCampaign) (outbox.Row, error)) (store.FlashSaleCampaign, bool, error)
+}
+
+func invalidField(field, why string) error {
+	return fmt.Errorf("%w: %s %s", ErrInvalidCampaign, field, why)
+}
+
+func payloadHash(c store.FlashSaleCampaign) string {
+	raw := strings.Join([]string{
+		c.ListingID, c.VariantID,
+		strconv.FormatInt(c.SalePrice, 10), strconv.FormatInt(c.StockCap, 10),
+		strconv.FormatInt(c.StartsAt.UnixNano(), 10), strconv.FormatInt(c.EndsAt.UnixNano(), 10),
+	}, "\x1f")
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
+func (s *Service) validateFields(c store.FlashSaleCampaign) error {
+	if c.SalePrice <= 0 {
+		return invalidField("sale_price", "must be positive")
+	}
+	if c.StockCap <= 0 {
+		return invalidField("stock_cap", "must be positive")
+	}
+	if !c.EndsAt.After(c.StartsAt) {
+		return invalidField("ends_at", "must be after starts_at")
+	}
+	if !c.EndsAt.After(s.nowFn()) {
+		return invalidField("ends_at", "must be in the future")
+	}
+	return nil
+}
+
 func (s *Service) CreateCampaign(ctx context.Context, p CreateCampaignParams) (store.FlashSaleCampaign, error) {
 	listingID := strings.TrimSpace(p.ListingID)
 	if listingID == "" {
-		return store.FlashSaleCampaign{}, ErrInvalidCampaign
+		return store.FlashSaleCampaign{}, invalidField("listing_id", "is required")
 	}
 	c := store.FlashSaleCampaign{
 		ListingID: listingID,
@@ -86,19 +124,52 @@ func (s *Service) CreateCampaign(ctx context.Context, p CreateCampaignParams) (s
 		StartsAt:  p.StartsAt,
 		EndsAt:    p.EndsAt,
 	}
-	var created store.FlashSaleCampaign
-	insert := func(ctx context.Context) error {
-		var err error
-		created, err = s.campaigns.Create(ctx, c, func(cc store.FlashSaleCampaign) (outbox.Row, error) {
-			return s.event(ctx, cc)
-		})
-		return err
-	}
-	if !p.IsAdmin {
-		if err := listing.Owner(ctx, s.listings, s.logger, listingID, p.CallerID); err != nil {
+	idem, useKey := s.campaigns.(idempotentCreator)
+	useKey = useKey && p.IsAdmin && p.IdempotencyKey != ""
+	hash := payloadHash(c)
+	now := s.nowFn()
+	if useKey {
+		hit, err := idem.LookupIdempotent(ctx, p.CallerID, p.IdempotencyKey, now)
+		switch {
+		case err == nil:
+			if hit.PayloadHash != hash {
+				return store.FlashSaleCampaign{}, store.ErrIdempotencyMismatch
+			}
+			return hit.Campaign, nil
+		case !errors.Is(err, store.ErrIdempotencyNotFound):
 			return store.FlashSaleCampaign{}, err
 		}
-		if err := insert(ctx); err != nil {
+	}
+	if err := s.validateFields(c); err != nil {
+		return store.FlashSaleCampaign{}, err
+	}
+	if !p.IsAdmin || useKey {
+		l, err := listing.Get(ctx, s.listings, s.logger, listingID)
+		if err != nil {
+			if errors.Is(err, listing.ErrNotFound) {
+				return store.FlashSaleCampaign{}, invalidField("listing_id", "not found")
+			}
+			return store.FlashSaleCampaign{}, err
+		}
+		if !p.IsAdmin {
+			if err := listing.CheckOwner(l, p.CallerID); err != nil {
+				return store.FlashSaleCampaign{}, err
+			}
+		}
+		if c.SalePrice >= l.GetPrice() {
+			return store.FlashSaleCampaign{}, invalidField("sale_price", "must be below the listing price")
+		}
+	}
+	var created store.FlashSaleCampaign
+	eventFn := func(ctx context.Context) func(store.FlashSaleCampaign) (outbox.Row, error) {
+		return func(cc store.FlashSaleCampaign) (outbox.Row, error) {
+			return s.event(ctx, cc)
+		}
+	}
+	if !p.IsAdmin {
+		var err error
+		created, err = s.campaigns.Create(ctx, c, eventFn(ctx))
+		if err != nil {
 			return store.FlashSaleCampaign{}, err
 		}
 		return created, nil
@@ -110,6 +181,15 @@ func (s *Service) CreateCampaign(ctx context.Context, p CreateCampaignParams) (s
 		TargetType: "flash_sale",
 		TargetID:   c.ID,
 		Metadata:   map[string]string{"listing_id": listingID},
+	}
+	insert := func(ctx context.Context) error {
+		var err error
+		if useKey {
+			created, _, err = idem.CreateIdempotent(ctx, p.CallerID, p.IdempotencyKey, hash, c, now, eventFn(ctx))
+		} else {
+			created, err = s.campaigns.Create(ctx, c, eventFn(ctx))
+		}
+		return err
 	}
 	if err := s.audit.Do(ctx, ev, insert); err != nil {
 		return store.FlashSaleCampaign{}, err
