@@ -107,9 +107,10 @@ func (r *PostgresFlashHoldRepository) Reserve(ctx context.Context, h FlashHold, 
 	var created bool
 	err := r.inTx(ctx, func(tx pgx.Tx) error {
 		var capacity, sold int64
+		var cancelled *time.Time
 		if err := tx.QueryRow(ctx,
-			`SELECT stock_cap, stock_sold FROM flash_sale_campaigns WHERE id = $1 FOR UPDATE`, h.CampaignID,
-		).Scan(&capacity, &sold); err != nil {
+			`SELECT stock_cap, stock_sold, cancelled_at FROM flash_sale_campaigns WHERE id = $1 FOR UPDATE`, h.CampaignID,
+		).Scan(&capacity, &sold, &cancelled); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrCampaignNotFound
 			}
@@ -121,6 +122,9 @@ func (r *PostgresFlashHoldRepository) Reserve(ctx context.Context, h FlashHold, 
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("get hold: %w", err)
+		}
+		if cancelled != nil {
+			return ErrCampaignCancelled
 		}
 		var held int64
 		if err := tx.QueryRow(ctx,
