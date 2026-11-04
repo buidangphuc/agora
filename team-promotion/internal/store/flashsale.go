@@ -20,14 +20,15 @@ var ErrCampaignNotFound = errors.New("flash sale campaign not found")
 // mirror platform.promotion.v1.FlashSaleCampaign; wire mapping lives in the
 // service layer.
 type FlashSaleCampaign struct {
-	ID        string
-	ListingID string
-	VariantID string
-	SalePrice int64
-	StockCap  int64
-	StockSold int64
-	StartsAt  time.Time
-	EndsAt    time.Time
+	ID          string
+	ListingID   string
+	VariantID   string
+	SalePrice   int64
+	StockCap    int64
+	StockSold   int64
+	StartsAt    time.Time
+	EndsAt      time.Time
+	CancelledAt time.Time
 }
 
 // FlashSaleRepository is the persistence seam for flash-sale campaigns.
@@ -60,18 +61,23 @@ func NewPostgresFlashSaleRepository(pool *pgxpool.Pool, ob *outbox.Store) *Postg
 
 const campaignColumns = `id, listing_id, variant_id, sale_price, stock_cap, stock_sold, starts_at, ends_at`
 
+const campaignSelectColumns = campaignColumns + `, cancelled_at`
+
 func scanCampaign(row pgx.Row, c *FlashSaleCampaign) error {
 	// starts_at / ends_at are nullable (NULL = open-ended, stored as the zero time).
-	var starts, ends *time.Time
-	if err := row.Scan(&c.ID, &c.ListingID, &c.VariantID, &c.SalePrice, &c.StockCap, &c.StockSold, &starts, &ends); err != nil {
+	var starts, ends, cancelled *time.Time
+	if err := row.Scan(&c.ID, &c.ListingID, &c.VariantID, &c.SalePrice, &c.StockCap, &c.StockSold, &starts, &ends, &cancelled); err != nil {
 		return err
 	}
-	c.StartsAt, c.EndsAt = time.Time{}, time.Time{}
+	c.StartsAt, c.EndsAt, c.CancelledAt = time.Time{}, time.Time{}, time.Time{}
 	if starts != nil {
 		c.StartsAt = *starts
 	}
 	if ends != nil {
 		c.EndsAt = *ends
+	}
+	if cancelled != nil {
+		c.CancelledAt = *cancelled
 	}
 	return nil
 }
@@ -101,7 +107,7 @@ func (r *PostgresFlashSaleRepository) Create(ctx context.Context, c FlashSaleCam
 }
 
 func (r *PostgresFlashSaleRepository) GetByID(ctx context.Context, id string) (FlashSaleCampaign, error) {
-	const q = `SELECT ` + campaignColumns + ` FROM flash_sale_campaigns WHERE id = $1`
+	const q = `SELECT ` + campaignSelectColumns + ` FROM flash_sale_campaigns WHERE id = $1`
 	var c FlashSaleCampaign
 	if err := scanCampaign(r.pool.QueryRow(ctx, q, id), &c); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -113,7 +119,7 @@ func (r *PostgresFlashSaleRepository) GetByID(ctx context.Context, id string) (F
 }
 
 func (r *PostgresFlashSaleRepository) GetActiveByListing(ctx context.Context, listingID string, now time.Time) (FlashSaleCampaign, error) {
-	const q = `SELECT ` + campaignColumns + ` FROM flash_sale_campaigns
+	const q = `SELECT ` + campaignSelectColumns + ` FROM flash_sale_campaigns
 		WHERE listing_id = $1
 		  AND (starts_at IS NULL OR starts_at <= $2)
 		  AND (ends_at IS NULL OR ends_at > $2)
@@ -133,7 +139,7 @@ func (r *PostgresFlashSaleRepository) ListActive(ctx context.Context, now time.T
 	if limit <= 0 {
 		limit = 50
 	}
-	const q = `SELECT ` + campaignColumns + ` FROM flash_sale_campaigns
+	const q = `SELECT ` + campaignSelectColumns + ` FROM flash_sale_campaigns
 		WHERE (starts_at IS NULL OR starts_at <= $1)
 		  AND (ends_at IS NULL OR ends_at > $1)
 		ORDER BY starts_at DESC NULLS LAST

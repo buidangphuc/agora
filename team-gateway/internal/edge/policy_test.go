@@ -44,6 +44,9 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 		identityv1connect.AccountAdminServiceSetUserStatusProcedure,
 		promotionv1connect.VoucherServiceDeactivateVoucherProcedure,
 		promotionv1connect.VoucherServiceUpdateVoucherProcedure,
+		promotionv1connect.FlashSaleServiceListCampaignsProcedure,
+		promotionv1connect.FlashSaleServiceCancelCampaignProcedure,
+		promotionv1connect.FlashSaleServiceUpdateCampaignProcedure,
 	}
 	var got []string
 	for k := range adminProcedures {

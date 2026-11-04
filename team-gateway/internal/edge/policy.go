@@ -38,6 +38,9 @@ var adminProcedures = map[string]string{
 	analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure:             adminScope,
 	promotionv1connect.VoucherServiceDeactivateVoucherProcedure:                   adminScope,
 	promotionv1connect.VoucherServiceUpdateVoucherProcedure:                       adminScope,
+	promotionv1connect.FlashSaleServiceListCampaignsProcedure:                     adminScope,
+	promotionv1connect.FlashSaleServiceCancelCampaignProcedure:                    adminScope,
+	promotionv1connect.FlashSaleServiceUpdateCampaignProcedure:                    adminScope,
 }
 
 // requireProcedureScope enforces adminProcedures for a resolved principal:

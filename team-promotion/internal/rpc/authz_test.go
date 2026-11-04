@@ -174,7 +174,7 @@ func TestUpstreamOutageIsUnavailableAndGeneric(t *testing.T) {
 	fc, ads := r.fc, r.ads
 	seller := authCtx(t, "seller-1", "listing.write")
 	_, err1 := ads.CreateAdCampaign(seller, &promotionv1.CreateAdCampaignRequest{ListingId: "l1", Bid: 1, Budget: 1})
-	_, err2 := fc.CreateCampaign(seller, &promotionv1.CreateCampaignRequest{ListingId: "l1", SalePrice: 1, StockCap: 1})
+	_, err2 := fc.CreateCampaign(seller, newCreateReq("l1"))
 	for name, err := range map[string]error{"ad campaign": err1, "flash sale": err2} {
 		st, _ := status.FromError(err)
 		if st.Code() != codes.Unavailable {
