@@ -60,6 +60,10 @@ class AdminCampaignsPage(BasePage):
         control.first.wait_for(state="visible", timeout=timeouts.NAVIGATION)
         self.wait_until_interactive(control.first)
         control.first.click()
+        self.page.wait_for_url(
+            lambda url, s=status.lower(): f"status={s}" in url, timeout=timeouts.NAVIGATION
+        )
+        self.wait_loaded()
 
     def find_row(self, *needles: str) -> Locator | None:
         for _ in range(MAX_PAGES):

@@ -101,7 +101,7 @@ Feature: Admin lists, cancels and edits flash-sale campaigns, and creates them s
     And a seller with a published listing for the campaign admin checks
     And an admin create with a valid payload succeeds on another listing
     When the admin creates a campaign with sale price equal to the listing price
-    Then the call is refused with "invalid_argument" naming "sale_price"
+    Then the call is rejected with "invalid_argument" on field "sale_price"
     And no campaign exists for the listing and no create audit entry was written
     And the admin can create a campaign with the sale price one below the listing price
 
@@ -110,7 +110,7 @@ Feature: Admin lists, cancels and edits flash-sale campaigns, and creates them s
     And a seller with a published listing for the campaign admin checks
     And an admin create with a valid payload succeeds on another listing
     When the admin creates a campaign for a listing id that does not exist
-    Then the call is refused with "invalid_argument" naming "listing_id"
+    Then the call is rejected with "invalid_argument" on field "listing_id"
 
   @destructive
   Scenario: Listing service down
