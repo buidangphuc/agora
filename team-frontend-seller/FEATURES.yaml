@@ -1910,7 +1910,7 @@ features:
       - "Then the response redirects to `/seller/new`"
     tags: [seller, onboarding]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/sell/page.test.tsx` `sell redirects to seller new`"
+    notes: "VERIFIED BY `team-frontend-seller/src/app/sell/page.test.ts` `sell redirects to seller new`"
 
   - id: seller-onboarding-ui.a-buyer-becomes-a-seller-in-the-browser
     title: "Seller onboarding UI: a buyer becomes a seller in the browser"

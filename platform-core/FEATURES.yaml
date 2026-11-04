@@ -7297,7 +7297,7 @@ features:
       - "Old AuthResult round trip still passes (unit-verified)"
     tags: [p10-gaps-contract, unit]
     status: not-testable
-    notes: "p10-gaps-contract: unit-verified: TestAuthResultRoundTrip in platform-core/packages/proto/platform/identity/v1. Not producible end to end."
+    notes: "p10-gaps-contract: unit-verified: TestAuthResult_FieldsExistWithAgreedNumbers_Scenario_FieldsExist, TestAuthResult_RoundTripRefreshUnset_Scenario_BoundarySessionsDisabled in platform-core/packages/proto/platform/identity/v1/authresult_roundtrip_test.go. Not producible end to end."
 
   - id: p10-gaps-contract.unit-unspecified-target-is-the-zero-value
     title: "Unspecified target is the zero value"
