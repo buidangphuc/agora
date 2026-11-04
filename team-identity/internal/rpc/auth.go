@@ -5,10 +5,12 @@ import (
 	"errors"
 	"log/slog"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
@@ -118,6 +120,11 @@ func (h *AuthHandler) BecomeSeller(ctx context.Context, req *identityv1.BecomeSe
 			return nil, status.Error(codes.Unauthenticated, "session not found")
 		case errors.Is(err, store.ErrNotActive):
 			return nil, status.Error(codes.PermissionDenied, "account not active")
+		}
+		if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable && st.Message() == auditx.Message {
+			if withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Domain: "identity.platform", Reason: "AUDIT_UNAVAILABLE"}); derr == nil {
+				return nil, withInfo.Err()
+			}
 		}
 		return nil, statusErr(ctx, h.logger, err)
 	}

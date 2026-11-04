@@ -132,6 +132,9 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 		return nil, err
 	}
 	svc.WithHandoff(store.NewPostgresHandoffRepository(pool)).WithSellerTerms(s.SellerTerms.Versions)
+	if s.Handoff.TTLOverride > 0 {
+		svc.WithHandoffTTL(s.Handoff.TTLOverride)
+	}
 
 	if s.SeedAdmin.Enabled {
 		sctx, cancel := context.WithTimeout(ctx, seedTimeout)

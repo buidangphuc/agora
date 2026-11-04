@@ -27,7 +27,7 @@ type SellerGrantResult struct {
 	Granted bool
 }
 
-func (r *PostgresUserRepository) GrantSeller(ctx context.Context, userID, version string, now time.Time, enqueue SellerEnqueueFn) (SellerGrantResult, error) {
+func (r *PostgresUserRepository) GrantSeller(ctx context.Context, userID, version string, now time.Time, enqueue SellerEnqueueFn, inTx func(context.Context) error) (SellerGrantResult, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return SellerGrantResult{}, fmt.Errorf("begin tx: %w", err)
@@ -59,6 +59,11 @@ func (r *PostgresUserRepository) GrantSeller(ctx context.Context, userID, versio
 	}
 	if err := enqueueTx(ctx, r.ob, tx, row); err != nil {
 		return SellerGrantResult{}, err
+	}
+	if inTx != nil {
+		if err := inTx(ctx); err != nil {
+			return SellerGrantResult{}, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return SellerGrantResult{}, fmt.Errorf("commit tx: %w", err)

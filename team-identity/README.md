@@ -26,7 +26,7 @@ not check scopes except in `GetPublicProfiles` (`identity.read`) and `AccountAdm
 | `AuthService.CreateHandoffCode` | `RequireUser` plus the caller's session id from `x-principal-sid` (`UNAUTHENTICATED` without one). Target app `HANDOFF_APP_BUYER` or `HANDOFF_APP_SELLER` (unspecified or unknown is `INVALID_ARGUMENT`); the account must be `ACTIVE` (`PERMISSION_DENIED` otherwise). Mints a 43-character base64url code, stores only its SHA-256 hash bound to the user, the source session and the target app, TTL 60 s, at most 10 live codes per user (`RESOURCE_EXHAUSTED` above). Writes an `auth.handoff_mint` audit event in the same transaction (fails closed) (`internal/identity/handoff.go:57`). |
 | `AuthService.PeekHandoffCode` | No principal check; the code is the credential. Returns the username and expiry without consuming the code. Any unknown, expired, redeemed or wrong-target code, an inactive account or a revoked source session is the same `UNAUTHENTICATED` (`internal/identity/handoff.go:197`). |
 | `AuthService.RedeemHandoffCode` | No principal check. Consumes the code once (same checks and the same single `UNAUTHENTICATED` as Peek), writes an `auth.handoff_redeem` audit event (fails closed) and issues a new session, token and refresh token for the target app (`internal/identity/handoff.go:161`). |
-| `AuthService.BecomeSeller` | `RequireUser` plus a live, unrevoked session from `x-principal-sid` (`UNAUTHENTICATED` otherwise). `terms_version` must equal the first `SELLER_TERMS_VERSIONS` entry (`INVALID_ARGUMENT` otherwise); a non-`ACTIVE` account is `PERMISSION_DENIED`. Adds the `seller` role, stores `seller_terms_version` and `seller_terms_accepted_at`, and writes a `UserRoleGranted` outbox row in one transaction; a user who is already a seller gets a token with no change and no event. Returns a re-signed access token on the same session, no refresh token (`internal/identity/become_seller.go:46`). |
+| `AuthService.BecomeSeller` | `RequireUser` plus a live, unrevoked session from `x-principal-sid` (`UNAUTHENTICATED` otherwise). `terms_version` must equal the first `SELLER_TERMS_VERSIONS` entry (`INVALID_ARGUMENT` otherwise); a non-`ACTIVE` account is `PERMISSION_DENIED`. Adds the `seller` role, stores `seller_terms_version` and `seller_terms_accepted_at`, writes a `UserRoleGranted` outbox row and, before commit, an `auth.become_seller` audit event (metadata `terms_version`, `result=granted`) in one transaction; when team-audit is down it fails `UNAVAILABLE` with `ErrorInfo{identity.platform, AUDIT_UNAVAILABLE}` and nothing is written. A user who is already a seller gets a token with no change, no event and no audit entry. Returns a re-signed access token on the same session, no refresh token (`internal/identity/become_seller.go:47`). |
 | `AddressService.List/Create/Update/Delete/SetDefault` | `RequirePrincipal`; every query is scoped to the caller's id. |
 | `SessionService.ListSessions`, `ListLoginHistory` | `RequirePrincipal`; scoped to the caller. History page size default 20, max 100, cursor is a numeric offset. |
 | `SessionService.RevokeSession` | `RequirePrincipal`; only the caller's own session (`NOT_FOUND` otherwise). Writes a `SessionRevoked` outbox row in the same transaction. |
@@ -51,7 +51,7 @@ Token claims (`internal/token/jwt.go`): RS256, header `kid`; `sub`, `name`, `typ
 `sid` (session id, omitted if no session), `status` (`restricted` only, omitted otherwise; the seller app reads it), `iat`, `exp` (`JWT_TTL_SECONDS`). `identity.read` is not in
 any role, so no user token can carry it, and nothing in this service mints service tokens.
 
-Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), used by `SetUserStatus`, `CreateHandoffCode` and `RedeemHandoffCode`. Vendored contracts only: `platform.common.v1.Principal`,
+Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), used by `SetUserStatus`, `CreateHandoffCode`, `RedeemHandoffCode` and the first `BecomeSeller` grant. Vendored contracts only: `platform.common.v1.Principal`,
 `platform.events.v1.EventEnvelope`, `platform.identity.v1.*`.
 
 ## Events
@@ -141,9 +141,9 @@ and the session sweeper are always on.
 | `SEED_ADMIN_USERNAME` | `admin` | |
 | `SEED_ADMIN_PASSWORD` | empty | Required, >= 12 chars, when seeding is enabled |
 | `SELLER_TERMS_VERSIONS` | empty | Required. Comma-separated seller terms versions (`.env.example` and compose set `2026-11-02`); the first entry is current and is the only value `BecomeSeller` accepts, compared byte for byte; older entries are kept for record only. Startup fails when empty |
-| `HANDOFF_TTL_OVERRIDE` | empty | Go duration; accepted only when `ENV=test`, negative is refused (`internal/config/config.go:137`). Not wired yet, see Known gaps |
+| `HANDOFF_TTL_OVERRIDE` | empty | Go duration; accepted only when `ENV=test`, negative is refused (`internal/config/config.go:137`). When set, `internal/app/app.go:135` passes it to `WithHandoffTTL`; unset keeps the 60 s TTL |
 | `PASSWORD_RESET_EXPOSE_TOKEN` | `false` | Return the raw reset token from `RequestPasswordReset`. Dev/e2e only; config load fails when `ENV=prod` |
-| `UPSTREAM_AUDIT_ADDR` | empty | Required. team-audit gRPC address; user-status changes fail closed when it is down |
+| `UPSTREAM_AUDIT_ADDR` | empty | Required. team-audit gRPC address; user-status changes, hand-off mint and redeem and a first seller grant fail closed when it is down |
 | `LOG_KEY_FP_SECRET` | empty | |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | `.env.example` sets `http://localhost:4317` |
@@ -236,7 +236,6 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
 - Unknown usernames in `RequestPasswordReset` return `NOT_FOUND`, which allows username enumeration; the
   same applies to `Register` conflicts (`ALREADY_EXISTS`).
 - Display name is the username; there is no separate profile field.
-- `HANDOFF_TTL_OVERRIDE` is validated (`internal/config/config.go:137`) but `internal/app/app.go:134` never calls `WithHandoffTTL`, so hand-off codes always live 60 s.
 - `go.mod` pins go-sdk `v1.0.3`, which has no tag, through `replace ... => ../platform-core/packages/go-sdk` (`go.mod:297`); a plain `docker build` from this directory cannot resolve it (the compose build context is `./team-identity`).
 
 ## Links

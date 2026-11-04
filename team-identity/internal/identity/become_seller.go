@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	"github.com/buidangphuc/team-identity/internal/authz"
@@ -15,7 +16,7 @@ import (
 )
 
 type sellerGranter interface {
-	GrantSeller(ctx context.Context, userID, version string, now time.Time, enqueue store.SellerEnqueueFn) (store.SellerGrantResult, error)
+	GrantSeller(ctx context.Context, userID, version string, now time.Time, enqueue store.SellerEnqueueFn, inTx func(context.Context) error) (store.SellerGrantResult, error)
 }
 
 func (s *AuthService) WithSellerTerms(versions []string) *AuthService {
@@ -69,7 +70,17 @@ func (s *AuthService) BecomeSeller(ctx context.Context, sid, termsVersion string
 	if !live {
 		return AuthResult{}, store.ErrSessionNotFound
 	}
-	res, err := granter.GrantSeller(ctx, p.ID, termsVersion, s.clock(), s.roleGrantedEvent(ctx))
+	ev := auditx.Event{
+		ActorID:    p.ID,
+		Action:     "auth.become_seller",
+		TargetType: "user",
+		TargetID:   p.ID,
+		Metadata:   map[string]string{"terms_version": termsVersion, "result": "granted"},
+	}
+	audit := func(txCtx context.Context) error {
+		return s.gate.Do(txCtx, ev, func(context.Context) error { return nil })
+	}
+	res, err := granter.GrantSeller(ctx, p.ID, termsVersion, s.clock(), s.roleGrantedEvent(ctx), audit)
 	if err != nil {
 		return AuthResult{}, err
 	}
