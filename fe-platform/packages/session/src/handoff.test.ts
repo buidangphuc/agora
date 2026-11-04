@@ -337,7 +337,7 @@ describe("POST /auth/handoff", () => {
       { origin: "https://evil.example" },
       { "sec-fetch-site": "cross-site" },
       { "sec-fetch-site": "same-site" },
-    ]) {
+    ] as Record<string, string>[]) {
       const res = await handler.POST(
         postReq({ code: CODE, next: "/seller/orders" }, headers),
       );

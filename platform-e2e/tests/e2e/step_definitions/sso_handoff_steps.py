@@ -13,7 +13,7 @@ import re
 import time
 import uuid
 from datetime import datetime
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 import httpx
 from playwright.sync_api import expect
@@ -239,7 +239,7 @@ def eleventh_refused(world: World, code: str) -> None:
 @when("an admin suspends the buyer")
 @then("an admin suspends the buyer")
 def suspend(world: World) -> None:
-    resp = ue.set_user_status(world, user(world)["id"], "suspended")
+    resp = ue.set_user_status(world, user(world)["id"], "suspended", "scam", ue.in_future(3600))
     assert resp.status_code == 200, f"suspend failed: {resp.status_code} {resp.text[:200]}"
 
 
@@ -767,6 +767,11 @@ def get_handoff(world: World, app: str, next_path: str) -> None:
     x = X(world)
     with ho.app_client() as client:
         x["resp"] = client.get(ho.handoff_url(app, x["code"], next_path))
+    if app == "seller" and x["resp"].status_code == 200:
+        forms = [f for f in ho.parse_page(x["resp"].text).forms if f["method"] == "post"]
+        if forms:
+            x["fields_key"] = (app, x["code"], next_path)
+            x["fields"] = dict(forms[0]["fields"])
 
 
 @given("the seller app receives a HEAD and a prefetch GET for the code")
@@ -822,6 +827,20 @@ def post_with_headers(world: World, spec: str) -> None:
     _submit(world, "/seller", _headers_from(spec))
 
 
+@given('the confirmation form is posted with headers ""')
+@when('the confirmation form is posted with headers ""')
+@then('the confirmation form is posted with headers ""')
+def post_without_headers(world: World) -> None:
+    _submit(world, "/seller", {})
+
+
+@given(parsers.parse('the confirmation form is posted with next "{next_path}" with headers "{spec}"'))
+@when(parsers.parse('the confirmation form is posted with next "{next_path}" with headers "{spec}"'))
+@then(parsers.parse('the confirmation form is posted with next "{next_path}" with headers "{spec}"'))
+def post_with_next_headers(world: World, next_path: str, spec: str) -> None:
+    _submit(world, next_path, _headers_from(spec))
+
+
 @given(parsers.parse('the confirmation form with next "{next_path}" is posted with headers "{spec}"'))
 @when(parsers.parse('the confirmation form with next "{next_path}" is posted with headers "{spec}"'))
 @then(parsers.parse('the confirmation form with next "{next_path}" is posted with headers "{spec}"'))
@@ -842,7 +861,7 @@ def post_host(world: World, host: str, spec: str) -> None:
 def is_303(world: World, location: str) -> None:
     resp = X(world)["resp"]
     assert resp.status_code == 303, f"expected 303, got {resp.status_code}"
-    assert _path(ho.location_of(resp)) == location, ho.location_of(resp)
+    assert unquote(_path(ho.location_of(resp))) == location, ho.location_of(resp)
 
 
 @given(parsers.parse('the response is a 303 to "{location}" with no cookie'))
@@ -1059,7 +1078,7 @@ def open_each(world: World) -> None:
 def every_login(world: World) -> None:
     for resp in X(world)["resps"]:
         assert resp.status_code == 303, f"expected 303, got {resp.status_code}"
-        assert _path(ho.location_of(resp)) == "/login?next=/seller/orders", ho.location_of(resp)
+        assert unquote(_path(ho.location_of(resp))) == "/login?next=/seller/orders", ho.location_of(resp)
         _assert_no_cookie(resp)
         assert resp.headers.get("referrer-policy") == "no-referrer"
 
@@ -1096,7 +1115,7 @@ def _frontend_logs(world: World, wait_for_marker: bool = True) -> str:
     logs = ""
     while time.time() < deadline:
         logs = ho.container_logs(container, x["log_since"])
-        if x["marker"] in logs or not wait_for_marker:
+        if quote(x["marker"], safe="") in logs or not wait_for_marker:
             break
         time.sleep(0.5)
     return logs
@@ -1148,7 +1167,7 @@ def no_bad_in_logs(world: World) -> None:
 
 
 def _marker_lines(world: World) -> list[str]:
-    marker = X(world)["marker"]
+    marker = quote(X(world)["marker"], safe="")
     lines = [ln for ln in _frontend_logs(world).splitlines() if marker in ln]
     assert lines, f"no buyer app log line mentions the request ({marker})"
     return lines
@@ -1165,7 +1184,7 @@ def shows_redacted(world: World) -> None:
 @when("the buyer app log line for the marker still shows the marker next value")
 @then("the buyer app log line for the marker still shows the marker next value")
 def shows_next(world: World) -> None:
-    marker = X(world)["marker"]
+    marker = quote(X(world)["marker"], safe="")
     assert any(f"next={marker}" in ln for ln in _marker_lines(world)), _marker_lines(world)
 
 
@@ -1262,7 +1281,7 @@ def click_buyer_storefront(world: World) -> None:
     page = world.page
     page.goto(f"{SETTINGS.seller_base_url}/seller")
     page.wait_for_load_state("networkidle")
-    target = page.get_by_role("link", name=re.compile("người mua|storefront|cửa hàng|trang chủ|Agora", re.I)).first
+    target = page.get_by_role("link", name=re.compile("mua sắm|người mua|storefront|cửa hàng|trang chủ", re.I)).first
     expect(target).to_be_visible(timeout=15_000)
     target.click()
     page.wait_for_url(re.compile(re.escape(SETTINGS.base_url)), timeout=20_000)

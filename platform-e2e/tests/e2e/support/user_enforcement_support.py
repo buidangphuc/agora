@@ -140,7 +140,7 @@ def active_session_count(token: str) -> int:
     resp = call(SESSIONS, {}, token)
     assert resp.status_code == 200, f"ListSessions failed: {resp.status_code} {resp.text}"
     sessions = body_of(resp).get("sessions", [])
-    return len([s for s in sessions if not s.get("revokedAt")])
+    return len([s for s in sessions if not s.get("revoked") and not s.get("revokedAt")])
 
 
 # ── admin calls ──────────────────────────────────────────────────────────────

@@ -37,7 +37,7 @@ func tokenSID(t *testing.T, token string) string {
 	return sid
 }
 
-func asSessionUser(t *testing.T, ctx context.Context, id, token string) context.Context {
+func asSessionUser(ctx context.Context, t *testing.T, id, token string) context.Context {
 	t.Helper()
 	return metadata.AppendToOutgoingContext(asUser(ctx, id), "x-principal-sid", tokenSID(t, token))
 }
@@ -64,7 +64,7 @@ func TestHandoffRPCWiredOverTheServer(t *testing.T) {
 		t.Fatalf("service CreateHandoffCode = %v, want PermissionDenied", err)
 	}
 
-	minted, err := auth.CreateHandoffCode(asSessionUser(t, ctx, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
+	minted, err := auth.CreateHandoffCode(asSessionUser(ctx, t, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
 	if err != nil {
 		t.Fatalf("user CreateHandoffCode: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestHandoffCodeNeverReachesLogs(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	minted, err := auth.CreateHandoffCode(asSessionUser(t, ctx, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
+	minted, err := auth.CreateHandoffCode(asSessionUser(ctx, t, userID, reg.GetToken()), &identityv1.CreateHandoffCodeRequest{TargetApp: hsSeller})
 	if err != nil {
 		t.Fatalf("CreateHandoffCode: %v", err)
 	}
