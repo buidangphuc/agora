@@ -134,7 +134,7 @@ function expectLogin(res: Response, next?: string) {
   } else {
     expect(to.searchParams.get("next")).toBe(next);
   }
-  expect(res.headers.get("referrer-policy")).toBe("same-origin");
+  expect(res.headers.get("referrer-policy")).toBe("no-referrer");
 }
 
 function sessionCookies() {
@@ -324,7 +324,7 @@ describe("POST /auth/handoff", () => {
     expect(to.search).toBe("");
     expect(res.headers.get("location")).not.toContain("code");
     expect(res.headers.get("location")).not.toContain(CODE);
-    expect(res.headers.get("referrer-policy")).toBe("same-origin");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
     expect(jar.store.has("seller_session")).toBe(true);
     expect(jar.store.has("seller_refresh")).toBe(true);
     expect(gateway.redeemCalls).toBe(1);
@@ -404,7 +404,7 @@ describe("POST /auth/handoff", () => {
     expect(location(res).pathname).toBe("/login");
     expect(location(res).search).toBe("");
     expect(res.headers.get("location")).not.toContain("next");
-    expect(res.headers.get("referrer-policy")).toBe("same-origin");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
   });
 
   it("POST with neither Origin nor Sec-Fetch-Site is refused", async () => {

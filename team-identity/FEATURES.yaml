@@ -3548,7 +3548,8 @@ features:
     acceptance:
       - "Code absent from logs even on failure"
     tags: [auth, handoff]
-    status: planned
+    status: automated
+    covered_by: "auth/sso_handoff_api.feature::Code absent from logs even on failure"
   - id: handoff.override-accepted-in-test
     title: "Override accepted in test"
     persona: buyer
@@ -3883,7 +3884,8 @@ features:
     acceptance:
       - "Attacker link needs the victim's click"
     tags: [auth, handoff]
-    status: planned
+    status: automated
+    covered_by: "frontend/sso_handoff_ui.feature::Attacker link needs the victim's click"
   - id: handoff.invalid-code-on-get-falls-back-to-login
     title: "Invalid code on GET falls back to login"
     persona: buyer
@@ -4078,7 +4080,8 @@ features:
     acceptance:
       - "Buyer to seller signed in"
     tags: [auth, handoff]
-    status: planned
+    status: automated
+    covered_by: "frontend/sso_handoff_ui.feature::Buyer to seller signed in"
   - id: handoff.seller-to-buyer-signed-in
     title: "Seller to buyer signed in"
     persona: buyer
@@ -4091,7 +4094,8 @@ features:
     acceptance:
       - "Seller to buyer signed in"
     tags: [auth, handoff]
-    status: planned
+    status: automated
+    covered_by: "frontend/sso_handoff_ui.feature::Seller to buyer signed in"
   - id: handoff.reused-link-shows-the-login-form
     title: "Reused link shows the login form"
     persona: buyer
@@ -4104,7 +4108,8 @@ features:
     acceptance:
       - "Reused link shows the login form"
     tags: [auth, handoff]
-    status: planned
+    status: automated
+    covered_by: "frontend/sso_handoff_ui.feature::Reused link shows the login form"
   - id: handoff.expired-link-shows-the-login-form
     title: "Expired link shows the login form"
     persona: buyer
@@ -4187,4 +4192,5 @@ features:
     acceptance:
       - "Logout stays per app"
     tags: [auth, handoff]
-    status: planned
+    status: automated
+    covered_by: "frontend/sso_handoff_ui.feature::Logout stays per app"

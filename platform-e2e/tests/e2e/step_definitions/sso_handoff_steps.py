@@ -1399,7 +1399,11 @@ def opens_login(world: World, next_path: str) -> None:
 def seller_logout(world: World) -> None:
     button = world.page.get_by_role("button", name=re.compile("Đăng xuất"))
     expect(button.first).to_be_visible(timeout=15_000)
-    button.first.click()
+    with world.page.expect_response(
+        lambda r: r.request.method == "POST" and r.url.startswith(SETTINGS.seller_base_url),
+        timeout=15_000,
+    ):
+        button.first.click()
     _settle(world.page)
 
 
