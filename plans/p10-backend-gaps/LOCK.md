@@ -48,3 +48,13 @@ pass (round 1 ownership violation on login-enforcement-ui fixed by moving the UI
   - Gateway: anonymous requests log `principal_kind=anonymous` with no `principal_fp`; ENV=local uses the SDK's default LOG_KEY_FP_SECRET.
 - Out of initiative, done during build as plain fixes: voucher discount "-" in 3 e2e tests (diagnose), `wait_streamed` once in BasePage.
 - Deferred: seller/admin ArgoCD, admin ingress VPN/IP, mock audit.
+
+## Re-sign required (converge fixes 2026-11-05)
+Reopened after the initiative converge; the human re-ticks each row after reading the change and updates the digest column.
+| slice | locked digest | current digest | reason |
+|---|---|---|---|
+| gateway-principal-log-fingerprint | 79fbfcc092fb | 8bb902009c5a | converge r1 edit (22889aac) |
+| promotion-admin-vouchers | e60c71995a88 | 1e112c112168 | VERIFIED BY lines; V35 reworded to "G9-G11 removed, no row added, rest identical" |
+| identity-sso-handoff | 17b10a1e0d23 | 808dcd28f66e | VERIFIED BY lines, Referrer-Policy wording; x-principal-sid only to BecomeSeller and the hand-off RPCs; HANDOFF_TTL_OVERRIDE wired |
+| identity-seller-onboarding | a505a3dd02c3 | d71c6e69bb4a | BecomeSeller audits auth.become_seller fail-closed (UNAVAILABLE / AUDIT_UNAVAILABLE) |
+slices.yaml also changed: identity-sso-handoff depends_on gateway-principal-log-fingerprint (waves 0-5).
