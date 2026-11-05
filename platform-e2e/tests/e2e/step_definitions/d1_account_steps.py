@@ -22,6 +22,7 @@ from src.api.services.base_service import BaseService, GatewayError
 from src.api.services.referral_service import ReferralService
 from src.api.services.verification_service import VerificationService
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from src.models import Listing, User
 from src.pages import AddressesPage, FavoritesPage, LoginPage, NotificationsPage
 from src.pages.verification_page import VerificationPage
@@ -41,7 +42,7 @@ _DESKTOP = {"width": 1280, "height": 900}
 
 # ── helpers ──────────────────────────────────────────────────────────────
 def _goto(world: World, route: str) -> None:
-    world.page.goto(f"{BASE}{route}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{BASE}{route}")
 
 
 def _track_posts(world: World) -> list[str]:
@@ -397,7 +398,11 @@ def get_admin(world: World) -> str:
     "and not the brand colour"
 )
 def status_tokens(world: World) -> None:
-    expected = {"pending": "promo", "verified": "success", "rejected": "danger"}
+    expected = {
+        "pending": "text-text-warning",
+        "verified": "text-text-success",
+        "rejected": "text-text-danger",
+    }
     for key, token in expected.items():
         world.context.clear_cookies()
         world.context.add_cookies(

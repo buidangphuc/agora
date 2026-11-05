@@ -46,7 +46,7 @@ Feature: Admin and login URLs do not leak through referrers or analytics (fronte
     Given the visitor has granted analytics consent
     And an admin is logged in
     When the admin opens the audit page with a target query and then navigates to the users search with an email query while recording the dataLayer
-    Then page_location entries were pushed for the audit page and for the users page
+    Then the admin app pushed no dataLayer entry on the audit page or the users page
     And no dataLayer page_location or page_referrer contains "target_id", "query=" or "a@b.vn"
 
   Scenario: Referrer hygiene: guest on admin users search gets path-only returnUrl

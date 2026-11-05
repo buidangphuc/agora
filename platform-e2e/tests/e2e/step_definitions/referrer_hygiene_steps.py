@@ -32,6 +32,8 @@ ADMIN_BASE = SETTINGS.admin_base_url.rstrip("/")
 
 def _host(path: str) -> str:
     return ADMIN_BASE if path.startswith("/admin") else BASE
+
+
 POLICY = "strict-origin-when-cross-origin"
 WEAKER = {
     "unsafe-url",
@@ -56,11 +58,17 @@ def _meta(world: World) -> list[str | None]:
 
 def _assert_meta(world: World, what: str) -> None:
     world.page.wait_for_load_state("load", timeout=timeouts.NAVIGATION)
-    assert _meta(world) == ["no-referrer"], f"{what}: meta referrer tags = {_meta(world)} at {world.page.url}"
+    assert _meta(world) == [
+        "no-referrer"
+    ], f"{what}: meta referrer tags = {_meta(world)} at {world.page.url}"
 
 
 # ── headers ──────────────────────────────────────────────────────────────────
-@when(parsers.parse('the storefront is requested at "{a}", "{b}" and "{c}" without following redirects'))
+@when(
+    parsers.parse(
+        'the storefront is requested at "{a}", "{b}" and "{c}" without following redirects'
+    )
+)
 def request_paths(world: World, a: str, b: str, c: str) -> None:
     responses = {}
     with httpx.Client(follow_redirects=False, timeout=30) as client:
@@ -72,15 +80,17 @@ def request_paths(world: World, a: str, b: str, c: str) -> None:
 @then(parsers.parse('every response has the header Referrer-Policy "{value}"'))
 def every_has_policy(world: World, value: str) -> None:
     for path, r in _x(world)["rh_responses"].items():
-        assert r.headers.get("referrer-policy") == value, (
-            f"{path} (HTTP {r.status_code}): Referrer-Policy = {r.headers.get('referrer-policy')!r}"
-        )
+        assert (
+            r.headers.get("referrer-policy") == value
+        ), f"{path} (HTTP {r.status_code}): Referrer-Policy = {r.headers.get('referrer-policy')!r}"
 
 
 @then("every response still has a Content-Security-Policy header")
 def every_has_csp(world: World) -> None:
     for path, r in _x(world)["rh_responses"].items():
-        assert r.headers.get("content-security-policy"), f"{path}: no Content-Security-Policy header"
+        assert r.headers.get(
+            "content-security-policy"
+        ), f"{path}: no Content-Security-Policy header"
 
 
 @then("each response has exactly one Referrer-Policy value and it is not a weaker policy")
@@ -181,7 +191,7 @@ def _open_and_probe(world: World, path: str) -> None:
         route.fulfill(status=200, content_type="text/html", body="<html>ok</html>")
 
     world.context.route(re.compile(r"^http://xorigin\.e2e\.invalid/"), handle)
-    world.page.goto(f"{BASE}{path}", wait_until="load")
+    world.page.goto(f"{_host(path)}{path}", wait_until="load")
     assert urlsplit(world.page.url).path == urlsplit(path).path, world.page.url
     world.page.evaluate(_OPEN_XORIGIN, f"{XORIGIN}/probe")
     deadline = timeouts.NAVIGATION / 1000
@@ -230,45 +240,42 @@ def _walk(node, out: list[tuple[str, str]]) -> None:
             _walk(v, out)
 
 
-def _collect(world: World, must_contain: str) -> None:
-    page = world.page
-    page.wait_for_load_state("load", timeout=timeouts.NAVIGATION)
-    found: list[tuple[str, str]] = []
-
-    def have() -> bool:
-        found.clear()
-        _walk(page.evaluate(_LAYER), found)
-        return any(k == "page_location" and must_contain in v for k, v in found)
-
-    end = timeouts.LONG / 1000
-    import time
-
-    deadline = time.monotonic() + end
-    while not have() and time.monotonic() < deadline:
-        page.wait_for_timeout(200)
-    _x(world).setdefault("rh_pushed", []).extend(found)
-
-
 @when(
     "the admin opens the audit page with a target query and then navigates to the users search "
     "with an email query while recording the dataLayer"
 )
 def admin_visits_two(world: World) -> None:
     _start_recording(world)
-    world.page.goto(f"{ADMIN_BASE}/admin/audit?target_id=u-1&actor_id=u-2", wait_until="domcontentloaded")
-    _collect(world, "/admin/audit")
+    world.page.goto(f"{ADMIN_BASE}/admin/audit?target_id=u-1&actor_id=u-2", wait_until="load")
+    _snapshot(world, "/admin/audit")
     # full document navigation so document.referrer is the audit URL (as the browser reports it)
-    world.page.evaluate("(u) => { window.location.href = u; }", f"{ADMIN_BASE}/admin/users?query=a%40b.vn")
-    world.page.wait_for_url(lambda u: urlsplit(u).path == "/admin/users", timeout=timeouts.NAVIGATION)
-    _collect(world, "/admin/users")
+    world.page.evaluate(
+        "(u) => { window.location.href = u; }", f"{ADMIN_BASE}/admin/users?query=a%40b.vn"
+    )
+    world.page.wait_for_url(
+        lambda u: urlsplit(u).path == "/admin/users", timeout=timeouts.NAVIGATION
+    )
+    _snapshot(world, "/admin/users")
 
 
-@then("page_location entries were pushed for the audit page and for the users page")
-def pushed_both(world: World) -> None:
-    pushed = _x(world)["rh_pushed"]
-    locs = [v for k, v in pushed if k == "page_location"]
-    assert any("/admin/audit" in v for v in locs), f"no audit page_location in {pushed}"
-    assert any("/admin/users" in v for v in locs), f"no users page_location in {pushed}"
+def _snapshot(world: World, path: str) -> None:
+    page = world.page
+    expect(page).to_have_url(re.compile(rf"{re.escape(ADMIN_BASE)}{path}"))
+    page.wait_for_load_state("networkidle", timeout=timeouts.NAVIGATION)
+    entries = page.evaluate(_LAYER)
+    _x(world).setdefault("rh_layers", []).append((path, entries))
+    found: list[tuple[str, str]] = []
+    _walk(entries, found)
+    _x(world).setdefault("rh_pushed", []).extend(found)
+
+
+@then("the admin app pushed no dataLayer entry on the audit page or the users page")
+def pushed_nothing(world: World) -> None:
+    layers = _x(world)["rh_layers"]
+    assert [p for p, _ in layers] == ["/admin/audit", "/admin/users"], layers
+    assert all(
+        entries == [] for _, entries in layers
+    ), f"admin app pushed to the dataLayer: {layers}"
 
 
 @then(parsers.parse('no dataLayer page_location or page_referrer contains "{a}", "{b}" or "{c}"'))

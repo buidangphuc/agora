@@ -266,9 +266,6 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
   `ResolveReport`, `QueryAuditLog`, `ModerateListing`, `ListModerationQueue`, `ForceFailSaga`,
   `AccountAdmin` `ListUsers` / `SetUserStatus`, three analytics reports, and promotion
   `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).
-- `go.mod` pins go-sdk `v1.0.3`, which has no tag, through `replace ... => ../platform-core/packages/go-sdk`
-  (`go.mod:320`); a plain `docker build` from this directory (the compose build context is `./team-gateway`)
-  cannot resolve it.
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at

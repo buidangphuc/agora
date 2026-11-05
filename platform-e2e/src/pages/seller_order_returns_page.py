@@ -23,7 +23,7 @@ class SellerOrderReturnsPage(BasePage):
         return self.page.get_by_test_id("seller-returns")
 
     def row(self, return_id: str) -> Locator:
-        return self.page.locator(f'[data-return-id="{return_id}"]')
+        return self.page.locator(f'[data-return-id="{return_id}"]').filter(visible=True)
 
     def status(self, return_id: str) -> Locator:
         return self.row(return_id).get_by_test_id("return-status")
@@ -44,7 +44,7 @@ class SellerOrderReturnsPage(BasePage):
 
     @property
     def payment_summary(self) -> Locator:
-        return self.page.get_by_test_id("payment-summary")
+        return self.page.get_by_test_id("payment-summary").filter(visible=True)
 
     @property
     def payment_unavailable(self) -> Locator:

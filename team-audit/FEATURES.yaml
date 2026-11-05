@@ -472,8 +472,8 @@ features:
     - audit
     status: automated
     covered_by: security/audit_query_filters.feature::Only an admin can query with filters (Helper query with a non-admin token is refused)
-  - id: audit-runtime.the-module-requires-the-v1-0-2-tag
-    title: "The module requires the v1.0.2 tag"
+  - id: audit-runtime.the-module-requires-a-tagged-sdk-release
+    title: "The module requires a tagged SDK release"
     persona: admin
     priority: P2
     summary: Unit-verified scenario of change audit-go-sdk-v1.
@@ -481,7 +481,7 @@ features:
     services:
     - team-audit
     acceptance:
-    - "The module requires the v1.0.2 tag"
+    - "The module requires a tagged SDK release"
     tags:
     - go-sdk
     - unit

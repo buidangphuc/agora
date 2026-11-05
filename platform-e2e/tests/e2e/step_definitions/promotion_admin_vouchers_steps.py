@@ -23,6 +23,7 @@ from tests.e2e.support.world import World
 _ROOT = Path(__file__).resolve().parents[4]
 _GAPS = "fe-platform/docs/gaps.md"
 _REMOVED_GAPS = {"G9", "G10", "G11"}
+_GAPS_BASE = "05978392"
 
 
 def _x(world: World) -> dict:
@@ -650,7 +651,7 @@ def _rows(text: str) -> dict[str, str]:
 
 def _base_text() -> str:
     proc = subprocess.run(
-        ["git", "-C", str(_ROOT), "show", f"origin/main:{_GAPS}"],
+        ["git", "-C", str(_ROOT), "show", f"{_GAPS_BASE}:{_GAPS}"],
         capture_output=True,
         text=True,
         timeout=60,

@@ -13,6 +13,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.api.services import ChatService
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from src.pages import AssistantPage, SellerNewListingPage
 from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support import ai_events_support as ai
@@ -60,7 +61,7 @@ def _cards(world: World):  # noqa: ANN202
 
 
 def _open_assistant_and_ask(world: World, question: str) -> None:
-    world.page.goto(f"{_base(world)}/assistant", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{_base(world)}/assistant")
     _ask(world, question)
     expect(_cards(world).first).to_be_visible(timeout=timeouts.LONG)
     _x(world)["ai_reply_text"] = _assistant(world).ai_replies.last.inner_text()
@@ -107,11 +108,14 @@ def click_xem_ngay(world: World) -> None:
 @then("the buyer lands on the listing page of that card")
 def lands_on_listing(world: World) -> None:
     expect(world.page).to_have_url(
-        re.compile(rf".*/listing/{re.escape(_x(world)['ai_clicked'][-1])}"), timeout=timeouts.NAVIGATION
+        re.compile(rf".*/listing/{re.escape(_x(world)['ai_clicked'][-1])}"),
+        timeout=timeouts.NAVIGATION,
     )
 
 
-@when('the buyer asks the assistant for a product again and clicks "Mua Ngay" on the first product card')
+@when(
+    'the buyer asks the assistant for a product again and clicks "Mua Ngay" on the first product card'
+)
 def click_mua_ngay(world: World) -> None:
     _open_assistant_and_ask(world, _QUESTION)
     _x(world)["ai_clicked"].append(_first_card_listing(world))
@@ -129,7 +133,9 @@ def lands_on_checkout(world: World) -> None:
 @then(parsers.parse('exactly {n:d} "{surface}" "{action}" AI events are captured'))
 def exactly_n(world: World, n: int, surface: str, action: str) -> None:
     found = ai.settled(world, n, surface, action)
-    assert len(found) == n, f"expected {n} {surface}/{action}, got {len(found)}: {ai.describe(found)}"
+    assert (
+        len(found) == n
+    ), f"expected {n} {surface}/{action}, got {len(found)}: {ai.describe(found)}"
 
 
 @then(parsers.parse('at least {n:d} "{surface}" "{action}" AI events are captured'))
@@ -150,21 +156,29 @@ def zero_surface(world: World, surface: str) -> None:
     assert not found, f"expected no {surface} event, got {ai.describe(found)}"
 
 
-@then(parsers.parse('every captured "{surface}" "{action}" AI event carries the id of the clicked card\'s listing'))
+@then(
+    parsers.parse(
+        'every captured "{surface}" "{action}" AI event carries the id of the clicked card\'s listing'
+    )
+)
 def carries_clicked_listing(world: World, surface: str, action: str) -> None:
     found = ai.ai_events(world, surface, action)
     got = sorted(e.get("listingId") for e in found)
-    assert got == sorted(_x(world)["ai_clicked"][: len(found)]), (
-        f"listingIds {got} != clicked {_x(world)['ai_clicked']}"
+    assert got == sorted(
+        _x(world)["ai_clicked"][: len(found)]
+    ), f"listingIds {got} != clicked {_x(world)['ai_clicked']}"
+
+
+@then(
+    parsers.parse(
+        'every captured "{surface}" "{action}" AI event carries the listing id of that listing'
     )
-
-
-@then(parsers.parse('every captured "{surface}" "{action}" AI event carries the listing id of that listing'))
+)
 def carries_listing(world: World, surface: str, action: str) -> None:
     found = ai.ai_events(world, surface, action)
-    assert found and all(e.get("listingId") == _x(world)["ai_listing_id"] for e in found), (
-        f"expected listingId {_x(world)['ai_listing_id']}, got {ai.describe(found)}"
-    )
+    assert found and all(
+        e.get("listingId") == _x(world)["ai_listing_id"] for e in found
+    ), f"expected listingId {_x(world)['ai_listing_id']}, got {ai.describe(found)}"
 
 
 @then("every /api/track batch holding an ai_interaction beacon was answered 2xx by the gateway")
@@ -221,14 +235,12 @@ def seller_thread(world: World) -> None:
     chat.send_message(thread["id"], _BUYER_MESSAGE)
     x = _x(world)
     x.update(ai_thread=thread["id"], ai_shop=shop, ai_buyer_token=buyer_token)
-    world.context.add_cookies(
-        session_cookies(world.settings, shop["token"])
-    )
+    world.context.add_cookies(session_cookies(world.settings, shop["token"]))
     world.service_factory.set_token(shop["token"])
 
 
 def _open_thread(world: World) -> None:
-    world.page.goto(f"{_base(world)}/chat?thread={_x(world)['ai_thread']}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{_base(world)}/chat?thread={_x(world)['ai_thread']}")
     expect(world.page.get_by_text(_BUYER_MESSAGE).first).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -292,7 +304,7 @@ def buyer_opens_thread(world: World) -> None:
     world.context.clear_cookies()
     world.context.add_cookies(session_cookies(world.settings, token))
     world.service_factory.set_token(token)
-    world.page.goto(f"{_base(world)}/chat?thread={_x(world)['ai_thread']}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{_base(world)}/chat?thread={_x(world)['ai_thread']}")
     expect(world.page.get_by_text(_BUYER_MESSAGE).first).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -309,7 +321,7 @@ def _form(world: World) -> SellerNewListingPage:
 
 @when("the seller opens the new listing form for Magic Listing")
 def open_form(world: World) -> None:
-    world.page.goto(app_url(world.settings, "/seller/new"), wait_until="domcontentloaded")
+    goto_streamed(world.page, app_url(world.settings, "/seller/new"))
     form = _form(world)
     expect(form.title_input).to_be_visible(timeout=timeouts.NAVIGATION)
     form.wait_until_interactive(form.title_input)
@@ -359,7 +371,7 @@ def description_filled(world: World) -> None:
 
 @when("a guest requests the new listing page")
 def guest_requests_new_listing(world: World) -> None:
-    world.page.goto(app_url(world.settings, "/seller/new"), wait_until="domcontentloaded")
+    goto_streamed(world.page, app_url(world.settings, "/seller/new"))
     world.page.wait_for_load_state("load", timeout=timeouts.NAVIGATION)
 
 
@@ -392,7 +404,7 @@ def _summary(world: World):  # noqa: ANN202
 
 @when("a guest opens that listing page and the AI review summary card is shown")
 def open_with_summary(world: World) -> None:
-    world.page.goto(f"{_base(world)}/listing/{_x(world)['ai_listing_id']}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{_base(world)}/listing/{_x(world)['ai_listing_id']}")
     expect(_summary(world)).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -405,7 +417,7 @@ def resized(world: World) -> None:
 
 @when("a guest opens the listing without reviews and its reviews section has loaded")
 def open_bare(world: World) -> None:
-    world.page.goto(f"{_base(world)}/listing/{_x(world)['ai_bare_listing_id']}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{_base(world)}/listing/{_x(world)['ai_bare_listing_id']}")
     section = world.page.locator("section", has=world.page.locator("#reviews-heading"))
     expect(section).to_be_visible(timeout=timeouts.NAVIGATION)
     expect(section.locator('[aria-busy="true"]')).to_have_count(0, timeout=timeouts.NAVIGATION)

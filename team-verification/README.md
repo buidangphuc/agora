@@ -1,6 +1,6 @@
 # team-verification
 
-Seller/user KYC verification service (Go, gRPC), built on `platform-core/packages/go-sdk` v1.0.2 (ADR-0016). Bounded context: **verification**. It
+Seller/user KYC verification service (Go, gRPC), built on `platform-core/packages/go-sdk` at a tagged release, currently `v1.0.3` (ADR-0016). Bounded context: **verification**. It
 owns the `verification_db` database (database-per-service) and the
 `platform.verification.v1.VerificationService` gRPC API on port **50064**: users submit a
 document *reference*, an admin approves or rejects it, and anyone authorized can read the

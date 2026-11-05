@@ -4922,3 +4922,133 @@ features:
     tags: [promotion, campaigns, unit]
     status: not-testable
     notes: "VERIFIED BY team-frontend-admin vitest `forbids non-admin` in app/admin/campaigns/page.test.tsx. Not producible end to end through the gateway (unit level)."
+
+  # promotion-admin-scope
+  - id: promotion.pas-the-admin-deactivates-a-platform-voucher
+    title: "Promotion admin scope: the admin deactivates a platform voucher"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin scope: the admin deactivates a platform voucher (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.VoucherService.CreateVoucher, promotion.v1.FlashSaleService.CreateCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When the seeded admin creates a PLATFORM voucher and then calls `DeactivateVoucher` on it through the gateway"
+      - "Then the call succeeds and the returned voucher is inactive"
+    tags: [security, promotion]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: the admin deactivates a platform voucher"
+  - id: promotion.pas-promotion-admin-without-admin-is-denied-by-the-service
+    title: "Promotion admin scope: promotion.admin without admin is denied by the service"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin scope: promotion.admin without admin is denied by the service (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.VoucherService.CreateVoucher, promotion.v1.FlashSaleService.CreateCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a caller whose token carries `promotion.admin` but not `admin` calls `DeactivateVoucher` on an active PLATFORM voucher through the gateway"
+      - "Then the call fails with `permission_denied` and the voucher is still active"
+    tags: [security, promotion]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: promotion.admin without admin is denied by the service"
+  - id: promotion.pas-admin-without-promotion-admin-cannot-create-a-platform-voucher
+    title: "Promotion admin scope: admin without promotion.admin cannot create a platform voucher"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin scope: admin without promotion.admin cannot create a platform voucher (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.VoucherService.CreateVoucher, promotion.v1.FlashSaleService.CreateCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a caller whose token carries `admin` and `listing.write` but not `promotion.admin` calls `CreateVoucher` with PLATFORM scope through the gateway"
+      - "Then the call fails with `permission_denied` and `GetVoucher` for that code returns `not_found`"
+    tags: [security, promotion]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: admin without promotion.admin cannot create a platform voucher"
+  - id: promotion.pas-sellers-and-anonymous-callers-are-refused
+    title: "Promotion admin scope: sellers and anonymous callers are refused"
+    persona: seller
+    priority: P0
+    kind: authz
+    summary: "Promotion admin scope: sellers and anonymous callers are refused (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.VoucherService.CreateVoucher, promotion.v1.FlashSaleService.CreateCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a seller calls `CancelCampaign` and a request without a token calls `UpdateVoucher` through the gateway"
+      - "Then the gateway answers HTTP 403 to the seller and HTTP 401 to the anonymous request"
+    tags: [security, promotion]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: sellers and anonymous callers are refused"
+  - id: promotion.pas-admin-without-promotion-admin-creates-a-shop-voucher-as-a-seller
+    title: "Promotion admin scope: admin without promotion.admin creates a shop voucher as a seller"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin scope: admin without promotion.admin creates a shop voucher as a seller (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.VoucherService.CreateVoucher, promotion.v1.FlashSaleService.CreateCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a caller whose token carries `admin` and `listing.write` but not `promotion.admin` creates a SHOP voucher through the gateway"
+      - "Then the call succeeds, the voucher's `seller_id` is the caller's id, and `QueryAuditLog` returns no `voucher.admin_create` event for that code"
+    tags: [security, promotion]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: admin without promotion.admin creates a shop voucher as a seller"
+  - id: promotion.pas-admin-without-promotion-admin-cannot-run-a-flash-sale-on-another-selle
+    title: "Promotion admin scope: admin without promotion.admin cannot run a flash sale on another seller's listing"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin scope: admin without promotion.admin cannot run a flash sale on another seller's listing (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.VoucherService.CreateVoucher, promotion.v1.FlashSaleService.CreateCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a caller whose token carries `admin` and `listing.write` but not `promotion.admin` calls `CreateCampaign` for a listing owned by seller S through the gateway"
+      - "Then the call fails with `permission_denied` and `ListCampaigns` (seeded admin) returns no campaign for that listing"
+    tags: [security, promotion]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: admin without promotion.admin cannot run a flash sale on another seller's listing"
+  - id: promotion.pas-admin-without-promotion-admin-cannot-advertise-another-seller-s-listin
+    title: "Promotion admin scope: admin without promotion.admin cannot advertise another seller's listing"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin scope: admin without promotion.admin cannot advertise another seller's listing (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.VoucherService.CreateVoucher, promotion.v1.FlashSaleService.CreateCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a caller whose token carries `admin` and `listing.write` but not `promotion.admin` calls `CreateAdCampaign` for a listing owned by seller S through the gateway"
+      - "Then the call fails with `permission_denied`"
+    tags: [security, promotion]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: admin without promotion.admin cannot advertise another seller's listing"
+  - id: promotion.pas-admin-without-promotion-admin-or-listing-write-is-denied-a-shop-vouche
+    title: "Promotion admin scope: admin without promotion.admin or listing.write is denied a shop voucher"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin scope: admin without promotion.admin or listing.write is denied a shop voucher (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.VoucherService.CreateVoucher, promotion.v1.FlashSaleService.CreateCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a caller whose token carries only `admin` calls `CreateVoucher` with SHOP scope through the gateway"
+      - "Then the call fails with `permission_denied`"
+    tags: [security, promotion]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: admin without promotion.admin or listing.write is denied a shop voucher"

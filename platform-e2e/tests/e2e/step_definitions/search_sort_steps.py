@@ -22,7 +22,7 @@ SETTINGS = get_settings()
 
 @then("the search results sort bar displays the sorting controls")
 def search_sort_bar_visible(world: World) -> None:
-    expect(world.page.locator("body")).to_contain_text("Sắp xếp theo:", timeout=timeouts.DEFAULT)
+    expect(world.page.locator("body")).to_contain_text("Sắp xếp theo", timeout=timeouts.DEFAULT)
     # Sort options are link Tabs (URL state), not buttons.
     expect(world.page.get_by_role("link", name="Mới nhất", exact=True)).to_be_visible(
         timeout=timeouts.DEFAULT
@@ -133,12 +133,12 @@ def facet_buckets_render_with_counts(world: World) -> None:
     mid = search.facet_bucket(_MID_BUCKET_KEY)
     expect(low).to_be_visible(timeout=timeouts.DEFAULT)
     expect(mid).to_be_visible(timeout=timeouts.DEFAULT)
-    assert search.bucket_count(low) == _LOW_BUCKET_COUNT, (
-        f"'{_LOW_BUCKET_KEY}' count = {search.bucket_count(low)}, expected {_LOW_BUCKET_COUNT}"
-    )
-    assert search.bucket_count(mid) == _MID_BUCKET_COUNT, (
-        f"'{_MID_BUCKET_KEY}' count = {search.bucket_count(mid)}, expected {_MID_BUCKET_COUNT}"
-    )
+    assert (
+        search.bucket_count(low) == _LOW_BUCKET_COUNT
+    ), f"'{_LOW_BUCKET_KEY}' count = {search.bucket_count(low)}, expected {_LOW_BUCKET_COUNT}"
+    assert (
+        search.bucket_count(mid) == _MID_BUCKET_COUNT
+    ), f"'{_MID_BUCKET_KEY}' count = {search.bucket_count(mid)}, expected {_MID_BUCKET_COUNT}"
 
     # Every category bucket is a positive count and they sum to the seeded total.
     category_buckets = search.facet_group("categories").get_by_test_id("facet-bucket")
@@ -188,13 +188,13 @@ def facet_counts_update(world: World) -> None:
     search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
     active = search.facet_bucket(_MID_BUCKET_KEY)
     expect(active).to_have_attribute("data-active", "true", timeout=timeouts.DEFAULT)
-    assert search.bucket_count(active) == _MID_BUCKET_COUNT, (
-        f"active bucket count = {search.bucket_count(active)}, expected {_MID_BUCKET_COUNT}"
-    )
+    assert (
+        search.bucket_count(active) == _MID_BUCKET_COUNT
+    ), f"active bucket count = {search.bucket_count(active)}, expected {_MID_BUCKET_COUNT}"
     # The out-of-range low bucket is recomputed against the filtered set.
     low_after = search.bucket_count(search.facet_bucket(_LOW_BUCKET_KEY))
     low_before = world.state.extra["low_count_before"]
-    assert low_after < low_before, (
-        f"'{_LOW_BUCKET_KEY}' count did not update: before {low_before}, after {low_after}"
-    )
+    assert (
+        low_after < low_before
+    ), f"'{_LOW_BUCKET_KEY}' count did not update: before {low_before}, after {low_after}"
     world.logger.info(f"Facet counts updated: '{_LOW_BUCKET_KEY}' {low_before} -> {low_after}")

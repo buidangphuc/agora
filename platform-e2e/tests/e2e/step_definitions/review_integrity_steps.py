@@ -13,6 +13,7 @@ from pytest_bdd import given, parsers, then, when
 from config.settings import get_settings
 from src.api.services import AuthService
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from src.models import User
 from src.utils import data as fake
 from src.utils import get_test_data_manager
@@ -47,7 +48,7 @@ def _items(world: World) -> Locator:
 
 
 def _open_listing(world: World) -> None:
-    world.page.goto(f"{BASE}/listing/{_listing_id(world)}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{BASE}/listing/{_listing_id(world)}")
     expect(world.page.locator("h1").first).to_be_visible(timeout=timeouts.NAVIGATION)
 
 

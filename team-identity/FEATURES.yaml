@@ -4672,3 +4672,37 @@ features:
     status: automated
     covered_by: "identity/seller_onboarding.feature::Seller onboarding: audit unavailable is refused through the gateway"
     notes: "identity-seller-onboarding: e2e written red-first 2026-11-05 (reopen for converge fixes); @destructive, stops team-audit and restarts it in teardown"
+
+  # promotion-admin-scope
+  - id: auth.pas-an-admin-token-carries-promotion-admin
+    title: "An admin token carries promotion.admin"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "An admin token carries promotion.admin (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    api:
+      exercised: [identity.v1.AuthService.Login]
+    acceptance:
+      - "When the seeded admin logs in through the gateway"
+      - "Then the token's scopes include `admin` and `promotion.admin`"
+    tags: [security, auth]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::An admin token carries promotion.admin"
+  - id: auth.pas-buyer-and-seller-tokens-never-carry-promotion-admin
+    title: "Buyer and seller tokens never carry promotion.admin"
+    persona: buyer
+    priority: P0
+    kind: authz
+    summary: "Buyer and seller tokens never carry promotion.admin (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    api:
+      exercised: [identity.v1.AuthService.Login]
+    acceptance:
+      - "When a buyer and a seller each log in through the gateway"
+      - "Then neither token carries the `promotion.admin` scope or the `admin` scope"
+    tags: [security, auth]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Buyer and seller tokens never carry promotion.admin"

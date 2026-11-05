@@ -10,25 +10,37 @@ from src.constants import PageName, timeouts
 from src.pages import HomePage
 from tests.e2e.support.world import World
 
+_TO_RGB = """
+(v) => {
+  const m = v.trim().match(/^color\\(srgb ([\\d.]+) ([\\d.]+) ([\\d.]+)(?: \\/ ([\\d.]+))?\\)$/);
+  if (!m) return v.trim();
+  const [r, g, b] = [m[1], m[2], m[3]].map((x) => Math.round(parseFloat(x) * 255));
+  if (m[4] !== undefined && parseFloat(m[4]) !== 1) return `rgba(${r}, ${g}, ${b}, ${m[4]})`;
+  return `rgb(${r}, ${g}, ${b})`;
+}
+"""
+
 _ALIAS_PROBE = """
 (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 """
 
 # For every element whose class list uses the action-primary alias, read the
 # property that alias drives (bg-* -> background, text-* -> colour).
-_ALIAS_CONSUMERS = """
+_ALIAS_CONSUMERS_TEMPLATE = """
 () => {
+  const toRgb = ${TO_RGB};
   const out = [];
   for (const el of document.querySelectorAll('[class*="action-primary"]')) {
     const cs = getComputedStyle(el);
     const cls = el.className.toString().split(/\\s+/);
     if (cls.some((c) => /^(hover:|focus:)?bg-action-primary$/.test(c)))
-      out.push(["background", cs.backgroundColor]);
-    if (cls.includes("text-action-primary")) out.push(["colour", cs.color]);
+      out.push(["background", toRgb(cs.backgroundColor)]);
+    if (cls.includes("text-action-primary")) out.push(["colour", toRgb(cs.color)]);
   }
   return out;
 }
 """
+_ALIAS_CONSUMERS = _ALIAS_CONSUMERS_TEMPLATE.replace("${TO_RGB}", _TO_RGB.strip())
 
 
 @when(parsers.parse('the visitor opens the unknown route "{route}"'))
@@ -56,9 +68,13 @@ def not_found_result_shown(world: World) -> None:
 @then(parsers.parse('the header search button renders the brand colour "{colour}"'))
 def header_button_brand_colour(world: World, colour: str) -> None:
     home: HomePage = world.get_page(PageName.HOME)  # type: ignore[assignment]
-    expect(home.header.search_button).to_have_css(
-        "background-color", colour, timeout=timeouts.DEFAULT
+    button = home.header.search_button
+    expect(button).to_be_visible(timeout=timeouts.DEFAULT)
+    got = world.page.evaluate(
+        f"(el) => ({_TO_RGB.strip()})(getComputedStyle(el).backgroundColor)",
+        button.element_handle(),
     )
+    assert got == colour, f"search button background is {got!r}, expected {colour!r}"
 
 
 @then(parsers.parse('the "{alias}" alias resolves to the brand colour "{value}"'))

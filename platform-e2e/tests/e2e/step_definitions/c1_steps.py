@@ -390,10 +390,11 @@ def cockpit_gets_null_payload(world: World) -> None:
             status=200, content_type="application/json", body=json.dumps(_NULL_PAYLOAD)
         ),
     )
-    world.navigate_to(PageName.ADMIN_COCKPIT)
     # The first poll lands one interval (3 s) after the server render.
-    expect(world.page.get_by_text("Prometheus không khả dụng", exact=False)).to_be_visible(
-        timeout=15_000
+    with world.page.expect_response("**/api/admin/metrics", timeout=15_000):
+        world.navigate_to(PageName.ADMIN_COCKPIT)
+    expect(world.page.get_by_test_id("cockpit_orders")).to_contain_text(
+        "Chưa có dữ liệu", timeout=timeouts.DEFAULT
     )
 
 

@@ -13,6 +13,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.api.services.referral_service import ReferralService
 from src.constants import PageName, timeouts
+from src.core.base_page import goto_streamed
 from src.pages import LoginPage, RegisterPage
 from src.pages.loyalty_checkin_widget import LoyaltyCheckinWidget
 from src.pages.shop_follow_page import ShopFollowPage
@@ -57,7 +58,7 @@ def _listing_id(world: World) -> str:
 
 
 def _goto(world: World, path: str) -> None:
-    world.page.goto(world.settings.base_url + path, wait_until="domcontentloaded")
+    goto_streamed(world.page, world.settings.base_url + path)
     world.page.wait_for_load_state("load", timeout=timeouts.NAVIGATION)
 
 

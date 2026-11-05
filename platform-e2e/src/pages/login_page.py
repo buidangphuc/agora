@@ -5,7 +5,7 @@ from __future__ import annotations
 from playwright.sync_api import Locator
 
 from src.constants import routes
-from src.core.base_page import BasePage
+from src.core.base_page import BasePage, wait_streamed
 
 
 class LoginPage(BasePage):
@@ -38,6 +38,7 @@ class LoginPage(BasePage):
         return self.username_input.is_visible()
 
     def login(self, username: str, password: str) -> None:
+        wait_streamed(self.page)
         # Wait for hydration: a fill or submit before it is lost or posts natively.
         self.wait_until_interactive(self.submit_button)
         self.username_input.fill(username)

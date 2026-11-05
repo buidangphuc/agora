@@ -7,6 +7,7 @@ from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.constants import PageName, timeouts
+from src.core.base_page import goto_streamed
 from src.models import User
 from src.pages import OrderDetailPage, OrdersListPage
 from src.utils import data as fake
@@ -119,7 +120,7 @@ def select_order_tab(world: World, label: str) -> None:
 
 @when(parsers.parse('I open the orders list with the query "{query}"'))
 def open_orders_with_query(world: World, query: str) -> None:
-    world.page.goto(_url(world, f"/account/orders?{query}"), wait_until="domcontentloaded")
+    goto_streamed(world.page, _url(world, f"/account/orders?{query}"))
 
 
 @when("I reload the page")

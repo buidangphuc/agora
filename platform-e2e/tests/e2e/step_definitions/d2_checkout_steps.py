@@ -304,7 +304,7 @@ def summary_sticky(world: World) -> None:
     page = world.page
     summary = page.get_by_test_id("order-summary")
     expect(summary).to_be_visible(timeout=timeouts.DEFAULT)
-    assert summary.evaluate("el => getComputedStyle(el).position") == "sticky"
+    assert summary.locator("xpath=..").evaluate("el => getComputedStyle(el).position") == "sticky"
     box = summary.bounding_box()
     assert 0 <= box["y"] < 720 and box["x"] > 640, box
     main = page.get_by_test_id("checkout-shell").bounding_box()

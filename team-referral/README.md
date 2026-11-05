@@ -45,7 +45,7 @@ Migrations are applied by the `team-referral-migrate` job in the root `docker-co
 
 ## Configuration
 
-Settings are loaded by `internal/config` through go-sdk `pkg/config` (go-sdk v1.0.2). `.env.example` lists exactly the settings; `make check-env` verifies it.
+Settings are loaded by `internal/config` through go-sdk `pkg/config` (go-sdk at a tagged release, currently `v1.0.3`). `.env.example` lists exactly the settings; `make check-env` verifies it.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -80,7 +80,7 @@ reachable at `DATABASE_URL` with the migration applied.
 
 ## Build, test, lint
 
-Layout follows ADR-0016 on go-sdk `v1.0.2`: `cmd/server` (entry), `internal/app` (wiring), `internal/config` (settings), `internal/rpc` (gRPC handlers), `internal/referral` (domain logic), `internal/store` (Postgres store, `internal/store/fake` for tests).
+Layout follows ADR-0016 on go-sdk at a tagged release (`vX.Y.Z`, no `replace`; currently `v1.0.3`): `cmd/server` (entry), `internal/app` (wiring), `internal/config` (settings), `internal/rpc` (gRPC handlers), `internal/referral` (domain logic), `internal/store` (Postgres store, `internal/store/fake` for tests).
 
 | Command | Does |
 |---|---|

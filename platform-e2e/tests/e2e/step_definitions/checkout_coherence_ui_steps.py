@@ -16,6 +16,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import PageName, timeouts
+from src.core.base_page import goto_streamed
 from src.pages import CheckoutPage
 from tests.e2e.step_definitions.d2_cart_steps import digits
 from tests.e2e.support import address_support as addr
@@ -36,7 +37,7 @@ def goto_with_query(world: World, extra: list[tuple[str, str]]) -> None:
     parts = urlsplit(world.page.url)
     query = [(k, v) for k, v in parse_qsl(parts.query) if k not in {"sv", "pv", "voucher"}]
     url = urlunsplit(parts._replace(query=urlencode(query + extra, safe=":,")))
-    world.page.goto(url, wait_until="domcontentloaded")
+    goto_streamed(world.page, url)
     expect(checkout_page(world).stepper).to_be_visible(timeout=timeouts.NAVIGATION)
 
 

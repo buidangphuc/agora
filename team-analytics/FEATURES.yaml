@@ -2419,7 +2419,7 @@ features:
       login: guest
     acceptance:
       - "WHEN `go.mod` of team-analytics is parsed"
-      - "THEN it has exactly one require of the SDK module at `v1.0.2`, no `replace` directive and a `tool` directive for golangci-lint"
+      - "THEN it has exactly one require of the SDK module, at a version matching `^v\\d+\\.\\d+\\.\\d+$`, no `replace` directive and a `tool` directive for golangci-lint"
     tags: [analytics, unit]
     status: not-testable
     notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestGoModRequiresSDKTagWithoutReplace. Not producible end to end; the migration runs the platform-e2e suite once at the end."

@@ -20,6 +20,7 @@ from config.settings import get_settings
 from src.api.services import BaseService
 from src.constants import PageName, timeouts
 from src.constants import gateway_endpoints as ep
+from src.core.base_page import goto_streamed
 from src.models import Listing, User
 from src.pages import HomePage, SearchPage, VouchersPage
 from src.utils import data as fake
@@ -120,15 +121,13 @@ def home_has_no_layout_shift(world: World) -> None:
     home: HomePage = world.get_page(PageName.HOME)  # type: ignore[assignment]
     expect(home.hero_cta).to_be_visible(timeout=timeouts.DEFAULT)
     expect(home.listing_links.first).to_be_visible(timeout=timeouts.NAVIGATION)
-    cls = world.page.evaluate(
-        """() => new Promise((resolve) => {
+    cls = world.page.evaluate("""() => new Promise((resolve) => {
             let total = 0;
             new PerformanceObserver((list) => {
                 for (const e of list.getEntries()) if (!e.hadRecentInput) total += e.value;
             }).observe({ type: 'layout-shift', buffered: true });
             setTimeout(() => resolve(total), 1500);
-        })"""
-    )
+        })""")
     assert cls < 0.01, f"cumulative layout shift {cls} after the skeletons were replaced"
 
 
@@ -193,7 +192,7 @@ def paged_listings_indexed(world: World) -> None:
 def open_paged_results(world: World) -> None:
     keyword = world.state.extra["disc_keyword"]
     search = _search(world)
-    world.page.goto(f"{search.url()}?q={keyword}&sort=newest", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{search.url()}?q={keyword}&sort=newest")
     expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -274,9 +273,9 @@ def phone_viewport(world: World) -> None:
 def open_results_two_filters(world: World) -> None:
     keyword = world.state.extra["facet_keyword"]
     search = _search(world)
-    world.page.goto(
+    goto_streamed(
+        world.page,
         f"{search.url()}?q={keyword}&category=cat-electronics&minPrice=1000",
-        wait_until="domcontentloaded",
     )
     expect(search.filter_button).to_be_visible(timeout=timeouts.NAVIGATION)
 
@@ -296,11 +295,11 @@ def drawer_open_focus(world: World) -> None:
     drawer = _search(world).filter_drawer
     expect(drawer).to_be_visible(timeout=timeouts.DEFAULT)
     expect(drawer.get_by_text("Khoảng giá")).to_be_visible()
-    inside = world.page.evaluate(
-        "() => { const d = document.querySelector('dialog'); "
-        "return !!d && d.contains(document.activeElement); }"
+    world.page.wait_for_function(
+        "d => d.contains(document.activeElement)",
+        arg=drawer.element_handle(),
+        timeout=timeouts.DEFAULT,
     )
-    assert inside, "focus did not move into the filter drawer"
 
 
 @when("the buyer presses Escape")
@@ -463,17 +462,26 @@ def one_select_item(world: World) -> None:
 @then("exactly one batched search_results impression carries every rendered result")
 def one_batched_search_impression(world: World) -> None:
     keyword = world.state.extra["facet_keyword"]
+    _search(world).results_wrapper.scroll_into_view_if_needed()
+
+    world.page.wait_for_function(
+        "() => (window.dataLayer || []).some(e => e && e.event === 'view_item_list')",
+        timeout=timeouts.DEFAULT,
+    )
     batched = [
         e
         for e in _data_layer_events(world, "view_item_list")
         if any(
-            _list_id(e, it) == "search_results" for it in (e.get("ecommerce") or {}).get("items") or []
+            _list_id(e, it) == "search_results"
+            for it in (e.get("ecommerce") or {}).get("items") or []
         )
     ]
     assert len(batched) == 1, f"expected one batched impression, got {len(batched)}"
     items = batched[0]["ecommerce"]["items"]
     assert len(items) == _search(world).result_count(), "batched impression != rendered results"
-    assert [it["index"] for it in items] == list(range(1, len(items) + 1)), "items not in grid order 1..N"
+    assert [it["index"] for it in items] == list(
+        range(1, len(items) + 1)
+    ), "items not in grid order 1..N"
     assert all(_list_id(batched[0], it) == "search_results" for it in items)
     term = batched[0].get("search_term") or (batched[0].get("ecommerce") or {}).get("search_term")
     assert term == keyword, f"search_term {term!r} != {keyword!r}"

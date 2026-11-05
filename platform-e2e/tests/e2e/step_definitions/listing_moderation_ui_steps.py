@@ -21,6 +21,7 @@ from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from src.models import User
 from src.pages.admin_moderation_page import (
     FORBIDDEN_TITLE,
@@ -176,9 +177,9 @@ def seller_clean(world: World) -> None:
     x["listing_title"] = f"Clean laptop stand modui{uuid.uuid4().hex[:10]}"
     x["listing_id"] = _create(world, x["seller"]["token"], x["listing_title"])
     code, body = _status(None, x["listing_id"])
-    assert code == 200 and body["listing"]["status"] == "LISTING_STATUS_PUBLISHED", (
-        f"setup: clean listing not published for anonymous: {code} {body}"
-    )
+    assert (
+        code == 200 and body["listing"]["status"] == "LISTING_STATUS_PUBLISHED"
+    ), f"setup: clean listing not published for anonymous: {code} {body}"
 
 
 @given("a freshly registered moderation buyer")
@@ -231,7 +232,9 @@ def admin_rejected(world: World, reason: str) -> None:
     assert resp.status_code == 200, f"setup ModerateListing {resp.status_code}: {resp.text}"
 
 
-@given(parsers.parse('the buyer has reported the listing through the gateway with the note "{note}"'))
+@given(
+    parsers.parse('the buyer has reported the listing through the gateway with the note "{note}"')
+)
 def buyer_reported(world: World, note: str) -> None:
     x = _x(world)
     buyer = x["buyer"]
@@ -256,11 +259,11 @@ def audit_up(world: World) -> None:
 @when("the seller opens the seller center")
 def open_seller_center(world: World) -> None:
     _ensure_seller(world)
-    world.page.goto(app_url(world.settings, "/seller"), wait_until="domcontentloaded")
+    goto_streamed(world.page, app_url(world.settings, "/seller"))
 
 
 def _open_edit(world: World, listing_id: str) -> None:
-    world.page.goto(app_url(world.settings, f"/seller/{listing_id}/edit"), wait_until="domcontentloaded")
+    goto_streamed(world.page, app_url(world.settings, f"/seller/{listing_id}/edit"))
 
 
 @when("the seller opens the edit page of the flagged listing")
@@ -291,7 +294,9 @@ def seller_saves_edit(world: World) -> None:
 # ── Whens: report from the PDP ───────────────────────────────────────────
 @when("the visitor opens the reported listing page")
 def open_reported_page(world: World) -> None:
-    world.page.goto(f"{_base(world)}/listing/{_x(world)['listing_id']}", wait_until="domcontentloaded")
+    world.page.goto(
+        f"{_base(world)}/listing/{_x(world)['listing_id']}", wait_until="domcontentloaded"
+    )
 
 
 @when(parsers.parse('the visitor clicks "{name}"'))
@@ -349,12 +354,9 @@ def follow_link(world: World, name: str) -> None:
     link.click()
 
 
-@when(parsers.parse('the buyer follows the footer link "{name}"'))
-def follow_footer_link(world: World, name: str) -> None:
-    world.page.goto(f"{_base(world)}/", wait_until="domcontentloaded")
-    link = world.page.get_by_role("contentinfo").get_by_role("link", name=name).first
-    expect(link).to_be_visible(timeout=timeouts.NAVIGATION)
-    link.click()
+@when("the buyer opens the cases inbox link on the admin app")
+def buyer_opens_cases(world: World) -> None:
+    goto_streamed(world.page, f"{_admin_base(world)}{ADMIN_ROUTE}")
 
 
 @when(parsers.parse('the admin presses "{name}" on the flagged listing'))
@@ -502,9 +504,9 @@ def _anon_page(world: World, listing_id: str, title: str) -> None:
 
 def _assert_not_found(listing_id: str) -> None:
     code, body = _status(None, listing_id)
-    assert code == 404 and body.get("code") == "not_found", (
-        f"listing visible to an anonymous reader: {code} {body}"
-    )
+    assert (
+        code == 404 and body.get("code") == "not_found"
+    ), f"listing visible to an anonymous reader: {code} {body}"
 
 
 @then("an anonymous reader gets not_found for the flagged listing")
@@ -647,7 +649,10 @@ def still_pending(world: World) -> None:
 
 @then(parsers.parse('the browser is on "{path}"'))
 def browser_on(world: World, path: str) -> None:
-    world.page.wait_for_url(re.compile(re.escape(f"{_host(world, path)}{path}") + r"(\?.*)?$"), timeout=timeouts.NAVIGATION)
+    world.page.wait_for_url(
+        re.compile(re.escape(f"{_host(world, path)}{path}") + r"(\?.*)?$"),
+        timeout=timeouts.NAVIGATION,
+    )
 
 
 @then(parsers.parse('the "{name}" tab is selected'))
@@ -672,4 +677,3 @@ def report_moved(world: World, filt: str) -> None:
     assert page.find_row(x["listing_id"]) is None, "report is still under Đang mở"
     stored = rs.reports_of(_admin_actor(world), x["listing_id"])
     assert [r["status"] for r in stored] == [f"REPORT_STATUS_{status}"], stored
-
