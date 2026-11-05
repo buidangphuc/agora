@@ -180,6 +180,11 @@ Feature: Product detail page - anatomy, real data, gallery, purchase, reviews, Q
     When the visitor requests the unknown listing "does-not-exist"
     Then the response status is 404 and the Result offers "Về trang chủ" and "Tìm sản phẩm khác"
 
+  Scenario: The page streams to the end whatever the description length
+    Given one seller's published listings with descriptions of 1 to 40 characters
+    When a visitor requests the product page of each of them
+    Then every response completes with the whole document, including the Q&A section
+
   Scenario: The loading skeleton matches the final layout
     Given a published listing with stock 12 and a buyer on its page at 1280px
     When the buyer loads the listing over a throttled network

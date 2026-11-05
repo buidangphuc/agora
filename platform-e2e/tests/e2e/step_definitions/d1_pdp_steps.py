@@ -12,6 +12,7 @@ import re
 import time
 import uuid
 
+import httpx
 from playwright.sync_api import Locator, expect
 from pytest_bdd import given, parsers, then, when
 
@@ -999,3 +1000,51 @@ def similar_beacons(world: World) -> None:
         clicks,
         [b for b in beacons if b.get("type") != "impression"],
     )
+
+
+@given("one seller's published listings with descriptions of 1 to 40 characters")
+def listings_description_sweep(world: World) -> None:
+    token = AuthService().register(
+        fake.unique_username("pdp_sweep"), SETTINGS.seed_password, "seller"
+    )
+    svc = ListingService(token=token)
+    _x(world)["pdp_sweep"] = {
+        length: svc.create_listing(
+            Listing(
+                title="[E2E][PDP] stream sweep",
+                category_id="cat-electronics",
+                price=100_000,
+                stock=3,
+                status="published",
+                description="x" * length,
+            )
+        )
+        for length in range(1, 41)
+    }
+
+
+@when("a visitor requests the product page of each of them")
+def request_sweep_pages(world: World) -> None:
+    results: dict[int, str] = {}
+    with httpx.Client(timeout=30.0) as client:
+        for length, listing_id in _x(world)["pdp_sweep"].items():
+            try:
+                resp = client.get(f"{BASE}/listing/{listing_id}")
+                results[length] = (
+                    resp.text if resp.status_code == 200 else f"status {resp.status_code}"
+                )
+            except httpx.HTTPError as exc:
+                results[length] = f"stream cut: {type(exc).__name__}"
+    _x(world)["pdp_sweep_html"] = results
+
+
+@then("every response completes with the whole document, including the Q&A section")
+def sweep_pages_complete(world: World) -> None:
+    broken = {
+        length: body
+        if body.startswith(("status ", "stream cut"))
+        else f"{len(body)} bytes, incomplete"
+        for length, body in _x(world)["pdp_sweep_html"].items()
+        if not (body.rstrip().endswith("</html>") and 'id="qa"' in body)
+    }
+    assert not broken, broken
