@@ -30,9 +30,12 @@ func TestModuleRequiresSDKTag(t *testing.T) {
 		t.Fatalf("read go.mod: %v", err)
 	}
 
-	requireRe := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+v1\.0\.3\s*(?://.*)?$`)
-	if !requireRe.Match(raw) {
-		t.Errorf("go.mod does not require %s v1.0.3", sdkModule)
+	requireRe := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+(\S+)`)
+	matches := requireRe.FindAllSubmatch(raw, -1)
+	if len(matches) != 1 {
+		t.Errorf("go.mod has %d requires of %s, want exactly 1", len(matches), sdkModule)
+	} else if got := string(matches[0][1]); !regexp.MustCompile(`^v\d+\.\d+\.\d+$`).MatchString(got) {
+		t.Errorf("go.mod requires %s %s, want a tagged release vX.Y.Z", sdkModule, got)
 	}
 	if n := len(regexp.MustCompile(`(?m)^\s*replace\b`).FindAll(raw, -1)); n != 0 {
 		t.Errorf("go.mod has %d replace directives, want 0", n)

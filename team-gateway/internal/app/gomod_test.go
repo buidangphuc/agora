@@ -28,12 +28,18 @@ func TestGoModRequiresSDKTagWithoutReplace(t *testing.T) {
 	}
 	mod := string(raw)
 
-	require := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+v1\.0\.3(?:\s|$)`)
-	if !require.MatchString(mod) {
-		t.Errorf("go.mod must require %s v1.0.3", sdkModule)
+	require := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+(\S+)`)
+	matches := require.FindAllStringSubmatch(mod, -1)
+	if len(matches) != 1 {
+		t.Errorf("go.mod has %d requires of %s, want exactly 1", len(matches), sdkModule)
+	} else if !regexp.MustCompile(`^v\d+\.\d+\.\d+$`).MatchString(matches[0][1]) {
+		t.Errorf("go.mod requires %s %s, want a tagged release vX.Y.Z", sdkModule, matches[0][1])
 	}
 	if n := len(regexp.MustCompile(`(?m)^\s*replace\b`).FindAllString(mod, -1)); n != 0 {
 		t.Errorf("go.mod has %d replace directives, want 0", n)
+	}
+	if !regexp.MustCompile(`(?m)^\s*tool\s+github\.com/golangci/golangci-lint/v2/cmd/golangci-lint\s*$`).MatchString(mod) {
+		t.Errorf("go.mod does not pin golangci-lint with a tool directive")
 	}
 	if _, err := os.Stat(filepath.Join(root, "third_party")); err == nil {
 		t.Errorf("team-gateway/third_party must not exist")

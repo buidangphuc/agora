@@ -10,27 +10,35 @@ import (
 )
 
 const (
-	sdkModule  = "github.com/buidangphuc/agora/platform-core/packages/go-sdk"
-	sdkVersion = "v1.0.2"
+	sdkModule = "github.com/buidangphuc/agora/platform-core/packages/go-sdk"
+	lintTool  = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 )
+
+var sdkTagRe = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 
 func checkModule(gomod string) error {
 	requireRe := regexp.MustCompile(`^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+(\S+)`)
-	found := false
+	requires, hasTool := 0, false
 	for _, line := range strings.Split(gomod, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "replace ") || trimmed == "replace (" {
 			return fmt.Errorf("replace directive not allowed: %q", trimmed)
 		}
 		if m := requireRe.FindStringSubmatch(line); m != nil {
-			if m[1] != sdkVersion {
-				return fmt.Errorf("go-sdk must be %s: %q", sdkVersion, trimmed)
+			if !sdkTagRe.MatchString(m[1]) {
+				return fmt.Errorf("go-sdk must be a tagged release vX.Y.Z: %q", trimmed)
 			}
-			found = true
+			requires++
+		}
+		if trimmed == "tool "+lintTool || trimmed == lintTool {
+			hasTool = true
 		}
 	}
-	if !found {
-		return fmt.Errorf("go.mod does not require %s %s", sdkModule, sdkVersion)
+	if requires != 1 {
+		return fmt.Errorf("go.mod has %d requires of %s, want exactly 1", requires, sdkModule)
+	}
+	if !hasTool {
+		return fmt.Errorf("go.mod has no tool directive for %s", lintTool)
 	}
 	return nil
 }
@@ -56,16 +64,18 @@ func TestModuleRequiresSDKTagWithoutReplace(t *testing.T) {
 
 func TestModuleCheckRejectsReplaceAndWrongVersion(t *testing.T) {
 	// scenario: A replace directive or a copied shared file fails the layout checks
-	good := "module x\n\nrequire " + sdkModule + " " + sdkVersion + "\n"
+	good := "module x\n\nrequire " + sdkModule + " v1.0.3\n\ntool " + lintTool + "\n"
 	if err := checkModule(good); err != nil {
 		t.Fatalf("valid go.mod rejected: %v", err)
 	}
 	cases := map[string]string{
-		"replace":       good + "\nreplace " + sdkModule + " => ../x\n",
-		"replace block": good + "\nreplace (\n\t" + sdkModule + " => ../x\n)\n",
-		"wrong version": "module x\n\nrequire " + sdkModule + " v1.0.1\n",
-		"block version": "module x\n\nrequire (\n\t" + sdkModule + " v0.9.0\n)\n",
-		"missing":       "module x\n",
+		"replace":        good + "\nreplace " + sdkModule + " => ../x\n",
+		"replace block":  good + "\nreplace (\n\t" + sdkModule + " => ../x\n)\n",
+		"pseudo-version": "module x\n\nrequire " + sdkModule + " v1.0.4-0.20261105000000-abcdef123456\n\ntool " + lintTool + "\n",
+		"pre-release":    "module x\n\nrequire (\n\t" + sdkModule + " v1.0.4-rc.1\n)\n\ntool " + lintTool + "\n",
+		"two requires":   good + "\nrequire " + sdkModule + " v1.0.2\n",
+		"no lint tool":   "module x\n\nrequire " + sdkModule + " v1.0.3\n",
+		"missing":        "module x\n",
 	}
 	for name, in := range cases {
 		if err := checkModule(in); err == nil {

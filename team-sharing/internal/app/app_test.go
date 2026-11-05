@@ -28,6 +28,7 @@ import (
 
 	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 
@@ -457,14 +458,17 @@ func TestCallLogsCarryNoLinkData(t *testing.T) {
 	}
 	found := false
 	for _, m := range named {
-		if m["principal_id"] == "user-1" {
+		if m["principal_fp"] == logx.PrincipalFP("user-1") {
 			found = true
+		}
+		if _, ok := m["principal_id"]; ok {
+			t.Errorf("CreateShareLink record carries a raw principal_id: %v", m)
 		}
 	}
 	if !found {
-		t.Errorf("no CreateShareLink record carries principal_id user-1: %v", named)
+		t.Errorf("no CreateShareLink record carries the principal_fp of user-1: %v", named)
 	}
-	for _, secret := range []string{"listing-8f3a9c", "Secret title", res.GetShortCode()} {
+	for _, secret := range []string{"user-1", "listing-8f3a9c", "Secret title", res.GetShortCode()} {
 		if secret != "" && strings.Contains(raw, secret) {
 			t.Errorf("log output contains %q", secret)
 		}
@@ -496,8 +500,10 @@ func TestAnonymousCallIsLoggedAndServed(t *testing.T) {
 		t.Fatalf("no log record names ResolveShareLink; output:\n%s", raw)
 	}
 	for _, m := range named {
-		if id, ok := m["principal_id"]; ok && id != "" {
-			t.Errorf("anonymous call logged with principal_id %v: %v", id, m)
+		for _, k := range []string{"principal_id", "principal_fp"} {
+			if id, ok := m[k]; ok && id != "" {
+				t.Errorf("anonymous call logged with %s %v: %v", k, id, m)
+			}
 		}
 	}
 	b, _ := json.Marshal(named)

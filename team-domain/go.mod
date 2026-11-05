@@ -24,7 +24,7 @@ require (
 )
 
 require (
-	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2
+	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.3
 	go.opentelemetry.io/proto/otlp v1.11.0
 	golang.org/x/text v0.42.0
 )

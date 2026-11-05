@@ -13,9 +13,8 @@ import (
 )
 
 const (
-	sdkModule  = "github.com/buidangphuc/agora/platform-core/packages/go-sdk"
-	sdkVersion = "v1.0.2"
-	lintTool   = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
+	sdkModule = "github.com/buidangphuc/agora/platform-core/packages/go-sdk"
+	lintTool  = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 )
 
 func readService(t *testing.T, rel string) string {
@@ -82,8 +81,8 @@ func TestGoModRequiresTaggedSDK(t *testing.T) {
 		}
 		if m := requireRe.FindStringSubmatch(line); m != nil {
 			requires++
-			if m[1] != sdkVersion {
-				t.Errorf("go-sdk must be %s, got %q", sdkVersion, trim)
+			if !regexp.MustCompile(`^v\d+\.\d+\.\d+$`).MatchString(m[1]) {
+				t.Errorf("go-sdk must be a tagged release vX.Y.Z, got %q", trim)
 			}
 		}
 		if strings.HasPrefix(trim, "tool "+lintTool) || trim == lintTool {

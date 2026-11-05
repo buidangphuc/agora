@@ -3,7 +3,7 @@ module github.com/buidangphuc/team-engagement
 go 1.26.0
 
 require (
-	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2
+	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.3
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/twmb/franz-go v1.22.1

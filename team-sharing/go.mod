@@ -3,7 +3,7 @@ module github.com/buidangphuc/team-sharing
 go 1.26.0
 
 require (
-	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2
+	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.3
 	github.com/jackc/pgx/v5 v5.11.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
@@ -241,6 +241,7 @@ require (
 	github.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect
 	github.com/twmb/franz-go v1.22.1 // indirect
 	github.com/twmb/franz-go/pkg/kmsg v1.14.0 // indirect
+	github.com/twmb/franz-go/plugin/kotel v1.7.1 // indirect
 	github.com/ultraware/funlen v0.2.0 // indirect
 	github.com/ultraware/whitespace v0.2.0 // indirect
 	github.com/uudashr/gocognit v1.2.1 // indirect
