@@ -179,5 +179,29 @@ echo "$OUT" | sed 's/^/    /'; sed 's/^/    tmpl| /' "$T/l-template.log"
   ! grep -qE 'remote: buf.build/(protocolbuffers|grpc|connectrpc)/go' "$T/l-template.log" &&
   ok "(l) remote plugins rewritten to local" || bad "(l) expected local plugins in template, got $RC"
 
+# (m) contract-only impl commits (platform-core/packages/proto/** only) may precede the first e2e commit
+new_repo "$T/m"
+cp "$FX/calc_new_test.go" calc_test.go; commit "test first"
+mkdir -p platform-core/packages/proto/platform/calc/v1
+printf 'syntax = "proto3";\npackage platform.calc.v1;\n' > platform-core/packages/proto/platform/calc/v1/calc.proto
+commit "contract"
+mkdir -p platform-e2e/features; cp "$FX/mul.feature" platform-e2e/features/mul.feature; commit "e2e"
+cp "$FX/calc_impl.go" calc.go; commit "impl"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 0 ] && echo "$OUT" | grep -q "first-e2e=#3" && echo "$OUT" | grep -q "first-impl=#4" &&
+  ok "(m) contract-only commit exempt from e2e order" || bad "(m) expected exit 0 with first-impl=#4, got $RC"
+
+# (n) a commit mixing proto and non-contract impl before the first e2e commit is still caught
+new_repo "$T/n"
+cp "$FX/calc_new_test.go" calc_test.go; commit "test first"
+mkdir -p platform-core/packages/proto/platform/calc/v1
+printf 'syntax = "proto3";\npackage platform.calc.v1;\n' > platform-core/packages/proto/platform/calc/v1/calc.proto
+cp "$FX/calc_impl.go" calc.go; commit "contract and impl"
+mkdir -p platform-e2e/features; cp "$FX/mul.feature" platform-e2e/features/mul.feature; commit "e2e"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 1 ] && echo "$OUT" | grep -q "not after first e2e" && ok "(n) mixed contract+impl commit still caught" || bad "(n) expected exit 1 got $RC"
+
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS

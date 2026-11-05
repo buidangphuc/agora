@@ -5,8 +5,8 @@ import { FloatingChatBubble } from "@/components/ui/FloatingChatBubble";
 import { Link } from "@/components/ui/Link";
 import { logoutAction } from "@/features/auth/actions";
 import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
+import { SellerChannelLink } from "@/features/handoff/SellerChannelLink";
 import { SearchBar } from "@/features/search/SearchBar";
-import { sellerEntryUrl } from "@/lib/apps";
 import { getCart } from "@/lib/gateway/cart";
 import { getPrincipal } from "@/lib/gateway/session";
 
@@ -104,12 +104,9 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4">
             {/* Left Side Links */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-text-inverse/90">
-              <a
-                href={sellerEntryUrl()}
-                className="hover:text-text-inverse transition font-normal"
-              >
+              <SellerChannelLink className="hover:text-text-inverse transition font-normal">
                 Kênh Người Bán
-              </a>
+              </SellerChannelLink>
               <span className="text-text-inverse/30">|</span>
               <NextLink
                 href="/assistant"
@@ -357,9 +354,9 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 </Link>
               </li>
               <li>
-                <Link href={sellerEntryUrl()} variant="subtle">
+                <SellerChannelLink className="text-text-secondary transition hover:text-text-primary">
                   Kênh Người Bán & Quản Lý Kho
-                </Link>
+                </SellerChannelLink>
               </li>
               <li>
                 <Link href="/vouchers" variant="subtle">

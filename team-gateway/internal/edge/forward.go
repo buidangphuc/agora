@@ -15,16 +15,20 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/idempotency"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/resilience"
 	"github.com/buidangphuc/team-gateway/internal/token"
 )
+
+const mdPrincipalSessionID = "x-principal-sid"
 
 type ctxKey int
 
@@ -47,13 +51,14 @@ type resolvedPrincipal struct {
 // Edge holds the request-scoped machinery: auth resolution, upstream call
 // timeout + retry, and the rate limiter.
 type Edge struct {
-	verifier     *token.Verifier
-	revocations  SessionRevocations
-	trusted      *TrustedProxies
-	publicScopes []string
-	callTimeout  time.Duration
-	retryMax     int
-	limiter      *rateLimiter
+	fingerprinter *kafkax.Fingerprinter
+	verifier      *token.Verifier
+	revocations   SessionRevocations
+	trusted       *TrustedProxies
+	publicScopes  []string
+	callTimeout   time.Duration
+	retryMax      int
+	limiter       *rateLimiter
 	// trackLimiter is the collector's own bucket (nil = unlimited) so a beacon
 	// burst never drains the caller's RPC bucket.
 	trackLimiter   *rateLimiter
@@ -96,6 +101,11 @@ func (e *Edge) WithStreamMaxBytes(n int) *Edge {
 }
 
 // WithReflection mounts gRPC reflection (off by default).
+func (e *Edge) WithFingerprinter(f *kafkax.Fingerprinter) *Edge {
+	e.fingerprinter = f
+	return e
+}
+
 func (e *Edge) WithReflection(on bool) *Edge {
 	e.reflection = on
 	return e
@@ -189,6 +199,14 @@ func (e *Edge) resolve(header http.Header) (resolvedPrincipal, error) {
 // outgoing builds the outbound gRPC context carrying the resolved Principal +
 // request id as trusted metadata.
 func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context {
+	return e.outgoingMD(ctx, header, false)
+}
+
+func (e *Edge) outgoingWithSID(ctx context.Context, header http.Header) context.Context {
+	return e.outgoingMD(ctx, header, true)
+}
+
+func (e *Edge) outgoingMD(ctx context.Context, header http.Header, withSID bool) context.Context {
 	p, ok := principalFrom(ctx)
 	if !ok {
 		// Reached only when the auth interceptor did not run (direct forwarder
@@ -206,6 +224,9 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 	md.Set(auth.MDPrincipalID, p.id)
 	md.Set(auth.MDPrincipalType, p.ptype)
 	md.Set(auth.MDPrincipalScopes, strings.Join(p.scopes, ","))
+	if withSID && p.sid != "" {
+		md.Set(mdPrincipalSessionID, p.sid)
+	}
 	md.Set(reqctx.MetadataRequestID, rid)
 	// Client context is built here from edge-observed values only, never copied
 	// from inbound headers, so a client-supplied x-client-* cannot pass through.
@@ -364,14 +385,18 @@ func sanitized(code connect.Code, msg string, original error) error {
 // logUpstreamError records the original (pre-sanitisation) upstream error with
 // the request id so operators can correlate the generic client message. It is a
 // no-op for errors that were not sanitised.
-func logUpstreamError(logger *slog.Logger, procedure, rid string, err error) {
+func logUpstreamError(logger *slog.Logger, procedure, rid, rawID string, err error) {
 	var ue *upstreamError
 	if errors.As(err, &ue) {
+		original := ue.Original().Error()
+		if rawID != "" {
+			original = strings.ReplaceAll(original, rawID, "[redacted]")
+		}
 		logger.Error("edge.upstream_error",
 			"method", procedure,
 			"request_id", rid,
 			"code", connect.CodeOf(err).String(),
-			"original", ue.Original().Error(),
+			"original", original,
 		)
 	}
 }
@@ -403,7 +428,14 @@ func toConnectErr(err error) error {
 	case codes.Unauthenticated:
 		code = connect.CodeUnauthenticated
 	case codes.Unavailable:
-		return sanitized(connect.CodeUnavailable, msgServiceUnavailable, err)
+		ce := sanitized(connect.CodeUnavailable, msgServiceUnavailable, err)
+		for _, d := range st.Details() {
+			if info, ok := d.(*errdetails.ErrorInfo); ok {
+				addErrorInfo(ce, info.GetDomain(), info.GetReason())
+				break
+			}
+		}
+		return ce
 	case codes.DeadlineExceeded:
 		// raised by the gateway's own gRPC client while it waits for an upstream
 		// (e.g. a stopped service), so the text is resolver/LB internals
@@ -426,4 +458,14 @@ func toConnectErr(err error) error {
 		return sanitized(connect.CodeInternal, msgInternalError, err)
 	}
 	return connect.NewError(code, errors.New(st.Message()))
+}
+
+func addErrorInfo(err error, domain, reason string) {
+	var ce *connect.Error
+	if !errors.As(err, &ce) {
+		return
+	}
+	if d, e := connect.NewErrorDetail(&errdetails.ErrorInfo{Domain: domain, Reason: reason}); e == nil {
+		ce.AddDetail(d)
+	}
 }

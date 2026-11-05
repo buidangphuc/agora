@@ -130,6 +130,33 @@ func (r Retention) Validate() error {
 	return errors.Join(errs...)
 }
 
+type Handoff struct {
+	TTLOverride time.Duration `env:"HANDOFF_TTL_OVERRIDE"`
+}
+
+func (h Handoff) ResolveFor(rt sdkconfig.Runtime) error {
+	if h.TTLOverride < 0 {
+		return errors.New("HANDOFF_TTL_OVERRIDE must not be negative")
+	}
+	if h.TTLOverride != 0 && rt.Env != "test" {
+		return fmt.Errorf("HANDOFF_TTL_OVERRIDE is only accepted when ENV is %q, got %q", "test", rt.Env)
+	}
+	return nil
+}
+
+type SellerTerms struct {
+	Versions []string `env:"SELLER_TERMS_VERSIONS"`
+}
+
+func (s SellerTerms) Validate() error {
+	for _, v := range s.Versions {
+		if v != "" {
+			return nil
+		}
+	}
+	return errors.New("SELLER_TERMS_VERSIONS is required (comma-separated accepted terms versions)")
+}
+
 type Settings struct {
 	sdkconfig.Runtime
 	sdkconfig.GRPC
@@ -145,6 +172,8 @@ type Settings struct {
 	PasswordReset PasswordReset
 	Upstream      Upstream
 	Retention     Retention
+	Handoff       Handoff
+	SellerTerms   SellerTerms
 }
 
 func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

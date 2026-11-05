@@ -15,9 +15,10 @@ import (
 
 // Metadata keys the gateway uses to forward the resolved principal.
 const (
-	MDPrincipalID     = "x-principal-id"
-	MDPrincipalType   = "x-principal-type"
-	MDPrincipalScopes = "x-principal-scopes"
+	MDPrincipalID        = "x-principal-id"
+	MDPrincipalType      = "x-principal-type"
+	MDPrincipalScopes    = "x-principal-scopes"
+	MDPrincipalSessionID = "x-principal-sid"
 )
 
 // PrincipalType is the kind of caller, carried in x-principal-type and the JWT
@@ -35,9 +36,10 @@ const anonymous = TypeAnonymous
 
 // Principal is the caller identity forwarded by the gateway.
 type Principal struct {
-	ID     string
-	Type   PrincipalType
-	Scopes []string
+	ID        string
+	Type      PrincipalType
+	Scopes    []string
+	SessionID string
 }
 
 // Anonymous reports whether p is the gateway's anonymous principal.
@@ -163,9 +165,10 @@ func withMetadataPrincipal(ctx context.Context) context.Context {
 		return ctx
 	}
 	return WithPrincipal(ctx, Principal{
-		ID:     id,
-		Type:   PrincipalType(first(md, MDPrincipalType)),
-		Scopes: splitScopes(first(md, MDPrincipalScopes)),
+		ID:        id,
+		Type:      PrincipalType(first(md, MDPrincipalType)),
+		Scopes:    splitScopes(first(md, MDPrincipalScopes)),
+		SessionID: first(md, MDPrincipalSessionID),
 	})
 }
 

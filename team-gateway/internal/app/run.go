@@ -31,7 +31,7 @@ const (
 )
 
 func Run(ctx context.Context, s config.Settings) error {
-	logger := logx.New(s.Runtime, service)
+	logger := slog.New(edge.NewPrincipalScrubHandler(logx.New(s.Runtime, service).Handler()))
 	slog.SetDefault(logger)
 
 	var stack lifecycle.Stack
@@ -48,6 +48,11 @@ func Run(ctx context.Context, s config.Settings) error {
 		return fail(fmt.Errorf("mock data: %w", err))
 	}
 	mocks.LogActive(logger)
+
+	fingerprinter, err := kafkax.NewFingerprinter(s.LogKeyFP.Secret)
+	if err != nil {
+		return fail(fmt.Errorf("log key fingerprinter: %w", err))
+	}
 
 	health, err := healthx.New(healthx.DefaultInterval, logger)
 	if err != nil {
@@ -103,7 +108,8 @@ func Run(ctx context.Context, s config.Settings) error {
 		WithAICallTimeout(time.Duration(s.Edge.AICallTimeoutSecs * float64(time.Second))).
 		WithStreamMaxBytes(s.Edge.StreamMaxRequestBytes).
 		WithStreamRevocationCheck(time.Duration(s.Edge.StreamRevocationCheckSecs * float64(time.Second))).
-		WithReflection(s.ReflectionEnabled)
+		WithReflection(s.ReflectionEnabled).
+		WithFingerprinter(fingerprinter)
 
 	trusted, err := edge.ParseTrustedProxies(s.Edge.TrustedProxies, nil)
 	if err != nil {

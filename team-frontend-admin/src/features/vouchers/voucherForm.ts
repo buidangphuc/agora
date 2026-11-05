@@ -1,4 +1,7 @@
-import type { CreatePlatformVoucherInput } from "@/lib/gateway/vouchers";
+import type {
+  CreatePlatformVoucherInput,
+  UpdateVoucherInput,
+} from "@/lib/gateway/vouchers";
 
 export interface VoucherFormValues {
   code: string;
@@ -130,4 +133,60 @@ export function validateVoucherForm(
       endsAt,
     },
   };
+}
+
+export interface VoucherEditValues {
+  endsAt: string;
+  quota: string;
+}
+
+export interface VoucherEditCurrent {
+  quota: number;
+  used: number;
+  startsAt: string;
+  endsAt: string;
+}
+
+export type VoucherEditErrors = Partial<
+  Record<keyof VoucherEditValues, string>
+>;
+
+export type VoucherEditValidation =
+  | { ok: true; input: UpdateVoucherInput }
+  | { ok: false; errors: VoucherEditErrors };
+
+export function validateEditForm(
+  values: VoucherEditValues,
+  current: VoucherEditCurrent,
+  now: Date,
+): VoucherEditValidation {
+  const errors: VoucherEditErrors = {};
+  const input: UpdateVoucherInput = {};
+
+  const endsAt = parseVnDateTime(values.endsAt);
+  const startsMs = new Date(current.startsAt).getTime();
+  if (!endsAt) {
+    errors.endsAt = "Chọn thời điểm kết thúc.";
+  } else if (endsAt.getTime() <= now.getTime()) {
+    errors.endsAt = "Thời điểm kết thúc phải ở tương lai.";
+  } else if (!Number.isNaN(startsMs) && endsAt.getTime() <= startsMs) {
+    errors.endsAt = "Thời điểm kết thúc phải sau thời điểm bắt đầu.";
+  } else if (endsAt.getTime() !== new Date(current.endsAt).getTime()) {
+    input.endsAt = endsAt;
+  }
+
+  if (current.quota > 0) {
+    const quota = parseAmount(values.quota);
+    const floor = Math.max(current.quota, current.used);
+    if (quota === null || quota < 1) {
+      errors.quota = "Số lượt dùng là số nguyên dương.";
+    } else if (quota < floor) {
+      errors.quota = `Số lượt dùng không được thấp hơn ${floor}.`;
+    } else if (quota !== current.quota) {
+      input.quota = quota;
+    }
+  }
+
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, input };
 }

@@ -23,6 +23,10 @@ not check scopes except in `GetPublicProfiles` (`identity.read`) and `AccountAdm
 | `AuthService.RequestPasswordReset` | No principal check. Returns `expires_at` (15 min TTL, SHA-256 hash stored); the raw reset token is returned in the response only when `PASSWORD_RESET_EXPOSE_TOKEN=true` (dev/e2e; startup refuses it when `ENV=prod`). |
 | `AuthService.ResetPassword` | No principal check. Token must exist, be unused and unexpired. |
 | `AuthService.RefreshSession` | No principal check; the refresh token is the credential. Rotates the refresh token (10 s grace replay, reuse revokes the session). `PERMISSION_DENIED` for a `SUSPENDED` or `BANNED` account. |
+| `AuthService.CreateHandoffCode` | `RequireUser` plus the caller's session id from `x-principal-sid` (`UNAUTHENTICATED` without one). Target app `HANDOFF_APP_BUYER` or `HANDOFF_APP_SELLER` (unspecified or unknown is `INVALID_ARGUMENT`); the account must be `ACTIVE` (`PERMISSION_DENIED` otherwise). Mints a 43-character base64url code, stores only its SHA-256 hash bound to the user, the source session and the target app, TTL 60 s, at most 10 live codes per user (`RESOURCE_EXHAUSTED` above). Writes an `auth.handoff_mint` audit event in the same transaction (fails closed) (`internal/identity/handoff.go:57`). |
+| `AuthService.PeekHandoffCode` | No principal check; the code is the credential. Returns the username and expiry without consuming the code. Any unknown, expired, redeemed or wrong-target code, an inactive account or a revoked source session is the same `UNAUTHENTICATED` (`internal/identity/handoff.go:197`). |
+| `AuthService.RedeemHandoffCode` | No principal check. Consumes the code once (same checks and the same single `UNAUTHENTICATED` as Peek), writes an `auth.handoff_redeem` audit event (fails closed) and issues a new session, token and refresh token for the target app (`internal/identity/handoff.go:161`). |
+| `AuthService.BecomeSeller` | `RequireUser` plus a live, unrevoked session from `x-principal-sid` (`UNAUTHENTICATED` otherwise). `terms_version` must equal the first `SELLER_TERMS_VERSIONS` entry (`INVALID_ARGUMENT` otherwise); a non-`ACTIVE` account is `PERMISSION_DENIED`. Adds the `seller` role, stores `seller_terms_version` and `seller_terms_accepted_at`, writes a `UserRoleGranted` outbox row and, before commit, an `auth.become_seller` audit event (metadata `terms_version`, `result=granted`) in one transaction; when team-audit is down it fails `UNAVAILABLE` with `ErrorInfo{identity.platform, AUDIT_UNAVAILABLE}` and nothing is written. A user who is already a seller gets a token with no change, no event and no audit entry. Returns a re-signed access token on the same session, no refresh token (`internal/identity/become_seller.go:47`). |
 | `AddressService.List/Create/Update/Delete/SetDefault` | `RequirePrincipal`; every query is scoped to the caller's id. |
 | `SessionService.ListSessions`, `ListLoginHistory` | `RequirePrincipal`; scoped to the caller. History page size default 20, max 100, cursor is a numeric offset. |
 | `SessionService.RevokeSession` | `RequirePrincipal`; only the caller's own session (`NOT_FOUND` otherwise). Writes a `SessionRevoked` outbox row in the same transaction. |
@@ -47,7 +51,7 @@ Token claims (`internal/token/jwt.go`): RS256, header `kid`; `sub`, `name`, `typ
 `sid` (session id, omitted if no session), `status` (`restricted` only, omitted otherwise; the seller app reads it), `iat`, `exp` (`JWT_TTL_SECONDS`). `identity.read` is not in
 any role, so no user token can carry it, and nothing in this service mints service tokens.
 
-Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), used by `SetUserStatus`. Vendored contracts only: `platform.common.v1.Principal`,
+Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), used by `SetUserStatus`, `CreateHandoffCode`, `RedeemHandoffCode` and the first `BecomeSeller` grant. Vendored contracts only: `platform.common.v1.Principal`,
 `platform.events.v1.EventEnvelope`, `platform.identity.v1.*`.
 
 ## Events
@@ -56,6 +60,7 @@ Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), use
 |---|---|---|---|
 | Produces | `identity.events` (`IDENTITY_EVENTS_TOPIC`) | `platform.identity.v1.SessionRevoked` in an `EventEnvelope` | user id |
 | Produces | `identity.events` | `platform.identity.v1.UserStatusChanged` in an `EventEnvelope` (on every `SetUserStatus` call) | user id |
+| Produces | `identity.events` | `platform.identity.v1.UserRoleGranted` in an `EventEnvelope` (when `BecomeSeller` adds the `seller` role; `internal/events/publisher.go:97`) | user id |
 | Consumes | none | | |
 
 `RevokeSession` inserts the outbox row in the same transaction as `sessions.revoked = true`. The
@@ -68,7 +73,7 @@ the gateway knows how long to deny that session's token.
 
 ## Data
 
-Database `identity_db`. Migrations in `migrations/` (golang-migrate, up/down pairs):
+Database `identity_db`. Migrations in `internal/store/migrations/` (golang-migrate, up/down pairs):
 
 | Migration | Tables |
 |---|---|
@@ -79,6 +84,9 @@ Database `identity_db`. Migrations in `migrations/` (golang-migrate, up/down pai
 | `0005_identity_outbox_events` | `identity_outbox_events` (claimed with `FOR UPDATE SKIP LOCKED`) |
 | `0006_session_refresh` | adds `sessions.refresh_hash`, `prev_refresh_hash`, `refresh_expires_at`, `rotated_at` |
 | `0007_user_status` | adds `users.status` (`active`, `restricted`, `suspended`, `banned`), `status_reason`, `status_until`, `status_changed_at` |
+| `0008`-`0019` | session `revoked_at` and the outbox `seq` migration and requeue (see deploy order below) |
+| `0020_handoff_codes` | `handoff_codes` (PK = SHA-256 code hash, user id, source session id, target app, expiry, `redeemed_at`) |
+| `0021_seller_terms` | adds `users.seller_terms_version`, `seller_terms_accepted_at` |
 
 Retention: `sessions` and `login_history` rows are purged by a background sweeper once older than
 `SESSION_RETENTION` (default 30d) and `LOGIN_HISTORY_RETENTION` (default 180d), in batches every
@@ -132,8 +140,10 @@ and the session sweeper are always on.
 | `SEED_ADMIN_ENABLED` | `false` | Opt-in first admin |
 | `SEED_ADMIN_USERNAME` | `admin` | |
 | `SEED_ADMIN_PASSWORD` | empty | Required, >= 12 chars, when seeding is enabled |
+| `SELLER_TERMS_VERSIONS` | empty | Required. Comma-separated seller terms versions (`.env.example` and compose set `2026-11-02`); the first entry is current and is the only value `BecomeSeller` accepts, compared byte for byte; older entries are kept for record only. Startup fails when empty |
+| `HANDOFF_TTL_OVERRIDE` | empty | Go duration; accepted only when `ENV=test`, negative is refused (`internal/config/config.go:137`). When set, `internal/app/app.go:135` passes it to `WithHandoffTTL`; unset keeps the 60 s TTL |
 | `PASSWORD_RESET_EXPOSE_TOKEN` | `false` | Return the raw reset token from `RequestPasswordReset`. Dev/e2e only; config load fails when `ENV=prod` |
-| `UPSTREAM_AUDIT_ADDR` | empty | Required. team-audit gRPC address; user-status changes fail closed when it is down |
+| `UPSTREAM_AUDIT_ADDR` | empty | Required. team-audit gRPC address; user-status changes, hand-off mint and redeem and a first seller grant fail closed when it is down |
 | `LOG_KEY_FP_SECRET` | empty | |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | `.env.example` sets `http://localhost:4317` |
@@ -194,8 +204,8 @@ Postgres-backed tests start a throwaway container through the SDK `testkit` and 
 
 ## Spec and verification
 
-`FEATURES.yaml` (121 features: login, register, password reset, addresses, logout, the RS256/JWKS
-set including key rotation, and session revocation/device+IP) maps each feature to its platform-e2e
+`FEATURES.yaml` (301 features: 134 `automated`, 167 `not-testable`; login, register, password reset, addresses, logout, the RS256/JWKS
+set including key rotation, session revocation/device+IP, SSO hand-off and seller onboarding) maps each feature to its platform-e2e
 scenario in `covered_by`. Verify with `make -C platform-e2e features-check`, and for an OpenSpec
 change `make -C platform-e2e spec-check CHANGE=<id>`. Changes go through OpenSpec
 (`openspec/changes/<id>` at the repo root): propose, update `FEATURES.yaml`, add the e2e scenario,
@@ -226,6 +236,7 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
 - Unknown usernames in `RequestPasswordReset` return `NOT_FOUND`, which allows username enumeration; the
   same applies to `Register` conflicts (`ALREADY_EXISTS`).
 - Display name is the username; there is no separate profile field.
+- `go.mod` pins go-sdk `v1.0.3`, which has no tag, through `replace ... => ../platform-core/packages/go-sdk` (`go.mod:297`); a plain `docker build` from this directory cannot resolve it (the compose build context is `./team-identity`).
 
 ## Links
 

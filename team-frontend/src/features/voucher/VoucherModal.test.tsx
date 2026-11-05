@@ -174,3 +174,46 @@ describe("VoucherModal", () => {
     expect(nav.replace).toHaveBeenCalledWith("/checkout?step=payment&addr=a1");
   });
 });
+
+describe("VoucherModal inactive reason", () => {
+  async function applyRefused(reason: string) {
+    const user = setupUser();
+    vi.mocked(previewVoucherAction).mockResolvedValue({
+      valid: false,
+      reason,
+      discountAmount: 0,
+      voucherId: "",
+    });
+    setup();
+    await user.click(screen.getByRole("button", { name: "Chọn hoặc nhập mã" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Nhập mã giảm giá" }),
+      "STOPPED",
+    );
+    await user.click(screen.getByRole("button", { name: "Áp dụng" }));
+  }
+
+  it("V28a: a code refused with reason inactive shows the Vietnamese text in the modal and the toast, never the raw reason", async () => {
+    await applyRefused("inactive");
+    expect(
+      screen.getByText("Mã giảm giá đã ngừng áp dụng."),
+    ).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith("Mã giảm giá đã ngừng áp dụng.");
+    expect(screen.queryByText("inactive")).toBeNull();
+    expect(toast.error).not.toHaveBeenCalledWith("inactive");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(nav.replace).not.toHaveBeenCalled();
+  });
+
+  it("V28b: a reason other than inactive keeps its text", async () => {
+    await applyRefused("Mã đã hết hạn");
+    expect(screen.getByText("Mã đã hết hạn")).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith("Mã đã hết hạn");
+    expect(screen.queryByText("Mã giảm giá đã ngừng áp dụng.")).toBeNull();
+  });
+
+  it("V28b: an empty reason keeps the generic fallback text", async () => {
+    await applyRefused("");
+    expect(screen.getByText("Mã giảm giá không hợp lệ.")).toBeInTheDocument();
+  });
+});

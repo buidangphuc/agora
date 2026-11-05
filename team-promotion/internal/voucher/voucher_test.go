@@ -533,8 +533,11 @@ func TestCreateVoucherInsertFailureAfterAuditIsNotUnavailable(t *testing.T) {
 	if err == nil || status.Code(err) == codes.Unavailable || strings.TrimSpace(err.Error()) == "" {
 		t.Fatalf("duplicate insert: err = %v, want a non-Unavailable error", err)
 	}
-	if n := len(w.got()); n != 2 {
-		t.Fatalf("audit events = %d, want 2 (audit precedes every insert attempt)", n)
+	if !errors.Is(err, store.ErrDuplicateCode) {
+		t.Fatalf("duplicate insert: err = %v, want store.ErrDuplicateCode", err)
+	}
+	if n := len(w.got()); n != 1 {
+		t.Fatalf("audit events = %d, want 1 (the duplicate pre-check refuses before audit)", n)
 	}
 }
 

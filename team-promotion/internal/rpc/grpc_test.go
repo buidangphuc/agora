@@ -67,11 +67,7 @@ func TestFlashSaleServiceEndToEnd(t *testing.T) {
 	fc := startRig(t, rigOpts{}).fc
 	ctx := authCtx(t, "admin-1", "admin")
 
-	created, err := fc.CreateCampaign(ctx, &promotionv1.CreateCampaignRequest{
-		ListingId: "listing-1",
-		SalePrice: 90000,
-		StockCap:  100,
-	})
+	created, err := fc.CreateCampaign(ctx, newCreateReq("l1"))
 	if err != nil {
 		t.Fatalf("CreateCampaign: %v", err)
 	}
@@ -81,8 +77,8 @@ func TestFlashSaleServiceEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFlashSaleStock: %v", err)
 	}
-	if stock.GetRemaining() != 100 || stock.GetStockCap() != 100 {
-		t.Fatalf("stock = %d/%d, want 100/100", stock.GetRemaining(), stock.GetStockCap())
+	if stock.GetRemaining() != 5 || stock.GetStockCap() != 5 {
+		t.Fatalf("stock = %d/%d, want 5/5", stock.GetRemaining(), stock.GetStockCap())
 	}
 }
 
@@ -156,7 +152,7 @@ func TestCheckoutPathAllowedForServicePrincipal(t *testing.T) {
 
 func TestCreateCampaignAuthz(t *testing.T) {
 	fc := startRig(t, rigOpts{}).fc
-	req := &promotionv1.CreateCampaignRequest{ListingId: "l1", SalePrice: 1000, StockCap: 5}
+	req := newCreateReq("l1")
 	for _, tc := range []struct {
 		name string
 		ctx  context.Context
@@ -170,7 +166,7 @@ func TestCreateCampaignAuthz(t *testing.T) {
 	} {
 		r := req
 		if tc.name == "seller foreign listing" {
-			r = &promotionv1.CreateCampaignRequest{ListingId: "l2", SalePrice: 1000, StockCap: 5}
+			r = newCreateReq("l2")
 		}
 		if _, err := fc.CreateCampaign(tc.ctx, r); code(err) != tc.want {
 			t.Errorf("%s: got %v, want %v (err=%v)", tc.name, code(err), tc.want, err)

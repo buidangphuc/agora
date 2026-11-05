@@ -60,7 +60,7 @@ func TestMigrateUpgradesVersionEightDatabase(t *testing.T) {
 		('ev-a', 'User', 'u-1', 'platform.identity.v1.UserStatusChanged', 'x', now() - interval '1 hour'),
 		('ev-m', 'Session', 'u-2', 'platform.identity.v1.SessionRevoked', 'x', now() - interval '30 minutes')`)
 	snap := func(table string) string {
-		return queryString(t, url, `SELECT coalesce(json_agg(t ORDER BY t.id)::text, '') FROM `+table+` t`)
+		return queryString(t, url, `SELECT coalesce(jsonb_agg(to_jsonb(t) - 'seller_terms_version' - 'seller_terms_accepted_at' ORDER BY t.id)::text, '') FROM `+table+` t`)
 	}
 	usersBefore, sessionsBefore := snap("users"), snap("sessions")
 

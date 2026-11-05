@@ -1,0 +1,29 @@
+initiative: p10-backend-gaps
+slices:
+  - id: p10-gaps-contract
+    owner: platform-core
+    depends_on: []
+    provides: [VoucherService.DeactivateVoucher, VoucherService.UpdateVoucher, FlashSaleService.ListCampaigns, FlashSaleService.CancelCampaign, FlashSaleService.UpdateCampaign, AuthService.CreateHandoffCode, AuthService.RedeemHandoffCode, AuthService.PeekHandoffCode, AuthService.BecomeSeller, identity.events/UserRoleGranted]
+  - id: promotion-admin-vouchers
+    owner: team-promotion
+    depends_on: [p10-gaps-contract]
+    uses: [VoucherService.DeactivateVoucher, VoucherService.UpdateVoucher]
+  - id: promotion-admin-campaigns
+    owner: team-promotion
+    depends_on: [p10-gaps-contract]
+    uses: [FlashSaleService.ListCampaigns, FlashSaleService.CancelCampaign, FlashSaleService.UpdateCampaign, ListingService.GetListing]
+  - id: identity-sso-handoff
+    owner: team-identity
+    depends_on: [p10-gaps-contract, gateway-principal-log-fingerprint]
+    uses: [AuthService.CreateHandoffCode, AuthService.RedeemHandoffCode, AuthService.PeekHandoffCode]
+  - id: identity-seller-onboarding
+    owner: team-identity
+    depends_on: [p10-gaps-contract]
+    uses: [AuthService.BecomeSeller, identity.events/UserRoleGranted]
+  - id: gateway-principal-log-fingerprint
+    owner: team-gateway
+    depends_on: []
+  - id: seller-onboarding-ui
+    owner: team-frontend-seller
+    depends_on: [identity-seller-onboarding]
+    uses: [AuthService.BecomeSeller]

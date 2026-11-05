@@ -27,6 +27,7 @@ var errTable = mustTable(
 	grpcx.Rule{Target: store.ErrSessionNotFound, Code: codes.NotFound, Message: "session not found"},
 	grpcx.Rule{Target: identity.ErrStatusPrecondition, Code: codes.FailedPrecondition, Message: "status change not allowed"},
 	grpcx.Rule{Target: identity.ErrInvalidRefreshToken, Code: codes.Unauthenticated, Message: invalidRefreshMessage},
+	grpcx.Rule{Target: store.ErrHandoffCapReached, Code: codes.ResourceExhausted, Message: "too many live handoff codes"},
 	grpcx.Rule{Target: identity.ErrRefreshUnavailable, Code: codes.Unavailable, Message: "service unavailable"},
 )
 

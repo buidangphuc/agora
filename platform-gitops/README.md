@@ -16,9 +16,9 @@ manifests. It is not a deployed service; it is read by ArgoCD in the local kind 
 | `envs/local/values.yaml` | `global.registry` plus the `images:` tag map (one key per image, `local`). CI bumps these. |
 | `envs/services/<svc>.yaml` | Invariant per-service baseline for the 16 `team-*` services. Used by the ApplicationSet only. |
 | `envs/{staging,prod}/` | `values.yaml` (registry + image tags), `services.yaml` (env-wide overlay: probe timing), `services/<svc>.yaml` (per-service overlay). |
-| `platform/` | Raw manifests, no Helm (`recsys`, `featurestore`, `modelserve`, `team-analytics`, `search-indexer`, `finetune`, `mlflow` carry a `kustomization.yaml`: manifests have tagless images, `images[].newTag` is the deployed tag, written by `push-images.sh` next to `envs/local/values.yaml`): `infra` (redpanda, opensearch, minio, valkey, flipt, qdrant), `postgres`, `backup`, `monitoring` (Prometheus), `recsys`, `featurestore`, `modelserve` (router + tei-fake runtimes, local-registry images), `search-indexer`, `team-analytics`, `vault-config`, `finetune`, `mlflow`. |
+| `platform/` | Raw manifests, no Helm (`recsys`, `featurestore`, `modelserve`, `team-analytics`, `search-indexer`, `finetune`, `mlflow` carry a `kustomization.yaml`: manifests have tagless images, `images[].newTag` is the deployed tag, written by `push-images.sh` next to `envs/local/values.yaml`): `infra` (redpanda, opensearch, minio, valkey, flipt, qdrant), `postgres`, `backup`, `monitoring` (Prometheus), `recsys`, `featurestore`, `modelserve` (router + tei-fake runtimes, local-registry images), `search-indexer`, `team-analytics`, `vault-config`, `finetune`, `mlflow`, `ingress-nginx` (controller ConfigMap with the `handoff_redacted` access-log format). |
 | `scripts/check_identity_seed.py` | The only script check shipped in this repo. |
-| `tests/` | pytest manifest checks: `test_ga4_relay_manifests.py`, `test_mlflow_manifests.py`. |
+| `tests/` | pytest manifest checks, among them `test_ga4_relay_manifests.py`, `test_mlflow_manifests.py` and `test_handoff_log_redaction_manifests.py`. |
 | `.claude/skills/scaffold-service/` | Agent skill for adding a service. |
 
 The root app-of-apps (`marketplace-root`, path `argocd/apps`, recursive) is **not in this
@@ -35,7 +35,7 @@ Sync waves: 0 infra, 1 operators (vault, external-secrets, keda, argo-rollouts),
 |---|---|
 | Services (wave 4, chart `charts/service`) | 16 Apps: `team-identity`, `team-domain`, `team-search`, `team-engagement`, `team-order`, `team-payment`, `team-chat`, `team-notification`, `team-referral`, `team-verification`, `team-sharing`, `team-audit`, `team-gateway`, `team-frontend`, `team-ai`, `team-promotion` |
 | Raw-manifest apps (wave 4) | `team-analytics` (`platform/team-analytics`), `search-indexer`, `mlflow` (`platform/mlflow`), `platform-finetune` (`platform/finetune`, scheduled), `featurestore` (CronJob 02:15 UTC: materialize, parity, dataset; PVC `featurestore-data`), `platform-recsys` (CronJob 03:00 UTC, reads that PVC read-only, refuses stale/absent datasets; `platform/recsys/nearline.yaml` adds the `platform-recsys-nearline` Deployment, analytics.events to valkey DB 0). Qdrant (`platform/infra/qdrant.yaml`) holds the ALS vectors team-ai serves |
-| Infra (wave 0) | `infra-shared` (`platform/infra`), `platform-modelserve` (`platform/modelserve`), `infra-postgres` (`platform/postgres`), `metrics-server` 3.12.2 |
+| Infra (wave 0) | `infra-shared` (`platform/infra`), `platform-modelserve` (`platform/modelserve`), `infra-postgres` (`platform/postgres`), `ingress-nginx-config` (`platform/ingress-nginx`, namespace `ingress-nginx`), `metrics-server` 3.12.2 |
 | Wave 2 | `infra-postgres-backup` (`platform/backup`), `prometheus` (`platform/monitoring`), `vault-config` |
 | Operators (wave 1) | `vault` 0.28.1, `external-secrets` 0.10.4, `keda` 2.14.0, `argo-rollouts` 2.37.3 |
 
@@ -129,6 +129,7 @@ See `deploy/README.md`. Flow: `make -C deploy images`, then `release-tag` bumps 
 - Service lists are duplicated by hand in four places: `argocd/apps/`, `appset-services.yaml` (16 `team-*`, incl. frontend), `vault-config.yaml` `SERVICES` (18: 15 `team-*` without frontend, plus `ga4-relay`, `mlflow`, `platform-finetune`), `postgres.yaml` `SERVICES` (13 `team-*`). Vault-only (not in postgres): `team-gateway`, `team-ai`, `ga4-relay`, `mlflow`, `platform-finetune`.
 - The scaffold skill omits `envs/services/` and the ApplicationSet list.
 - `team-frontend-seller` (3001) and `team-frontend-admin` (3002) have a baseline in `envs/services/` and staging/prod overlays (own ingress host, `COOKIE_SECURE: "true"`, checked by `tests/test_frontend_cookie_secure_manifests.py`), but no `argocd/apps/` Application, no entry in `appset-services.yaml` or `appset-staging-kind.yaml`, and no image tag in `envs/*/values.yaml`, so nothing deploys them yet. The admin ingress is not limited to VPN/IP (ADR-0006 open risk).
+- Hand-off code redaction in ingress logs: `envs/services/team-frontend.yaml` and `team-frontend-seller.yaml` carry the `server-snippet` that logs `/auth/handoff` with `code=REDACTED` (ingress `annotations`, rendered by `charts/service/templates/ingress.yaml`), but those baselines feed only the ApplicationSet; the local inline `argocd/apps/team-frontend.yaml` has no such annotation. `platform/ingress-nginx/values.yaml` (controller Helm values with the same `log_format`) is referenced by nothing in this repo; only `configmap.yaml` is applied.
 - `platform-gitops` has no entry in the root `AGENTS.md` repo map, and no helm/kubeconform/ArgoCD diff check is wired.
 
 ## Links

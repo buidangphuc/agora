@@ -13,7 +13,8 @@ Status: compose service `team-frontend-seller`, port `:3001`. Stack: React 19, T
 | `/` | Redirects to `/seller` | none |
 | `/login` | Seller login form (same `LoginForm` and server action as the buyer app). Takes `?next=<path>` (the buyer app's "Kênh Người Bán" link sends `next=/seller`) or the older `?returnUrl=`, both checked by `safeReturnUrl`; a user who already has a seller session with `listing.write` is sent straight to it (default `/seller`) | none |
 | `/sell` | Redirects to `/seller/new` | none |
-| `/seller/*` | Workplace, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `src/app/seller/layout.tsx`: `/login?returnUrl=` when anonymous; without `listing.write` it renders `SellerAccessDenied` in place ("Tài khoản Người Bán đang bị hạn chế" when the token's `status` is `restricted`, otherwise "Cần tài khoản Người Bán"), with a link back to the buyer app and a "Đăng xuất" button; the gateway re-enforces scopes on the data |
+| `GET`/`HEAD`/`POST /auth/handoff` | SSO hand-off landing (`src/app/auth/handoff/route.ts`, `createHandoffHandler` from `@fe-platform/session`): `GET ?code=&next=` peeks the code (`PeekHandoffCode`, target `SELLER`) and renders a confirmation form; `POST` (same-origin only) redeems it (`RedeemHandoffCode`), sets `seller_session`/`seller_refresh` and redirects to `next`. Any failure redirects to `/login?next=`. The middleware adds `no-store`, a `default-src 'none'` CSP and `X-Frame-Options: DENY`; the access log writes `code=REDACTED` (`src/lib/access-log.ts`) | Public; the code is the credential |
+| `/seller/*` | Workplace, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `src/app/seller/layout.tsx`: `/login?returnUrl=` when anonymous; without `listing.write` it renders `SellerAccessDenied` in place ("Tài khoản Người Bán đang bị hạn chế") when the token's `status` is `restricted`, otherwise the `SellerOnboarding` terms screen ("Đồng ý và trở thành Người Bán" calls `AuthService.BecomeSeller` with the terms version, stores the returned access token and opens `/seller/new`; `src/features/seller/onboarding.ts`), each with a link back to the buyer app (`BuyerStorefrontLink`: a hand-off to the buyer `/auth/handoff`, falling back to the buyer `/login?next=/`) and a "Đăng xuất" button; the gateway re-enforces scopes on the data |
 
 There is no `/admin` route and no link to the admin app.
 
@@ -40,6 +41,8 @@ No database, no migrations.
 | `OTEL_SERVICE_NAME` | `team-frontend` | `src/lib/gateway/config.ts` |
 | `TRUSTED_PROXY_HOPS` | `1` | `src/lib/gateway/client-context.ts` |
 | `COOKIE_SECURE` | unset (`true` forces `Secure` and the `__Host-` prefix; TLS environments only) | `@fe-platform/session` via `src/lib/gateway/session-cookie.ts` |
+| `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); this app's own origin, checked against the `Origin` of a hand-off `POST` | `src/features/handoff/config.ts` |
+| `NEXT_PUBLIC_SELLER_TERMS_VERSION` | `2026-11-02` (build-time); the terms version sent to `BecomeSeller`, must equal the first identity `SELLER_TERMS_VERSIONS` entry | `src/features/seller/onboardingTerms.ts` |
 
 `NEXT_PUBLIC_*` values are baked in at `next build`; the Dockerfile takes them as build args.
 
@@ -73,7 +76,7 @@ CI: `.github/workflows/team-frontend-seller-ci.yml` (check, build, `docker build
 
 - OpenSpec change `openspec/changes/archive/2026-11-02-team-frontend-seller-app`.
 - E2E: `platform-e2e` drives this app at `SELLER_BASE_URL` (default `http://localhost:3001`); seller page objects set `app = "seller"` and `tests/e2e/support/apps.py` routes `/seller*` and `/sell` here.
-- Feature manifest: `FEATURES.yaml` in this directory (96 entries moved from `team-frontend/FEATURES.yaml`: every entry routed under `/seller` or `/sell` or verified by a test in this app). Gate: `make -C platform-e2e features-check`.
+- Feature manifest: `FEATURES.yaml` in this directory (121 entries: those moved from `team-frontend/FEATURES.yaml`, every entry routed under `/seller` or `/sell` or verified by a test in this app, plus the SSO hand-off and seller onboarding entries). Gate: `make -C platform-e2e features-check`.
 
 ## 8. Shared platform packages
 
@@ -82,8 +85,8 @@ CI: `.github/workflows/team-frontend-seller-ci.yml` (check, build, `docker build
 ## 9. Known gaps
 
 - Duplicated from `team-frontend` on purpose (to be shared or trimmed later): `src/lib/gateway/*` (gateway clients, refresh, revoke, token expiry), `src/components/ui/*` facades, `src/features/auth/*` (login form, actions, return URL), `src/features/order/OrderStatusBadge.tsx`, `src/features/account/skeletons.tsx`, `src/lib/analytics/*` (only for `trackAiInteraction`), `src/lib/action-result.ts`, `src/lib/requestCache.ts`, `src/lib/media.ts`, `src/lib/useRouteRetry.ts`, `scripts/check-tokens.mjs`, `scripts/patch-react-dom-ping.mjs`, `tailwind.config.ts`, `src/app/globals.css` and the vendored `proto/`.
-- No SSO between apps: a buyer signed in on `:3000` signs in again here, and the "Chăm sóc khách hàng" link opens the buyer chat with the buyer session (gap G8 in `fe-platform/docs/gaps.md`, ADR-0006). Logout ("Đăng xuất" in the sidebar, the mobile drawer and the in-place 403) revokes the server session and clears only `seller_session`/`seller_refresh`.
-- `/sell` still redirects to `/seller/new`; there is no seller onboarding flow (gap G15), so the 403 offers no register button.
+- SSO with the buyer app is a one-time hand-off code (buyer "Kênh Người Bán" and the seller layout's "Về trang mua sắm"); other links to the buyer app, such as "Chăm sóc khách hàng", still open it with whatever buyer session it has. Logout ("Đăng xuất" in the sidebar, the mobile drawer and the in-place 403) revokes the server session and clears only `seller_session`/`seller_refresh`.
+- `NEXT_PUBLIC_SELLER_APP_URL` and `NEXT_PUBLIC_SELLER_TERMS_VERSION` are not in `.env.example` and not Dockerfile build args, so the image bakes `http://localhost:3001` as its own origin (a hand-off `POST` from any other host is refused) and `2026-11-02` as the terms version.
 - Locally the gateway trusts this app: compose sets `TRUSTED_PROXIES=team-frontend-svc,team-frontend-seller-svc,team-frontend-admin-svc` (`docker-compose.services.yaml:580`). The gitops gateway config still trusts only `team-frontend` (`platform-gitops/envs/services/team-gateway.yaml:52`, `platform-gitops/argocd/apps/team-gateway.yaml:71`), so in a deployed environment the gateway ignores the `X-Forwarded-For` this app sends on login and refresh and records the pod IP instead of the browser IP.
 - Compose passes `NEXT_PUBLIC_BUYER_APP_URL` as a runtime variable, which has no effect on the built image; the image bakes the `http://localhost:3000` default. Other hosts need `--build-arg NEXT_PUBLIC_BUYER_APP_URL=...`.
 - `OTEL_SERVICE_NAME` defaults to `team-frontend` in `src/lib/gateway/config.ts`; set it to `team-frontend-seller` in deployed environments.

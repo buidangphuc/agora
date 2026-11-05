@@ -27,6 +27,7 @@ const voucher = {
   maxDiscount: 0,
   quota: 0,
   used: 4,
+  active: true,
   startsAt: "2020-01-01T00:00:00.000Z",
   endsAt: "2099-01-01T00:00:00.000Z",
 };
@@ -65,6 +66,26 @@ describe("VouchersPage", () => {
       "/admin/vouchers?cursor=c2",
     );
     expect(metadata.referrer).toBe("no-referrer");
+  });
+
+  it("V28 shows a stopped voucher as stopped in the list", async () => {
+    vi.mocked(listPlatformVouchers).mockResolvedValue({
+      status: "ok",
+      vouchers: [{ ...voucher, active: false }],
+      nextCursor: "",
+    });
+    render(await page());
+    expect(screen.getByTestId("voucher-row")).toHaveTextContent("Đã ngừng");
+    expect(screen.queryByText("Đang chạy")).toBeNull();
+  });
+
+  it("V32 a non-admin sees the forbidden screen with no Stop or Edit control", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({ ...admin, scopes: [] });
+    render(await page());
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Ngừng/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Sửa/ })).toBeNull();
+    expect(screen.queryAllByTestId("voucher-row")).toHaveLength(0);
   });
 
   it("shows the empty state", async () => {

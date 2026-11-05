@@ -7,6 +7,7 @@ read through the gateway `GetFlashSaleStock`; hold rows and expiry go through ps
 
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -60,6 +61,7 @@ def _seed(world: World, cap: int, price: int, starts: str | None = None, ends: s
         fh_campaign=campaign_id,
         fh_price=price,
         fh_cap=cap,
+        fh_seller_token=seller_token,
         fh_reservation=f"e2e-{uuid.uuid4().hex[:12]}:{listing_id}:",
     )
 
@@ -92,13 +94,25 @@ def flash_campaign(world: World, cap: int, price: int) -> None:
 
 @given(parsers.parse("an ended flash campaign with stock cap {cap:d} and sale price {price:d}"))
 def ended_flash_campaign(world: World, cap: int, price: int) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    ends = now + timedelta(seconds=3)
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     _seed(
         world, cap, price,
-        starts=(now - timedelta(hours=3)).strftime(fmt),
-        ends=(now - timedelta(hours=1)).strftime(fmt),
+        starts=(now - timedelta(hours=1)).strftime(fmt),
+        ends=ends.strftime(fmt),
     )  # fmt: skip
+    st = _x(world)
+    deadline = time.monotonic() + 15
+    while True:
+        resp = fh.gateway_hold_call(
+            st["fh_seller_token"], "GetActiveFlashSale", {"listingId": st["fh_listing"]}
+        )
+        assert resp.status_code == 200, f"GetActiveFlashSale failed {resp.status_code}: {resp.text}"
+        if datetime.now(timezone.utc) > ends and not resp.json().get("active"):
+            return
+        assert time.monotonic() < deadline, f"campaign still active after its end: {resp.text}"
+        time.sleep(0.5)
 
 
 @given(parsers.parse("the order service has reserved {qty:d} units at the sale price"))

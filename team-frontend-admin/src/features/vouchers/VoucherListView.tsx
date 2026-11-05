@@ -5,6 +5,7 @@ import { Table } from "@/components/ui/Table";
 import type { VoucherView } from "@/lib/gateway/vouchers";
 
 import { VoucherStateBadge } from "./VoucherDetails";
+import { VoucherRowStop } from "./VoucherRowStop";
 import {
   describeDiscount,
   describeMinSpend,
@@ -94,6 +95,11 @@ export function VoucherListView({
                 key: "state",
                 title: "Trạng thái",
                 render: (v) => <VoucherStateBadge voucher={v} now={now} />,
+              },
+              {
+                key: "actions",
+                title: "Thao tác",
+                render: (v) => <VoucherRowStop voucher={v} />,
               },
             ]}
           />

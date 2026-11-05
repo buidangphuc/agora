@@ -4,7 +4,9 @@
 # unit/integration: tests added/changed in base..head are run at BASE (new tests copied into a
 #   temp worktree of base) and must FAIL (compile error counts), then at HEAD and must PASS.
 # e2e (platform-e2e/**): first commit touching e2e files must precede the first commit touching
-#   implementation files (non-test, outside platform-e2e) of the same range.
+#   implementation files (non-test, outside platform-e2e) of the same range. Contract commits, whose
+#   implementation files are all under platform-core/packages/proto/**, carry no e2e by design and
+#   are skipped when finding that first implementation commit.
 # exit 1: a test is green at base (written after code / not testing new behaviour) or red at head,
 #         or e2e written after implementation.
 # --only KINDS: run only these test kinds (comma list of go|python|ts); other kinds are reported SKIP.
@@ -256,7 +258,21 @@ if [ ${#E2E[@]} -gt 0 ]; then
   if [ ${#IMPL[@]} -eq 0 ]; then
     RESULTS+=("e2e(${#E2E[@]} files)|first-e2e=$(idx "$first_e2e")|first-impl=none|OK (no implementation files in range)")
   else
-    first_impl=$(git log --reverse --format=%H "$BASE..$HEADSHA" -- "${IMPL[@]}" | head -1)
+    is_contract() { [[ "$1" == platform-core/packages/proto/* ]]; }
+    first_impl=""
+    for c in $(git log --reverse --format=%H "$BASE..$HEADSHA" -- "${IMPL[@]}"); do
+      while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        [[ "$f" == platform-e2e/* ]] && continue
+        is_fixture "$f" || is_any_test "$f" || is_nonimpl "$f" || is_contract "$f" && continue
+        first_impl=$c; break
+      done < <(git diff-tree --no-commit-id --name-only -r --root "$c")
+      [ -n "$first_impl" ] && break
+    done
+  fi
+  if [ ${#IMPL[@]} -gt 0 ] && [ -z "$first_impl" ]; then
+    RESULTS+=("e2e(${#E2E[@]} files)|first-e2e=$(idx "$first_e2e")|first-impl=none|OK (only contract commits in range)")
+  elif [ ${#IMPL[@]} -gt 0 ]; then
     ie=$(idx "$first_e2e"); ii=$(idx "$first_impl")
     if [ "$ie" -lt "$ii" ]; then v=OK
     else v="FAIL: first impl commit (${first_impl:0:8}) is not after first e2e commit (${first_e2e:0:8})"; FAIL=1; fi

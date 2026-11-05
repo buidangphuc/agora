@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Link } from "@/components/ui/Link";
 import { Result } from "@/components/ui/Result";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { VoucherActions } from "@/features/vouchers/VoucherActions";
 import { VoucherDetails } from "@/features/vouchers/VoucherDetails";
 import {
   GATEWAY_DENIED,
@@ -90,9 +91,12 @@ export default async function VoucherDetailPage({
         </h1>
       </header>
       {result.status === "ok" ? (
-        <Card padded>
-          <VoucherDetails voucher={result.voucher} now={new Date()} />
-        </Card>
+        <>
+          <Card padded>
+            <VoucherDetails voucher={result.voucher} now={new Date()} />
+          </Card>
+          <VoucherActions voucher={result.voucher} />
+        </>
       ) : (
         <Alert
           type="error"

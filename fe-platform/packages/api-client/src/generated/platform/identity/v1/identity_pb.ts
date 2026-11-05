@@ -13,6 +13,32 @@ import { Message, proto3, protoInt64, Timestamp } from "@bufbuild/protobuf";
 import { PageRequest, PageResponse, Principal } from "../../common/v1/common_pb.js";
 
 /**
+ * @generated from enum platform.identity.v1.HandoffApp
+ */
+export enum HandoffApp {
+  /**
+   * @generated from enum value: HANDOFF_APP_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: HANDOFF_APP_BUYER = 1;
+   */
+  BUYER = 1,
+
+  /**
+   * @generated from enum value: HANDOFF_APP_SELLER = 2;
+   */
+  SELLER = 2,
+}
+// Retrieve enum metadata with: proto3.getEnumType(HandoffApp)
+proto3.util.setEnumType(HandoffApp, "platform.identity.v1.HandoffApp", [
+  { no: 0, name: "HANDOFF_APP_UNSPECIFIED" },
+  { no: 1, name: "HANDOFF_APP_BUYER" },
+  { no: 2, name: "HANDOFF_APP_SELLER" },
+]);
+
+/**
  * @generated from enum platform.identity.v1.UserStatus
  */
 export enum UserStatus {
@@ -49,6 +75,326 @@ proto3.util.setEnumType(UserStatus, "platform.identity.v1.UserStatus", [
   { no: 3, name: "USER_STATUS_SUSPENDED" },
   { no: 4, name: "USER_STATUS_BANNED" },
 ]);
+
+/**
+ * @generated from message platform.identity.v1.CreateHandoffCodeRequest
+ */
+export class CreateHandoffCodeRequest extends Message<CreateHandoffCodeRequest> {
+  /**
+   * @generated from field: platform.identity.v1.HandoffApp target_app = 1;
+   */
+  targetApp = HandoffApp.UNSPECIFIED;
+
+  constructor(data?: PartialMessage<CreateHandoffCodeRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.CreateHandoffCodeRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "target_app", kind: "enum", T: proto3.getEnumType(HandoffApp) },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateHandoffCodeRequest {
+    return new CreateHandoffCodeRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CreateHandoffCodeRequest {
+    return new CreateHandoffCodeRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CreateHandoffCodeRequest {
+    return new CreateHandoffCodeRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CreateHandoffCodeRequest | PlainMessage<CreateHandoffCodeRequest> | undefined, b: CreateHandoffCodeRequest | PlainMessage<CreateHandoffCodeRequest> | undefined): boolean {
+    return proto3.util.equals(CreateHandoffCodeRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.CreateHandoffCodeResponse
+ */
+export class CreateHandoffCodeResponse extends Message<CreateHandoffCodeResponse> {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp expires_at = 2;
+   */
+  expiresAt?: Timestamp;
+
+  constructor(data?: PartialMessage<CreateHandoffCodeResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.CreateHandoffCodeResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "expires_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateHandoffCodeResponse {
+    return new CreateHandoffCodeResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CreateHandoffCodeResponse {
+    return new CreateHandoffCodeResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CreateHandoffCodeResponse {
+    return new CreateHandoffCodeResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CreateHandoffCodeResponse | PlainMessage<CreateHandoffCodeResponse> | undefined, b: CreateHandoffCodeResponse | PlainMessage<CreateHandoffCodeResponse> | undefined): boolean {
+    return proto3.util.equals(CreateHandoffCodeResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.RedeemHandoffCodeRequest
+ */
+export class RedeemHandoffCodeRequest extends Message<RedeemHandoffCodeRequest> {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code = "";
+
+  /**
+   * @generated from field: platform.identity.v1.HandoffApp target_app = 2;
+   */
+  targetApp = HandoffApp.UNSPECIFIED;
+
+  constructor(data?: PartialMessage<RedeemHandoffCodeRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.RedeemHandoffCodeRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "target_app", kind: "enum", T: proto3.getEnumType(HandoffApp) },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RedeemHandoffCodeRequest {
+    return new RedeemHandoffCodeRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RedeemHandoffCodeRequest {
+    return new RedeemHandoffCodeRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RedeemHandoffCodeRequest {
+    return new RedeemHandoffCodeRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RedeemHandoffCodeRequest | PlainMessage<RedeemHandoffCodeRequest> | undefined, b: RedeemHandoffCodeRequest | PlainMessage<RedeemHandoffCodeRequest> | undefined): boolean {
+    return proto3.util.equals(RedeemHandoffCodeRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.RedeemHandoffCodeResponse
+ */
+export class RedeemHandoffCodeResponse extends Message<RedeemHandoffCodeResponse> {
+  /**
+   * @generated from field: platform.identity.v1.AuthResult result = 1;
+   */
+  result?: AuthResult;
+
+  constructor(data?: PartialMessage<RedeemHandoffCodeResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.RedeemHandoffCodeResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "result", kind: "message", T: AuthResult },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RedeemHandoffCodeResponse {
+    return new RedeemHandoffCodeResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RedeemHandoffCodeResponse {
+    return new RedeemHandoffCodeResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RedeemHandoffCodeResponse {
+    return new RedeemHandoffCodeResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RedeemHandoffCodeResponse | PlainMessage<RedeemHandoffCodeResponse> | undefined, b: RedeemHandoffCodeResponse | PlainMessage<RedeemHandoffCodeResponse> | undefined): boolean {
+    return proto3.util.equals(RedeemHandoffCodeResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.PeekHandoffCodeRequest
+ */
+export class PeekHandoffCodeRequest extends Message<PeekHandoffCodeRequest> {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code = "";
+
+  /**
+   * @generated from field: platform.identity.v1.HandoffApp target_app = 2;
+   */
+  targetApp = HandoffApp.UNSPECIFIED;
+
+  constructor(data?: PartialMessage<PeekHandoffCodeRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.PeekHandoffCodeRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "target_app", kind: "enum", T: proto3.getEnumType(HandoffApp) },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PeekHandoffCodeRequest {
+    return new PeekHandoffCodeRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PeekHandoffCodeRequest {
+    return new PeekHandoffCodeRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PeekHandoffCodeRequest {
+    return new PeekHandoffCodeRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PeekHandoffCodeRequest | PlainMessage<PeekHandoffCodeRequest> | undefined, b: PeekHandoffCodeRequest | PlainMessage<PeekHandoffCodeRequest> | undefined): boolean {
+    return proto3.util.equals(PeekHandoffCodeRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.PeekHandoffCodeResponse
+ */
+export class PeekHandoffCodeResponse extends Message<PeekHandoffCodeResponse> {
+  /**
+   * @generated from field: string username = 1;
+   */
+  username = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp expires_at = 2;
+   */
+  expiresAt?: Timestamp;
+
+  constructor(data?: PartialMessage<PeekHandoffCodeResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.PeekHandoffCodeResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "username", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "expires_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PeekHandoffCodeResponse {
+    return new PeekHandoffCodeResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PeekHandoffCodeResponse {
+    return new PeekHandoffCodeResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PeekHandoffCodeResponse {
+    return new PeekHandoffCodeResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PeekHandoffCodeResponse | PlainMessage<PeekHandoffCodeResponse> | undefined, b: PeekHandoffCodeResponse | PlainMessage<PeekHandoffCodeResponse> | undefined): boolean {
+    return proto3.util.equals(PeekHandoffCodeResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.BecomeSellerRequest
+ */
+export class BecomeSellerRequest extends Message<BecomeSellerRequest> {
+  /**
+   * @generated from field: string terms_version = 1;
+   */
+  termsVersion = "";
+
+  constructor(data?: PartialMessage<BecomeSellerRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.BecomeSellerRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "terms_version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BecomeSellerRequest {
+    return new BecomeSellerRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BecomeSellerRequest {
+    return new BecomeSellerRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BecomeSellerRequest {
+    return new BecomeSellerRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BecomeSellerRequest | PlainMessage<BecomeSellerRequest> | undefined, b: BecomeSellerRequest | PlainMessage<BecomeSellerRequest> | undefined): boolean {
+    return proto3.util.equals(BecomeSellerRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.BecomeSellerResponse
+ */
+export class BecomeSellerResponse extends Message<BecomeSellerResponse> {
+  /**
+   * @generated from field: platform.identity.v1.AuthResult result = 1;
+   */
+  result?: AuthResult;
+
+  constructor(data?: PartialMessage<BecomeSellerResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.BecomeSellerResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "result", kind: "message", T: AuthResult },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BecomeSellerResponse {
+    return new BecomeSellerResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BecomeSellerResponse {
+    return new BecomeSellerResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BecomeSellerResponse {
+    return new BecomeSellerResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BecomeSellerResponse | PlainMessage<BecomeSellerResponse> | undefined, b: BecomeSellerResponse | PlainMessage<BecomeSellerResponse> | undefined): boolean {
+    return proto3.util.equals(BecomeSellerResponse, a, b);
+  }
+}
 
 /**
  * @generated from message platform.identity.v1.RegisterRequest
@@ -2000,6 +2346,59 @@ export class UserStatusChanged extends Message<UserStatusChanged> {
 
   static equals(a: UserStatusChanged | PlainMessage<UserStatusChanged> | undefined, b: UserStatusChanged | PlainMessage<UserStatusChanged> | undefined): boolean {
     return proto3.util.equals(UserStatusChanged, a, b);
+  }
+}
+
+/**
+ * UserRoleGranted is the event published on Kafka topic `identity.events` (keyed by user id,
+ * wrapped in platform.events.v1.EventEnvelope with type
+ * "platform.identity.v1.UserRoleGranted") when a user is granted a role.
+ *
+ * @generated from message platform.identity.v1.UserRoleGranted
+ */
+export class UserRoleGranted extends Message<UserRoleGranted> {
+  /**
+   * @generated from field: string user_id = 1;
+   */
+  userId = "";
+
+  /**
+   * @generated from field: string role = 2;
+   */
+  role = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp granted_at = 3;
+   */
+  grantedAt?: Timestamp;
+
+  constructor(data?: PartialMessage<UserRoleGranted>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.UserRoleGranted";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "role", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "granted_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UserRoleGranted {
+    return new UserRoleGranted().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UserRoleGranted {
+    return new UserRoleGranted().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UserRoleGranted {
+    return new UserRoleGranted().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UserRoleGranted | PlainMessage<UserRoleGranted> | undefined, b: UserRoleGranted | PlainMessage<UserRoleGranted> | undefined): boolean {
+    return proto3.util.equals(UserRoleGranted, a, b);
   }
 }
 

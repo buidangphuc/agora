@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_VOUCHER_FORM,
   type VoucherFormValues,
+  validateEditForm,
   validateVoucherForm,
 } from "./voucherForm";
 import {
+  STATE_LABEL,
   describeDiscount,
   describeUsage,
   formatVnDateTime,
@@ -139,9 +141,10 @@ describe("voucher formatting", () => {
     endsAt: "2026-12-01T00:00:00.000Z",
     used: 0,
     quota: 10,
+    active: true,
   };
 
-  it("derives the state from the response times and usage", () => {
+  it("V28 derives the state from the response times and usage", () => {
     expect(voucherState(base, NOW)).toBe("upcoming");
     expect(voucherState(base, new Date("2026-11-15T00:00:00Z"))).toBe("active");
     expect(voucherState(base, new Date("2026-12-02T00:00:00Z"))).toBe("ended");
@@ -154,6 +157,21 @@ describe("voucher formatting", () => {
         new Date("2026-11-15T00:00:00Z"),
       ),
     ).toBe("active");
+  });
+
+  it("V28 a stopped voucher is stopped whatever its dates and usage", () => {
+    const stopped = { ...base, active: false };
+    expect(voucherState(stopped, NOW)).toBe("stopped");
+    expect(voucherState(stopped, new Date("2026-11-15T00:00:00Z"))).toBe(
+      "stopped",
+    );
+    expect(voucherState(stopped, new Date("2026-12-02T00:00:00Z"))).toBe(
+      "stopped",
+    );
+    expect(
+      voucherState({ ...stopped, used: 10 }, new Date("2026-11-15T00:00:00Z")),
+    ).toBe("stopped");
+    expect(STATE_LABEL.stopped).toBe("Đã ngừng");
   });
 
   it("describes discounts, usage and Vietnam time", () => {
@@ -177,5 +195,89 @@ describe("voucher formatting", () => {
     );
     expect(formatVnDateTime("")).toBe("Không đặt");
     expect(voucherHref("A B/C")).toBe("/admin/vouchers/A%20B%2FC");
+  });
+});
+
+describe("validateEditForm", () => {
+  const current = {
+    quota: 100,
+    used: 5,
+    startsAt: "2098-12-31T17:00:00.000Z",
+    endsAt: "2099-01-31T17:00:00.000Z",
+  };
+  const ok = { endsAt: "2099-03-01T00:00", quota: "200" };
+
+  it("V29 accepts a later end date and a higher quota, reading time as UTC+7", () => {
+    const res = validateEditForm(ok, current, NOW);
+    expect(res).toEqual({
+      ok: true,
+      input: { endsAt: new Date("2099-02-28T17:00:00.000Z"), quota: 200 },
+    });
+  });
+
+  it("V29 sends only the fields that changed", () => {
+    const sameQuota = validateEditForm({ ...ok, quota: "100" }, current, NOW);
+    expect(sameQuota).toEqual({
+      ok: true,
+      input: { endsAt: new Date("2099-02-28T17:00:00.000Z") },
+    });
+    const sameEnd = validateEditForm(
+      { endsAt: "2099-02-01T00:00", quota: "150" },
+      current,
+      NOW,
+    );
+    expect(sameEnd).toEqual({ ok: true, input: { quota: 150 } });
+  });
+
+  it.each([
+    ["below the current quota", "50"],
+    ["zero", "0"],
+    ["empty", ""],
+    ["not a number", "abc"],
+    ["negative", "-5"],
+    ["fractional", "1.5"],
+  ])("V30 refuses a quota that is %s on the quota field", (_n, quota) => {
+    const res = validateEditForm({ ...ok, quota }, current, NOW);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.errors.quota).toBeTruthy();
+      expect(res.errors.endsAt).toBeUndefined();
+    }
+  });
+
+  it("V30 refuses a quota below the used count", () => {
+    const res = validateEditForm(
+      { ...ok, quota: "7" },
+      { ...current, quota: 5, used: 9 },
+      NOW,
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.quota).toBeTruthy();
+  });
+
+  it.each([
+    ["equal to the start", "2099-01-01T00:00"],
+    ["before the start", "2098-12-01T00:00"],
+    ["empty", ""],
+    ["malformed", "tomorrow"],
+  ])("V30 refuses an end date %s on the end date field", (_n, endsAt) => {
+    const res = validateEditForm({ ...ok, endsAt }, current, NOW);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.errors.endsAt).toBeTruthy();
+      expect(res.errors.quota).toBeUndefined();
+    }
+  });
+
+  it("V30a ignores the quota of an unlimited voucher", () => {
+    const res = validateEditForm(
+      { endsAt: "2099-03-01T00:00", quota: "5" },
+      { ...current, quota: 0 },
+      NOW,
+    );
+    expect(res).toEqual({
+      ok: true,
+      input: { endsAt: new Date("2099-02-28T17:00:00.000Z") },
+    });
   });
 });

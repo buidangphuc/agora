@@ -2758,3 +2758,338 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY team-gateway `internal/config` `TestRetiredReflectionKeyIsIgnored`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.fp-14-log-check
+    title: "GW-FP-14 e2e-observable gateway log check"
+    persona: buyer
+    priority: P2
+    summary: "A user request is logged with a keyed fingerprint and kind, not the raw id"
+    entry_route: /
+    services: [team-gateway, team-identity]
+    api:
+      exercised: [listing.v1.ListCategories, identity.v1.Register]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given a freshly registered user"
+      - "When the user calls an authenticated listing route with a fresh X-Request-Id"
+      - "Then the gateway log has an edge.request line for that request id"
+      - "And that line has principal_kind \"user\" and a 12 lowercase hex principal_fp"
+      - "And that line has no principal key"
+      - "And the gateway log since the scenario started does not contain the user's id"
+    tags: [security, gateway]
+    kind: invariant
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-14 e2e-observable gateway log check"
+
+  - id: gateway.fp-2-http-user
+    title: "GW-FP-2 HTTP request by a user logs fingerprint and kind"
+    persona: buyer
+    priority: P2
+    summary: "Gateway edge.request line for the scenario carries the keyed principal fingerprint and kind and never the raw id."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    api:
+      exercised: [listing.v1.ListCategories, identity.v1.Register]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given a freshly registered user"
+      - "When the user calls an authenticated listing route with a fresh X-Request-Id"
+      - "Then the gateway log has an edge.request line for that request id"
+      - "And that line has principal_kind \"user\" and a 12 lowercase hex principal_fp"
+      - "And that line has no principal key"
+      - "And the gateway log since the scenario started does not contain the user's id"
+    tags: [security, gateway]
+    kind: invariant
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-2 HTTP request by a user logs fingerprint and kind"
+
+  - id: gateway.fp-4b-anonymous-http
+    title: "GW-FP-4b anonymous HTTP caller has kind and no fingerprint"
+    persona: buyer
+    priority: P2
+    summary: "Gateway edge.request line for the scenario carries the keyed principal fingerprint and kind and never the raw id."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    api:
+      exercised: [listing.v1.ListCategories, identity.v1.Register]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given a freshly registered user"
+      - "And the user calls an authenticated listing route with a fresh X-Request-Id"
+      - "When an anonymous caller calls a public listing route with a fresh X-Request-Id"
+      - "Then the gateway log has an edge.request line for that request id"
+      - "And that line has principal_kind \"anonymous\" and no principal_fp"
+      - "And that line has no principal key"
+      - "And the earlier user request line carried a principal_fp"
+    tags: [security, gateway]
+    kind: invariant
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-4b anonymous HTTP caller has kind and no fingerprint"
+
+  - id: gateway.fp-5-invalid-token
+    title: "GW-FP-5 invalid token is not logged as a user"
+    persona: buyer
+    priority: P2
+    summary: "Gateway edge.request line for the scenario carries the keyed principal fingerprint and kind and never the raw id."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    api:
+      exercised: [listing.v1.ListCategories, identity.v1.Register]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given a freshly registered user"
+      - "And the user calls an authenticated listing route with a fresh X-Request-Id"
+      - "When a caller with an invalid bearer token calls a listing route with a fresh X-Request-Id"
+      - "Then the call is refused as unauthenticated"
+      - "And the gateway log has an edge.request line for that request id"
+      - "And that line has principal_kind \"anonymous\" and no principal_fp"
+      - "And the earlier user request line carried a principal_fp"
+    tags: [security, gateway]
+    kind: invariant
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-5 invalid token is not logged as a user"
+
+  - id: gateway.fp-6c-distinct-ids
+    title: "GW-FP-6c fingerprint distinguishes ids"
+    persona: buyer
+    priority: P2
+    summary: "Gateway edge.request line for the scenario carries the keyed principal fingerprint and kind and never the raw id."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    api:
+      exercised: [listing.v1.ListCategories, identity.v1.Register]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given a freshly registered user"
+      - "And a second freshly registered user"
+      - "When each user calls an authenticated listing route with a fresh X-Request-Id"
+      - "And the first user calls the route again with a fresh X-Request-Id"
+      - "Then both users' lines carry a 12 lowercase hex principal_fp"
+      - "And the two users' principal_fp values differ"
+      - "And the first user's two lines carry the same principal_fp"
+    tags: [security, gateway]
+    kind: invariant
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-6c fingerprint distinguishes ids"
+
+  - id: gateway.fp-11-secret-not-logged
+    title: "GW-FP-11 secret is never logged"
+    persona: buyer
+    priority: P2
+    summary: "Gateway edge.request line for the scenario carries the keyed principal fingerprint and kind and never the raw id."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    api:
+      exercised: [listing.v1.ListCategories, identity.v1.Register]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given a freshly registered user"
+      - "When the user calls an authenticated listing route with a fresh X-Request-Id"
+      - "Then the gateway container has a non-empty LOG_KEY_FP_SECRET"
+      - "And that line has principal_kind \"user\" and a 12 lowercase hex principal_fp"
+      - "And the gateway log since the scenario started does not contain the LOG_KEY_FP_SECRET value"
+    tags: [security, gateway]
+    kind: invariant
+    status: automated
+    covered_by: "security/gateway_principal_log_fingerprint.feature::GW-FP-11 secret is never logged"
+
+  - id: gateway.fp-1
+    title: "GW-FP-1 gRPC request by a user logs fingerprint and kind"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-1 gRPC request by a user logs fingerprint and kind"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge edge_logging_test.go. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-3
+    title: "GW-FP-3 service principal is classified"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-3 service principal is classified"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge edge_logging_test.go. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-4a
+    title: "GW-FP-4a anonymous gRPC caller has kind and no fingerprint"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-4a anonymous gRPC caller has kind and no fingerprint"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge edge_logging_test.go. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-6a
+    title: "GW-FP-6a fingerprint is stable"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-6a fingerprint is stable"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge edge_logging_test.go (two instances, same secret). Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-6b
+    title: "GW-FP-6b fingerprint depends on the secret"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-6b fingerprint depends on the secret"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge edge_logging_test.go (two secrets). Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-7
+    title: "GW-FP-7 no raw id on error paths"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-7 no raw id on error paths"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge edge_logging_test.go (forced upstream UNAVAILABLE). Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-8
+    title: "GW-FP-8 rate-limited request still fingerprints"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-8 rate-limited request still fingerprints"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge edge_logging_test.go (rate-limit refusal). Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-9
+    title: "GW-FP-9 empty secret fails boot in a strict ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-9 empty secret fails boot in a strict ENV"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/config config_test.go. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-10
+    title: "GW-FP-10 whitespace-only secret is treated as empty"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-10 whitespace-only secret is treated as empty"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/config config_test.go. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-10b
+    title: "GW-FP-10b local ENV uses the SDK default"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-10b local ENV uses the SDK default"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/config config_test.go. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-12a
+    title: "GW-FP-12a compose and example env declare the key"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-12a compose and example env declare the key"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY a repo lint test over docker-compose.services.yaml and team-gateway/.env.example. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-12b
+    title: "GW-FP-12b README documents the key"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-12b README documents the key"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY a repo lint test over team-gateway/README.md. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-12c
+    title: "GW-FP-12c gitops injects the key from Vault with no literal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-12c gitops injects the key from Vault with no literal"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY a platform-gitops lint over vault-config, envs and argocd app. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-13a
+    title: "GW-FP-13a lint rejects the raw key"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-13a lint rejects the raw key"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY golangci-lint sloglint with platform-core/packages/go-sdk/.golangci.yml on a probe file. Not producible end to end through the stack (unit or lint level)."
+
+  - id: gateway.fp-13b
+    title: "GW-FP-13b no other Go repo is flagged"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-principal-log-fingerprint."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "GW-FP-13b no other Go repo is flagged"
+    tags: [security, gateway, unit]
+    status: not-testable
+    notes: "VERIFIED BY golangci-lint run over every Go repo. Not producible end to end through the stack (unit or lint level)."

@@ -126,8 +126,8 @@ func TestOutboxMigrationFileNames(t *testing.T) {
 		versions = append(versions, v)
 	}
 	sort.Strings(versions)
-	if len(versions) != 19 || versions[0] != "0001" || versions[18] != "0019" {
-		t.Fatalf("want contiguous migrations 0001..0019, found %v", versions)
+	if len(versions) != 21 || versions[0] != "0001" || versions[20] != "0021" {
+		t.Fatalf("want contiguous migrations 0001..0021, found %v", versions)
 	}
 	for i, v := range versions {
 		if v != pad4(i+1) {

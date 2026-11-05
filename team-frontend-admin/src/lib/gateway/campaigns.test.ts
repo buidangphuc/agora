@@ -70,6 +70,8 @@ const view = {
   stockSold: 7,
   startsAt: START.toISOString(),
   endsAt: END.toISOString(),
+  status: "unspecified",
+  cancelledAt: "",
 };
 
 const input = {

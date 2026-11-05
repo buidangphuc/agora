@@ -60,7 +60,7 @@ func Run(ctx context.Context, s config.Settings) error {
 }
 
 func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *built, err error) {
-	logger := logx.New(s.Runtime, serviceName)
+	logger := redactHandoffPrincipal(logx.New(s.Runtime, serviceName))
 
 	signer, err := token.NewSigner(s.JWT.PrivateKey, s.JWT.KID)
 	if err != nil {
@@ -130,6 +130,10 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 	svc, err := identity.NewAuthService(users, sessions, signer, ttl, gate)
 	if err != nil {
 		return nil, err
+	}
+	svc.WithHandoff(store.NewPostgresHandoffRepository(pool)).WithSellerTerms(s.SellerTerms.Versions)
+	if s.Handoff.TTLOverride > 0 {
+		svc.WithHandoffTTL(s.Handoff.TTLOverride)
 	}
 
 	if s.SeedAdmin.Enabled {

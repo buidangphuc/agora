@@ -4,9 +4,14 @@ kind: Ingress
 metadata:
   name: {{ .Values.name }}
   namespace: {{ .Release.Namespace }}
-  {{- if .Values.ingress.rewriteTarget }}
+  {{- if or .Values.ingress.rewriteTarget .Values.ingress.annotations }}
   annotations:
+    {{- if .Values.ingress.rewriteTarget }}
     nginx.ingress.kubernetes.io/rewrite-target: {{ .Values.ingress.rewriteTarget }}
+    {{- end }}
+    {{- range $k, $v := .Values.ingress.annotations }}
+    {{ $k }}: {{ $v | toYaml | indent 6 | trim }}
+    {{- end }}
   {{- end }}
 spec:
   ingressClassName: nginx

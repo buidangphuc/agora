@@ -16,7 +16,6 @@ from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.constants import timeouts
-from src.core.base_page import wait_streamed
 from src.pages.admin_users_page import FORBIDDEN_TITLE, AdminUsersPage
 from src.pages.login_page import LoginPage
 from tests.e2e.support import audit_support as aud
@@ -124,8 +123,7 @@ def _browser_login(world: World, password: str, host: str | None = None) -> None
     world.context.clear_cookies()
     page = _login(world)
     if host:
-        world.page.goto(f"{host.rstrip('/')}/login", wait_until="domcontentloaded")
-        wait_streamed(world.page)
+        page.goto(f"{host.rstrip('/')}/login")
     else:
         page.navigate()
     page.login(user["username"], password)
@@ -185,7 +183,6 @@ def buyer_listed(world: World, label: str) -> None:
 
 @then("the users page shows the success message")
 def success_message(world: World) -> None:
-    wait_streamed(world.page)
     expect(_users(world).flash).to_contain_text(SUCCESS, timeout=timeouts.NAVIGATION)
 
 
@@ -272,8 +269,8 @@ def seller_notice(world: World, title: str, line: str) -> None:
     expect(world.page.get_by_text(line)).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
-@then(parsers.parse('the seller notice shows "{title}" without the restricted line or a register link'))
-def buyer_seller_notice(world: World, title: str) -> None:
-    expect(world.page.get_by_text(title).first).to_be_visible(timeout=timeouts.NAVIGATION)
+@then("the seller page shows no removed notice, restricted line or register link")
+def buyer_seller_page_clean(world: World) -> None:
+    expect(world.page.get_by_text("Cần tài khoản Người Bán")).to_have_count(0)
     expect(world.page.get_by_text("Tài khoản bị hạn chế?")).to_have_count(0)
     expect(world.page.get_by_role("link", name="Đăng ký bán hàng")).to_have_count(0)

@@ -12,6 +12,7 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/identity/v1/identityv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/listing/v1/listingv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
+	"github.com/buidangphuc/team-gateway/generated/platform/promotion/v1/promotionv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/verification/v1/verificationv1connect"
 )
 
@@ -35,6 +36,11 @@ var adminProcedures = map[string]string{
 	analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure:     adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure: adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure:             adminScope,
+	promotionv1connect.VoucherServiceDeactivateVoucherProcedure:                   adminScope,
+	promotionv1connect.VoucherServiceUpdateVoucherProcedure:                       adminScope,
+	promotionv1connect.FlashSaleServiceListCampaignsProcedure:                     adminScope,
+	promotionv1connect.FlashSaleServiceCancelCampaignProcedure:                    adminScope,
+	promotionv1connect.FlashSaleServiceUpdateCampaignProcedure:                    adminScope,
 }
 
 // requireProcedureScope enforces adminProcedures for a resolved principal:

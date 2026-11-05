@@ -2,14 +2,20 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
 	"github.com/buidangphuc/team-identity/internal/identity"
+	"github.com/buidangphuc/team-identity/internal/store"
 )
 
 const maxRefreshTokenLen = 256
@@ -97,6 +103,32 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, req *identityv1.ResetPa
 		return nil, statusErr(ctx, h.logger, err)
 	}
 	return &identityv1.ResetPasswordResponse{Success: true}, nil
+}
+
+func (h *AuthHandler) BecomeSeller(ctx context.Context, req *identityv1.BecomeSellerRequest) (*identityv1.BecomeSellerResponse, error) {
+	if _, err := auth.RequireUser(ctx); err != nil {
+		return nil, err
+	}
+	sid := callerSID(ctx)
+	if sid == "" {
+		return nil, status.Error(codes.Unauthenticated, "session required")
+	}
+	res, err := h.svc.BecomeSeller(ctx, sid, req.GetTermsVersion())
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrSessionNotFound):
+			return nil, status.Error(codes.Unauthenticated, "session not found")
+		case errors.Is(err, store.ErrNotActive):
+			return nil, status.Error(codes.PermissionDenied, "account not active")
+		}
+		if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable && st.Message() == auditx.Message {
+			if withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Domain: "identity.platform", Reason: "AUDIT_UNAVAILABLE"}); derr == nil {
+				return nil, withInfo.Err()
+			}
+		}
+		return nil, statusErr(ctx, h.logger, err)
+	}
+	return &identityv1.BecomeSellerResponse{Result: toResult(res)}, nil
 }
 
 func toResult(r identity.AuthResult) *identityv1.AuthResult {

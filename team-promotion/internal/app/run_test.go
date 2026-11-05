@@ -252,6 +252,41 @@ func TestOutboxPurgeKeepsRecentAndUnpublished(t *testing.T) {
 	}
 }
 
+func TestCampaignIdempotencyPurgeJobRemovesExpiredKeys(t *testing.T) {
+	url := migratedURL(t)
+	id, _, _ := seedCampaign(t, url, 5)
+	conn := dial(t, url)
+	const ins = `INSERT INTO campaign_idempotency (actor_id, key, payload_hash, campaign_id, created_at) VALUES ($1, $2, 'h', $3, $4)`
+	now := time.Now()
+	seeds := []struct {
+		key string
+		at  time.Time
+	}{
+		{"idem_expired_01", now.Add(-25 * time.Hour)},
+		{"idem_recent_01", now.Add(-time.Hour)},
+	}
+	for _, sd := range seeds {
+		if _, err := conn.Exec(t.Context(), ins, "admin-fixture", sd.key, id, sd.at); err != nil {
+			t.Fatalf("seed %s: %v", sd.key, err)
+		}
+	}
+
+	r := start(t, promoSettings(testkit.FreePort(t), url, deadBroker))
+	waitServing(t, r)
+
+	count := func(key string) int {
+		var n int
+		if err := conn.QueryRow(t.Context(), `SELECT count(*) FROM campaign_idempotency WHERE key = $1`, key).Scan(&n); err != nil {
+			t.Fatalf("count %s: %v", key, err)
+		}
+		return n
+	}
+	testkit.Eventually(t, 30*time.Second, func() bool { return count("idem_expired_01") == 0 })
+	if count("idem_recent_01") != 1 {
+		t.Error("a key younger than 24h was purged")
+	}
+}
+
 func context30(t *testing.T) (context.Context, context.CancelFunc) {
 	t.Helper()
 	return context.WithTimeout(t.Context(), 30*time.Second)

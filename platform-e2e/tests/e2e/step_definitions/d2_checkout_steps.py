@@ -215,6 +215,15 @@ def desktop_viewport(world: World) -> None:
     world.page.set_viewport_size({"width": 1280, "height": 720})
 
 
+def apply_platform_code(page: Page, code: str) -> None:
+    slot = page.get_by_test_id("platform-voucher")
+    field = slot.locator('input[name="voucher_code"]')
+    expect(field).to_be_editable(timeout=timeouts.DEFAULT)
+    field.fill(code)
+    slot.get_by_role("button", name="Áp dụng").click()
+    expect(slot.get_by_role("button", name=f"Bỏ mã {code}")).to_be_visible(timeout=timeouts.DEFAULT)
+
+
 # ── Order summary ────────────────────────────────────────────────────────
 @when(parsers.parse('the buyer applies the code "{code}" on the payment step'))
 def apply_on_payment(world: World, code: str) -> None:
@@ -222,14 +231,8 @@ def apply_on_payment(world: World, code: str) -> None:
     page = world.page
     world.state.extra["d2_cta_top"] = top(page.get_by_role("link", name="Tiếp tục").first)
     world.state.extra["d2_total_top"] = top(page.get_by_test_id("order-total"))
-    opener = page.get_by_role("button", name="Chọn hoặc nhập mã")
-    expect(opener).to_be_enabled(timeout=timeouts.DEFAULT)
-    page.wait_for_timeout(500)
-    opener.click()
-    page.locator('input[name="voucher_code"]').fill(code)
-    page.get_by_role("dialog").get_by_role("button", name="Áp dụng").click()
-    expect(page.get_by_role("dialog")).to_have_count(0, timeout=timeouts.DEFAULT)
-    expect(page.get_by_test_id("voucher-discount")).to_contain_text(
+    apply_platform_code(page, code)
+    expect(page.get_by_test_id("voucher-discount").last).to_contain_text(
         re.compile(r"\d"), timeout=timeouts.DEFAULT
     )
 
@@ -379,17 +382,13 @@ def no_browser_purchase_row_kept(world: World) -> None:
 def preview_two_codes(world: World, first: str, second: str) -> None:
     ensure_known_voucher(first)
     page = world.page
-    page.wait_for_timeout(500)
-    for i, code in enumerate((first, second)):
-        page.get_by_role("button", name=re.compile("Chọn hoặc nhập mã|Đổi mã")).click()
-        page.locator('input[name="voucher_code"]').fill(code)
-        page.get_by_role("dialog").get_by_role("button", name="Áp dụng").click()
-        if i == 0:
-            expect(page.get_by_role("dialog")).to_have_count(0, timeout=timeouts.DEFAULT)
-        else:
-            expect(page.get_by_role("dialog").locator('p[aria-live="polite"]')).to_be_visible(
-                timeout=timeouts.DEFAULT
-            )
+    slot = page.get_by_test_id("platform-voucher")
+    apply_platform_code(page, first)
+    expect(page.get_by_test_id("voucher-discount").last).to_contain_text(
+        re.compile(r"\d"), timeout=timeouts.DEFAULT
+    )
+    apply_platform_code(page, second)
+    expect(slot.get_by_role("alert")).to_be_visible(timeout=timeouts.DEFAULT)
 
 
 @then('two "apply_promotion" events were pushed with valid "true" and then "false"')

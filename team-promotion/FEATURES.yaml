@@ -2527,3 +2527,2398 @@ features:
     tags: [promotion, go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY team-promotion `internal/store` `TestDatabaseTestsFailWithoutDockerWhenRequired`. Not producible end to end through the gateway (unit level)."
+
+  # ---- promotion-admin-vouchers (e2e-author; planned until the feature scenarios run green)
+  - id: promotion.admin-vouchers-v1-stop-blocks-new-checkouts
+    title: "V1 stop blocks new checkouts"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V1 stop blocks new checkouts"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin stops the voucher"
+      - "Then the call succeeds"
+      - "And the returned voucher is inactive with a deactivated_at"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V1 stop blocks new checkouts"
+
+  - id: promotion.admin-vouchers-v1a-next-reservation-is-refused
+    title: "V1a next reservation is refused"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V1a next reservation is refused"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And a registered buyer for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And a control reservation of the voucher is accepted"
+      - "And the admin has stopped the voucher"
+      - "When the buyer previews the voucher through the gateway"
+      - "Then the last reservation is refused with reason \"inactive\""
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V1a next reservation is refused"
+
+  - id: promotion.admin-vouchers-v1b-no-hold-is-created
+    title: "V1b no hold is created"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V1b no hold is created"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And a control reservation of the voucher is accepted"
+      - "And the admin has stopped the voucher"
+      - "When a reservation of the voucher is requested"
+      - "Then the last reservation is refused with reason \"inactive\""
+      - "And no reservation row exists for the refused reservation"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V1b no hold is created"
+
+  - id: promotion.admin-vouchers-v1c-inactive-wins-over-expired
+    title: "V1c inactive wins over expired"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V1c inactive wins over expired"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher whose end date has passed"
+      - "And a control reservation of the voucher is refused for another reason than inactive"
+      - "And the admin has stopped the voucher"
+      - "When a reservation of the voucher is requested"
+      - "Then the last reservation is refused with reason \"inactive\""
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V1c inactive wins over expired"
+
+  - id: promotion.admin-vouchers-v2-existing-hold-still-commits
+    title: "V2 existing hold still commits"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V2 existing hold still commits"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an order holds the voucher under a reservation"
+      - "And the admin has stopped the voucher"
+      - "When the held reservation is committed"
+      - "Then the commit reports committed and the voucher used count is 1"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V2 existing hold still commits"
+
+  - id: promotion.admin-vouchers-v3-existing-hold-still-releases
+    title: "V3 existing hold still releases"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V3 existing hold still releases"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an order holds the voucher under a reservation"
+      - "And the admin has stopped the voucher"
+      - "When the held reservation is released"
+      - "Then the release reports released and the voucher used count is 0"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V3 existing hold still releases"
+
+  - id: promotion.admin-vouchers-v4-stopping-twice-is-a-no-op
+    title: "V4 stopping twice is a no-op"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V4 stopping twice is a no-op"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And the admin has stopped the voucher"
+      - "When the admin stops the voucher"
+      - "Then the call succeeds"
+      - "And the returned voucher keeps the original deactivated_at"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V4 stopping twice is a no-op"
+
+  - id: promotion.admin-vouchers-v4a-stopping-twice-is-audited-per-call
+    title: "V4a stopping twice is audited per call"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V4a stopping twice is audited per call"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And the admin has stopped the voucher"
+      - "When the admin stops the voucher"
+      - "Then the call succeeds"
+      - "And the audit log holds exactly one more \"voucher.deactivate\" event for the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V4a stopping twice is audited per call"
+
+  - id: promotion.admin-vouchers-v5-unknown-voucher-is-not-found
+    title: "V5 unknown voucher is NOT_FOUND"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V5 unknown voucher is NOT_FOUND"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin stops a voucher with an unknown id"
+      - "Then the call fails with code \"not_found\""
+      - "And the admin can still stop the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V5 unknown voucher is NOT_FOUND"
+
+  - id: promotion.admin-vouchers-v5a-unknown-voucher-writes-no-audit
+    title: "V5a unknown voucher writes no audit"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V5a unknown voucher writes no audit"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin stops a voucher with an unknown id"
+      - "Then the call fails with code \"not_found\""
+      - "And no \"voucher.deactivate\" audit entry mentions the unknown voucher id"
+      - "And the admin can still stop the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V5a unknown voucher writes no audit"
+
+  - id: promotion.admin-vouchers-v6-non-admin-cannot-stop
+    title: "V6 non-admin cannot stop"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V6 non-admin cannot stop"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And a registered seller for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the seller stops the voucher"
+      - "Then the call fails with code \"permission_denied\""
+      - "And the admin can still stop the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V6 non-admin cannot stop"
+
+  - id: promotion.admin-vouchers-v6a-non-admin-stop-leaves-no-trace
+    title: "V6a non-admin stop leaves no trace"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V6a non-admin stop leaves no trace"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And a registered buyer for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the buyer stops the voucher"
+      - "Then the call fails with code \"permission_denied\""
+      - "And the audit log holds no \"voucher.deactivate\" event for the voucher"
+      - "And the stored voucher is unchanged"
+      - "And the admin can still stop the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V6a non-admin stop leaves no trace"
+
+  - id: promotion.admin-vouchers-v7-anonymous-cannot-stop-or-update
+    title: "V7 anonymous cannot stop or update"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V7 anonymous cannot stop or update"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When an anonymous caller stops the voucher"
+      - "And an anonymous caller updates the voucher with quota 9"
+      - "Then every call fails with code \"unauthenticated\""
+      - "And the stored voucher is unchanged"
+      - "And the admin can still stop the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V7 anonymous cannot stop or update"
+
+  - id: promotion.admin-vouchers-v7a-anonymous-request-does-not-reach-promotion
+    title: "V7a anonymous request does not reach promotion"
+    persona: admin
+    priority: P2
+    summary: Unit-level scenario of change promotion-admin-vouchers.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "V7a anonymous request does not reach promotion"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestV7_AnonymousCannotStopOrUpdate_NoUpstreamCall`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-vouchers-v7b-buyer-token-cannot-stop-or-update-through-the-gateway
+    title: "V7b buyer token cannot stop or update through the gateway"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V7b buyer token cannot stop or update through the gateway"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And a registered buyer for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the buyer stops the voucher"
+      - "And the buyer updates the voucher with quota 9"
+      - "Then every call fails with code \"permission_denied\""
+      - "And the stored voucher is unchanged"
+      - "And the admin can still stop the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V7b buyer token cannot stop or update through the gateway"
+
+  - id: promotion.admin-vouchers-v8-raise-quota
+    title: "V8 raise quota"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V8 raise quota"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 2 used"
+      - "When the admin updates the voucher with quota 8"
+      - "Then the call succeeds"
+      - "And the returned voucher has quota 8"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V8 raise quota"
+
+  - id: promotion.admin-vouchers-v8a-raise-quota-leaves-other-fields
+    title: "V8a raise quota leaves other fields"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V8a raise quota leaves other fields"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with quota 8"
+      - "Then the call succeeds"
+      - "And the returned voucher keeps its money fields and end date"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V8a raise quota leaves other fields"
+
+  - id: promotion.admin-vouchers-v8b-raise-quota-is-audited-once
+    title: "V8b raise quota is audited once"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V8b raise quota is audited once"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with quota 8"
+      - "Then the call succeeds"
+      - "And the audit log holds exactly 1 \"voucher.update\" event for the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V8b raise quota is audited once"
+
+  - id: promotion.admin-vouchers-v9-move-end-date
+    title: "V9 move end date"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V9 move end date"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with an end date 60 days from now"
+      - "Then the call succeeds"
+      - "And the returned voucher has the new end date"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V9 move end date"
+
+  - id: promotion.admin-vouchers-v9a-new-end-date-reopens-the-window
+    title: "V9a new end date reopens the window"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V9a new end date reopens the window"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher whose end date has passed"
+      - "And a control reservation of the voucher is refused for another reason than inactive"
+      - "When the admin updates the voucher with an end date 5 days from now"
+      - "And a reservation of the voucher is requested"
+      - "Then the last reservation is accepted"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V9a new end date reopens the window"
+
+  - id: promotion.admin-vouchers-v9b-ends-at-at-or-before-now-is-refused
+    title: "V9b ends_at at or before now is refused"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V9b ends_at at or before now is refused"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with an end date -3600 seconds from now"
+      - "And the admin updates the voucher with an end date 0 seconds from now"
+      - "Then every call fails with code \"invalid_argument\""
+      - "And the stored voucher is unchanged"
+      - "And the admin can still update the voucher with an end date"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V9b ends_at at or before now is refused"
+
+  - id: promotion.admin-vouchers-v9c-ends-at-one-second-after-now-is-accepted
+    title: "V9c ends_at one second after now is accepted"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V9c ends_at one second after now is accepted"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with an end date 1 seconds from now"
+      - "Then the call succeeds"
+      - "And the returned voucher has the new end date"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V9c ends_at one second after now is accepted"
+
+  - id: promotion.admin-vouchers-v10-quota-below-used-is-refused
+    title: "V10 quota below used is refused"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V10 quota below used is refused"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 2 used"
+      - "When the admin updates the voucher with quota 1"
+      - "Then the call fails with code \"invalid_argument\""
+      - "And the stored voucher is unchanged"
+      - "And the admin can still update the voucher with quota 6"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V10 quota below used is refused"
+
+  - id: promotion.admin-vouchers-v10a-refused-quota-writes-no-audit
+    title: "V10a refused quota writes no audit"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V10a refused quota writes no audit"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 2 used"
+      - "When the admin updates the voucher with quota 1"
+      - "Then the call fails with code \"invalid_argument\""
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the admin can still update the voucher with quota 6"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V10a refused quota writes no audit"
+
+  - id: promotion.admin-vouchers-v11-quota-lowered-is-refused
+    title: "V11 quota lowered is refused"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V11 quota lowered is refused"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 10 and 2 used"
+      - "When the admin updates the voucher with quota 6"
+      - "Then the call fails with code \"invalid_argument\""
+      - "And the stored voucher is unchanged"
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the admin can still update the voucher with quota 11"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V11 quota lowered is refused"
+
+  - id: promotion.admin-vouchers-v12-fully-used-voucher-with-the-same-quota-and-a-new-end-date-is-accepted
+    title: "V12 fully used voucher with the same quota and a new end date is accepted"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V12 fully used voucher with the same quota and a new end date is accepted"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 2 and 2 used"
+      - "When the admin updates the voucher with the current quota and an end date 60 days from now"
+      - "Then the call succeeds"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V12 fully used voucher with the same quota and a new end date is accepted"
+
+  - id: promotion.admin-vouchers-v12a-same-quota-and-no-end-date-is-nothing-to-change
+    title: "V12a same quota and no end date is nothing to change"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V12a same quota and no end date is nothing to change"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with the current quota and no end date"
+      - "Then the call fails with code \"invalid_argument\""
+      - "And the error message says \"nothing to change\""
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the admin can still update the voucher with quota 6"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V12a same quota and no end date is nothing to change"
+
+  - id: promotion.admin-vouchers-v12b-quota-equal-to-current-with-ends-at
+    title: "V12b quota equal to current with ends_at"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V12b quota equal to current with ends_at"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with the current quota and an end date 60 days from now"
+      - "Then the call succeeds"
+      - "And the returned voucher has the new end date"
+      - "And the returned voucher has quota 5"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V12b quota equal to current with ends_at"
+
+  - id: promotion.admin-vouchers-v12c-quota-equal-to-current-with-ends-at-is-audited-once
+    title: "V12c quota equal to current with ends_at is audited once"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V12c quota equal to current with ends_at is audited once"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with the current quota and an end date 60 days from now"
+      - "Then the call succeeds"
+      - "And the audit log holds exactly 1 \"voucher.update\" event for the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V12c quota equal to current with ends_at is audited once"
+
+  - id: promotion.admin-vouchers-v12d-quota-greater-than-used-and-greater-than-current
+    title: "V12d quota greater than used and greater than current"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V12d quota greater than used and greater than current"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 2 and 2 used"
+      - "When the admin updates the voucher with quota 3"
+      - "Then the call succeeds"
+      - "And the returned voucher has quota 3"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V12d quota greater than used and greater than current"
+
+  - id: promotion.admin-vouchers-v13-end-date-not-after-start-is-refused
+    title: "V13 end date not after start is refused"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V13 end date not after start is refused"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher that starts in 2 days and ends in 10 days"
+      - "When the admin updates the voucher with an end date equal to the start date"
+      - "And the admin updates the voucher with an end date one second before the start date"
+      - "Then every call fails with code \"invalid_argument\""
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the stored voucher is unchanged"
+      - "And the admin can still update the voucher with an end date"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V13 end date not after start is refused"
+
+  - id: promotion.admin-vouchers-v14-nothing-to-change
+    title: "V14 nothing to change"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V14 nothing to change"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with neither quota nor end date"
+      - "Then the call fails with code \"invalid_argument\""
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the admin can still update the voucher with quota 6"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V14 nothing to change"
+
+  - id: promotion.admin-vouchers-v15-inactive-voucher-cannot-be-edited
+    title: "V15 inactive voucher cannot be edited"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V15 inactive voucher cannot be edited"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And the admin has stopped the voucher"
+      - "When the admin updates the voucher with quota 8"
+      - "Then the call fails with code \"failed_precondition\""
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the stored voucher is unchanged"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V15 inactive voucher cannot be edited"
+
+  - id: promotion.admin-vouchers-v15a-unknown-voucher-on-update
+    title: "V15a unknown voucher on update"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V15a unknown voucher on update"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates an unknown voucher id with quota 8"
+      - "Then the call fails with code \"not_found\""
+      - "And no \"voucher.update\" audit entry mentions the unknown voucher id"
+      - "And the admin can still update the voucher with quota 6"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V15a unknown voucher on update"
+
+  - id: promotion.admin-vouchers-v16-money-fields-are-never-altered-by-an-update
+    title: "V16 money fields are never altered by an update"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V16 money fields are never altered by an update"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 1 used"
+      - "When the admin updates the voucher with quota 9 and an end date 60 days from now"
+      - "Then the call succeeds"
+      - "And the returned voucher keeps its money fields"
+      - "And the stored voucher keeps its money fields"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V16 money fields are never altered by an update"
+
+  - id: promotion.admin-vouchers-v16a-quota-zero-is-refused
+    title: "V16a quota zero is refused"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V16a quota zero is refused"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin updates the voucher with quota 0"
+      - "Then the call fails with code \"invalid_argument\""
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the admin can still update the voucher with quota 6"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V16a quota zero is refused"
+
+  - id: promotion.admin-vouchers-v16b-unlimited-voucher-cannot-become-finite
+    title: "V16b unlimited voucher cannot become finite"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V16b unlimited voucher cannot become finite"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with unlimited quota"
+      - "When the admin updates the voucher with quota 500"
+      - "Then the call fails with code \"invalid_argument\""
+      - "And the stored voucher has quota 0"
+      - "And the admin can still update the voucher with an end date"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V16b unlimited voucher cannot become finite"
+
+  - id: promotion.admin-vouchers-v16c-unlimited-voucher-end-date-can-move
+    title: "V16c unlimited voucher end date can move"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V16c unlimited voucher end date can move"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with unlimited quota"
+      - "When the admin updates the voucher with an end date 60 days from now"
+      - "Then the call succeeds"
+      - "And the returned voucher has the new end date"
+      - "And the returned voucher has quota 0"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V16c unlimited voucher end date can move"
+
+  - id: promotion.admin-vouchers-v16d-race-with-a-concurrent-reservation
+    title: "V16d race with a concurrent reservation"
+    persona: admin
+    priority: P2
+    summary: Unit-level scenario of change promotion-admin-vouchers.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "V16d race with a concurrent reservation"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestPostgresVoucherUpdateAgainstConcurrentReservationsNeverBreaksQuotaInvariant_V16d` and `TestPostgresVoucherConcurrentUpdatesNeverLowerQuotaBelowUsed_V16d`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-vouchers-v16e-lost-race-keeps-the-audit-entry
+    title: "V16e lost race keeps the audit entry"
+    persona: admin
+    priority: P2
+    summary: Unit-level scenario of change promotion-admin-vouchers.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "V16e lost race keeps the audit entry"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestUpdateVoucher_V16d_V16e_lostRaceIsInvalidKeepsAuditAndNeverBelowUsed`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-vouchers-v16f-concurrent-deactivate-during-update
+    title: "V16f concurrent deactivate during update"
+    persona: admin
+    priority: P2
+    summary: Unit-level scenario of change promotion-admin-vouchers.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "V16f concurrent deactivate during update"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestPostgresVoucherConcurrentDeactivateAndUpdateStayConsistent_V16f` and `internal/voucher` `TestUpdateVoucher_V16f_deactivateBetweenValidationAndUpdateIsFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-vouchers-v16g-error-precedence
+    title: "V16g error precedence"
+    persona: admin
+    priority: P2
+    summary: Unit-level scenario of change promotion-admin-vouchers.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "V16g error precedence"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestUpdateVoucher_V16g_errorPrecedence` and `internal/rpc` `TestUpdateVoucherFailedPreconditionBeatsInvalidArgument_V16g`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-vouchers-v17-non-admin-cannot-edit
+    title: "V17 non-admin cannot edit"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V17 non-admin cannot edit"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And a registered seller for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the seller updates the voucher with quota 8"
+      - "Then the call fails with code \"permission_denied\""
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the admin can still update the voucher with quota 6"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V17 non-admin cannot edit"
+
+  - id: promotion.admin-vouchers-v18-taken-code-is-refused-with-an-error
+    title: "V18 taken code is refused with an error"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V18 taken code is refused with an error"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin creates a platform voucher with the same code"
+      - "Then the call fails with code \"already_exists\""
+      - "And the error message names the code field"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V18 taken code is refused with an error"
+
+  - id: promotion.admin-vouchers-v18a-duplicate-writes-no-audit
+    title: "V18a duplicate writes no audit"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V18a duplicate writes no audit"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin creates a platform voucher with the same code"
+      - "Then the call fails with code \"already_exists\""
+      - "And the audit log holds exactly 1 \"voucher.platform_create\" event for the voucher"
+      - "And the stored voucher is unchanged"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V18a duplicate writes no audit"
+
+  - id: promotion.admin-vouchers-v18b-duplicate-race-has-one-winner
+    title: "V18b duplicate race has one winner"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V18b duplicate race has one winner"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "When two admins create the same new platform code at once"
+      - "Then exactly one of the calls succeeds"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V18b duplicate race has one winner"
+
+  - id: promotion.admin-vouchers-v18c-duplicate-race-loser-gets-already-exists
+    title: "V18c duplicate race loser gets ALREADY_EXISTS"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V18c duplicate race loser gets ALREADY_EXISTS"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "When two admins create the same new platform code at once"
+      - "Then exactly one of the calls succeeds"
+      - "And the failing call returns \"already_exists\", never \"internal\""
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V18c duplicate race loser gets ALREADY_EXISTS"
+
+  - id: promotion.admin-vouchers-v19-gateway-keeps-the-code
+    title: "V19 gateway keeps the code"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V19 gateway keeps the code"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the admin creates a platform voucher with the same code"
+      - "Then the gateway answers with Connect code \"already_exists\" and not \"internal\""
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V19 gateway keeps the code"
+
+  - id: promotion.admin-vouchers-v20-admin-ui-shows-the-duplicate-message
+    title: "V20 admin UI shows the duplicate message"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V20 admin UI shows the duplicate message"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the create form filled with the code of that voucher"
+      - "When the admin submits the form"
+      - "Then the form shows \"code already exists\" and keeps the typed code"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V20 admin UI shows the duplicate message"
+
+  - id: promotion.admin-vouchers-v20a-no-voucher-added-on-duplicate
+    title: "V20a no voucher added on duplicate"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V20a no voucher added on duplicate"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the create form filled with the code of that voucher"
+      - "When the admin submits the form"
+      - "Then the voucher list holds exactly one row for that code"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V20a no voucher added on duplicate"
+
+  - id: promotion.admin-vouchers-v21-audit-down-on-any-admin-voucher-write
+    title: "V21 audit down on any admin voucher write"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V21 audit down on any admin voucher write"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin creates a new platform voucher, stops the voucher and updates its quota to 8"
+      - "Then every call fails with code \"unavailable\""
+      - "And every error carries reason \"AUDIT_UNAVAILABLE\" and domain \"promotion.platform\""
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V21 audit down on any admin voucher write"
+
+  - id: promotion.admin-vouchers-v21a-audit-down-changes-nothing
+    title: "V21a audit down changes nothing"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V21a audit down changes nothing"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin creates a new platform voucher, stops the voucher and updates its quota to 8"
+      - "Then every call fails with code \"unavailable\""
+      - "And after team-audit is started again nothing was created or changed"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V21a audit down changes nothing"
+
+  - id: promotion.admin-vouchers-v21b-audit-down-with-invalid-input
+    title: "V21b audit down with invalid input"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V21b audit down with invalid input"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin updates the voucher with quota 0 while audit is down"
+      - "And the admin creates a platform voucher with the same code"
+      - "And the admin stops a voucher with an unknown id"
+      - "Then the calls fail with \"invalid_argument\", \"already_exists\" and \"not_found\" respectively"
+      - "And after team-audit is started again nothing was created or changed"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V21b audit down with invalid input"
+
+  - id: promotion.admin-vouchers-v22-audit-written-before-the-change
+    title: "V22 audit written before the change"
+    persona: admin
+    priority: P2
+    summary: Unit-level scenario of change promotion-admin-vouchers.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "V22 audit written before the change"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestDeactivateVoucher_V22_auditBeforeWriteWithActorAndCode` and `TestUpdateVoucher_V22_auditBeforeWriteWithActorAndCode`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-vouchers-v23-gateway-keeps-the-audit-reason
+    title: "V23 gateway keeps the audit reason"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V23 gateway keeps the audit reason"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin stops the voucher"
+      - "Then the call fails with code \"unavailable\""
+      - "And the error carries reason \"AUDIT_UNAVAILABLE\" and domain \"promotion.platform\""
+      - "And the error message is the generic \"service unavailable\" text"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V23 gateway keeps the audit reason"
+
+  - id: promotion.admin-vouchers-v23a-gateway-never-forwards-the-raw-backend-message
+    title: "V23a gateway never forwards the raw backend message"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V23a gateway never forwards the raw backend message"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin stops the voucher"
+      - "Then the call fails with code \"unavailable\""
+      - "And the error carries reason \"AUDIT_UNAVAILABLE\" and domain \"promotion.platform\""
+      - "And the error message does not contain the upstream audit text"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V23a gateway never forwards the raw backend message"
+
+  - id: promotion.admin-vouchers-v24-gateway-reports-promotion-down
+    title: "V24 gateway reports promotion down"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V24 gateway reports promotion down"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And team-promotion is stopped for the voucher admin checks"
+      - "When the admin stops the voucher"
+      - "Then the call fails with code \"unavailable\""
+      - "And the error carries reason \"PROMOTION_UNAVAILABLE\" and domain \"promotion.platform\""
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V24 gateway reports promotion down"
+
+  - id: promotion.admin-vouchers-v25-upstream-unavailable-without-errorinfo-stays-generic
+    title: "V25 upstream unavailable without ErrorInfo stays generic"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V25 upstream unavailable without ErrorInfo stays generic"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin queries the audit log through the gateway"
+      - "Then the call fails with code \"unavailable\""
+      - "And the error carries no ErrorInfo reason"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V25 upstream unavailable without ErrorInfo stays generic"
+
+  - id: promotion.admin-vouchers-v26-admin-ui-audit-down-message
+    title: "V26 admin UI audit-down message"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V26 admin UI audit-down message"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the create form filled with a fresh code"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin submits the form"
+      - "Then the admin app shows \"audit is down, nothing created\""
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V26 admin UI audit-down message"
+
+  - id: promotion.admin-vouchers-v26a-admin-ui-audit-down-message-on-stop-and-edit
+    title: "V26a admin UI audit-down message on stop and edit"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V26a admin UI audit-down message on stop and edit"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the stop dialog open on that voucher"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin submits the form"
+      - "Then the admin app shows \"audit is down, nothing changed\""
+      - "When the admin has the edit form filled with quota 8"
+      - "And the admin submits the form"
+      - "Then the admin app shows \"audit is down, nothing changed\""
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V26a admin UI audit-down message on stop and edit"
+
+  - id: promotion.admin-vouchers-v27-admin-ui-promotion-down-message
+    title: "V27 admin UI promotion-down message"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V27 admin UI promotion-down message"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the create form filled with a fresh code"
+      - "And team-promotion is stopped for the voucher admin checks"
+      - "When the admin submits the form"
+      - "Then the admin app shows \"promotion is down, nothing created\""
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V27 admin UI promotion-down message"
+
+  - id: promotion.admin-vouchers-v27b-admin-ui-promotion-down-on-stop-and-edit
+    title: "V27b admin UI promotion-down on stop and edit"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V27b admin UI promotion-down on stop and edit"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the stop dialog open on that voucher"
+      - "And team-promotion is stopped for the voucher admin checks"
+      - "When the admin submits the form"
+      - "Then the admin app shows \"promotion is down, nothing changed\""
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V27b admin UI promotion-down on stop and edit"
+
+  - id: promotion.admin-vouchers-v27c-the-two-messages-differ
+    title: "V27c the two messages differ"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V27c the two messages differ"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the create form filled with a fresh code"
+      - "And team-audit is stopped for the voucher admin checks"
+      - "When the admin submits the form"
+      - "Then the admin app shows \"audit is down, nothing created\""
+      - "And the admin app does not show \"promotion is down\""
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V27c the two messages differ"
+
+  - id: promotion.admin-vouchers-v27a-non-admin-write-is-denied-before-audit
+    title: "V27a non-admin write is denied before audit"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V27a non-admin write is denied before audit"
+    entry_route: /
+    services: [team-promotion, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And a registered buyer for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "When the buyer creates a platform voucher, stops the voucher and updates its quota to 8"
+      - "Then every call fails with code \"permission_denied\""
+      - "And the buyer's new voucher does not exist"
+      - "And the audit log holds no \"voucher.deactivate\" event for the voucher"
+      - "And the audit log holds no \"voucher.update\" event for the voucher"
+      - "And the admin can still stop the voucher"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V27a non-admin write is denied before audit"
+
+  - id: promotion.admin-vouchers-v28-stop-from-the-list
+    title: "V28 stop from the list"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V28 stop from the list"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the stop dialog open on that voucher"
+      - "When the admin submits the form"
+      - "Then after a refresh the voucher row shows status \"stopped\""
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V28 stop from the list"
+
+  - id: promotion.admin-vouchers-v28a-buyer-sees-a-stopped-voucher-as-not-applicable
+    title: "V28a buyer sees a stopped voucher as not applicable"
+    persona: buyer
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V28a buyer sees a stopped voucher as not applicable"
+    entry_route: /checkout
+    services: [team-promotion, team-gateway, team-frontend-admin, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And the admin has stopped the voucher"
+      - "And a promotion buyer has a qualifying cart and a saved address"
+      - "When the buyer applies the stopped code at checkout"
+      - "Then the checkout voucher alert reads \"Mã giảm giá đã ngừng áp dụng.\" and no raw reason"
+    tags: [promotion, buyer]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V28a buyer sees a stopped voucher as not applicable"
+
+  - id: promotion.admin-vouchers-v28b-other-reasons-keep-their-text
+    title: "V28b other reasons keep their text"
+    persona: buyer
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V28b other reasons keep their text"
+    entry_route: /checkout
+    services: [team-promotion, team-gateway, team-frontend-admin, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And a promotion buyer has a qualifying cart and a saved address"
+      - "When the buyer applies an unknown code at checkout"
+      - "Then the checkout voucher alert is shown, is not the stopped text and holds no raw \"inactive\""
+    tags: [promotion, buyer]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V28b other reasons keep their text"
+
+  - id: promotion.admin-vouchers-v29-edit-end-date-and-quota
+    title: "V29 edit end date and quota"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V29 edit end date and quota"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin opens the detail screen of that voucher"
+      - "When the admin has the edit form filled with quota 8"
+      - "And the admin submits the form"
+      - "Then the detail screen shows quota 8 and the new end date"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V29 edit end date and quota"
+
+  - id: promotion.admin-vouchers-v29a-money-fields-read-only
+    title: "V29a money fields read-only"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V29a money fields read-only"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin opens the detail screen of that voucher"
+      - "When the admin opens the edit form"
+      - "Then the discount, min spend, max discount and scope are read-only"
+      - "And the end date and quota fields are editable"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V29a money fields read-only"
+
+  - id: promotion.admin-vouchers-v30-edit-validation-shown-on-the-field
+    title: "V30 edit validation shown on the field"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V30 edit validation shown on the field"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 2 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin opens the detail screen of that voucher"
+      - "When the admin opens the edit form"
+      - "And the admin enters a quota of 1 and submits"
+      - "And the admin enters a quota of 3 and submits"
+      - "And the admin enters an end date before the start date and submits"
+      - "Then every attempt shows an error on its field"
+      - "And no UpdateVoucher request was sent"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V30 edit validation shown on the field"
+
+  - id: promotion.admin-vouchers-v30a-quota-field-hidden-for-unlimited-vouchers
+    title: "V30a quota field hidden for unlimited vouchers"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V30a quota field hidden for unlimited vouchers"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with unlimited quota"
+      - "And an admin is signed in the admin app"
+      - "And the admin opens the detail screen of that voucher"
+      - "When the admin opens the edit form"
+      - "Then the form renders no quota field"
+      - "And the end date field is editable"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V30a quota field hidden for unlimited vouchers"
+
+  - id: promotion.admin-vouchers-v31-stopped-voucher-has-no-edit
+    title: "V31 stopped voucher has no edit"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V31 stopped voucher has no edit"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And the admin has stopped the voucher"
+      - "And an admin is signed in the admin app"
+      - "When the admin opens the detail screen of that voucher"
+      - "Then the voucher shows status \"stopped\""
+      - "And the Stop and Edit controls are absent"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V31 stopped voucher has no edit"
+
+  - id: promotion.admin-vouchers-v32-non-admin-sees-no-controls
+    title: "V32 non-admin sees no controls"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V32 non-admin sees no controls"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an active platform voucher with quota 5 and 0 used"
+      - "And an admin is signed in the admin app"
+      - "And the admin sees the voucher list with the Stop control"
+      - "When a signed-in seller opens the vouchers page"
+      - "Then the page shows the forbidden screen with no Stop or Edit control"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V32 non-admin sees no controls"
+
+  - id: promotion.admin-vouchers-v33-create-dialog-no-longer-claims-immutability
+    title: "V33 create dialog no longer claims immutability"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V33 create dialog no longer claims immutability"
+    entry_route: /admin/vouchers
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the seeded admin for the voucher admin checks"
+      - "And an admin is signed in the admin app"
+      - "And the admin has the create form filled with a fresh code"
+      - "When the admin opens the create confirmation dialog"
+      - "Then the dialog has text and does not state that a voucher cannot be changed"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "frontend/admin_vouchers_ui.feature::V33 create dialog no longer claims immutability"
+
+  - id: promotion.admin-vouchers-v34-gaps-removed
+    title: "V34 gaps removed"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V34 gaps removed"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the gaps document of the change"
+      - "Then the gaps document has no row whose id is G9, G10 or G11"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V34 gaps removed"
+
+  - id: promotion.admin-vouchers-v35-other-gaps-untouched
+    title: "V35 other gaps untouched"
+    persona: admin
+    priority: P1
+    summary: "Admin vouchers (change promotion-admin-vouchers): V35 other gaps untouched"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, promotion.v1.UpdateVoucher, promotion.v1.CreateVoucher, promotion.v1.GetVoucher]
+    acceptance:
+      - "Given the gaps document of the change"
+      - "Then rows G9, G10 and G11 are removed from the base and no row is added"
+      - "And every other row is byte-identical and every row has the table format of the header"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_vouchers.feature::V35 other gaps untouched"
+
+  # ---- promotion-admin-campaigns (e2e-author)
+  - id: promotion.admin-campaigns-list-filters-by-status
+    title: "List filters by status"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): List filters by status"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And one scheduled, one active, one ended and one cancelled campaign exist"
+      - "When the admin lists campaigns filtered by \"CAMPAIGN_STATUS_SCHEDULED\""
+      - "Then the list holds the scheduled campaign with status \"CAMPAIGN_STATUS_SCHEDULED\""
+      - "And the list holds none of the active, ended and cancelled campaigns"
+      - "And an unfiltered list shows the four campaigns with their derived statuses"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::List filters by status"
+
+  - id: promotion.admin-campaigns-kill-switch-off-is-reported
+    title: "Kill-switch off is reported"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Kill-switch off is reported"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an active campaign on the listing"
+      - "And the active campaign list shows it with the kill-switch on"
+      - "And the flash-sale kill-switch is switched off"
+      - "When the admin lists campaigns filtered by \"CAMPAIGN_STATUS_ACTIVE\""
+      - "And anyone lists the active campaigns"
+      - "Then the admin list still holds the campaign and reports flash_sale_disabled"
+      - "And the active campaign list is empty and reports flash_sale_disabled"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Kill-switch off is reported"
+
+  - id: promotion.admin-campaigns-non-admin-cannot-list-all-campaigns
+    title: "Non-admin cannot list all campaigns"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Non-admin cannot list all campaigns"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an active campaign on the listing"
+      - "And the admin list holds the campaign"
+      - "When the seller lists all campaigns"
+      - "And an anonymous caller lists all campaigns"
+      - "Then the seller is refused with \"permission_denied\" and no campaign is returned"
+      - "And the anonymous caller is refused with \"unauthenticated\" and no campaign is returned"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Non-admin cannot list all campaigns"
+
+  - id: promotion.admin-campaigns-cancel-stops-new-holds-keeps-existing-holds-and-sold
+    title: "Cancel stops new holds, keeps existing holds and sold"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Cancel stops new holds, keeps existing holds and sold"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an active campaign on the listing with stock cap 10"
+      - "And 2 units of the campaign are sold and 1 unit is held"
+      - "When the admin cancels the campaign successfully"
+      - "And a buyer tries to reserve 1 unit of the campaign"
+      - "And the held unit is committed"
+      - "Then the new reserve is refused with reason \"not_active\""
+      - "And the commit of the held unit succeeds"
+      - "And the campaign shows status \"CAMPAIGN_STATUS_CANCELLED\" and stock_sold 3"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Cancel stops new holds, keeps existing holds and sold"
+
+  - id: promotion.admin-campaigns-cancel-while-audit-is-down
+    title: "Cancel while audit is down"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Cancel while audit is down"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an active campaign on the listing"
+      - "And team-audit is stopped for the campaign admin checks"
+      - "When the admin cancels the campaign"
+      - "Then the call is refused with \"unavailable\""
+      - "And once team-audit is back the campaign is still \"CAMPAIGN_STATUS_ACTIVE\""
+      - "And the admin can then cancel the campaign"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Cancel while audit is down"
+
+  - id: promotion.admin-campaigns-anonymous-cannot-cancel
+    title: "Anonymous cannot cancel"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Anonymous cannot cancel"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an active campaign on the listing"
+      - "When an anonymous caller cancels the campaign"
+      - "Then the call is refused with \"unauthenticated\""
+      - "And the campaign is still \"CAMPAIGN_STATUS_ACTIVE\""
+      - "And the admin can then cancel the campaign"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Anonymous cannot cancel"
+
+  - id: promotion.admin-campaigns-edit-a-scheduled-campaign
+    title: "Edit a scheduled campaign"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Edit a scheduled campaign"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And a scheduled campaign on the listing"
+      - "When the admin updates the campaign to sale price 90000, stock cap 50 and a later window"
+      - "Then the update response shows those values with status \"CAMPAIGN_STATUS_SCHEDULED\""
+      - "And a following list shows those values with status \"CAMPAIGN_STATUS_SCHEDULED\""
+      - "And exactly one \"campaign.update\" audit event exists for the campaign"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Edit a scheduled campaign"
+
+  - id: promotion.admin-campaigns-edit-a-started-campaign-is-refused
+    title: "Edit a started campaign is refused"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Edit a started campaign is refused"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And one scheduled, one active, one ended and one cancelled campaign exist"
+      - "When the admin updates the active, the ended and the cancelled campaign"
+      - "Then each update is refused with \"failed_precondition\""
+      - "And the stored values of those three campaigns are unchanged"
+      - "And the admin can still update the scheduled campaign"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Edit a started campaign is refused"
+
+  - id: promotion.admin-campaigns-anonymous-cannot-edit
+    title: "Anonymous cannot edit"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Anonymous cannot edit"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And a scheduled campaign on the listing"
+      - "When an anonymous caller updates the campaign"
+      - "Then the call is refused with \"unauthenticated\""
+      - "And the stored values of the campaign are unchanged"
+      - "And the admin can still update the scheduled campaign"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Anonymous cannot edit"
+
+  - id: promotion.admin-campaigns-price-not-below-listing-price
+    title: "Price not below listing price"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Price not below listing price"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an admin create with a valid payload succeeds on another listing"
+      - "When the admin creates a campaign with sale price equal to the listing price"
+      - "Then the call is refused with \"invalid_argument\" naming \"sale_price\""
+      - "And no campaign exists for the listing and no create audit entry was written"
+      - "And the admin can create a campaign with the sale price one below the listing price"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Price not below listing price"
+
+  - id: promotion.admin-campaigns-unknown-listing
+    title: "Unknown listing"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Unknown listing"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an admin create with a valid payload succeeds on another listing"
+      - "When the admin creates a campaign for a listing id that does not exist"
+      - "Then the call is refused with \"invalid_argument\" naming \"listing_id\""
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Unknown listing"
+
+  - id: promotion.admin-campaigns-listing-service-down
+    title: "Listing service down"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Listing service down"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an admin create with a valid payload succeeds on another listing"
+      - "And team-listing is stopped for the campaign admin checks"
+      - "When the admin creates a campaign on the listing and the time is measured"
+      - "Then the call is refused with \"unavailable\" and reason \"LISTING_UNAVAILABLE\" within 2.5 seconds"
+      - "And once team-listing is back no campaign exists for the listing"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Listing service down"
+
+  - id: promotion.admin-campaigns-create-with-audit-down
+    title: "Create with audit down"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Create with audit down"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And team-audit is stopped for the campaign admin checks"
+      - "When the admin creates a campaign on the listing with a fresh key"
+      - "Then the call is refused with \"unavailable\" and reason \"AUDIT_UNAVAILABLE\" in domain \"promotion.platform\""
+      - "And once team-audit is back no campaign exists for the listing"
+      - "And retrying the create with the same key succeeds"
+    tags: [promotion, admin, destructive]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Create with audit down"
+
+  - id: promotion.admin-campaigns-retry-after-timeout-returns-same-campaign
+    title: "Retry after timeout returns same campaign"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Retry after timeout returns same campaign"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "When the admin creates a campaign on the listing with a fresh key twice with the same payload"
+      - "Then both calls return the same campaign id"
+      - "And the list holds exactly one campaign for the listing"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Retry after timeout returns same campaign"
+
+  - id: promotion.admin-campaigns-same-key-different-payload
+    title: "Same key different payload"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Same key different payload"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an admin create on the listing succeeded with a fresh key"
+      - "When the admin reuses the key with a different sale price"
+      - "Then the call is refused with \"already_exists\""
+      - "And the original campaign is unchanged and is the only one for the listing"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Same key different payload"
+
+  - id: promotion.admin-campaigns-replay-after-cancel-returns-current-state
+    title: "Replay after cancel returns current state"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Replay after cancel returns current state"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an admin create on the listing succeeded with a fresh key"
+      - "And the admin has cancelled the created campaign"
+      - "When the admin replays the original create request with the same key and payload"
+      - "Then the replay returns the same campaign id with status \"CAMPAIGN_STATUS_CANCELLED\""
+      - "And the list holds exactly one campaign for the listing"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Replay after cancel returns current state"
+
+  - id: promotion.admin-campaigns-filter-and-cancel-from-the-list
+    title: "Filter and cancel from the list"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Filter and cancel from the list"
+    entry_route: /admin/campaigns
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an active campaign on the listing"
+      - "And an admin is signed in the admin app for the campaign checks"
+      - "And the admin has opened the campaign list screen"
+      - "When the admin picks the filter \"active\" and confirms cancel on the campaign row"
+      - "Then the row shows status cancelled"
+      - "And the active filter no longer lists the campaign"
+      - "And the stored campaign is \"CAMPAIGN_STATUS_CANCELLED\""
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Filter and cancel from the list"
+
+  - id: promotion.admin-campaigns-create-retry-reuses-the-key
+    title: "Create retry reuses the key"
+    persona: admin
+    priority: P1
+    summary: "Admin campaigns (change promotion-admin-campaigns): Create retry reuses the key"
+    entry_route: /admin/campaigns
+    services: [team-promotion, team-gateway, team-frontend-admin]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateCampaign, promotion.v1.ListCampaigns, promotion.v1.CancelCampaign, promotion.v1.UpdateCampaign]
+    acceptance:
+      - "Given the seeded admin for the campaign admin checks"
+      - "And a seller with a published listing for the campaign admin checks"
+      - "And an admin is signed in the admin app for the campaign checks"
+      - "And the admin has the campaign create form filled for the listing"
+      - "And the first create request loses its response"
+      - "When the admin submits the form and then submits it again"
+      - "Then both create requests carry the same idempotency_key"
+      - "And the list holds exactly one campaign for the listing"
+    tags: [promotion, admin]
+    status: automated
+    covered_by: "promo/promotion_admin_campaigns.feature::Create retry reuses the key"
+
+  - id: promotion.admin-campaigns-list-with-no-filter-newest-first
+    title: "List with no filter, newest first"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "List with no filter, newest first"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestListCampaignsNewestFirstAllStatuses`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-status-derivation-at-window-edges
+    title: "Status derivation at window edges"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Status derivation at window edges"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCampaignStatusBoundaries`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-page-size-clamp
+    title: "Page size clamp"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Page size clamp"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestListCampaignsPageSizeClamp`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-paging-boundary
+    title: "Paging boundary"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Paging boundary"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestListCampaignsPaging`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-key-is-scoped-per-admin-and-expires
+    title: "Key is scoped per admin and expires"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Key is scoped per admin and expires"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignIdempotencyScopeAndExpiry`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-cancel-is-audited-before-the-write
+    title: "Cancel is audited before the write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancel is audited before the write"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelCampaignAuditBeforeWrite`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-cancel-twice-is-a-no-op
+    title: "Cancel twice is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancel twice is a no-op"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelCampaignIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-cancel-an-ended-or-unknown-campaign
+    title: "Cancel an ended or unknown campaign"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancel an ended or unknown campaign"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelCampaignErrors`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-cancel-audit-outage-identification
+    title: "Cancel audit outage identification"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancel audit outage identification"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCampaignWritesAuditDownErrorInfo`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-reserve-racing-a-cancel
+    title: "Reserve racing a cancel"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve racing a cancel"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelRacesReserve`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-edit-validates-like-create
+    title: "Edit validates like create"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Edit validates like create"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestUpdateCampaignValidation`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-edit-is-audited-before-the-write-and-fails-closed
+    title: "Edit is audited before the write and fails closed"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Edit is audited before the write and fails closed"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestUpdateCampaignAuditBeforeWriteFailsClosed`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-update-unknown-campaign
+    title: "Update unknown campaign"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Update unknown campaign"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestUpdateCampaignNotFound`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-campaign-starts-between-status-check-and-write
+    title: "Campaign starts between status check and write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Campaign starts between status check and write"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestUpdateCampaignStartRace`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-path-is-validated-too
+    title: "Seller path is validated too"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller path is validated too"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignSellerPathValidatesPrice`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-bad-stock-cap-and-window
+    title: "Bad stock cap and window"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Bad stock cap and window"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignFieldValidation`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-boundary-values-accepted
+    title: "Boundary values accepted"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Boundary values accepted"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignBoundaryAccepted`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-of-another-listing-is-denied
+    title: "Seller of another listing is denied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller of another listing is denied"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignSellerOwnershipDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-idempotency-lookup-precedes-validation
+    title: "Idempotency lookup precedes validation"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Idempotency lookup precedes validation"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignReplayAfterEndsAt`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-sending-a-key
+    title: "Seller sending a key"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller sending a key"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignSellerKeyIgnoredOwnershipApplies`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-cannot-cancel
+    title: "Seller cannot cancel"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller cannot cancel"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCancelCampaignRequiresAdmin`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-missing-or-malformed-key
+    title: "Missing or malformed key"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Missing or malformed key"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateCampaignIdempotencyKeyRequired`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-seller-create-needs-no-key
+    title: "Seller create needs no key"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller create needs no key"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateCampaignSellerNoKeyRequired`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-edit-enabled-only-for-scheduled
+    title: "Edit enabled only for scheduled"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Edit enabled only for scheduled"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `edit only when scheduled` in CampaignRow.test.tsx. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-server-errors-map-to-distinct-messages
+    title: "Server errors map to distinct messages"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Server errors map to distinct messages"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `maps each error` in campaignMessages.test.ts. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-kill-switch-banner
+    title: "Kill-switch banner"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Kill-switch banner"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `shows kill-switch banner` in CampaignListView.test.tsx. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-campaigns-non-admin-reaches-no-campaign-screen
+    title: "Non-admin reaches no campaign screen"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-campaigns.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Non-admin reaches no campaign screen"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `forbids non-admin` in app/admin/campaigns/page.test.tsx. Not producible end to end through the gateway (unit level)."

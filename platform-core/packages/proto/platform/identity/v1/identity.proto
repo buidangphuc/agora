@@ -38,6 +38,68 @@ service AuthService {
   // one generic message: it does not tell suspended from banned and does not
   // reveal an end time. Refresh never lifts an expired suspension; only Login does.
   rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
+  // CreateHandoffCode mints a single use code that carries the caller's session
+  // to target_app. Requires a Principal (the caller is signed in); the code is
+  // bound to that Principal and to target_app and is valid for 60 s. The code
+  // is a bearer secret: never logged. UNAUTHENTICATED without a Principal;
+  // INVALID_ARGUMENT for HANDOFF_APP_UNSPECIFIED; RESOURCE_EXHAUSTED once the
+  // caller has 10 live codes.
+  rpc CreateHandoffCode(CreateHandoffCodeRequest) returns (CreateHandoffCodeResponse);
+  // RedeemHandoffCode consumes the code and returns an AuthResult for the
+  // bound user. Public (no Principal required): the code is the credential.
+  // Single use; an unknown, expired, used or wrong-target code gets one
+  // fixed UNAUTHENTICATED error. The code is a secret: never logged.
+  rpc RedeemHandoffCode(RedeemHandoffCodeRequest) returns (RedeemHandoffCodeResponse);
+  // PeekHandoffCode is read-only: it returns the username a code is bound to
+  // and does not consume the code. Public (no Principal required). Same
+  // fixed UNAUTHENTICATED error as Redeem. The code is a secret: never logged.
+  rpc PeekHandoffCode(PeekHandoffCodeRequest) returns (PeekHandoffCodeResponse);
+  // BecomeSeller grants the seller role to the caller. Authenticated user:
+  // requires a Principal, and the user id comes from the Principal, never from
+  // the request. Publishes one UserRoleGranted event.
+  rpc BecomeSeller(BecomeSellerRequest) returns (BecomeSellerResponse);
+}
+
+enum HandoffApp {
+  HANDOFF_APP_UNSPECIFIED = 0;
+  HANDOFF_APP_BUYER = 1;
+  HANDOFF_APP_SELLER = 2;
+}
+
+message CreateHandoffCodeRequest {
+  HandoffApp target_app = 1;
+}
+
+message CreateHandoffCodeResponse {
+  string code = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message RedeemHandoffCodeRequest {
+  string code = 1;
+  HandoffApp target_app = 2;
+}
+
+message RedeemHandoffCodeResponse {
+  AuthResult result = 1;
+}
+
+message PeekHandoffCodeRequest {
+  string code = 1;
+  HandoffApp target_app = 2;
+}
+
+message PeekHandoffCodeResponse {
+  string username = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message BecomeSellerRequest {
+  string terms_version = 1;
+}
+
+message BecomeSellerResponse {
+  AuthResult result = 1;
 }
 
 message RegisterRequest {
@@ -346,4 +408,13 @@ message UserStatusChanged {
   string reason_code = 4;
   google.protobuf.Timestamp until = 5;
   google.protobuf.Timestamp changed_at = 6;
+}
+
+// UserRoleGranted is the event published on Kafka topic `identity.events` (keyed by user id,
+// wrapped in platform.events.v1.EventEnvelope with type
+// "platform.identity.v1.UserRoleGranted") when a user is granted a role.
+message UserRoleGranted {
+  string user_id = 1;
+  string role = 2;
+  google.protobuf.Timestamp granted_at = 3;
 }

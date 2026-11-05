@@ -42,7 +42,7 @@ import (
 const (
 	closedDatabaseURL = "postgres://u:p@127.0.0.1:1/db?sslmode=disable"
 	deadBroker        = "127.0.0.1:1"
-	latestVersion     = 19
+	latestVersion     = 21
 	healthWindow      = healthx.DefaultInterval + 2*time.Second
 	testPassword      = "Sup3r-secret-pass!"
 )

@@ -11,8 +11,10 @@ vi.mock("@/lib/gateway/session", () => ({
   getPrincipal: vi.fn(),
   getToken: vi.fn(),
 }));
-vi.mock("@/features/admin/campaignActions", () => ({
+vi.mock("@/features/campaigns/actions", () => ({
   createCampaignAction: vi.fn(),
+  cancelCampaignAction: vi.fn(),
+  updateCampaignAction: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -30,7 +32,7 @@ describe("NewCampaignPage", () => {
     expect(metadata.referrer).toBe("no-referrer");
   });
 
-  it("redirects a guest to login", async () => {
+  it("forbids non-admin: redirects a guest to login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     vi.mocked(getToken).mockReturnValue(undefined);
     expect(await NewCampaignPage()).toBeNull();
@@ -39,7 +41,7 @@ describe("NewCampaignPage", () => {
     );
   });
 
-  it("shows 403 to a non-admin", async () => {
+  it("forbids non-admin: shows 403 to a seller", async () => {
     vi.mocked(getPrincipal).mockReturnValue({
       id: "u-2",
       name: "Buyer",

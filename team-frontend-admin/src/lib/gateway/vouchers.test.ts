@@ -1,4 +1,4 @@
-import { Timestamp } from "@bufbuild/protobuf";
+import { ScalarType, Timestamp, proto3 } from "@bufbuild/protobuf";
 import {
   Code,
   ConnectError,
@@ -10,9 +10,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VoucherService } from "@/generated/platform/promotion/v1/promotion_connect.js";
 import {
   type CreateVoucherRequest,
+  type DeactivateVoucherRequest,
   DiscountType,
   type GetVoucherRequest,
   type ListVouchersRequest,
+  type UpdateVoucherRequest,
   Voucher,
   VoucherScope,
 } from "@/generated/platform/promotion/v1/promotion_pb.js";
@@ -20,8 +22,10 @@ import {
 import { makeClients } from "./client.js";
 import {
   createPlatformVoucher,
+  deactivateVoucher,
   getVoucher,
   listPlatformVouchers,
+  updateVoucher,
 } from "./vouchers.js";
 
 vi.mock("./client.js", () => ({ makeClients: vi.fn() }));
@@ -31,6 +35,8 @@ type Impl = {
   listVouchers?: (req: ListVouchersRequest) => unknown;
   getVoucher?: (req: GetVoucherRequest) => unknown;
   createVoucher?: (req: CreateVoucherRequest) => unknown;
+  deactivateVoucher?: (req: DeactivateVoucherRequest) => unknown;
+  updateVoucher?: (req: UpdateVoucherRequest) => unknown;
 };
 
 const unimplemented = () => {
@@ -46,6 +52,10 @@ function useFakeGateway(impl: Impl) {
         (impl.getVoucher ?? unimplemented)(req),
       createVoucher: (req: CreateVoucherRequest) =>
         (impl.createVoucher ?? unimplemented)(req),
+      deactivateVoucher: (req: DeactivateVoucherRequest) =>
+        (impl.deactivateVoucher ?? unimplemented)(req),
+      updateVoucher: (req: UpdateVoucherRequest) =>
+        (impl.updateVoucher ?? unimplemented)(req),
     } as never);
   });
   vi.mocked(makeClients).mockReturnValue({
@@ -115,6 +125,7 @@ describe("listPlatformVouchers over a fake transport", () => {
           maxDiscount: 50000,
           quota: 1000,
           used: 12,
+          active: false,
           startsAt: STARTS.toISOString(),
           endsAt: ENDS.toISOString(),
         },
@@ -264,6 +275,214 @@ describe("createPlatformVoucher over a fake transport", () => {
   it("treats a response without a voucher as failed", async () => {
     useFakeGateway({ createVoucher: () => ({}) });
     expect(await createPlatformVoucher(createInput)).toEqual({
+      status: "failed",
+    });
+  });
+});
+
+const ErrorInfo = proto3.makeMessageType("google.rpc.ErrorInfo", [
+  { no: 1, name: "reason", kind: "scalar", T: ScalarType.STRING },
+  { no: 2, name: "domain", kind: "scalar", T: ScalarType.STRING },
+]);
+
+const withReason = (
+  code: Code,
+  reason: string,
+  domain = "promotion.platform",
+) =>
+  new ConnectError(LEAK, code, undefined, [new ErrorInfo({ reason, domain })]);
+
+describe("V19 duplicate code over a fake transport", () => {
+  it("V19 maps AlreadyExists on create to duplicate", async () => {
+    useFakeGateway({
+      createVoucher: () => {
+        throw new ConnectError("code already exists", Code.AlreadyExists);
+      },
+    });
+    expect(await createPlatformVoucher(createInput)).toEqual({
+      status: "duplicate",
+    });
+  });
+});
+
+describe("V23 audit down over a fake transport", () => {
+  it("V23 maps Unavailable with reason AUDIT_UNAVAILABLE to audit_unavailable on create", async () => {
+    useFakeGateway({
+      createVoucher: () => {
+        throw withReason(Code.Unavailable, "AUDIT_UNAVAILABLE");
+      },
+    });
+    const res = await createPlatformVoucher(createInput);
+    expect(res).toEqual({ status: "audit_unavailable" });
+    expect(JSON.stringify(res)).not.toContain("10.0.0.7");
+  });
+
+  it("V23 maps audit_unavailable on deactivate and update", async () => {
+    useFakeGateway({
+      deactivateVoucher: () => {
+        throw withReason(Code.Unavailable, "AUDIT_UNAVAILABLE");
+      },
+      updateVoucher: () => {
+        throw withReason(Code.Unavailable, "AUDIT_UNAVAILABLE");
+      },
+    });
+    expect(await deactivateVoucher("v-1")).toEqual({
+      status: "audit_unavailable",
+    });
+    expect(await updateVoucher("v-1", { quota: 150 })).toEqual({
+      status: "audit_unavailable",
+    });
+  });
+
+  it("V23 keeps plain unavailable when the reason is unknown", async () => {
+    useFakeGateway({
+      createVoucher: () => {
+        throw withReason(Code.Unavailable, "SOMETHING_ELSE");
+      },
+    });
+    expect(await createPlatformVoucher(createInput)).toEqual({
+      status: "unavailable",
+    });
+  });
+});
+
+describe("V24 promotion down over a fake transport", () => {
+  it("V24 maps Unavailable with reason PROMOTION_UNAVAILABLE to promotion_unavailable on every write", async () => {
+    const down = () => {
+      throw withReason(Code.Unavailable, "PROMOTION_UNAVAILABLE");
+    };
+    useFakeGateway({
+      createVoucher: down,
+      deactivateVoucher: down,
+      updateVoucher: down,
+    });
+    expect(await createPlatformVoucher(createInput)).toEqual({
+      status: "promotion_unavailable",
+    });
+    expect(await deactivateVoucher("v-1")).toEqual({
+      status: "promotion_unavailable",
+    });
+    expect(await updateVoucher("v-1", { quota: 150 })).toEqual({
+      status: "promotion_unavailable",
+    });
+  });
+
+  it("V24 the two outage statuses differ", async () => {
+    useFakeGateway({
+      deactivateVoucher: () => {
+        throw withReason(Code.Unavailable, "AUDIT_UNAVAILABLE");
+      },
+    });
+    const a = await deactivateVoucher("v-1");
+    useFakeGateway({
+      deactivateVoucher: () => {
+        throw withReason(Code.Unavailable, "PROMOTION_UNAVAILABLE");
+      },
+    });
+    const b = await deactivateVoucher("v-1");
+    expect(a.status).not.toBe(b.status);
+  });
+});
+
+describe("deactivateVoucher over a fake transport", () => {
+  it("V23 sends the voucher id and returns the stopped voucher", async () => {
+    const seen: DeactivateVoucherRequest[] = [];
+    useFakeGateway({
+      deactivateVoucher: (req) => {
+        seen.push(req);
+        return { voucher: pbVoucher({ id: req.voucherId }) };
+      },
+    });
+    const res = await deactivateVoucher("v-1");
+    expect(seen[0].voucherId).toBe("v-1");
+    expect(res.status).toBe("ok");
+    if (res.status === "ok") expect(res.voucher.id).toBe("v-1");
+  });
+
+  it.each([
+    [Code.NotFound, "not_found"],
+    [Code.PermissionDenied, "forbidden"],
+    [Code.Unauthenticated, "unauthenticated"],
+    [Code.InvalidArgument, "invalid"],
+    [Code.DeadlineExceeded, "timeout"],
+    [Code.Internal, "failed"],
+  ])("V23 maps error code %s to %s", async (code, status) => {
+    useFakeGateway({
+      deactivateVoucher: () => {
+        throw new ConnectError(LEAK, code);
+      },
+    });
+    expect(await deactivateVoucher("v-1")).toEqual({ status });
+  });
+
+  it("V23 treats a response without a voucher as failed", async () => {
+    useFakeGateway({ deactivateVoucher: () => ({}) });
+    expect(await deactivateVoucher("v-1")).toEqual({ status: "failed" });
+  });
+});
+
+describe("updateVoucher over a fake transport", () => {
+  it("V23 sends only the quota when no end date is given", async () => {
+    const seen: UpdateVoucherRequest[] = [];
+    useFakeGateway({
+      updateVoucher: (req) => {
+        seen.push(req);
+        return { voucher: pbVoucher({ quota: 150n }) };
+      },
+    });
+    const res = await updateVoucher("v-1", { quota: 150 });
+    expect(seen[0].voucherId).toBe("v-1");
+    expect(seen[0].quota).toBe(150n);
+    expect(seen[0].endsAt).toBeUndefined();
+    expect(res.status).toBe("ok");
+    if (res.status === "ok") expect(res.voucher.quota).toBe(150);
+  });
+
+  it("V23 sends only the end date when no quota is given", async () => {
+    const seen: UpdateVoucherRequest[] = [];
+    useFakeGateway({
+      updateVoucher: (req) => {
+        seen.push(req);
+        return { voucher: pbVoucher() };
+      },
+    });
+    await updateVoucher("v-1", { endsAt: ENDS });
+    expect(seen[0].quota).toBeUndefined();
+    expect(seen[0].endsAt?.toDate().toISOString()).toBe(ENDS.toISOString());
+  });
+
+  it("V23 sends quota 0 as an explicit zero, not as absent", async () => {
+    const seen: UpdateVoucherRequest[] = [];
+    useFakeGateway({
+      updateVoucher: (req) => {
+        seen.push(req);
+        throw new ConnectError("quota must be positive", Code.InvalidArgument);
+      },
+    });
+    expect(await updateVoucher("v-1", { quota: 0 })).toEqual({
+      status: "invalid",
+    });
+    expect(seen[0].quota).toBe(0n);
+  });
+
+  it.each([
+    [Code.NotFound, "not_found"],
+    [Code.InvalidArgument, "invalid"],
+    [Code.PermissionDenied, "forbidden"],
+    [Code.DeadlineExceeded, "timeout"],
+    [Code.Internal, "failed"],
+  ])("V23 maps error code %s to %s", async (code, status) => {
+    useFakeGateway({
+      updateVoucher: () => {
+        throw new ConnectError(LEAK, code);
+      },
+    });
+    expect(await updateVoucher("v-1", { quota: 150 })).toEqual({ status });
+  });
+
+  it("V23 treats a response without a voucher as failed", async () => {
+    useFakeGateway({ updateVoucher: () => ({}) });
+    expect(await updateVoucher("v-1", { quota: 150 })).toEqual({
       status: "failed",
     });
   });

@@ -89,7 +89,7 @@ func TestEdgeRequestLineKeepsFields(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &m); err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range []string{"method", "principal", "code", "latency_ms", "request_id", "attempts"} {
+	for _, k := range []string{"method", "principal_kind", "code", "latency_ms", "request_id", "attempts"} {
 		if _, ok := m[k]; !ok {
 			t.Errorf("edge.request lacks %q: %s", k, raw)
 		}

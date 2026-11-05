@@ -1,0 +1,2 @@
+export const SELLER_TERMS_VERSION =
+  process.env.NEXT_PUBLIC_SELLER_TERMS_VERSION || "2026-11-02";

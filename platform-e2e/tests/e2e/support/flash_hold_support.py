@@ -22,6 +22,7 @@ import os
 import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -147,8 +148,8 @@ def seed_flash_campaign(
     listing_id: str,
     stock_cap: int,
     sale_price: int,
-    starts_at: str = "2026-09-01T00:00:00Z",
-    ends_at: str = "2026-12-31T23:59:59Z",
+    starts_at: str | None = None,
+    ends_at: str | None = None,
 ) -> str:
     """CreateCampaign through the gateway; the new campaign id.
 
@@ -156,6 +157,9 @@ def seed_flash_campaign(
     with 503 when team-audit is not in the stack (promotion-admin-audit), so scenarios seed as the
     listing owner, which is audit-free.
     """
+    now = datetime.now(UTC)
+    starts_at = starts_at or (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ends_at = ends_at or (now + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
     resp = _post(
         token,
         GATEWAY_FLASH + "CreateCampaign",
