@@ -34,12 +34,8 @@ func TestModuleRequiresSDKTag(t *testing.T) {
 	if !requireRe.Match(raw) {
 		t.Errorf("go.mod does not require %s v1.0.3", sdkModule)
 	}
-	replaceRe := regexp.MustCompile(`(?m)^\s*replace\s+` + regexp.QuoteMeta(sdkModule) + `\s+=>\s+\.\./platform-core/packages/go-sdk\s*$`)
-	if !replaceRe.Match(raw) {
-		t.Errorf("go.mod lacks the temporary replace of %s to ../platform-core/packages/go-sdk", sdkModule)
-	}
-	if n := len(regexp.MustCompile(`(?m)^\s*replace\b`).FindAll(raw, -1)); n != 1 {
-		t.Errorf("go.mod has %d replace directives, want 1", n)
+	if n := len(regexp.MustCompile(`(?m)^\s*replace\b`).FindAll(raw, -1)); n != 0 {
+		t.Errorf("go.mod has %d replace directives, want 0", n)
 	}
 	toolRe := regexp.MustCompile(`(?m)^\s*tool\s+github\.com/golangci/golangci-lint/v2/cmd/golangci-lint\s*$`)
 	if !toolRe.Match(raw) {

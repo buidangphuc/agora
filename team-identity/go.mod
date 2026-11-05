@@ -293,5 +293,3 @@ require (
 )
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
-
-replace github.com/buidangphuc/agora/platform-core/packages/go-sdk => ../platform-core/packages/go-sdk

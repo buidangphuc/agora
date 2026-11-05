@@ -44,6 +44,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/redpanda v0.44.0
 	github.com/twmb/franz-go/pkg/kmsg v1.14.0
 	go.opentelemetry.io/otel/trace v1.47.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc
 )
 
 require (
@@ -304,7 +305,6 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -316,5 +316,3 @@ require (
 // Indirect dependencies and go.sum are produced by `go mod tidy` on first build.
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
-
-replace github.com/buidangphuc/agora/platform-core/packages/go-sdk => ../platform-core/packages/go-sdk

@@ -252,7 +252,7 @@ The seller dashboard SHALL show a "Cần gửi" KPI counting orders PAID plus or
 
 #### Scenario: Order lifecycle: a session without seller scope sees no seller orders
 - **WHEN** a signed-in session without scope `listing.write` opens `/seller`
-- **THEN** the seller layout renders "Cần tài khoản Người Bán" without rendering its children, so `ListSellerOrders` is never called and no "Cần gửi" cell is shown
+- **THEN** the seller layout renders the onboarding screen (button "Đồng ý và trở thành Người Bán") without rendering its children, so `ListSellerOrders` is never called and no "Cần gửi" cell is shown
 - **VERIFIED BY**: `team-frontend-seller/src/app/seller/layout.test.tsx` `no seller orders without listing scope`
 
 #### Scenario: Order lifecycle: the seller dashboard flags an overdue order
