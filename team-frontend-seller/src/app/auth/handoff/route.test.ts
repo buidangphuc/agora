@@ -29,7 +29,8 @@ describe("auth handoff route handlers", () => {
     const res = await POST(
       new Request("http://app.test/auth/handoff", {
         method: "POST",
-        body: new URLSearchParams({ code: "C", next: "/x" }),
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: "code=C&next=%2Fx",
       }),
     );
     expect(res.status).toBe(303);
