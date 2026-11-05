@@ -5,25 +5,6 @@ TBD - created by archiving change identity-go-sdk-v1. Update Purpose after archi
 
 ## Requirements
 
-### Requirement: team-identity builds on the tagged go-sdk with the ADR-0016 layout
-
-`team-identity/go.mod` SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` at `v1.0.2`, SHALL contain no `replace` directive and SHALL pin golangci-lint with a `tool` directive. The repo SHALL contain no `third_party` directory. The code SHALL be laid out as `cmd/server/main.go`, `internal/app`, `internal/config`, `internal/rpc`, `internal/identity`, `internal/store`, `internal/events`, `internal/upstream`, `internal/token` and `internal/authz`; the packages `internal/handler`, `internal/service`, `internal/repository`, `internal/interceptor`, `internal/grpcserver`, `internal/bootstrap` and `internal/observability` SHALL NOT exist. `internal/identity` SHALL NOT import `google.golang.org/grpc`. The `Makefile` SHALL include `../platform-core/make/go-service.mk` and lint with `../platform-core/packages/go-sdk/.golangci.yml`.
-
-#### Scenario: The module requires the v1.0.2 tag
-- **WHEN** the layout test reads `go.mod`
-- **THEN** it finds the require line for the SDK module at `v1.0.2`, the golangci-lint `tool` line, no `replace` line and no `third_party` directory
-- **VERIFIED BY**: team-identity `internal/app` `TestModuleRequiresSDKTag`
-
-#### Scenario: A legacy package or a transport import in the domain is refused
-- **WHEN** the layout test lists `internal/` and the imports of `internal/identity`
-- **THEN** none of the seven legacy package directories exists and `internal/identity` does not import `google.golang.org/grpc`, otherwise the test fails
-- **VERIFIED BY**: team-identity `internal/app` `TestLayoutFollowsADR0016`
-
-#### Scenario: The Makefile uses the shared files without copies
-- **WHEN** the layout test reads `Makefile` and lists the repo root
-- **THEN** the Makefile includes `../platform-core/make/go-service.mk`, names `LINT_CONFIG := ../platform-core/packages/go-sdk/.golangci.yml`, and no `.golangci.yml` or `go-service.mk` file exists under `team-identity`
-- **VERIFIED BY**: team-identity `internal/app` `TestMakefileUsesSharedFiles`
-
 ### Requirement: Settings come from the environment without dependency flags
 
 `config.Load` SHALL read the SDK groups `Runtime`, `GRPC`, `Postgres`, `OTel`, `Kafka`, `Outbox`, `Audit` and `LogKeyFP` and the service groups for `IDENTITY_EVENTS_TOPIC`, the JWT and JWKS settings, `SEED_ADMIN_*`, `PASSWORD_RESET_EXPOSE_TOKEN`, the retention durations and the outbox purge (`OUTBOX_PURGE_RETENTION`, `OUTBOX_PURGE_INTERVAL`). `UPSTREAM_AUDIT_ADDR` SHALL be required in every ENV (the audit client is an upstream the service uses; no fallback mode). A migrate-only loader (`config.LoadMigrate`: `ENV` and `DATABASE_URL`) SHALL serve the `migrate up` subcommand. `ENV`, `GRPC_PORT`, `DATABASE_URL`, `JWT_PRIVATE_KEY` and `JWT_KID` SHALL be required with no default; a missing or empty value SHALL make `Load` return an error that names the variable. The service SHALL declare no `*_ENABLED` variable other than `OTEL_ENABLED`, `GRPC_REFLECTION_ENABLED` and `SEED_ADMIN_ENABLED`, SHALL NOT declare `DATABASE_ENABLED`, `KAFKA_ENABLED`, `OUTBOX_ENABLED`, `OUTBOX_MAX_ATTEMPTS`, `OUTBOX_CLAIM_LOCK_SECONDS`, `SESSION_SWEEP_ENABLED`, `UPSTREAM_CALL_TIMEOUT_SECONDS`, `SHUTDOWN_GRACE_SECONDS` or `MOCK_DATA`, and SHALL ignore their values when set. `.env.example` SHALL list exactly the declared keys.
@@ -387,16 +368,16 @@ The signer SHALL sign RS256 JWTs whose claims decode as `jwtx.Claims` (`name`, `
 
 ### Requirement: Logs identify the request and never carry secrets
 
-Every service log line SHALL be JSON with `service` `team-identity`, and call logs SHALL carry the request id and, for an authenticated call, the principal id. The service SHALL NOT log a password, an access token, a refresh token, a refresh hash, a reset token, an address field, an ip, a user agent or a status note, in a log line or a span attribute.
+Every service log line SHALL be JSON with `service` `team-identity`, and call logs SHALL carry the request id and, for an authenticated call, the keyed principal fingerprint `principal_fp` (never the raw principal id). The service SHALL NOT log a password, an access token, a refresh token, a refresh hash, a reset token, an address field, an ip, a user agent or a status note, in a log line or a span attribute.
 
 #### Scenario: Call logs carry request id and principal id
 - **WHEN** an authenticated `ListSessions` call with `x-request-id` `abc` completes
-- **THEN** the captured call log has `request_id` `abc`, the principal id and `service` `team-identity`
+- **THEN** the captured call log has `request_id` `abc`, a `principal_fp` that differs from the raw principal id, no `principal_id` key and `service` `team-identity`
 - **VERIFIED BY**: team-identity `internal/app` `TestCallLogsCarryRequestAndPrincipalID`
 
 #### Scenario: A refused call logs the principal and no request body
 - **WHEN** a seller principal calls `SetUserStatus` with a marker note and is refused with `PermissionDenied` (403)
-- **THEN** the captured call log carries the principal id and the code `PermissionDenied`, and zero captured lines or span attributes contain the note marker
+- **THEN** the captured call log carries `principal_fp`, no `principal_id` key and the code `PermissionDenied`, and zero captured lines or span attributes contain the note marker
 - **VERIFIED BY**: team-identity `internal/app` `TestDeniedCallLogsCarryNoRequestBody`
 
 #### Scenario: Secrets never reach logs or spans
@@ -431,3 +412,22 @@ When `SEED_ADMIN_ENABLED=true`, `app.Run` SHALL ensure the admin account on the 
 - **WHEN** `app.Run` starts twice with `SEED_ADMIN_ENABLED=true` and a 12-character password
 - **THEN** exactly one admin user exists and `Login` with those credentials returns an `admin` scope
 - **VERIFIED BY**: team-identity `internal/app` `TestRunSeedsAdminOnce`
+
+### Requirement: team-identity builds on a tagged go-sdk release with the ADR-0016 layout
+
+`team-identity/go.mod` SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` exactly once, at a tagged release version matching `^v\d+\.\d+\.\d+$` (no pseudo-version and no `-` suffix), SHALL contain no `replace` directive and SHALL pin golangci-lint with a `tool` directive. The repo SHALL contain no `third_party` directory. The code SHALL be laid out as `cmd/server/main.go`, `internal/app`, `internal/config`, `internal/rpc`, `internal/identity`, `internal/store`, `internal/events`, `internal/upstream`, `internal/token` and `internal/authz`; the packages `internal/handler`, `internal/service`, `internal/repository`, `internal/interceptor`, `internal/grpcserver`, `internal/bootstrap` and `internal/observability` SHALL NOT exist. `internal/identity` SHALL NOT import `google.golang.org/grpc`. The `Makefile` SHALL include `../platform-core/make/go-service.mk` and lint with `../platform-core/packages/go-sdk/.golangci.yml`.
+
+#### Scenario: The module requires a tagged SDK release
+- **WHEN** the layout test reads `go.mod`
+- **THEN** it finds exactly one require line for the SDK module, at a version matching `^v\d+\.\d+\.\d+$`, the golangci-lint `tool` line, no `replace` line and no `third_party` directory
+- **VERIFIED BY**: team-identity `internal/app` `TestModuleRequiresSDKTag`
+
+#### Scenario: A legacy package or a transport import in the domain is refused
+- **WHEN** the layout test lists `internal/` and the imports of `internal/identity`
+- **THEN** none of the seven legacy package directories exists and `internal/identity` does not import `google.golang.org/grpc`, otherwise the test fails
+- **VERIFIED BY**: team-identity `internal/app` `TestLayoutFollowsADR0016`
+
+#### Scenario: The Makefile uses the shared files without copies
+- **WHEN** the layout test reads `Makefile` and lists the repo root
+- **THEN** the Makefile includes `../platform-core/make/go-service.mk`, names `LINT_CONFIG := ../platform-core/packages/go-sdk/.golangci.yml`, and no `.golangci.yml` or `go-service.mk` file exists under `team-identity`
+- **VERIFIED BY**: team-identity `internal/app` `TestMakefileUsesSharedFiles`

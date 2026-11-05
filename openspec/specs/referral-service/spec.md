@@ -191,11 +191,11 @@ A Postgres unique violation (SQLSTATE 23505) that reaches the handler SHALL map 
 
 ### Requirement: The service follows the ADR-0016 layout and the shared build files
 
-team-referral SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` at `v1.0.2` in `go.mod` with no `replace` directive and no `third_party` directory. `cmd/server/main.go` SHALL only load settings and call `app.Run(ctx, settings)`. `internal/app.Run` SHALL build, in order, the logger (`logx`), telemetry (`otelx`), health (`healthx`), the Postgres pool with its health check, the gRPC server (`grpcx.NewServer` with the SDK interceptor chain) and the lifecycle (`lifecycle.Run`), and SHALL close what it opened in reverse order on shutdown and on an early failure. The `Makefile` SHALL include `../platform-core/make/go-service.mk`, and the service SHALL NOT contain its own `.golangci.yml` or a copy of `go-service.mk`.
+team-referral SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` exactly once in `go.mod`, at a tagged release version matching `^v\d+\.\d+\.\d+$` (no pseudo-version and no `-` suffix), with no `replace` directive and no `third_party` directory, and SHALL pin golangci-lint as a `tool` directive. `cmd/server/main.go` SHALL only load settings and call `app.Run(ctx, settings)`. `internal/app.Run` SHALL build, in order, the logger (`logx`), telemetry (`otelx`), health (`healthx`), the Postgres pool with its health check, the gRPC server (`grpcx.NewServer` with the SDK interceptor chain) and the lifecycle (`lifecycle.Run`), and SHALL close what it opened in reverse order on shutdown and on an early failure. The `Makefile` SHALL include `../platform-core/make/go-service.mk`, and the service SHALL NOT contain its own `.golangci.yml` or a copy of `go-service.mk`.
 
 #### Scenario: The module requires the tag without a replace
 - **WHEN** `team-referral/go.mod` is read
-- **THEN** it requires `go-sdk v1.0.2` and contains no `replace` line, and `team-referral/third_party` does not exist
+- **THEN** it requires go-sdk exactly once, at a version matching `^v\d+\.\d+\.\d+$`, has a golangci-lint `tool` line and contains no `replace` line, and `team-referral/third_party` does not exist
 - **VERIFIED BY**: `team-referral/internal/config` `TestModuleRequiresSDKTagWithoutReplace`
 
 #### Scenario: The Makefile uses the shared files

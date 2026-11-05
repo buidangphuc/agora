@@ -258,7 +258,7 @@ The four saved-search RPCs (`SaveSearch`, `ListSavedSearches`, `DeleteSavedSearc
 
 ### Requirement: Request id and trace context are carried by the SDK interceptors
 
-The query server SHALL echo or generate `x-request-id` and continue an incoming W3C `traceparent` through the `grpcx` interceptors, and SHALL emit one `grpc.request` log line per call with method, code, duration, request id and principal id (never the request body).
+The query server SHALL echo or generate `x-request-id` and continue an incoming W3C `traceparent` through the `grpcx` interceptors, and SHALL emit one `grpc.request` log line per call with method, code, duration, request id and the keyed principal fingerprint `principal_fp` (never the raw principal id) (never the request body).
 
 #### Scenario: A request id is logged and a trace is continued
 
@@ -421,12 +421,12 @@ On context cancel `app.RunIndexer` SHALL stop the consumer and the tombstone tic
 
 ### Requirement: team-search is built from the tagged SDK and ships both binaries
 
-`team-search/go.mod` SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` at `v1.0.2`, SHALL contain no `replace` directive for it and SHALL pin golangci-lint with a `tool` directive. The repository SHALL contain no `third_party` directory. The `Makefile` SHALL include `../platform-core/make/go-service.mk` and the lint config `../platform-core/packages/go-sdk/.golangci.yml` by reference. The image SHALL contain `/server` and `/indexer`, with entrypoint `/server`.
+`team-search/go.mod` SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` exactly once, at a tagged release version matching `^v\d+\.\d+\.\d+$` (no pseudo-version and no `-` suffix), SHALL contain no `replace` directive and SHALL pin golangci-lint with a `tool` directive. The repository SHALL contain no `third_party` directory. The `Makefile` SHALL include `../platform-core/make/go-service.mk` and the lint config `../platform-core/packages/go-sdk/.golangci.yml` by reference. The image SHALL contain `/server` and `/indexer`, with entrypoint `/server`.
 
 #### Scenario: go.mod requires the tag without a replace
 
 - **WHEN** `team-search/go.mod` is parsed
-- **THEN** it requires the SDK at `v1.0.2`, has no `replace` for the SDK and has a golangci-lint `tool` directive
+- **THEN** it requires the SDK exactly once, at a version matching `^v\d+\.\d+\.\d+$`, has no `replace` directive and has a golangci-lint `tool` directive
 - **VERIFIED BY**: `team-search/internal/config` `TestGoModRequiresTaggedSDK`
 
 #### Scenario: A vendored SDK copy is rejected
