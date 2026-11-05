@@ -2347,6 +2347,22 @@ features:
     status: automated
     covered_by: "frontend/product_detail_ui.feature::A shop with no ratings shows an empty rating"
 
+  - id: listing.the-page-streams-to-the-end-whatever-the-description-length
+    title: "The page streams to the end whatever the description length"
+    persona: guest
+    priority: P1
+    summary: "The page streams to the end whatever the description length"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor requests the product pages of one seller's published listings whose descriptions are 1 to 40 characters long"
+      - "Then every response completes with the whole HTML document, including the reviews and Q&A sections"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::The page streams to the end whatever the description length"
+
   - id: listing.an-unknown-listing-renders-result-404
     title: "An unknown listing renders Result 404"
     persona: guest
