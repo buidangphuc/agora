@@ -25,6 +25,7 @@ var enforcedScopes = []enforcedScope{
 	{"recommendations:read", "team-ai"},
 	{"ai:use", "team-ai"},
 	{"order.admin", "team-order (ForceFailSaga with admin; admin override on GetOrder, GetSagaState, UpdateOrderStatus, shipment and return RPCs)"},
+	{"promotion.admin", "team-promotion (admin-only voucher and campaign RPCs with admin; admin branch of CreateVoucher, CreateCampaign and CreateAdCampaign), team-gateway edge policy"},
 	{"admin", "team-gateway edge policy, team-engagement, team-verification, team-audit, team-promotion, team-payment, team-analytics, team-domain (admin-only RPCs and ownership overrides)"},
 }
 

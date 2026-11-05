@@ -65,7 +65,7 @@ func TestVoucherServiceEndToEnd(t *testing.T) {
 
 func TestFlashSaleServiceEndToEnd(t *testing.T) {
 	fc := startRig(t, rigOpts{}).fc
-	ctx := authCtx(t, "admin-1", "admin")
+	ctx := authCtx(t, "admin-1", "admin", "promotion.admin")
 
 	created, err := fc.CreateCampaign(ctx, newCreateReq("l1"))
 	if err != nil {
@@ -86,7 +86,7 @@ func TestCreateVoucherAuthz(t *testing.T) {
 	vc := startRig(t, rigOpts{}).vc
 	seller := authCtx(t, "seller-1", "listing.read", "listing.write")
 	buyer := authCtx(t, "buyer-1", "listing.read", "search:read")
-	admin := authCtx(t, "admin-1", "listing.write", "admin")
+	admin := authCtx(t, "admin-1", "listing.write", "admin", "promotion.admin")
 	anon := principalCtx(t, "anonymous", "anonymous")
 
 	mk := func(c string, scope promotionv1.VoucherScope) *promotionv1.CreateVoucherRequest {
@@ -162,7 +162,7 @@ func TestCreateCampaignAuthz(t *testing.T) {
 		{"buyer", authCtx(t, "buyer-1", "listing.read"), codes.PermissionDenied},
 		{"seller", authCtx(t, "seller-1", "listing.write"), codes.OK},
 		{"seller foreign listing", authCtx(t, "seller-1", "listing.write"), codes.PermissionDenied},
-		{"admin", authCtx(t, "admin-1", "admin"), codes.OK},
+		{"admin", authCtx(t, "admin-1", "admin", "promotion.admin"), codes.OK},
 	} {
 		r := req
 		if tc.name == "seller foreign listing" {

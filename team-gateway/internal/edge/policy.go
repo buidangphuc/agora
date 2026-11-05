@@ -16,8 +16,10 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/verification/v1/verificationv1connect"
 )
 
-// adminProcedures is the edge procedure policy: exactly these RPCs need the
-// `admin` scope before they are forwarded (defence in depth; the owning service
+const promotionAdminScope = "promotion.admin"
+
+// adminProcedures is the edge procedure policy: exactly these RPCs need their
+// mapped scope before they are forwarded (defence in depth; the owning service
 // stays the authoritative check). Adding or removing an entry is a spec change
 // (openspec service-authz-hardening, edge-route-policy); a test pins the set.
 var adminProcedures = map[string]string{
@@ -36,11 +38,11 @@ var adminProcedures = map[string]string{
 	analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure:     adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure: adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure:             adminScope,
-	promotionv1connect.VoucherServiceDeactivateVoucherProcedure:                   adminScope,
-	promotionv1connect.VoucherServiceUpdateVoucherProcedure:                       adminScope,
-	promotionv1connect.FlashSaleServiceListCampaignsProcedure:                     adminScope,
-	promotionv1connect.FlashSaleServiceCancelCampaignProcedure:                    adminScope,
-	promotionv1connect.FlashSaleServiceUpdateCampaignProcedure:                    adminScope,
+	promotionv1connect.VoucherServiceDeactivateVoucherProcedure:                   promotionAdminScope,
+	promotionv1connect.VoucherServiceUpdateVoucherProcedure:                       promotionAdminScope,
+	promotionv1connect.FlashSaleServiceListCampaignsProcedure:                     promotionAdminScope,
+	promotionv1connect.FlashSaleServiceCancelCampaignProcedure:                    promotionAdminScope,
+	promotionv1connect.FlashSaleServiceUpdateCampaignProcedure:                    promotionAdminScope,
 }
 
 // requireProcedureScope enforces adminProcedures for a resolved principal:

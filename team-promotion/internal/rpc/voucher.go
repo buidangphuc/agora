@@ -44,7 +44,7 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 			return nil, err
 		}
 		sellerID = principal.ID
-		auditAdmin = principal.HasScope(scopeAdmin)
+		auditAdmin = isPromotionAdmin(principal)
 	} else {
 		principal, err = requireAdmin(ctx)
 		if err != nil {

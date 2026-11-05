@@ -27,6 +27,7 @@ import (
 
 const (
 	scopeAdmin        = "admin"
+	scopePromoAdmin   = "promotion.admin"
 	scopeListingWrite = "listing.write"
 	scopePromoReserve = "promotion.reserve"
 )
@@ -86,7 +87,11 @@ func orDefault(logger *slog.Logger) *slog.Logger {
 }
 
 func requireAdmin(ctx context.Context) (auth.Principal, error) {
-	return auth.RequireScopes(ctx, scopeAdmin)
+	return auth.RequireScopes(ctx, scopeAdmin, scopePromoAdmin)
+}
+
+func isPromotionAdmin(p auth.Principal) bool {
+	return p.HasScope(scopePromoAdmin)
 }
 
 func requireSeller(ctx context.Context) (auth.Principal, error) {
@@ -94,7 +99,7 @@ func requireSeller(ctx context.Context) (auth.Principal, error) {
 	if err != nil {
 		return auth.Principal{}, err
 	}
-	if !p.HasScope(scopeAdmin) && !p.HasScope(scopeListingWrite) {
+	if !isPromotionAdmin(p) && !p.HasScope(scopeListingWrite) {
 		return auth.Principal{}, status.Error(codes.PermissionDenied, "seller or admin role required")
 	}
 	return p, nil

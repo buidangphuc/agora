@@ -36,7 +36,7 @@ func (h *FlashSaleHandler) CreateCampaign(ctx context.Context, req *promotionv1.
 	if req.GetListingId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
-	isAdmin := principal.HasScope(scopeAdmin)
+	isAdmin := isPromotionAdmin(principal)
 	if isAdmin && !idempotencyKeyPattern.MatchString(req.GetIdempotencyKey()) {
 		return nil, status.Error(codes.InvalidArgument, "idempotency_key must be 8-64 characters of letters, digits, '_' or '-'")
 	}

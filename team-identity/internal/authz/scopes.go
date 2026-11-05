@@ -11,8 +11,9 @@ const (
 
 // roleScopes is the role → scopes table. Scopes match what services enforce via
 // RequireScopes (listing.read/write, search:read/write, engagement:read/write,
-// recommendations:read, ai:use) plus the `admin` marker and `order.admin` (team-order admin overrides and
-// ForceFailSaga), both granted to the admin role only.
+// recommendations:read, ai:use) plus the `admin` marker, `order.admin` (team-order admin overrides and
+// ForceFailSaga) and `promotion.admin` (team-promotion admin-only voucher and campaign RPCs and the admin
+// branch of its mixed RPCs; team-gateway edge policy), all granted to the admin role only.
 // recommendations:read and ai:use are the team-ai gates (gateway-and-ai-hardening D7,
 // order-domain-correctness); they are not in the gateway's public (anonymous) scope set.
 //
@@ -31,7 +32,7 @@ const (
 //
 // See TestServiceOnlyScopesGrantedToNoRole.
 var roleScopes = map[string][]string{
-	RoleAdmin:  {"listing.read", "listing.write", "search:read", "search:write", "engagement:read", "engagement:write", "recommendations:read", "ai:use", "admin", "order.admin"},
+	RoleAdmin:  {"listing.read", "listing.write", "search:read", "search:write", "engagement:read", "engagement:write", "recommendations:read", "ai:use", "admin", "order.admin", "promotion.admin"},
 	RoleSeller: {"listing.read", "listing.write", "search:read", "search:write", "engagement:read", "engagement:write", "recommendations:read", "ai:use"},
 	RoleBuyer:  {"listing.read", "search:read", "search:write", "engagement:read", "engagement:write", "recommendations:read", "ai:use"},
 }

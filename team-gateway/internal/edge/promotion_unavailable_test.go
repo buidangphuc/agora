@@ -101,7 +101,7 @@ func TestV23_AuditUnavailableReasonKept_V23a_RawMessageDropped(t *testing.T) {
 		} else {
 			clients = &upstream.Clients{Voucher: &voucherAdminUpstream{err: err}}
 		}
-		code, body := callWith(t, clients, c.path, c.body, []string{"admin"})
+		code, body := callWith(t, clients, c.path, c.body, []string{"admin", "promotion.admin"})
 		if code != http.StatusServiceUnavailable || !strings.Contains(body, "unavailable") {
 			t.Errorf("%s = %d %s, want 503 unavailable", c.name, code, body)
 		}
@@ -130,7 +130,7 @@ func TestV24_PromotionUnreachableReportsPromotionUnavailable(t *testing.T) {
 		} else {
 			clients = &upstream.Clients{Voucher: &voucherAdminUpstream{err: err}}
 		}
-		code, body := callWith(t, clients, c.path, c.body, []string{"admin"})
+		code, body := callWith(t, clients, c.path, c.body, []string{"admin", "promotion.admin"})
 		if code != http.StatusServiceUnavailable {
 			t.Errorf("%s = %d %s, want 503", c.name, code, body)
 		}

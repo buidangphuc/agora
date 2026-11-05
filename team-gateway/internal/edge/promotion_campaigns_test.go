@@ -137,7 +137,7 @@ func TestNonAdminCannotListAllCampaigns_BuyerSellerPermissionDenied(t *testing.T
 // Scenario "Non-admin cannot list all campaigns" (admin side): ListCampaigns is exposed and forwarded with the principal.
 func TestAdminListCampaignsForwarded(t *testing.T) {
 	up := &campaignAdminUpstream{}
-	code, body := callCampaign(t, up, listCampaignsPath, `{"statuses":["CAMPAIGN_STATUS_ACTIVE"]}`, []string{"admin"})
+	code, body := callCampaign(t, up, listCampaignsPath, `{"statuses":["CAMPAIGN_STATUS_ACTIVE"]}`, []string{"admin", "promotion.admin"})
 	if code != http.StatusOK {
 		t.Fatalf("admin ListCampaigns = %d %s, want 200 (not 501)", code, body)
 	}
@@ -156,7 +156,7 @@ func TestAdminListCampaignsForwarded(t *testing.T) {
 // Scenario "Non-admin cannot list all campaigns" (admin side): CancelCampaign is exposed and forwarded.
 func TestAdminCancelCampaignForwarded(t *testing.T) {
 	up := &campaignAdminUpstream{}
-	code, body := callCampaign(t, up, cancelCampaignPath, `{"campaign_id":"c-1"}`, []string{"admin"})
+	code, body := callCampaign(t, up, cancelCampaignPath, `{"campaign_id":"c-1"}`, []string{"admin", "promotion.admin"})
 	if code != http.StatusOK {
 		t.Fatalf("admin CancelCampaign = %d %s, want 200 (not 501)", code, body)
 	}
@@ -171,7 +171,7 @@ func TestAdminCancelCampaignForwarded(t *testing.T) {
 // Scenario "Non-admin cannot list all campaigns" (admin side): UpdateCampaign is exposed and forwarded.
 func TestAdminUpdateCampaignForwarded(t *testing.T) {
 	up := &campaignAdminUpstream{}
-	code, body := callCampaign(t, up, updateCampaignPath, `{"campaign_id":"c-1","sale_price":900}`, []string{"admin"})
+	code, body := callCampaign(t, up, updateCampaignPath, `{"campaign_id":"c-1","sale_price":900}`, []string{"admin", "promotion.admin"})
 	if code != http.StatusOK {
 		t.Fatalf("admin UpdateCampaign = %d %s, want 200 (not 501)", code, body)
 	}
@@ -188,7 +188,7 @@ func TestAdminUpdateCampaignForwarded(t *testing.T) {
 func TestAdminCampaignWritesNotRetried_CodesPassThrough(t *testing.T) {
 	for _, c := range campaignAdminCalls[1:] {
 		up := &campaignAdminUpstream{err: status.Error(codes.Unavailable, "promotion down")}
-		code, body := callCampaign(t, up, c.path, c.body, []string{"admin"})
+		code, body := callCampaign(t, up, c.path, c.body, []string{"admin", "promotion.admin"})
 		if code != http.StatusServiceUnavailable {
 			t.Errorf("%s = %d %s, want 503", c.name, code, body)
 		}
@@ -206,7 +206,7 @@ func TestAdminCampaignWritesNotRetried_CodesPassThrough(t *testing.T) {
 	} {
 		for _, c := range campaignAdminCalls {
 			up := &campaignAdminUpstream{err: status.Error(tc.code, "x")}
-			code, body := callCampaign(t, up, c.path, c.body, []string{"admin"})
+			code, body := callCampaign(t, up, c.path, c.body, []string{"admin", "promotion.admin"})
 			if code != tc.http || !strings.Contains(body, tc.text) {
 				t.Errorf("%s %v = %d %s, want %d %s", c.name, tc.code, code, body, tc.http, tc.text)
 			}
@@ -223,7 +223,7 @@ func TestAdminCampaignErrorInfoReasonPassThrough(t *testing.T) {
 	for _, reason := range []string{"AUDIT_UNAVAILABLE", "LISTING_UNAVAILABLE"} {
 		for _, c := range cases {
 			up := &campaignAdminUpstream{err: errWithInfo(t, codes.Unavailable, rawUpstreamText, "promotion.platform", reason)}
-			code, body := callCampaign(t, up, c.path, c.body, []string{"admin"})
+			code, body := callCampaign(t, up, c.path, c.body, []string{"admin", "promotion.admin"})
 			if code != http.StatusServiceUnavailable {
 				t.Errorf("%s %s = %d %s, want 503", c.name, reason, code, body)
 			}
