@@ -9,11 +9,11 @@
 | wave | slices | base branch | status |
 |---|---|---|---|
 | 0 | p10-gaps-contract | asdlc/p10-backend-gaps | merged (f8a0397e) |
-| 1 | gateway-principal-log-fingerprint | asdlc/p10-backend-gaps | merged (bd18f1b0, re-run merge 67187e85) |
-| 2 | identity-sso-handoff | asdlc/p10-backend-gaps | in progress |
-| 3 | identity-seller-onboarding, promotion-admin-vouchers | asdlc/p10-backend-gaps | vouchers in progress; seller-onboarding not started |
-| 4 | seller-onboarding-ui | asdlc/p10-backend-gaps | pending |
-| 5 | promotion-admin-campaigns | asdlc/p10-backend-gaps | pending |
+| 1 | gateway-principal-log-fingerprint | asdlc/p10-backend-gaps | merged (bd18f1b0, 67187e85) |
+| 2 | identity-sso-handoff | asdlc/p10-backend-gaps | merged (8dfc30ee) |
+| 3 | identity-seller-onboarding, promotion-admin-vouchers | asdlc/p10-backend-gaps | merged (c719dc8e, 9f6ffba1) |
+| 4 | seller-onboarding-ui | asdlc/p10-backend-gaps | merged (9234cdb7) |
+| 5 | promotion-admin-campaigns | asdlc/p10-backend-gaps | merged (0cf66c2f) |
 
 ## Wave moves (same-wave write-set overlap)
 
@@ -51,3 +51,7 @@ Decisions taken during build:
 Open for the human: promotion admin scope name (`admin` as in proto vs `promotion.admin`).
 
 Resume: edit E2E_DONE / SKIP_TASKS in the continuation script (sso skip through 1.5.1; vouchers skip through 1.6, mark 1.6a covered) and run it fresh (do not use resumeFromRunId: cache replays only a prefix and re-ran merged slices last time). Then converge (initiative-build step 4).
+
+## Step 5 (2026-11-05)
+
+Converge done (wf_2971f0fe-f7a), fix round done (wf_14cd06f8-9f6), gitleaks history finding ignored by fingerprint (2df3e8cc), LOCK re-signed 2026-11-05. Feature gate re-run: pass, no blocking. Privacy re-run: needs-human, no blocking (DPO items). Waiting on the human for merge, push, go-sdk v1.0.3 tag and archive.

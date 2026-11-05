@@ -8,11 +8,11 @@ spec: plans/p10-backend-gaps/00-spec.md (Locked 2026-11-02, Clarifications 2026-
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
 | p10-gaps-contract | platform-core | [] | 3 | pass | pass | pass (r2) | ENGINE_DOWN (LLM fallback) | 38740bb45ac1 | [x] |
-| gateway-principal-log-fingerprint | team-gateway | [] | 2 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | 79fbfcc092fb | [x] |
-| promotion-admin-vouchers | team-promotion | [p10-gaps-contract] | 3 | pass | pass | pass (r2) | ENGINE_DOWN (LLM fallback) | e60c71995a88 | [x] |
+| gateway-principal-log-fingerprint | team-gateway | [] | 2 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | 8bb902009c5a | [x] |
+| promotion-admin-vouchers | team-promotion | [p10-gaps-contract] | 3 | pass | pass | pass (r2) | ENGINE_DOWN (LLM fallback) | 1e112c112168 | [x] |
 | promotion-admin-campaigns | team-promotion | [p10-gaps-contract] | 2 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | e1305a027f51 | [x] |
-| identity-sso-handoff | team-identity | [p10-gaps-contract] | 4 | pass | pass | pass (r3) | ENGINE_DOWN (LLM fallback) | 17b10a1e0d23 | [x] |
-| identity-seller-onboarding | team-identity | [p10-gaps-contract] | 3 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | a505a3dd02c3 | [x] |
+| identity-sso-handoff | team-identity | [p10-gaps-contract] | 4 | pass | pass | pass (r3) | ENGINE_DOWN (LLM fallback) | 808dcd28f66e | [x] |
+| identity-seller-onboarding | team-identity | [p10-gaps-contract] | 3 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | d71c6e69bb4a | [x] |
 | seller-onboarding-ui | team-frontend-seller | [identity-seller-onboarding] | 3 | pass | pass | pass (r2) | ENGINE_DOWN (LLM fallback) | a3e498850d32 | [x] |
 
 ## Build order (cross_change_check)
@@ -58,3 +58,4 @@ Reopened after the initiative converge; the human re-ticks each row after readin
 | identity-sso-handoff | 17b10a1e0d23 | 808dcd28f66e | VERIFIED BY lines, Referrer-Policy wording; x-principal-sid only to BecomeSeller and the hand-off RPCs; HANDOFF_TTL_OVERRIDE wired |
 | identity-seller-onboarding | a505a3dd02c3 | d71c6e69bb4a | BecomeSeller audits auth.become_seller fail-closed (UNAVAILABLE / AUDIT_UNAVAILABLE) |
 slices.yaml also changed: identity-sso-handoff depends_on gateway-principal-log-fingerprint (waves 0-5).
+Re-signed 2026-11-05 by Bùi Đăng Phúc: the 4 digests above and the slices.yaml change; the Slices table now holds the current digests.
