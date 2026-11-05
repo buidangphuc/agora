@@ -18,7 +18,7 @@ import time
 from abc import ABC, abstractmethod
 
 from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Locator, Page, Response, expect
 
 from config.settings import get_settings
 from src.constants import timeouts
@@ -28,6 +28,12 @@ def wait_streamed(page: Page, timeout: float = 10_000) -> None:
     page.wait_for_function(
         "() => !document.querySelector('div[hidden][id^=\"S:\"]')", timeout=timeout
     )
+
+
+def goto_streamed(page: Page, url: str, wait_until: str = "domcontentloaded") -> Response | None:
+    response = page.goto(url, wait_until=wait_until)
+    wait_streamed(page)
+    return response
 
 
 class BasePage(ABC):
@@ -55,8 +61,7 @@ class BasePage(ABC):
         self.goto(self.url(**params))
 
     def goto(self, url: str) -> None:
-        self.page.goto(url, wait_until="domcontentloaded")
-        wait_streamed(self.page)
+        goto_streamed(self.page, url)
 
     def wait_until_interactive(
         self, locator: Locator, timeout: float = timeouts.NAVIGATION

@@ -15,6 +15,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.api.services import ListingService
 from src.constants import PageName, timeouts
+from src.core.base_page import goto_streamed
 from src.models import Listing
 from src.pages import ListingDetailPage
 from src.utils import data as fake
@@ -88,7 +89,7 @@ def open_variant_listing(world: World) -> None:
 @when(parsers.parse('the buyer opens the variant listing with the "{name}" variant in the URL'))
 def open_variant_listing_with_variant(world: World, name: str) -> None:
     url = f"{world.settings.base_url.rstrip('/')}/listing/{_listing_id(world)}?variant={_variant_id(world, name)}"
-    world.page.goto(url, wait_until="domcontentloaded")
+    goto_streamed(world.page, url)
     expect(_detail(world).add_to_cart_button).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -97,7 +98,7 @@ def open_variant_listing_unknown_variant(world: World) -> None:
     url = (
         f"{world.settings.base_url.rstrip('/')}/listing/{_listing_id(world)}?variant=does-not-exist"
     )
-    world.page.goto(url, wait_until="domcontentloaded")
+    goto_streamed(world.page, url)
     expect(_detail(world).add_to_cart_button).to_be_visible(timeout=timeouts.NAVIGATION)
 
 

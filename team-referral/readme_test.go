@@ -76,7 +76,7 @@ func TestReadmeDropsStaleClaims_TheEnvExampleMatchesTheSettings(t *testing.T) {
 
 func TestReadmeLayoutAndSDKTag_TheEnvExampleMatchesTheSettings(t *testing.T) {
 	md := read(t, "README.md")
-	for _, p := range []string{"internal/app", "internal/rpc", "internal/referral", "internal/store", "ADR-0016", "go-sdk", "v1.0.2"} {
+	for _, p := range []string{"internal/app", "internal/rpc", "internal/referral", "internal/store", "ADR-0016", "go-sdk", "tagged release"} {
 		if !strings.Contains(md, p) {
 			t.Errorf("README missing %s", p)
 		}

@@ -22,12 +22,12 @@ func TestModuleUsesTaggedSDK(t *testing.T) {
 	// Scenario: Engagement SDK: Module requires the tag and nothing else
 	mod := readFile(t, "../../go.mod")
 	re := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkPath) + `\s+(\S+)`)
-	m := re.FindStringSubmatch(mod)
-	if m == nil {
-		t.Fatalf("go.mod does not require %s", sdkPath)
+	all := re.FindAllStringSubmatch(mod, -1)
+	if len(all) != 1 {
+		t.Fatalf("go.mod has %d requires of %s, want exactly 1", len(all), sdkPath)
 	}
-	if m[1] != "v1.0.2" {
-		t.Fatalf("SDK version = %s, want v1.0.2", m[1])
+	if m := all[0]; !regexp.MustCompile(`^v\d+\.\d+\.\d+$`).MatchString(m[1]) {
+		t.Fatalf("SDK version = %s, want a tagged release vX.Y.Z", m[1])
 	}
 	for _, line := range strings.Split(mod, "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), "replace") {
@@ -37,7 +37,7 @@ func TestModuleUsesTaggedSDK(t *testing.T) {
 	if _, err := os.Stat("../../third_party"); !os.IsNotExist(err) {
 		t.Fatalf("third_party directory must not exist (stat err = %v)", err)
 	}
-	if !strings.Contains(mod, "github.com/golangci/golangci-lint") || !strings.Contains(mod, "tool ") {
+	if !regexp.MustCompile(`(?m)^\s*tool\s+github\.com/golangci/golangci-lint/v2/cmd/golangci-lint\s*$`).MatchString(mod) {
 		t.Fatal("go.mod must pin golangci-lint as a tool")
 	}
 }

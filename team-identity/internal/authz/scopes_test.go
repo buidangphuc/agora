@@ -77,3 +77,34 @@ func TestOrderAdminIsAdminOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestPromotionAdminIsAdminOnly(t *testing.T) {
+	has := func(role string) bool {
+		for _, s := range authz.ScopesForRoles([]string{role}) {
+			if s == "promotion.admin" {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(authz.RoleAdmin) {
+		t.Fatal("admin role must be issued promotion.admin")
+	}
+	for _, r := range []string{authz.RoleSeller, authz.RoleBuyer} {
+		if has(r) {
+			t.Fatalf("%s role must not be issued promotion.admin", r)
+		}
+	}
+}
+
+func TestAdminTokenScopesIncludeAllAdminMarkers(t *testing.T) {
+	got := map[string]bool{}
+	for _, s := range authz.ScopesForUser([]string{authz.RoleAdmin}, authz.StatusActive) {
+		got[s] = true
+	}
+	for _, want := range []string{"admin", "order.admin", "promotion.admin"} {
+		if !got[want] {
+			t.Fatalf("admin token scopes miss %q: %v", want, got)
+		}
+	}
+}

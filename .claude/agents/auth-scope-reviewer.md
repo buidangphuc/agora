@@ -38,7 +38,8 @@ correctness — not general logic or style.
 5. **Scope-role drift.** Role→scope mappings changed in a way that grants a role
    more than intended, or a buyer-scope RPC reachable with public/anonymous scopes.
 6. **Unaudited admin mutation.** A mutation RPC reachable by a caller holding the
-   `admin` scope (team-order: `order.admin`) that does not write a team-audit event
+   `admin` scope (team-order: `order.admin`; team-promotion: `promotion.admin`) that
+   does not write a team-audit event
    (`AuditService.WriteAuditEvent`) first, or that proceeds when the audit write
    fails (it must return `Unavailable` and make no change). Every admin-scope call
    is audited, including an admin who owns the resource. Also flag an audit write

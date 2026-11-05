@@ -10857,3 +10857,16 @@ features:
     tags: [buyer, checkout, cart-selection, unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/lib/analytics/destinations/gtm.test.ts` `begin_checkout has no line id`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.lifecycle-seller-lookalike-link-stays-on-buyer-app
+    title: "A link that only looks like a seller path stays on the buyer app"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change e2e-ui-rebaseline, capability order-lifecycle-ui."
+    entry_route: /notifications
+    services: [team-frontend]
+    acceptance:
+      - "A link that only looks like a seller path stays on the buyer app"
+    tags: [buyer, notifications, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/notifications/page.test.tsx` `[Order lifecycle: the new-order notification opens the seller order] a /seller link opens on the seller app, buyer links stay relative`. Unit level; not producible end to end."

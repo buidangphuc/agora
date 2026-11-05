@@ -58,7 +58,7 @@ Feature: Admin cases inbox in the browser (frontend-listing-moderation)
     And the engagement service knows the moderation listing
     And the buyer has reported the listing through the gateway with the note "Báo cáo kiểm tra"
     And the moderation buyer is signed in the browser
-    When the buyer follows the footer link "Hộp thư vụ việc"
+    When the buyer opens the cases inbox link on the admin app
     Then the browser is on "/admin/cases"
     And the moderation page shows "Không có quyền" and no table
     When an admin is signed in the browser

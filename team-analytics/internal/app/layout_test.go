@@ -35,8 +35,8 @@ func TestGoModRequiresSDKTagWithoutReplace(t *testing.T) {
 	if len(matches) != 1 {
 		t.Fatalf("go.mod has %d requires of %s, want exactly 1", len(matches), sdkModule)
 	}
-	if got := string(matches[0][1]); got != "v1.0.2" {
-		t.Errorf("go.mod requires %s %s, want v1.0.2", sdkModule, got)
+	if got := string(matches[0][1]); !regexp.MustCompile(`^v\d+\.\d+\.\d+$`).MatchString(got) {
+		t.Errorf("go.mod requires %s %s, want a tagged release vX.Y.Z", sdkModule, got)
 	}
 	if n := len(regexp.MustCompile(`(?m)^\s*replace\b`).FindAll(raw, -1)); n != 0 {
 		t.Errorf("go.mod has %d replace directives, want 0", n)

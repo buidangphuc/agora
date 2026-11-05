@@ -3093,3 +3093,53 @@ features:
     tags: [security, gateway, unit]
     status: not-testable
     notes: "VERIFIED BY golangci-lint run over every Go repo. Not producible end to end through the stack (unit or lint level)."
+
+  # promotion-admin-scope
+  - id: edge.pas-a-token-with-admin-but-without-promotion-admin-is-refused
+    title: "Promotion admin edge: a token with admin but without promotion.admin is refused"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin edge: a token with admin but without promotion.admin is refused (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.FlashSaleService.ListCampaigns, promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.FlashSaleService.CancelCampaign]
+    acceptance:
+      - "When a caller whose token carries `admin` but not `promotion.admin` calls `ListCampaigns` and `DeactivateVoucher` through the gateway"
+      - "Then the gateway answers HTTP 403 to both calls"
+    tags: [security, edge]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin edge: a token with admin but without promotion.admin is refused"
+  - id: edge.pas-an-anonymous-caller-is-refused
+    title: "Promotion admin edge: an anonymous caller is refused"
+    persona: guest
+    priority: P0
+    kind: authz
+    summary: "Promotion admin edge: an anonymous caller is refused (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.FlashSaleService.ListCampaigns, promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.FlashSaleService.CancelCampaign]
+    acceptance:
+      - "When a request without a token calls `CancelCampaign` through the gateway"
+      - "Then the gateway answers HTTP 401"
+    tags: [security, edge]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin edge: an anonymous caller is refused"
+  - id: edge.pas-the-seeded-admin-lists-campaigns
+    title: "Promotion admin edge: the seeded admin lists campaigns"
+    persona: admin
+    priority: P0
+    kind: authz
+    summary: "Promotion admin edge: the seeded admin lists campaigns (promotion-admin-scope)."
+    entry_route: /
+    services: [team-gateway, team-promotion]
+    api:
+      exercised: [promotion.v1.FlashSaleService.ListCampaigns, promotion.v1.VoucherService.DeactivateVoucher, promotion.v1.FlashSaleService.CancelCampaign]
+    acceptance:
+      - "When the seeded admin calls `ListCampaigns` through the gateway"
+      - "Then the request succeeds with a campaigns list"
+    tags: [security, edge]
+    status: automated
+    covered_by: "security/promotion_admin_scope.feature::Promotion admin edge: the seeded admin lists campaigns"

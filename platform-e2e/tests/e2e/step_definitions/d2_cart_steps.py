@@ -138,8 +138,10 @@ def header_only_name(world: World) -> None:
     groups = world.page.get_by_test_id("cart-shop-group")
     expect(groups.first).to_be_visible(timeout=timeouts.DEFAULT)
     for i, shop in enumerate(world.state.extra["d2_shops"]):
-        header = groups.nth(i).evaluate("el => el.firstElementChild.innerText").strip()
-        assert header == (shop["name"] or f"Shop #{shop['seller_id'][:6]}"), header
+        header_el = groups.nth(i).locator(":scope > *").first
+        name = header_el.get_by_role("link").inner_text().strip()
+        assert name == (shop["name"] or f"Shop #{shop['seller_id'][:6]}"), name
+        header = header_el.inner_text().strip()
         assert not re.search(r"đánh giá|theo dõi|phản hồi|★|%|huy hiệu|badge", header, re.I), header
 
 
@@ -286,11 +288,13 @@ def voucher_rejected(world: World) -> None:
     page = world.page
     shop = world.state.extra["d2_shops"][0]
     dialog = page.get_by_role("dialog")
-    reason = dialog.locator('p[aria-live="polite"]')
-    expect(reason).to_be_visible(timeout=timeouts.DEFAULT)
+    field = dialog.get_by_role("textbox", name="Nhập mã giảm giá")
+    expect(field).to_have_attribute("aria-invalid", "true", timeout=timeouts.DEFAULT)
+    reason = dialog.locator(f"[id='{field.get_attribute('aria-describedby').split()[0]}']")
+    expect(reason).to_be_visible()
     assert reason.inner_text().strip()
     expect(
-        page.get_by_role("alert").filter(has_text=reason.inner_text().strip()).first
+        page.locator('[role="alert"]').filter(has_text=reason.inner_text().strip()).first
     ).to_be_visible()
     expect(dialog).to_be_visible()
     assert digits(page.get_by_test_id("voucher-discount").inner_text()) == -1

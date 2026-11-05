@@ -17,6 +17,7 @@ from config.settings import get_settings
 from src.api.services import AuthService, ListingService
 from src.constants import gateway_endpoints as ep
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from src.models import Listing
 from tests.e2e.flows import login_via_api, scenario_buyer, stop_container
 from tests.e2e.step_definitions.follow_seller_steps import _principal_id
@@ -215,9 +216,9 @@ def seller_has_listing(world: World) -> None:
 
 @when("a visitor opens that listing")
 def visitor_opens_listing(world: World) -> None:
-    world.page.goto(
+    goto_streamed(
+        world.page,
         f"{world.settings.base_url}/listing/{world.state.extra['pdp_listing_id']}",
-        wait_until="domcontentloaded",
     )
 
 

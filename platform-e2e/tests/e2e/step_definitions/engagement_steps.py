@@ -10,6 +10,7 @@ from pytest_bdd import given, parsers, then, when
 from config.settings import get_settings
 from src.api.services import BaseService
 from src.constants import PageName, timeouts
+from src.core.base_page import goto_streamed
 from src.models import Listing, User
 from src.pages import FavoritesPage, ListingDetailPage
 from src.utils import data as fake
@@ -145,7 +146,7 @@ def buyer_adds_listing_to_collection(world: World, name: str) -> None:
 def collection_shows_listing(world: World) -> None:
     cid = world.state.extra["collection_id"]
     listing_id = world.state.listing.listing_id
-    world.page.goto(f"{SETTINGS.base_url}/favorites?collection={cid}")
+    goto_streamed(world.page, f"{SETTINGS.base_url}/favorites?collection={cid}")
     expect(world.page.locator(f'a[href^="/listing/{listing_id}"]').first).to_be_visible(
         timeout=timeouts.NAVIGATION
     )
@@ -171,7 +172,7 @@ def collection_has_no_items(world: World) -> None:
     cid = world.state.extra["collection_id"]
     ids = _collection_item_ids(world, token, cid)
     assert ids == [], f"expected empty collection, got {ids}"
-    world.page.goto(f"{SETTINGS.base_url}/favorites?collection={cid}")
+    goto_streamed(world.page, f"{SETTINGS.base_url}/favorites?collection={cid}")
     expect(world.page.get_by_text("chưa có sản phẩm", exact=False)).to_be_visible(
         timeout=timeouts.NAVIGATION
     )

@@ -242,10 +242,10 @@ def first_response(world: World) -> None:
     html = c["cart_html"]
     for key in ("A1", "A2", "B1"):
         assert c["titles"][key] in html, f"line {key} missing from the server HTML"
-    boxes = re.findall(r'<input[^>]*type="checkbox"|role="checkbox"', html)
-    assert len(boxes) == 5, (
-        f"expected 3 line and 2 shop checkboxes in the first HTML, got {len(boxes)}"
-    )
+    boxes = re.findall(r'role="checkbox"', html)
+    assert (
+        len(boxes) == 5
+    ), f"expected 3 line and 2 shop checkboxes in the first HTML, got {len(boxes)}"
 
 
 @then('the cs cart page source has no "use client" directive')

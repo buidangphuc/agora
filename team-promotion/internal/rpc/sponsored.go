@@ -36,7 +36,7 @@ func (h *SponsoredHandler) CreateAdCampaign(ctx context.Context, req *promotionv
 		ListingID: req.GetListingId(),
 		Budget:    req.GetBudget(),
 		Bid:       req.GetBid(),
-		IsAdmin:   principal.HasScope(scopeAdmin),
+		IsAdmin:   isPromotionAdmin(principal),
 	})
 	if err != nil {
 		return nil, fail(ctx, h.logger, err)

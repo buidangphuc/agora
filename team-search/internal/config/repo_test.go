@@ -11,7 +11,6 @@ import (
 
 const (
 	sdkModule = "github.com/buidangphuc/agora/platform-core/packages/go-sdk"
-	sdkTag    = "v1.0.2"
 	lintTool  = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 )
 
@@ -27,14 +26,16 @@ func serviceFile(t *testing.T, name string) string {
 func TestGoModRequiresTaggedSDK(t *testing.T) {
 	mod := serviceFile(t, "go.mod")
 
-	require := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+` + regexp.QuoteMeta(sdkTag) + `\s*(?://.*)?$`)
-	if !require.MatchString(mod) {
-		t.Errorf("go.mod does not require %s at %s", sdkModule, sdkTag)
+	require := regexp.MustCompile(`(?m)^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+(\S+)`)
+	matches := require.FindAllStringSubmatch(mod, -1)
+	if len(matches) != 1 {
+		t.Errorf("go.mod has %d requires of %s, want exactly 1", len(matches), sdkModule)
+	} else if !regexp.MustCompile(`^v\d+\.\d+\.\d+$`).MatchString(matches[0][1]) {
+		t.Errorf("go.mod requires %s %s, want a tagged release vX.Y.Z", sdkModule, matches[0][1])
 	}
 
-	replace := regexp.MustCompile(`(?m)^\s*(?:replace\s+)?` + regexp.QuoteMeta(sdkModule) + `(?:\s+v\S+)?\s*=>`)
-	if replace.MatchString(mod) {
-		t.Errorf("go.mod has a replace directive for %s", sdkModule)
+	if n := len(regexp.MustCompile(`(?m)^\s*replace\b`).FindAllString(mod, -1)); n != 0 {
+		t.Errorf("go.mod has %d replace directives, want 0", n)
 	}
 
 	tool := regexp.MustCompile(`(?m)^\s*tool\s+` + regexp.QuoteMeta(lintTool) + `\s*$|^\s*` + regexp.QuoteMeta(lintTool) + `\s*$`)

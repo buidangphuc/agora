@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -17,6 +18,10 @@ const (
 	testDSN   = "postgres://test:pass@localhost:5432/db"
 	sdkModule = "github.com/buidangphuc/agora/platform-core/packages/go-sdk"
 )
+
+var sdkTagRe = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
+
+var lintToolRe = regexp.MustCompile(`(?m)^\s*(?:tool\s+)?github\.com/golangci/golangci-lint/v2/cmd/golangci-lint\s*$`)
 
 var managedKeys = []string{
 	"ENV", "LOG_LEVEL", "LOG_JSON", "GRPC_HOST", "GRPC_PORT", "SHUTDOWN_GRACE",
@@ -55,7 +60,7 @@ func readFile(t *testing.T, path string) string {
 func TestModuleRequiresSDKTagWithoutReplace(t *testing.T) {
 	// scenario: The module requires the tag without a replace
 	root := serviceRoot(t)
-	required := false
+	requires := 0
 	inRequire, inReplace := false, false
 	for _, raw := range strings.Split(readFile(t, filepath.Join(root, "go.mod")), "\n") {
 		line := strings.TrimSpace(raw)
@@ -80,12 +85,18 @@ func TestModuleRequiresSDKTagWithoutReplace(t *testing.T) {
 			continue
 		}
 		f := strings.Fields(spec)
-		if len(f) >= 2 && f[0] == sdkModule && f[1] == "v1.0.2" {
-			required = true
+		if len(f) >= 2 && f[0] == sdkModule {
+			requires++
+			if !sdkTagRe.MatchString(f[1]) {
+				t.Errorf("go-sdk must be a tagged release vX.Y.Z, got %q", f[1])
+			}
 		}
 	}
-	if !required {
-		t.Errorf("go.mod must require %s v1.0.2", sdkModule)
+	if requires != 1 {
+		t.Errorf("go.mod has %d requires of %s, want exactly 1", requires, sdkModule)
+	}
+	if !lintToolRe.MatchString(readFile(t, filepath.Join(root, "go.mod"))) {
+		t.Error("go.mod must pin golangci-lint as a tool")
 	}
 	if _, err := os.Lstat(filepath.Join(root, "third_party")); err == nil {
 		t.Error("third_party must not exist")

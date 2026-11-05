@@ -3,12 +3,15 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
 )
 
 const sdkModule = "github.com/buidangphuc/agora/platform-core/packages/go-sdk"
+
+var sdkTagRe = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 
 func serviceRoot(t *testing.T) string {
 	t.Helper()
@@ -25,7 +28,7 @@ func TestGoModRequiresTagWithoutReplace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	required := false
+	requires := 0
 	inRequire, inReplace := false, false
 	for _, raw := range strings.Split(string(b), "\n") {
 		line := strings.TrimSpace(raw)
@@ -50,12 +53,15 @@ func TestGoModRequiresTagWithoutReplace(t *testing.T) {
 			continue
 		}
 		f := strings.Fields(spec)
-		if len(f) >= 2 && f[0] == sdkModule && f[1] == "v1.0.2" {
-			required = true
+		if len(f) >= 2 && f[0] == sdkModule {
+			requires++
+			if !sdkTagRe.MatchString(f[1]) {
+				t.Errorf("go-sdk must be a tagged release vX.Y.Z, got %q", f[1])
+			}
 		}
 	}
-	if !required {
-		t.Errorf("go.mod must require %s v1.0.2", sdkModule)
+	if requires != 1 {
+		t.Errorf("go.mod has %d requires of %s, want exactly 1", requires, sdkModule)
 	}
 	if !strings.Contains(string(b), "tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint") {
 		t.Error("go.mod must declare the golangci-lint tool")

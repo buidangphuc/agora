@@ -11,6 +11,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from src.pages import (
     SellerListingsPage,
     SellerNewListingPage,
@@ -664,7 +665,7 @@ def seller_skeleton(world: World) -> None:
     expect(work(world).kpi_row).to_be_visible(timeout=timeouts.NAVIGATION)
     page.wait_for_timeout(1000)
     soft = cls(page)
-    page.goto(app_url(world.settings, "/seller"), wait_until="load")
+    goto_streamed(page, app_url(world.settings, "/seller"), "load")
     expect(work(world).kpi_row).to_be_visible(timeout=timeouts.DEFAULT)
     page.wait_for_timeout(1500)
     hard = cls(page)
@@ -693,7 +694,7 @@ def workplace_slow_images(world: World) -> None:
 )
 def seller_thumbs(world: World) -> None:
     page = world.page
-    boxes = page.locator("tbody tr .w-12").evaluate_all(
+    boxes = page.locator("tbody tr .w-14").evaluate_all(
         "els => els.map(e => [Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)])"
     )
     assert boxes and all(w == h for w, h in boxes), boxes

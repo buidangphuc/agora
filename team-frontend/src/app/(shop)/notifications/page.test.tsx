@@ -158,6 +158,29 @@ describe("/notifications", () => {
     expect(screen.getAllByText("Chưa đọc")).toHaveLength(1);
   });
 
+  it("[Order lifecycle: the new-order notification opens the seller order] a /seller link opens on the seller app, buyer links stay relative", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SELLER_APP_URL", "");
+    vi.mocked(listNotifications).mockResolvedValue({
+      notifications: [
+        { ...note(1, NotificationType.ORDER), linkUrl: "/seller/orders/o1" },
+        { ...note(2, NotificationType.ORDER), linkUrl: "/checkout/pay/o2" },
+        { ...note(3, NotificationType.ORDER), linkUrl: "/sellers/x" },
+        { ...note(4, NotificationType.ORDER), linkUrl: "" },
+      ],
+      totalUnread: 0,
+    });
+    render(await NotificationsPage({}));
+    const items = screen.getAllByTestId("notification-item");
+    expect(items[0]).toHaveAttribute(
+      "href",
+      "http://localhost:3001/seller/orders/o1",
+    );
+    expect(items[1]).toHaveAttribute("href", "/checkout/pay/o2");
+    expect(items[2]).toHaveAttribute("href", "/sellers/x");
+    expect(items[3]).toHaveAttribute("href", "#");
+    vi.unstubAllEnvs();
+  });
+
   it("renders no mark-all-read control", async () => {
     render(await NotificationsPage({}));
     expect(screen.queryByText(/đánh dấu/i)).toBeNull();

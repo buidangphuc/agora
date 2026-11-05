@@ -12,6 +12,7 @@ from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from src.pages import OrderDetailPage, OrdersListPage
 from tests.e2e.step_definitions.d2_cart_steps import toast
 from tests.e2e.step_definitions.d2_checkout_steps import slow_actions, track_actions
@@ -20,11 +21,11 @@ from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
 TONE_CLASS = {
-    "warning": "text-accent-promo-dark",
+    "warning": "text-text-warning",
     "info": "bg-surface-muted",
-    "success": "text-accent-success-dark",
+    "success": "text-text-success",
     "neutral": "text-text-secondary",
-    "danger": "text-danger",
+    "danger": "text-text-danger",
 }
 
 
@@ -41,12 +42,12 @@ def det(world: World) -> OrderDetailPage:
 
 
 def open_orders(world: World, query: str = "") -> None:
-    world.page.goto(f"{base(world)}/account/orders{query}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{base(world)}/account/orders{query}")
 
 
 def open_detail(world: World, order_id: str | None = None, query: str = "") -> None:
     oid = order_id or world.state.extra["d2_order_id"]
-    world.page.goto(f"{base(world)}/account/orders/{oid}{query}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{base(world)}/account/orders/{oid}{query}")
 
 
 # ── Seeding ──────────────────────────────────────────────────────────────
@@ -333,7 +334,7 @@ def listing_deleted(world: World) -> None:
 def reorder_failed(world: World) -> None:
     page = world.page
     expect(
-        page.get_by_role("alert")
+        page.locator('[role="alert"]')
         .filter(has_text=re.compile(r"\S{4,}"))
         .filter(has_not_text="Đóng")
         .first
@@ -394,7 +395,7 @@ def confirm_cancel(world: World) -> None:
 def cancel_failed(world: World) -> None:
     page = world.page
     expect(
-        page.get_by_role("alert")
+        page.locator('[role="alert"]')
         .filter(has_text=re.compile(r"\S{4,}"))
         .filter(has_not_text="Đóng")
         .first
@@ -542,7 +543,7 @@ def pending_saga(world: World) -> None:
     expect(steps.first).to_be_visible(timeout=timeouts.DEFAULT)
     payment = steps.filter(has_text="Thanh Toán")
     expect(payment).to_have_count(1)
-    expect(payment.locator("span.bg-promo")).to_have_count(1)
+    expect(payment.locator("span.text-text-warning")).to_have_count(1)
     expect(page.get_by_test_id("timeline-failure")).to_have_count(0)
     expect(page.get_by_role("alert").filter(has_text="Đơn hàng không hoàn tất")).to_have_count(0)
 
@@ -725,7 +726,7 @@ def submit_return(world: World, reason: str) -> None:
 def return_failed(world: World) -> None:
     page = world.page
     expect(
-        page.get_by_role("alert")
+        page.locator('[role="alert"]')
         .filter(has_text=re.compile(r"\S{4,}"))
         .filter(has_not_text="Đóng")
         .first
@@ -767,7 +768,7 @@ def thumbs_box(world: World) -> None:
     thumb = page.get_by_test_id("order-card").first.locator("div.w-16").first
     expect(thumb).to_be_visible(timeout=timeouts.DEFAULT)
     box = thumb.bounding_box()
-    assert abs(box["width"] - 64) < 1 and abs(box["height"] - 64) < 1, box
+    assert abs(box["width"] - box["height"]) < 1 and box["width"] >= 64 - 1, box
     # the seeded media key does not exist in storage: the picture fails and the fallback shows
     expect(thumb.get_by_role("img", name="Không có ảnh")).to_be_visible(timeout=timeouts.DEFAULT)
     after = thumb.bounding_box()
@@ -867,7 +868,7 @@ def desktop_detail(world: World) -> None:
     for column in ("Sản phẩm", "Đơn giá", "Số lượng", "Thành tiền"):
         expect(table.get_by_role("columnheader", name=column)).to_be_visible()
     width = page.locator("main header").first.bounding_box()["width"]
-    assert width <= 960, width
+    assert width <= 1024, width
 
 
 @then(

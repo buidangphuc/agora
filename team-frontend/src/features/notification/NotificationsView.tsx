@@ -8,6 +8,7 @@ import { Tag } from "@/components/ui/Tag";
 import { focusRing } from "@/components/ui/focus";
 import { PAGE_SIZE, paginate } from "@/features/account/pagination";
 import { NotificationType } from "@/generated/platform/notification/v1/notification_pb.js";
+import { sellerAppUrl } from "@/lib/apps";
 import type {
   ViewNotification,
   ViewNotificationPrefs,
@@ -30,6 +31,12 @@ function hrefFor(tab: NotificationTab, page: number): string {
   if (page > 1) params.set("page", String(page));
   const query = params.toString();
   return query ? `/notifications?${query}` : "/notifications";
+}
+
+function notificationHref(linkUrl: string): string {
+  if (!linkUrl) return "#";
+  if (/^\/seller(?:[/?#]|$)/.test(linkUrl)) return sellerAppUrl(linkUrl);
+  return linkUrl;
 }
 
 /**
@@ -85,7 +92,7 @@ export function NotificationsView({
             {rows.map((n) => (
               <li key={n.id}>
                 <Link
-                  href={n.linkUrl || "#"}
+                  href={notificationHref(n.linkUrl)}
                   data-testid="notification-item"
                   data-type={
                     NotificationType[n.type]?.toLowerCase?.() ?? "system"

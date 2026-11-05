@@ -23,7 +23,7 @@ from src.models import User
 from src.utils import data as fake
 from tests.e2e.flows import login_via_api
 from tests.e2e.step_definitions.d1_pdp_steps import _VARIANTS, _detail, _listing_id, _open, _seed
-from tests.e2e.support.apps import app_url
+from tests.e2e.support.apps import app_base, app_url
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -44,7 +44,9 @@ def _wait_url(world: World, expected: str, what: str) -> None:
     try:
         world.page.wait_for_url(lambda u: u == expected, timeout=timeouts.NAVIGATION)
     except Exception as exc:  # noqa: BLE001
-        raise AssertionError(f"{what}: expected {expected}, browser is on {world.page.url}") from exc
+        raise AssertionError(
+            f"{what}: expected {expected}, browser is on {world.page.url}"
+        ) from exc
 
 
 def _cart_items(world: World) -> list[dict]:
@@ -94,7 +96,8 @@ def open_login_and_sign_in(world: World, target: str) -> None:
 
 @when(parsers.parse('an anonymous visitor requests "{path}"'))
 def visitor_requests(world: World, path: str) -> None:
-    world.page.goto(f"{BASE}{path}", wait_until="domcontentloaded")
+    _x(world)["rr_host"] = app_base(SETTINGS, path)
+    world.page.goto(app_url(SETTINGS, path), wait_until="domcontentloaded")
 
 
 @when(parsers.parse('an anonymous visitor requests "/chat?thread=" followed by {n:d} characters'))
@@ -172,16 +175,18 @@ def _start_action_recorder(world: World) -> None:
     actions: list[str] = []
     world.page.on(
         "request",
-        lambda r: actions.append(r.url)
-        if r.method == "POST" and "next-action" in {k.lower() for k in r.headers}
-        else None,
+        lambda r: (
+            actions.append(r.url)
+            if r.method == "POST" and "next-action" in {k.lower() for k in r.headers}
+            else None
+        ),
     )
     _x(world)["rr_actions"] = actions
 
 
 @then(parsers.parse('the visitor is on the login page with returnUrl "{login_url}"'))
 def on_login_with_return(world: World, login_url: str) -> None:
-    _wait_url(world, f"{BASE}{login_url}", "guard redirect")
+    _wait_url(world, f"{_x(world).get('rr_host', BASE)}{login_url}", "guard redirect")
 
 
 @then("the visitor is on the plain login page without a returnUrl")

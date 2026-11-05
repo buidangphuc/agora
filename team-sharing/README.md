@@ -2,7 +2,7 @@
 
 Go gRPC service that owns the **short shareable links** bounded context: it mints a short code for a `(target_type, target_id)` pair, stores UTM parameters and Open Graph preview metadata with it, and counts every resolve. It is a deployed service (compose: `team-sharing-svc`, gRPC `:50065`, no host port published) with its own Postgres database `sharing_db` (Rule 3, database per service). It calls no other service and produces/consumes no events.
 
-Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com/buidangphuc/team-sharing`, built on `platform-core/packages/go-sdk` v1.0.2 (ADR-0016). The service always uses Postgres; there is no memory mode.
+Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com/buidangphuc/team-sharing`, built on `platform-core/packages/go-sdk` at a tagged release, currently `v1.0.3` (ADR-0016). The service always uses Postgres; there is no memory mode.
 
 Layout: `cmd/server` (loads `internal/config`, calls `internal/app`) -> `internal/app` (wiring: logx, otelx, healthx, postgres, grpcx, lifecycle) -> `internal/rpc` (gRPC handler, principal metadata, error mapping) -> `internal/sharelink` (validation, short-code minting, OG defaults, `Repository` port) -> `internal/store` (Postgres).
 

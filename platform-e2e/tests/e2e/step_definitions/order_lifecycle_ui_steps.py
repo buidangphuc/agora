@@ -18,6 +18,7 @@ from pytest_bdd import given, parsers, then, when
 from src.api.services import OrderService
 from src.api.services.base_service import GatewayError
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support import d2_support as d2
 from tests.e2e.support import order_lifecycle_ui_support as ui
@@ -44,13 +45,11 @@ def oid(world: World) -> str:
 
 
 def login_as(world: World, token: str) -> None:
-    world.context.add_cookies(
-        session_cookies(world.settings, token)
-    )
+    world.context.add_cookies(session_cookies(world.settings, token))
 
 
 def goto(world: World, path: str):
-    return world.page.goto(app_url(world.settings, path), wait_until="domcontentloaded")
+    return goto_streamed(world.page, app_url(world.settings, path))
 
 
 def start_buyer(world: World) -> None:
@@ -487,7 +486,7 @@ def find_link(world: World, title: str, href: str | None, timeout: float = 75.0)
 
 @when(parsers.parse('the lifecycle seller follows the "{title}" notification'))
 def seller_follows(world: World, title: str) -> None:
-    links = find_link(world, title, f"/seller/orders/{oid(world)}")
+    links = find_link(world, title, app_url(world.settings, f"/seller/orders/{oid(world)}"))
     links.first.click()
     world.page.wait_for_url(
         re.compile(rf".*/seller/orders/{oid(world)}"), timeout=timeouts.NAVIGATION

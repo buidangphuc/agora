@@ -128,7 +128,7 @@ func TestV6_V7b_V17_NonAdminDeniedAtEdge_NoUpstreamCall(t *testing.T) {
 // Scenario V6 (admin side): an admin DeactivateVoucher is forwarded unaltered with the caller principal.
 func TestV6_AdminDeactivateVoucherForwarded(t *testing.T) {
 	up := &voucherAdminUpstream{}
-	code, body := callVoucherAdmin(t, up, deactivateVoucherPath, `{"voucher_id":"v-1"}`, []string{"admin"})
+	code, body := callVoucherAdmin(t, up, deactivateVoucherPath, `{"voucher_id":"v-1"}`, []string{"admin", "promotion.admin"})
 	if code != http.StatusOK {
 		t.Fatalf("admin DeactivateVoucher = %d %s, want 200 (not 501)", code, body)
 	}
@@ -146,7 +146,7 @@ func TestV6_AdminDeactivateVoucherForwarded(t *testing.T) {
 // Scenario V17 (admin side): an admin UpdateVoucher is forwarded unaltered with the caller principal.
 func TestV17_AdminUpdateVoucherForwarded(t *testing.T) {
 	up := &voucherAdminUpstream{}
-	code, body := callVoucherAdmin(t, up, updateVoucherPath, `{"voucher_id":"v-1","quota":150}`, []string{"admin"})
+	code, body := callVoucherAdmin(t, up, updateVoucherPath, `{"voucher_id":"v-1","quota":150}`, []string{"admin", "promotion.admin"})
 	if code != http.StatusOK {
 		t.Fatalf("admin UpdateVoucher = %d %s, want 200 (not 501)", code, body)
 	}
@@ -166,7 +166,7 @@ func TestV17_AdminUpdateVoucherForwarded(t *testing.T) {
 func TestV6_V17_VoucherAdminWritesNotRetried(t *testing.T) {
 	for _, c := range voucherAdminCalls {
 		up := &voucherAdminUpstream{err: status.Error(codes.Unavailable, "promotion down")}
-		code, body := callVoucherAdmin(t, up, c.path, c.body, []string{"admin"})
+		code, body := callVoucherAdmin(t, up, c.path, c.body, []string{"admin", "promotion.admin"})
 		if code != http.StatusServiceUnavailable {
 			t.Errorf("%s = %d %s, want 503", c.name, code, body)
 		}
@@ -188,7 +188,7 @@ func TestV6_V17_VoucherAdminDomainErrorsPassThrough(t *testing.T) {
 	} {
 		for _, c := range voucherAdminCalls {
 			up := &voucherAdminUpstream{err: status.Error(tc.code, "x")}
-			code, body := callVoucherAdmin(t, up, c.path, c.body, []string{"admin"})
+			code, body := callVoucherAdmin(t, up, c.path, c.body, []string{"admin", "promotion.admin"})
 			if code != tc.http || !strings.Contains(body, tc.text) {
 				t.Errorf("%s %v = %d %s, want %d %s", c.name, tc.code, code, body, tc.http, tc.text)
 			}

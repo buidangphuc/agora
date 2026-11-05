@@ -236,7 +236,6 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
 - Unknown usernames in `RequestPasswordReset` return `NOT_FOUND`, which allows username enumeration; the
   same applies to `Register` conflicts (`ALREADY_EXISTS`).
 - Display name is the username; there is no separate profile field.
-- `go.mod` pins go-sdk `v1.0.3`, which has no tag, through `replace ... => ../platform-core/packages/go-sdk` (`go.mod:297`); a plain `docker build` from this directory cannot resolve it (the compose build context is `./team-identity`).
 
 ## Links
 

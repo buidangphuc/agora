@@ -20,6 +20,7 @@ from config.settings import get_settings
 from src.api.services import AuthService, BaseService, ListingService
 from src.constants import PageName, timeouts
 from src.constants import gateway_endpoints as ep
+from src.core.base_page import goto_streamed
 from src.models import Listing, User
 from src.pages import HomePage, SearchPage, VouchersPage
 from src.pages.saved_searches_page import SavedSearchesPage
@@ -36,7 +37,7 @@ _PNG = base64.b64decode(
 )
 _INDEX_WAIT_S = 90
 _RESULTS = '[data-testid="search-results"]'
-_CARDS = f"{_RESULTS} .grid > div"
+_CARDS = f"{_RESULTS} > .grid > div"
 _MOBILE = {"width": 375, "height": 812}
 
 
@@ -101,7 +102,7 @@ def _seed_indexed(world: World, specs: list[dict], prefix: str = "zd1") -> str:
 
 
 def _goto(world: World, route: str, wait_until: str = "domcontentloaded") -> None:
-    world.page.goto(f"{BASE}{route}", wait_until=wait_until)
+    goto_streamed(world.page, f"{BASE}{route}", wait_until)
 
 
 def _cards(world: World) -> Locator:
@@ -299,7 +300,7 @@ def open_search_page(world: World) -> None:
 
 @then(parsers.parse('the sort options exclude "{label}"'))
 def sort_excludes(world: World, label: str) -> None:
-    sort_bar = world.page.get_by_text("Sắp xếp theo:").locator("xpath=..")
+    sort_bar = world.page.get_by_text("Sắp xếp theo", exact=True).locator("xpath=..")
     expect(sort_bar).to_be_visible(timeout=timeouts.NAVIGATION)
     for option in ("Liên quan", "Mới nhất", "Giá thấp đến cao", "Giá cao đến thấp"):
         expect(sort_bar.get_by_text(option, exact=True).first).to_be_attached()

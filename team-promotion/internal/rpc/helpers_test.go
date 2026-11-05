@@ -209,7 +209,7 @@ func authCtx(t *testing.T, id string, scopes ...string) context.Context {
 
 func adminCtx(t *testing.T) context.Context {
 	t.Helper()
-	return authCtx(t, "admin-1", "listing.write", "admin")
+	return authCtx(t, "admin-1", "listing.write", "admin", "promotion.admin")
 }
 
 func sellerCtx(t *testing.T) context.Context {

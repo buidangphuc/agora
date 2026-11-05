@@ -18,6 +18,7 @@ from pytest_bdd import given, parsers, then, when
 from config.settings import get_settings
 from src.api.services import AuthService, ListingService
 from src.constants import PageName, timeouts
+from src.core.base_page import goto_streamed
 from src.models import Listing, User
 from src.pages import ListingDetailPage
 from src.utils import data as fake
@@ -121,7 +122,7 @@ def _open(
         world.page.set_viewport_size({"width": width, "height": 812 if width < 768 else 900})
     if record:
         _record_beacons(world)
-    world.page.goto(f"{BASE}/listing/{_listing_id(world)}{query}", wait_until="domcontentloaded")
+    goto_streamed(world.page, f"{BASE}/listing/{_listing_id(world)}{query}")
     expect(_detail(world).add_to_cart_button.first).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -413,7 +414,7 @@ def flash_sale_discount(world: World) -> None:
 @when("the buyer clicks the third thumbnail")
 def click_third_thumbnail(world: World) -> None:
     stage = world.page.get_by_test_id("gallery-stage")
-    _x(world)["stage_before"] = stage.bounding_box()
+    _x(world)["stage_before"] = _stage_box(stage)
     _x(world)["stage_src_before"] = stage.locator("img").first.get_attribute("src")
     world.page.get_by_role("button", name="Ảnh 3").click()
 
@@ -424,7 +425,18 @@ def stage_changed(world: World) -> None:
     expect(world.page.get_by_role("button", name="Ảnh 3")).to_have_attribute("aria-current", "true")
     src = stage.locator("img").first.get_attribute("src")
     assert src != _x(world)["stage_src_before"] and src.endswith("-2.png"), src
-    assert stage.bounding_box() == _x(world)["stage_before"], "the stage moved or resized"
+    after = _stage_box(stage)
+    before = _x(world)["stage_before"]
+    assert after == before, f"the stage moved or resized: {before} -> {after}"
+
+
+def _stage_box(locator: Locator) -> dict:
+    return locator.evaluate(
+        "el => { const r = el.getBoundingClientRect();"
+        " const p = el.parentElement.getBoundingClientRect();"
+        " return {x: Math.round(r.x - p.x), y: Math.round(r.y - p.y),"
+        " width: Math.round(r.width), height: Math.round(r.height)}; }"
+    )
 
 
 @then("the stage shows the placeholder in a 1:1 box and no external image host was requested")

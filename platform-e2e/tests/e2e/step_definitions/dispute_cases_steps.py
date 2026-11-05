@@ -39,9 +39,7 @@ def host_for(world: World, path: str) -> str:
 
 
 def sign_in(world: World, token: str) -> None:
-    world.context.add_cookies(
-        session_cookies(world.settings, token)
-    )
+    world.context.add_cookies(session_cookies(world.settings, token))
     sign_in_admin_app(world, token)
 
 
@@ -65,8 +63,7 @@ def open_order_as_buyer(world: World) -> None:
 
 
 def detail_card(page: Page):
-    card = page.locator("ul").first
-    return card if card.count() else page
+    return page.get_by_role("main").get_by_role("listitem").filter(has_text="Trạng thái: ").first
 
 
 def choose_ruling(page: Page, label: str) -> None:

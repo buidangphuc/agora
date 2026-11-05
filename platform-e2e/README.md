@@ -240,9 +240,12 @@ env/        .env.local / .env.docker / .env.staging
 - **Streamed pages**: Next streams Suspense content into hidden `div[id^="S:"]` nodes and
   swaps them in later, so a locator can match the fallback or the hidden copy. Every page
   object navigation goes through `BasePage.goto(url)` (`navigate()` calls it), which waits for
-  `wait_streamed` once after the load, for buyer, seller and admin pages alike. Steps navigate
-  through a page object and never call `wait_streamed` themselves; a page object action that
-  triggers a server redirect (e.g. `AdminUsersPage.submit_status`) waits for it itself.
+  `wait_streamed` once after the load, for buyer, seller and admin pages alike. A step that
+  navigates without a page object calls `goto_streamed(page, url)` from the same module, which
+  is the function `BasePage.goto` uses; steps never call `page.goto` then read the page.
+  `LoginPage.login` waits for `wait_streamed` before filling, so it is safe after any redirect
+  to `/login`. A page object action that triggers a server redirect (e.g.
+  `AdminUsersPage.submit_status`) waits for it itself.
 - `--strict-markers`: unregistered tags error out.
 - The `session` cookie is the raw gateway JWT (`login_via_api`); if the frontend wraps it,
   switch the default to UI login.

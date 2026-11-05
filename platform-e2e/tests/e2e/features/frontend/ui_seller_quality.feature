@@ -19,7 +19,7 @@ Feature: Seller pages - layout shift, images, primary action, tokens and trackin
     Then the thumbnails after the first screen are lazy
 
   Scenario: Token lint passes on seller code
-    Then the token lint reports no violation under "src/app/(shop)/seller,src/app/(shop)/sell,src/features/seller"
+    Then the seller app token lint reports no violation under "src/app/seller,src/app/sell,src/features/seller"
 
   Scenario: One primary CTA per page
     Given a d2 seller has 1 published listings

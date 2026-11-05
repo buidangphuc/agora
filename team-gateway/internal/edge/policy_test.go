@@ -1,6 +1,7 @@
 package edge
 
 import (
+	"slices"
 	"sort"
 	"testing"
 
@@ -67,7 +68,7 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 func TestRequireProcedureScope(t *testing.T) {
 	anon := resolvedPrincipal{id: "anonymous", ptype: "anonymous", scopes: []string{"listing.read"}}
 	buyer := resolvedPrincipal{id: "u-1", ptype: "user", scopes: []string{"listing.read", "engagement:write"}}
-	admin := resolvedPrincipal{id: "u-2", ptype: "user", scopes: []string{"listing.read", "admin"}}
+	admin := resolvedPrincipal{id: "u-2", ptype: "user", scopes: []string{"listing.read", "admin", "promotion.admin"}}
 	service := resolvedPrincipal{id: "svc-order", ptype: "service", scopes: []string{"audit.write"}}
 
 	for proc := range adminProcedures {
@@ -114,6 +115,40 @@ func TestAccountAdminProceduresPolicyGate(t *testing.T) {
 			t.Errorf("%s seller = %v, want permission_denied", proc, c)
 		}
 		if err := requireProcedureScope(proc, admin); err != nil {
+			t.Errorf("%s admin: %v", proc, err)
+		}
+	}
+}
+
+func TestPromotionAdminPolicyEntries(t *testing.T) {
+	promotionProcs := []string{
+		promotionv1connect.VoucherServiceDeactivateVoucherProcedure,
+		promotionv1connect.VoucherServiceUpdateVoucherProcedure,
+		promotionv1connect.FlashSaleServiceListCampaignsProcedure,
+		promotionv1connect.FlashSaleServiceCancelCampaignProcedure,
+		promotionv1connect.FlashSaleServiceUpdateCampaignProcedure,
+	}
+	adminOnly := resolvedPrincipal{id: "u-2", ptype: "user", scopes: []string{"listing.read", "admin", "order.admin"}}
+	promoAdmin := resolvedPrincipal{id: "u-2", ptype: "user", scopes: []string{"admin", "promotion.admin"}}
+	for _, proc := range promotionProcs {
+		if got := adminProcedures[proc]; got != "promotion.admin" {
+			t.Errorf("%s scope = %q, want promotion.admin", proc, got)
+		}
+		if c := connect.CodeOf(requireProcedureScope(proc, adminOnly)); c != connect.CodePermissionDenied {
+			t.Errorf("%s admin without promotion.admin = %v, want permission_denied", proc, c)
+		}
+		if err := requireProcedureScope(proc, promoAdmin); err != nil {
+			t.Errorf("%s promotion.admin: %v", proc, err)
+		}
+	}
+	for proc, scope := range adminProcedures {
+		if slices.Contains(promotionProcs, proc) {
+			continue
+		}
+		if scope != adminScope {
+			t.Errorf("%s scope = %q, want %q", proc, scope, adminScope)
+		}
+		if err := requireProcedureScope(proc, adminOnly); err != nil {
 			t.Errorf("%s admin: %v", proc, err)
 		}
 	}

@@ -14,6 +14,7 @@ from tests.e2e.support.world import World
 
 REPO = Path(__file__).resolve().parents[4]
 FRONTEND = REPO / "team-frontend"
+SELLER_FRONTEND = REPO / "team-frontend-seller"
 
 CLS_SCRIPT = """
 window.__cls = 0;
@@ -37,12 +38,21 @@ def cls(page: Page) -> float:
 # ── Token lint ───────────────────────────────────────────────────────────
 @then(parsers.parse('the token lint reports no violation under "{paths}"'))
 def token_lint_clean(paths: str) -> None:
+    _token_lint(FRONTEND, paths)
+
+
+@then(parsers.parse('the seller app token lint reports no violation under "{paths}"'))
+def seller_token_lint_clean(paths: str) -> None:
+    _token_lint(SELLER_FRONTEND, paths)
+
+
+def _token_lint(app: Path, paths: str) -> None:
     wanted = [p.strip() for p in paths.split(",")]
     for p in wanted:
-        assert (FRONTEND / p).exists(), f"{p} does not exist: the lint would be vacuous"
+        assert (app / p).exists(), f"{p} does not exist: the lint would be vacuous"
     proc = subprocess.run(
         ["node", "scripts/check-tokens.mjs", *wanted],
-        cwd=FRONTEND,
+        cwd=app,
         capture_output=True,
         text=True,
         timeout=120,

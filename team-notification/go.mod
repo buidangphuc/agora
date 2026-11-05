@@ -12,7 +12,7 @@ require (
 	google.golang.org/protobuf v1.36.12
 )
 
-require github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2
+require github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.3
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.4.0 // indirect
