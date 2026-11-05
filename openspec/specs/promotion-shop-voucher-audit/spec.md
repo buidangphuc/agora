@@ -7,7 +7,7 @@ An admin creating a SHOP voucher writes one voucher.admin_create audit event fir
 
 ### Requirement: Admin-created shop vouchers are audited through the gate and fail closed
 
-`PromotionService.CreateVoucher` called with `VOUCHER_SCOPE_SHOP` by a caller holding the `admin` scope SHALL, after authentication, authorization and request validation, write exactly one team-audit event before the voucher row is inserted. The event SHALL have `action=voucher.admin_create`, `target_type=voucher`, `target_id` equal to the voucher code, `actor_id` equal to the admin's user id, and `metadata` keys `discount_type` (enum name), `value` (discount value in decimal) and `seller_id` (the id the voucher is stored under). IF the audit write fails, or times out, THEN the RPC SHALL return `Unavailable`, SHALL insert no voucher and SHALL emit no `VoucherChanged`. A caller holding `listing.write` without `admin` creating a SHOP voucher SHALL write no audit event and SHALL NOT depend on team-audit. PLATFORM and UNSPECIFIED scope behaviour (`voucher.platform_create`) SHALL be unchanged.
+`PromotionService.CreateVoucher` called with `VOUCHER_SCOPE_SHOP` by a caller holding the `promotion.admin` scope SHALL, after authentication, authorization and request validation, write exactly one team-audit event before the voucher row is inserted. The event SHALL have `action=voucher.admin_create`, `target_type=voucher`, `target_id` equal to the voucher code, `actor_id` equal to the admin's user id, and `metadata` keys `discount_type` (enum name), `value` (discount value in decimal) and `seller_id` (the id the voucher is stored under). IF the audit write fails, or times out, THEN the RPC SHALL return `Unavailable`, SHALL insert no voucher and SHALL emit no `VoucherChanged`. A caller holding `listing.write` without `promotion.admin` (including a caller holding `admin` but not `promotion.admin`) creating a SHOP voucher SHALL write no audit event and SHALL NOT depend on team-audit. PLATFORM and UNSPECIFIED scope behaviour (`voucher.platform_create`) SHALL be unchanged.
 
 #### Scenario: Shop voucher audit: admin creates a shop voucher
 - **WHEN** an admin creates a SHOP voucher with code "SHOP-ADM10", discount type percent, value 10 through the gateway
@@ -35,17 +35,17 @@ An admin creating a SHOP voucher writes one voucher.admin_create audit event fir
 - **VERIFIED BY**: team-promotion `internal/voucher` `TestCreateVoucherShopAdminAuditErrorFailsClosed`
 
 #### Scenario: Shop voucher audit: seller path needs no audit writer
-- **WHEN** a seller (`listing.write`, not admin) creates a SHOP voucher and the audit writer fails every write
+- **WHEN** a seller (`listing.write`, no `promotion.admin`) creates a SHOP voucher and the audit writer fails every write
 - **THEN** the call returns OK and the AuditWriter is never called
 - **VERIFIED BY**: team-promotion `internal/rpc` `TestCreateVoucherShopSellerWritesNoAudit`
 
 #### Scenario: Shop voucher audit: admin shop voucher is audited by the handler with the admin as actor
-- **WHEN** a principal with scope `admin` and id "admin-1" calls CreateVoucher with SHOP scope
+- **WHEN** a principal with scopes `admin` and `promotion.admin` and id "admin-1" calls CreateVoucher with SHOP scope
 - **THEN** the AuditWriter receives exactly one event with action `voucher.admin_create` and actor_id "admin-1"
 - **VERIFIED BY**: team-promotion `internal/rpc` `TestCreateVoucherShopAdminAudited`
 
 #### Scenario: Shop voucher audit: refused callers write nothing
-- **WHEN** a buyer (no `listing.write`, no `admin`) calls CreateVoucher with SHOP scope, and an anonymous caller does the same
+- **WHEN** a buyer (no `listing.write`, no `promotion.admin`) calls CreateVoucher with SHOP scope, and an anonymous caller does the same
 - **THEN** the calls return `permission_denied` and `unauthenticated` respectively and the AuditWriter is never called
 - **VERIFIED BY**: team-promotion `internal/rpc` `TestCreateVoucherShopRefusedWritesNoAudit`
 

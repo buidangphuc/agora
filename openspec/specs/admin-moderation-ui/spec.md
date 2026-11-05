@@ -247,7 +247,10 @@ A report row SHALL offer "Xử lý tin đăng" (the reject / ban dialog of the q
 
 ### Requirement: Admin entry links
 
-The cockpit page and the admin footer list in `ConsumerShell` SHALL link to `/admin/listings` ("Kiểm duyệt tin đăng") and `/admin/cases` ("Hộp thư vụ việc"), using internal `next/link`.
+The admin app's cockpit page SHALL link to `/admin/listings` ("Kiểm duyệt tin đăng") and `/admin/cases`
+("Hộp thư vụ việc"), using internal `next/link`. The buyer app (`ConsumerShell`) SHALL NOT render admin links:
+admin pages are served only by the admin app at `ADMIN_BASE_URL`. A signed-in user without the `admin` scope who
+opens an admin link on the admin app SHALL see the admin layout's "Không có quyền" page instead of the admin page.
 
 #### Scenario: Moderation UI: Admin reaches the pages from the cockpit
 - **WHEN** an admin opens `/admin/cockpit` and clicks "Hộp thư vụ việc"
@@ -260,6 +263,6 @@ The cockpit page and the admin footer list in `ConsumerShell` SHALL link to `/ad
 - **VERIFIED BY**: `team-frontend-admin/src/features/admin/CockpitView.test.tsx` `shows the moderation links`
 
 #### Scenario: Moderation UI: A non-admin following an admin link is refused
-- **WHEN** a signed-in buyer follows the footer link "Hộp thư vụ việc" to `/admin/cases`
-- **THEN** the page shows "Cần tài khoản Quản trị" and no report row, and `ListReports` is called zero times
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Moderation UI: A non-admin following an admin link is refused`
+- **WHEN** a signed-in buyer opens the admin link `/admin/cases` on the admin app
+- **THEN** the page shows "Không có quyền" and no report table, because the admin layout refuses a principal without the `admin` scope before the cases page renders
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Moderation UI: A non-admin following an admin link is refused`; `team-frontend-admin/src/app/admin/layout.test.tsx` `shows Không có quyền to a signed-in user without the admin scope`

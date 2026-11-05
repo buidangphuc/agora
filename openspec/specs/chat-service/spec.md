@@ -378,11 +378,11 @@ team-chat SHALL NOT write message `content`, `payload` or `sender_name`, or the 
 
 ### Requirement: team-chat requires a tagged SDK and shares make and lint files by reference
 
-`team-chat/go.mod` SHALL `require github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2`, SHALL NOT contain a `replace` for it and SHALL pin `golangci-lint` as a `tool`. The repository SHALL NOT contain `team-chat/third_party`, `team-chat/.golangci.yml` or `team-chat/make/`. `team-chat/Makefile` SHALL set `SERVICE := team-chat`, `GRPC_PORT := 50057` and `LINT_CONFIG := ../platform-core/packages/go-sdk/.golangci.yml` and include `../platform-core/make/go-service.mk`. `cmd/server/main.go` SHALL only load settings and call `internal/app.Run`, or `internal/app.Migrate` for the arguments `migrate up`.
+`team-chat/go.mod` SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` exactly once, at a tagged release version matching `^v\d+\.\d+\.\d+$` (no pseudo-version and no `-` suffix), SHALL NOT contain a `replace` directive and SHALL pin `golangci-lint` as a `tool`. The repository SHALL NOT contain `team-chat/third_party`, `team-chat/.golangci.yml` or `team-chat/make/`. `team-chat/Makefile` SHALL set `SERVICE := team-chat`, `GRPC_PORT := 50057` and `LINT_CONFIG := ../platform-core/packages/go-sdk/.golangci.yml` and include `../platform-core/make/go-service.mk`. `cmd/server/main.go` SHALL only load settings and call `internal/app.Run`, or `internal/app.Migrate` for the arguments `migrate up`.
 
 #### Scenario: go.mod requires the tag without replace
 - **WHEN** `team-chat/go.mod` is parsed
-- **THEN** it requires the SDK at `v1.0.2`, has no `replace` line, and lists `github.com/golangci/golangci-lint` under `tool`
+- **THEN** it requires the SDK exactly once, at a version matching `^v\d+\.\d+\.\d+$`, has no `replace` line, and lists `github.com/golangci/golangci-lint` under `tool`
 - **VERIFIED BY**: `team-chat/internal/config` `TestGoModRequiresTagWithoutReplace`
 
 #### Scenario: Make and lint files are referenced, not copied

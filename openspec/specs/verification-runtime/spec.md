@@ -7,7 +7,7 @@ TBD - created by archiving change verification-go-sdk-v1. Update Purpose after a
 
 ### Requirement: team-verification boots on go-sdk with the ADR-0016 layout
 
-team-verification SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` at the tag `v1.0.2` with no `replace` directive and no `third_party` copy, and SHALL build `cmd/server/main.go` as a thin entry that loads `internal/config` settings and calls `internal/app.Run(ctx, settings)`. Settings SHALL be the SDK groups `Runtime`, `GRPC`, `Postgres`, `OTel`, `Audit` and `MockData`. `ENV`, `GRPC_PORT`, `DATABASE_URL` and `UPSTREAM_AUDIT_ADDR` SHALL be required in every `ENV` (no fallback mode when the audit connection is missing). `ENV` SHALL be required and SHALL be one of `local`, `test`, `staging`, `prod`; any other value (for example `dev`) makes `Load` return an error naming `ENV`. A strict ENV is any ENV other than `local` or `test`. Settings SHALL declare no dependency enable flag: the only boolean switches are `OTEL_ENABLED` and `GRPC_REFLECTION_ENABLED`. `.env.example` SHALL list exactly the declared keys. The binary SHALL NOT import the in-memory test fake.
+team-verification SHALL require `github.com/buidangphuc/agora/platform-core/packages/go-sdk` exactly once, at a tagged release version matching `^v\d+\.\d+\.\d+$` (no pseudo-version and no `-` suffix), with no `replace` directive and no `third_party` copy, SHALL pin golangci-lint as a `tool` directive, and SHALL build `cmd/server/main.go` as a thin entry that loads `internal/config` settings and calls `internal/app.Run(ctx, settings)`. Settings SHALL be the SDK groups `Runtime`, `GRPC`, `Postgres`, `OTel`, `Audit` and `MockData`. `ENV`, `GRPC_PORT`, `DATABASE_URL` and `UPSTREAM_AUDIT_ADDR` SHALL be required in every `ENV` (no fallback mode when the audit connection is missing). `ENV` SHALL be required and SHALL be one of `local`, `test`, `staging`, `prod`; any other value (for example `dev`) makes `Load` return an error naming `ENV`. A strict ENV is any ENV other than `local` or `test`. Settings SHALL declare no dependency enable flag: the only boolean switches are `OTEL_ENABLED` and `GRPC_REFLECTION_ENABLED`. `.env.example` SHALL list exactly the declared keys. The binary SHALL NOT import the in-memory test fake.
 
 #### Scenario: Settings declare no dependency enable flags
 - **WHEN** the declared env keys of Settings are listed
@@ -51,8 +51,8 @@ team-verification SHALL require `github.com/buidangphuc/agora/platform-core/pack
 
 #### Scenario: go.mod uses the tag without replace
 - **WHEN** `go.mod` is parsed
-- **THEN** it requires go-sdk `v1.0.2` and has no `replace` directive and no `third_party` directory exists
-- **VERIFIED BY**: team-verification `internal/app` `TestGoModRequiresSDKTagWithoutReplace`
+- **THEN** it requires go-sdk exactly once, at a version matching `^v\d+\.\d+\.\d+$`, has a golangci-lint `tool` line and no `replace` directive, and no `third_party` directory exists
+- **VERIFIED BY**: team-verification `internal/app` `TestGoModRequiresSDKTagWithoutReplace` and `TestGoModDeclaresLintTool`
 
 ### Requirement: The database is mandatory and boot fails without it
 
