@@ -283,7 +283,10 @@ def then_buyer_account(world: World) -> None:
     claims = ue.claims(reg["token"])
     assert reg["user_id"] != _x(world)["spoofed_id"], "the client-supplied user id was used"
     assert "admin" not in json.dumps(claims).lower(), f"token carries admin: {claims}"
-    assert "buyer" in json.dumps(claims).lower(), f"token does not carry buyer: {claims}"
+    reference = ue.claims(ue.register_user("buyer", "q7_refbuyer")["token"])
+    assert sorted(claims.get("scopes", [])) == sorted(reference.get("scopes", [])), (
+        f"scopes {claims.get('scopes')} differ from a plain buyer's {reference.get('scopes')}"
+    )
 
 
 @then("the UserRegistered event user id equals the generated id")
@@ -367,9 +370,9 @@ def then_public(world: World) -> None:
 
 def _stop_targets() -> list[str]:
     return [
-        _container("REFERRAL_CONTAINER", "agora-team-referral-svc"),
+        _container("PLP_TEAM_REFERRAL_CONTAINER", "agora-team-referral-svc"),
         _container("PLP_TEAM_PROMOTION_CONTAINER", "agora-team-promotion-svc"),
-        _container("KAFKA_CONTAINER", "agora-redpanda-1"),
+        _container("REDPANDA_CONTAINER", "agora-redpanda-1"),
     ]
 
 
@@ -398,7 +401,7 @@ def then_within_budget(world: World) -> None:
 
 @when("Kafka is started again")
 def when_kafka_started(world: World) -> None:
-    pe.docker("start", _container("KAFKA_CONTAINER", "agora-redpanda-1"))
+    pe.docker("start", _container("REDPANDA_CONTAINER", "agora-redpanda-1"))
 
 
 @when("the identity and gateway logs are searched")

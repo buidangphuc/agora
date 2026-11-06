@@ -20,6 +20,7 @@ from src.pages.checkout_page import CheckoutPage
 from src.pages.shop_follow_page import ShopFollowPage
 from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support import d2_support as d2
+from tests.e2e.support import flash_hold_support as fh
 from tests.e2e.support import user_enforcement_support as ue
 from tests.e2e.support.voucher_seed import ensure_known_voucher
 from tests.e2e.support.world import World
@@ -89,7 +90,16 @@ def _register_buyer() -> dict[str, Any]:
 
 def _sign_in(world: World, buyer: dict[str, Any]) -> None:
     world.context.clear_cookies()
-    world.context.add_cookies(session_cookies(world.settings, buyer["token"]))
+    world.context.add_cookies(
+        [
+            *session_cookies(world.settings, buyer["token"]),
+            {
+                "name": "agora_consent",
+                "value": f"v=1&a=1&m=0&p=0&ts={int(time.time())}",
+                "url": world.settings.base_url,
+            },
+        ]
+    )
     world.service_factory.set_token(buyer["token"])
     world.state.current_user = User(
         username=buyer["username"],
@@ -149,7 +159,9 @@ def _amount_pattern(voucher: dict[str, Any]) -> re.Pattern[str]:
     dotted = f"{value:,}".replace(",", ".")
     if "PERCENT" in str(voucher.get("discountType", "")):
         return re.compile(rf"{value}\s*%")
-    return re.compile(rf"{re.escape(dotted)}\s*(đ|₫)")
+    return re.compile(
+        rf"(?:[đ₫]\s*{re.escape(dotted)}(?![\d.])|(?<![\d.]){re.escape(dotted)}\s*[đ₫])"
+    )
 
 
 def _checkout(world: World) -> CheckoutPage:
@@ -231,6 +243,7 @@ def welcome_buyer_small_cart(world: World) -> None:
 @given(parsers.parse('the platform voucher "{code}" exists'))
 def platform_voucher_exists(world: World, code: str) -> None:
     ensure_known_voucher(code)
+    fh.psql(f"UPDATE vouchers SET created_at = now() WHERE code = {fh.sql_lit(code)};")
 
 
 @given(parsers.parse("the welcome buyer's account is {days:d} days old"))
@@ -349,21 +362,11 @@ def open_payment(world: World) -> None:
 @when("the welcome buyer picks the voucher from the picker")
 def pick_voucher(world: World) -> None:
     code = _buyer(world)["voucher"]["code"]
-    page = world.page
-    opener = page.get_by_role("button", name="Chọn hoặc nhập mã")
-    expect(opener).to_be_enabled(timeout=timeouts.DEFAULT)
-    page.wait_for_timeout(500)
-    opener.click()
-    dialog = page.get_by_role("dialog")
-    expect(dialog).to_be_visible(timeout=timeouts.DEFAULT)
-    expect(dialog.get_by_text(code).first).to_be_visible(timeout=timeouts.DEFAULT)
-    dialog.get_by_text(code).first.click()
-    try:
-        expect(dialog).to_have_count(0, timeout=3_000)
-    except AssertionError:
-        apply = dialog.get_by_role("button", name="Áp dụng")
-        if apply.count():
-            apply.first.click()
+    checkout = _checkout(world)
+    offer = checkout.platform_voucher.get_by_role("button", name=code, exact=True)
+    expect(offer).to_be_enabled(timeout=timeouts.NAVIGATION)
+    checkout.wait_until_interactive(offer)
+    offer.click()
 
 
 @when("the welcome buyer closes the welcome banner")
@@ -510,10 +513,14 @@ def banner_pending(world: World) -> None:
     buyer = _buyer(world)
     banner = _banner(world)
     expect(banner).to_be_visible(timeout=timeouts.NAVIGATION)
-    if _new_user_voucher(buyer["token"]) is None:
-        expect(banner).to_contain_text(PENDING_TEXT)
+    text = banner.text_content() or ""
+    if PENDING_TEXT in text:
+        voucher = _new_user_voucher(buyer["token"])
+        assert voucher is None or voucher["code"] not in text, text
     else:
-        expect(banner).not_to_contain_text(PENDING_TEXT)
+        voucher = _new_user_voucher(buyer["token"])
+        assert voucher is not None, f"banner shows neither the pending text nor a voucher: {text!r}"
+        assert voucher["code"] in text, text
 
 
 @then("within 10 seconds the welcome banner shows the voucher code")

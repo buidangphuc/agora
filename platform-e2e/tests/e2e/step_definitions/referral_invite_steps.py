@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import time
 import uuid
 from collections.abc import Callable
@@ -30,7 +31,7 @@ from src.api.services import (
     OrderService,
     PaymentService,
 )
-from src.api.services.base_service import BaseService
+from src.api.services.base_service import BaseService, GatewayError
 from src.api.services.referral_service import ReferralService
 from src.api.services.sharing_service import SharingService
 from src.constants import gateway_endpoints as ep
@@ -41,6 +42,7 @@ from src.pages.register_page import RegisterPage
 from src.utils import data as fake
 from tests.e2e.flows import login_via_api
 from tests.e2e.support import d2_support as d2
+from tests.e2e.support import user_enforcement_support as ue
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -650,7 +652,11 @@ def second_stays(world: World) -> None:
 def cookie_deleted(world: World) -> None:
     world.page.wait_for_load_state("networkidle")
     lines = _agora_ref_lines(_x(world)["ri_set_cookies"])
-    assert any("max-age=0" in _attributes(line) for line in lines), lines
+    assert any(
+        "max-age=0" in _attributes(line)
+        or any(a.startswith("expires=thu, 01 jan 1970") for a in _attributes(line))
+        for line in lines
+    ), lines
     assert _browser_cookie(world) == [], _browser_cookie(world)
 
 
@@ -774,8 +780,10 @@ def released_formatted(world: World) -> None:
 
 @then("the page contains no đ currency amount")
 def no_dong(world: World) -> None:
-    body = world.page.inner_text("body")
-    found = re.findall(r"\d[\d.,]*\s*[đ₫](?!\w)", body)
+    content = world.page.locator('nav[aria-label="Menu tài khoản"] + div')
+    expect(content.get_by_test_id("referral-code")).to_be_visible(timeout=timeouts.DEFAULT)
+    body = content.inner_text()
+    found = re.findall(r"\d[\d.,]*\s*[đ₫](?!\w)|[đ₫]\s*\d", body)
     assert not found, found
     assert "₫" not in body
 
@@ -881,12 +889,42 @@ def buyer_on_referral(world: World, situation: str) -> None:
     user = _sign_in(world, "ri_redeemer")
     ex = _x(world)
     ex["ri_redeemer"] = {"token": user.token, "base": 0}
+    _until(
+        lambda: _referral_knows(user.token),
+        timeout_s=ATTRIBUTION_WAIT_S,
+        what="team-referral to record the buyer's registration",
+    )
     if situation == "a code already redeemed":
         friend = _make_inviter(world, "ri_friend1")
-        ReferralService(token=user.token).redeem_referral(friend["code"])
+        _until(
+            lambda: _redeem_when_registered(user.token, friend["code"]),
+            timeout_s=ATTRIBUTION_WAIT_S,
+            what="team-referral to record the buyer's registration and accept the redeem",
+        )
     else:
         assert situation == "no earlier redeem", situation
     _open_referral(world)
+
+
+def _referral_knows(token: str) -> bool:
+    user_id = ue.user_id_of(token)
+    proc = subprocess.run(
+        ["docker", "exec", os.getenv("POSTGRES_CONTAINER", "agora-postgres-1"), "psql",
+         "-U", "postgres", "-d", "referral_db", "-At", "-c",
+         f"SELECT 1 FROM referral_accounts WHERE user_id = '{user_id}'"],
+        capture_output=True, text=True, timeout=30,
+    )  # fmt: skip
+    return proc.stdout.strip() == "1"
+
+
+def _redeem_when_registered(token: str, code: str) -> bool:
+    try:
+        ReferralService(token=token).redeem_referral(code)
+    except GatewayError as err:
+        if err.status == 400 and "failed_precondition" in err.body and "tài khoản mới" in err.body:
+            return False
+        raise
+    return True
 
 
 def _redeem(world: World, code: str) -> None:

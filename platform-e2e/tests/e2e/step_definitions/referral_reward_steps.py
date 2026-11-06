@@ -117,13 +117,21 @@ def given_inviter(oic, name: str) -> None:
     oic.data.setdefault("ref_codes", {})[name] = body["code"]
 
 
-@given(parsers.parse('"{name}" registered through the gateway with the code of "{inviter}"'))
 @when(parsers.parse('"{name}" registers through the gateway with the code of "{inviter}"'))
 def when_register_with_code(oic, name: str, inviter: str) -> None:
     _tap(oic)
     actor = _register(oic, name, oic.data["ref_codes"][inviter])
     oic.data.setdefault("ref_registered_at", {})[name] = time.time()
     assert actor.user_id
+
+
+@given(parsers.parse('"{name}" registered through the gateway with the code of "{inviter}"'))
+def given_registered_with_code(oic, name: str, inviter: str) -> None:
+    when_register_with_code(oic, name, inviter)
+    referee = oic.actors[name].user_id
+    assert _tap(oic).wait_for(rev.ATTRIBUTED, referee, ATTRIBUTION_WAIT_S), (
+        f"ReferralAttributed for {name} not observed before the order"
+    )
 
 
 @given(parsers.parse('"{name}" registered through the gateway with no referral code'))
@@ -192,6 +200,7 @@ def then_not_attributed(oic, name: str) -> None:
     assert not tap.matching(rev.ATTRIBUTED, oic.actors[name].user_id)
 
 
+@given(parsers.parse('"{name}" shows pending_xu {pending:d} and released_xu {released:d}'))
 @then(parsers.parse('"{name}" shows pending_xu {pending:d} and released_xu {released:d}'))
 def then_totals(oic, name: str, pending: int, released: int) -> None:
     got = _poll(
@@ -283,7 +292,7 @@ def then_redeem_refused(oic) -> None:
 @when(parsers.parse('three invitees "{a}", "{b}" and "{c}" register with the code of "{inviter}"'))
 def when_three(oic, a: str, b: str, c: str, inviter: str) -> None:
     for invitee in (a, b, c):
-        when_register_with_code(oic, invitee, inviter)
+        given_registered_with_code(oic, invitee, inviter)
 
 
 @when("the three invitees each complete an order")
