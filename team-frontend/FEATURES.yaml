@@ -11256,3 +11256,393 @@ features:
     tags: [buyer, referral, invite, unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/account/referral/RedeemReferralForm.test.tsx` `S25 a guest refusal toasts the gateway message and keeps the field value`. Not producible end to end: a guest never reaches the page that renders the redeem form (redirected to login)."
+
+  # ---- frontend-welcome-checklist (q7-q37-referral-welcome)
+
+  - id: frontend-welcome-checklist.w1-own-vouchers-listed-above-the-platform-list
+    title: "W1 Own vouchers listed above the platform list"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W1 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W1 Own vouchers listed above the platform list"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w2-no-own-vouchers-boundary
+    title: "W2 No own vouchers (boundary)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W2 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W2 No own vouchers (boundary)"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/vouchers/page.test.tsx` `W2 No own vouchers (boundary)`. Not producible end to end: every registered buyer is issued a NEW_USER voucher, so a signed-in buyer with an empty ListMyVouchers cannot be arranged."
+
+  - id: frontend-welcome-checklist.w3-read-failure-keeps-the-page
+    title: "W3 Read failure keeps the page"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W3 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W3 Read failure keeps the page"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/vouchers/page.test.tsx` `W3 Read failure keeps the page`. Not producible end to end: needs ListMyVouchers to fail while the rest of the stack is healthy (fault injection)."
+
+  - id: frontend-welcome-checklist.w4-anonymous-visitor
+    title: "W4 Anonymous visitor"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W4 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W4 Anonymous visitor"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w5-another-buyer-s-voucher-is-never-shown-permission
+    title: "W5 Another buyer's voucher is never shown (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W5 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W5 Another buyer's voucher is never shown (permission)"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w6-own-voucher-offered-and-applied
+    title: "W6 Own voucher offered and applied"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W6 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W6 Own voucher offered and applied"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w22-anonymous-checkout-visitor-permission
+    title: "W22 Anonymous checkout visitor (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W22 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W22 Anonymous checkout visitor (permission)"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w7-picker-survives-a-read-failure
+    title: "W7 Picker survives a read failure"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W7 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W7 Picker survives a read failure"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/VoucherModal.test.tsx` `W7 Picker survives a read failure`. Not producible end to end: needs ListMyVouchers to fail while the payment step renders (fault injection)."
+
+  - id: frontend-welcome-checklist.w8-ineligible-voucher-is-refused-by-the-quote
+    title: "W8 Ineligible voucher is refused by the quote"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W8 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W8 Ineligible voucher is refused by the quote"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w9-banner-shows-the-voucher
+    title: "W9 Banner shows the voucher"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W9 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W9 Banner shows the voucher"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w10-voucher-not-yet-issued
+    title: "W10 Voucher not yet issued"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W10 of change frontend-welcome-checklist."
+    entry_route: "/account/addresses"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W10 Voucher not yet issued"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w11-voucher-read-failed
+    title: "W11 Voucher read failed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W11 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W11 Voucher read failed"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W11 Voucher read failed`. Not producible end to end: needs ListMyVouchers to fail for one buyer (fault injection)."
+
+  - id: frontend-welcome-checklist.w12-account-age-boundary
+    title: "W12 Account age boundary"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W12 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W12 Account age boundary"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w13-age-unknown-hides-the-panel
+    title: "W13 Age unknown hides the panel"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W13 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W13 Age unknown hides the panel"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/accountAge.test.ts` `W13 Age unknown hides the panel`. Not producible end to end: needs GetMyAccount to fail or return no created_at (fault injection)."
+
+  - id: frontend-welcome-checklist.w14-dismiss-the-banner
+    title: "W14 Dismiss the banner"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W14 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W14 Dismiss the banner"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w15-anonymous-visitor-sees-nothing-permission
+    title: "W15 Anonymous visitor sees nothing (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W15 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W15 Anonymous visitor sees nothing (permission)"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w16-steps-ticked-from-the-reads
+    title: "W16 Steps ticked from the reads"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W16 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W16 Steps ticked from the reads"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w17-all-done-hides-the-checklist
+    title: "W17 All done hides the checklist"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W17 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W17 All done hides the checklist"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w18-one-read-fails
+    title: "W18 One read fails"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W18 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W18 One read fails"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W18 One read fails`. Not producible end to end: needs ListAddresses to fail while the other reads succeed (fault injection)."
+
+  - id: frontend-welcome-checklist.w19-dismiss-the-checklist
+    title: "W19 Dismiss the checklist"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W19 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W19 Dismiss the checklist"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w20-account-older-than-14-days
+    title: "W20 Account older than 14 days"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W20 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W20 Account older than 14 days"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w21-slow-read-times-out-at-2-s
+    title: "W21 Slow read times out at 2 s"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W21 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W21 Slow read times out at 2 s"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W21 Slow read times out at 2 s`. Not producible end to end: needs ListAddresses to stall past 2 s (fault injection)."
+
+  - id: frontend-welcome-checklist.w24-expired-or-used-voucher
+    title: "W24 Expired or used voucher"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W24 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W24 Expired or used voucher"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W24 Expired or used voucher`. Not producible end to end: the NEW_USER voucher is server-owned, so an expired or used one cannot be arranged through the gateway."
+
+  - id: frontend-welcome-checklist.w25-cancelled-order-does-not-tick-the-first-order-step
+    title: "W25 Cancelled order does not tick the first-order step"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W25 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W25 Cancelled order does not tick the first-order step"
+    tags: [buyer, welcome]
+    status: planned
+
+  - id: frontend-welcome-checklist.w26-pending-text-expires-with-the-account-age-boundary
+    title: "W26 Pending text expires with the account age (boundary)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W26 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W26 Pending text expires with the account age (boundary)"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W26 Pending text expires with the account age (boundary)`. Not producible end to end: every registered buyer is issued a NEW_USER voucher, so a successful ListMyVouchers without one cannot be arranged."
+
+  - id: frontend-welcome-checklist.w27-picker-read-times-out
+    title: "W27 Picker read times out"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W27 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W27 Picker read times out"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/gateway/promotion.test.ts` `W27 Picker read times out`. Not producible end to end: needs ListMyVouchers to stall past 2 s (fault injection)."
+
+  - id: frontend-welcome-checklist.w23-anonymous-visitor-on-an-account-page-permission
+    title: "W23 Anonymous visitor on an account page (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W23 of change frontend-welcome-checklist."
+    entry_route: "/account/following"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W23 Anonymous visitor on an account page (permission)"
+    tags: [buyer, welcome]
+    status: planned

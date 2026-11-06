@@ -1,0 +1,5 @@
+services:
+  team-promotion:
+    environment:
+      NEW_USER_VERDICT_TIMEOUT: 2s
+      NEW_USER_VERDICT_SWEEP_INTERVAL: 1s
