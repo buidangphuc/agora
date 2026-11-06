@@ -1,14 +1,16 @@
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
+import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
 import { Statistic } from "@/components/ui/Statistic";
 import { Timeline } from "@/components/ui/Timeline";
-import { formatPrice } from "@/components/ui/format";
+import { formatXu } from "@/components/ui/format";
 import { AccountShell } from "@/features/account/AccountShell";
 import { CopyCodeButton } from "@/features/account/referral/CopyCodeButton";
 import { GenerateReferralCodeButton } from "@/features/account/referral/GenerateReferralCodeButton";
 import { RedeemReferralForm } from "@/features/account/referral/RedeemReferralForm";
+import { ShareInviteButton } from "@/features/account/referral/ShareInviteButton";
 import { getMyReferral, listReferralRewards } from "@/lib/gateway/referral";
 import { getPrincipal } from "@/lib/gateway/session";
 
@@ -17,6 +19,12 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Mời bạn bè | Marketplace",
 };
+
+const STATUS = {
+  PENDING: { label: "Đang chờ", variant: "warning", tone: "warning" },
+  RELEASED: { label: "Đã nhận", variant: "success", tone: "success" },
+  VOID: { label: "Đã hủy", variant: "neutral", tone: "neutral" },
+} as const;
 
 function SectionTitle({ children }: { children: string }) {
   return (
@@ -59,6 +67,7 @@ export default async function ReferralPage() {
                         {referral.code}
                       </span>
                       <CopyCodeButton code={referral.code} />
+                      <ShareInviteButton code={referral.code} />
                     </span>
                   ) : (
                     <span className="flex flex-wrap items-center gap-3">
@@ -66,18 +75,27 @@ export default async function ReferralPage() {
                         Bạn chưa có mã giới thiệu.
                       </span>
                       <GenerateReferralCodeButton />
+                      <ShareInviteButton code="" />
                     </span>
                   ),
                 },
               ]}
             />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Statistic title="Đã mời" value={referral.invitedCount} />
               <Statistic
-                title="Tổng thưởng"
+                title="Xu đang chờ"
                 value={
                   <span className="text-action-primary">
-                    {formatPrice(referral.rewardsTotal)}
+                    {formatXu(referral.pendingXu)}
+                  </span>
+                }
+              />
+              <Statistic
+                title="Xu đã nhận"
+                value={
+                  <span className="text-action-primary">
+                    {formatXu(referral.releasedXu)}
                   </span>
                 }
               />
@@ -102,10 +120,26 @@ export default async function ReferralPage() {
               key: r.id,
               title: r.reason || "Phần thưởng giới thiệu",
               time: r.createdAt,
-              tone: "success",
+              tone: STATUS[r.status].tone,
               description: (
-                <span className="font-semibold text-action-primary">
-                  +{formatPrice(r.amount)}
+                <span className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={
+                      r.status === "VOID"
+                        ? "font-semibold text-text-secondary line-through"
+                        : "font-semibold text-action-primary"
+                    }
+                  >
+                    +{formatXu(r.amount)}
+                  </span>
+                  <Badge variant={STATUS[r.status].variant}>
+                    {STATUS[r.status].label}
+                  </Badge>
+                  {r.status === "PENDING" && r.releaseAt ? (
+                    <span className="text-sm text-text-secondary">
+                      Dự kiến nhận: {r.releaseAt}
+                    </span>
+                  ) : null}
                 </span>
               ),
             }))}

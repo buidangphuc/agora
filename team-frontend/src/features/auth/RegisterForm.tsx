@@ -20,7 +20,13 @@ const ROLE_OPTIONS = [
   { value: "seller", label: "Người bán (seller)" },
 ];
 
-export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
+export function RegisterForm({
+  returnUrl,
+  referralRef,
+}: {
+  returnUrl?: string;
+  referralRef?: string;
+}) {
   const [state, action] = useActionState(registerAction, initial);
   const form = useCredentialForm(state, validateRegister);
 
@@ -34,6 +40,9 @@ export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
       >
         {returnUrl ? (
           <input type="hidden" name="returnUrl" value={returnUrl} />
+        ) : null}
+        {referralRef ? (
+          <input type="hidden" name="ref" value={referralRef} />
         ) : null}
         <Input
           label="Tên đăng nhập"

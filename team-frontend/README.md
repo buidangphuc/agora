@@ -21,7 +21,7 @@ Route groups and page-level gates:
 
 | Group | Routes | Gate |
 |---|---|---|
-| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect), `/login`, `/register`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
+| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect; referral links set the `agora_ref` cookie and go to `/register?ref=`), `/login`, `/register`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
 | `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification}` | redirect to `/login` without a session |
 | `(shop)` | `/chat/[id]` | redirects to `/chat?thread=<id>` |
 | `(shop)/dev/ui` | UI component gallery | `notFound()` when `NODE_ENV=production` |

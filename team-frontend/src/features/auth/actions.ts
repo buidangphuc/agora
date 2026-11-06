@@ -51,6 +51,15 @@ function failure(
 }
 
 const AUTH_EVT_COOKIE = "agora_auth_evt";
+const REFERRAL_COOKIE = "agora_ref";
+const REFERRAL_CODE_RE = /^[A-Za-z0-9_-]{1,32}$/;
+
+function validReferralCode(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const code = raw.trim();
+  return REFERRAL_CODE_RE.test(code) ? code : undefined;
+}
+
 const AUTH_EVT_OPTS = (secure: boolean) =>
   ({
     maxAge: 60,
@@ -134,6 +143,11 @@ export async function registerAction(
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const role = String(formData.get("role") ?? "buyer");
+  const jar = await cookies();
+  const referralCode =
+    validReferralCode(formData.get("ref")) ??
+    validReferralCode(jar.get(REFERRAL_COOKIE)?.value) ??
+    "";
 
   const invalid = validateRegister({ username, password });
   if (Object.keys(invalid).length > 0) {
@@ -149,7 +163,7 @@ export async function registerAction(
   try {
     const res = await makeClients(undefined, {
       client: clientContextFrom(await headers()),
-    }).auth.register({ username, password, role });
+    }).auth.register({ username, password, role, referralCode });
     token = res.result?.token ?? "";
     refreshToken = res.result?.refreshToken ?? "";
   } catch (err) {
@@ -167,6 +181,7 @@ export async function registerAction(
     "sign_up",
     AUTH_EVT_OPTS(isSecureRequest(await headers())),
   );
+  if (jar.get(REFERRAL_COOKIE)) jar.delete(REFERRAL_COOKIE);
   redirect(safeReturnUrl(String(formData.get("returnUrl") ?? "")));
 }
 

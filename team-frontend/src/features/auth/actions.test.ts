@@ -1098,3 +1098,212 @@ describe("logoutAction client context (frontend-session-client-context)", () => 
     expect(jar.delete).toHaveBeenCalledWith("agora_refresh");
   });
 });
+
+describe("registerAction referral attribution (frontend-referral-invite)", () => {
+  async function seedRef(value: string) {
+    (await cookies()).set("agora_ref", value);
+    vi.mocked((await cookies()).set).mockClear();
+  }
+
+  function okRegister() {
+    const register = vi.fn().mockResolvedValue({ result: { token: "jwt-r" } });
+    stubAuth({ register });
+    return register;
+  }
+
+  function sentCode(register: ReturnType<typeof vi.fn>): unknown {
+    return (register.mock.calls[0][0] as { referralCode?: string })
+      .referralCode;
+  }
+
+  async function refDeletes() {
+    return vi
+      .mocked((await cookies()).delete)
+      .mock.calls.filter((c) => c[0] === "agora_ref");
+  }
+
+  beforeEach(async () => {
+    (await cookies()).delete("agora_ref");
+    vi.clearAllMocks();
+  });
+
+  it("S10 sends the ref field as referral_code and redirects home", async () => {
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ref: "ABC123" }),
+    );
+    expect(register).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: "alice",
+        referralCode: "ABC123",
+      }),
+    );
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("S10 trims the ref field and keeps its case", async () => {
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ref: "  aBc_1-Z  " }),
+    );
+    expect(sentCode(register)).toBe("aBc_1-Z");
+  });
+
+  it("S11 falls back to the cookie and deletes it after success", async () => {
+    await seedRef("ABC123");
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234" }),
+    );
+    expect(sentCode(register)).toBe("ABC123");
+    expect(await refDeletes()).toHaveLength(1);
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("S11 deletes the cookie after success even when the field was used", async () => {
+    await seedRef("OLD1");
+    okRegister();
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ref: "NEW1" }),
+    );
+    expect(await refDeletes()).toHaveLength(1);
+  });
+
+  it("S12 the field wins over the cookie", async () => {
+    await seedRef("OLD1");
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ref: "NEW1" }),
+    );
+    expect(sentCode(register)).toBe("NEW1");
+  });
+
+  it.each([
+    ["has a space and bang", "bad code!"],
+    ["is 33 chars", "A".repeat(33)],
+    ["is blank", "   "],
+  ])(
+    "S13 a ref field that %s is ignored and register still succeeds",
+    async (_n, ref) => {
+      const register = okRegister();
+      await registerAction(
+        initial,
+        form({ username: "alice", password: "pass1234", ref }),
+      );
+      expect(sentCode(register) ?? "").toBe("");
+      expect(redirect).toHaveBeenCalledWith("/");
+    },
+  );
+
+  it("S13 a 32-char field is accepted at the boundary", async () => {
+    const register = okRegister();
+    const ref = "a".repeat(32);
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ref }),
+    );
+    expect(sentCode(register)).toBe(ref);
+  });
+
+  it("S13 an invalid field falls through to a valid cookie", async () => {
+    await seedRef("COOK1");
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ref: "bad code!" }),
+    );
+    expect(sentCode(register)).toBe("COOK1");
+  });
+
+  it("S13 an invalid cookie is ignored and not sent", async () => {
+    await seedRef("bad code!");
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234" }),
+    );
+    expect(sentCode(register) ?? "").toBe("");
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("S14 a failed register returns the taken-username error and keeps the cookie", async () => {
+    await seedRef("ABC123");
+    stubAuth({
+      register: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("dup", Code.AlreadyExists)),
+    });
+    const res = await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ref: "ABC123" }),
+    );
+    expect(res.error).toBe("Tên đăng nhập đã tồn tại.");
+    expect(await refDeletes()).toHaveLength(0);
+    expect((await cookies()).get("agora_ref")).toEqual({
+      name: "agora_ref",
+      value: "ABC123",
+    });
+  });
+
+  it("S14 a register without a session token also keeps the cookie", async () => {
+    await seedRef("ABC123");
+    stubAuth({
+      register: vi.fn().mockResolvedValue({ result: { token: "" } }),
+    });
+    const res = await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234" }),
+    );
+    expect(res.ok).toBe(false);
+    expect(await refDeletes()).toHaveLength(0);
+  });
+
+  it("S15 no field and no cookie sends an empty code and touches no agora_ref cookie", async () => {
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234" }),
+    );
+    expect(sentCode(register) ?? "").toBe("");
+    expect(await refDeletes()).toHaveLength(0);
+    const sets = vi
+      .mocked((await cookies()).set)
+      .mock.calls.filter((c) => c[0] === "agora_ref");
+    expect(sets).toHaveLength(0);
+  });
+
+  it("S16 returnUrl is honoured together with ref", async () => {
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({
+        username: "alice",
+        password: "pass1234",
+        ref: "ABC123",
+        returnUrl: "/cart",
+      }),
+    );
+    expect(sentCode(register)).toBe("ABC123");
+    expect(redirect).toHaveBeenCalledWith("/cart");
+  });
+
+  it("S16 an unsafe returnUrl still falls back to / while ref is sent", async () => {
+    const register = okRegister();
+    await registerAction(
+      initial,
+      form({
+        username: "alice",
+        password: "pass1234",
+        ref: "ABC123",
+        returnUrl: "https://evil.example",
+      }),
+    );
+    expect(sentCode(register)).toBe("ABC123");
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+});
