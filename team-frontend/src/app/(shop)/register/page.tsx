@@ -11,12 +11,14 @@ export default async function RegisterPage({
   const candidate = typeof raw === "string" ? raw : "";
   const safe = safeReturnUrl(candidate);
   const returnUrl = candidate !== "" && safe === candidate ? safe : undefined;
+  const rawRef = (await searchParams).ref;
+  const referralRef = typeof rawRef === "string" ? rawRef : undefined;
   return (
     <AuthPanel
       title="Tạo tài khoản"
       description="Chỉ mất một phút để bắt đầu mua sắm."
     >
-      <RegisterForm returnUrl={returnUrl} />
+      <RegisterForm returnUrl={returnUrl} referralRef={referralRef} />
     </AuthPanel>
   );
 }

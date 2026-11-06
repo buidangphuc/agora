@@ -26,6 +26,8 @@ var ErrVoucherInactive = errors.New("voucher inactive")
 // below the used count, or turn an unlimited voucher into a finite one.
 var ErrVoucherQuota = errors.New("voucher quota change refused")
 
+var ErrVoucherKind = errors.New("voucher kind does not allow this change")
+
 // Voucher is the persistence-layer view of a voucher. Field semantics mirror
 // platform.promotion.v1.Voucher; the mapping to/from the wire type lives in the
 // service layer.
@@ -44,7 +46,16 @@ type Voucher struct {
 	EndsAt        time.Time
 	Active        bool
 	DeactivatedAt time.Time
+	OwnerUserID   string
+	Kind          int32
+	PerUserLimit  int32
+	NewUserOnly   bool
 }
+
+const (
+	VoucherKindStandard int32 = 1
+	VoucherKindNewUser  int32 = 2
+)
 
 // VoucherRepository is the persistence seam for vouchers.
 type VoucherRepository interface {
@@ -58,6 +69,8 @@ type VoucherRepository interface {
 	// List returns vouchers for a seller (empty sellerID = platform-scoped),
 	// newest first, bounded by limit/offset.
 	List(ctx context.Context, sellerID string, limit, offset int) ([]Voucher, error)
+	ListByOwner(ctx context.Context, ownerID string, now time.Time, limit int) ([]Voucher, error)
+	UpdatePerUser(ctx context.Context, id string, perUserLimit *int32, newUserOnly *bool) (Voucher, error)
 	// IncrementUsed atomically adds delta to a voucher's used counter. Called on
 	// commit to finalize a redemption.
 	IncrementUsed(ctx context.Context, id string, delta int64) error
@@ -83,14 +96,14 @@ func NewPostgresVoucherRepository(pool *pgxpool.Pool, ob *outbox.Store) *Postgre
 	return &PostgresVoucherRepository{pool: pool, outbox: ob}
 }
 
-const voucherColumns = `id, code, scope, seller_id, discount_type, discount_value, min_spend, max_discount, quota, used, starts_at, ends_at, active, deactivated_at`
+const voucherColumns = `id, code, scope, seller_id, discount_type, discount_value, min_spend, max_discount, quota, used, starts_at, ends_at, active, deactivated_at, owner_user_id, kind, per_user_limit, new_user_only`
 
 func scanVoucher(row pgx.Row, v *Voucher) error {
 	var startsAt, endsAt, deactivatedAt *time.Time
 	if err := row.Scan(
 		&v.ID, &v.Code, &v.Scope, &v.SellerID, &v.DiscountType, &v.DiscountValue,
 		&v.MinSpend, &v.MaxDiscount, &v.Quota, &v.Used, &startsAt, &endsAt,
-		&v.Active, &deactivatedAt,
+		&v.Active, &deactivatedAt, &v.OwnerUserID, &v.Kind, &v.PerUserLimit, &v.NewUserOnly,
 	); err != nil {
 		return err
 	}
@@ -111,12 +124,17 @@ func (r *PostgresVoucherRepository) Create(ctx context.Context, v Voucher, event
 	if v.ID == "" {
 		v.ID = NewID()
 	}
-	const q = `INSERT INTO vouchers (id, code, scope, seller_id, discount_type, discount_value, min_spend, max_discount, quota, used, starts_at, ends_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+	if v.Kind == 0 {
+		v.Kind = VoucherKindStandard
+	}
+	const q = `INSERT INTO vouchers (id, code, scope, seller_id, discount_type, discount_value, min_spend, max_discount, quota, used, starts_at, ends_at,
+			owner_user_id, kind, per_user_limit, new_user_only)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
 	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, q,
 			v.ID, v.Code, v.Scope, v.SellerID, v.DiscountType, v.DiscountValue,
 			v.MinSpend, v.MaxDiscount, v.Quota, v.Used, nullableTime(v.StartsAt), nullableTime(v.EndsAt),
+			v.OwnerUserID, v.Kind, v.PerUserLimit, v.NewUserOnly,
 		); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "vouchers_code_unique" {
@@ -166,7 +184,7 @@ func (r *PostgresVoucherRepository) List(ctx context.Context, sellerID string, l
 	if limit <= 0 {
 		limit = 50
 	}
-	const q = `SELECT ` + voucherColumns + ` FROM vouchers WHERE seller_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+	const q = `SELECT ` + voucherColumns + ` FROM vouchers WHERE seller_id = $1 AND owner_user_id = '' ORDER BY created_at DESC LIMIT $2 OFFSET $3`
 	rows, err := r.pool.Query(ctx, q, sellerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list vouchers: %w", err)
@@ -181,6 +199,53 @@ func (r *PostgresVoucherRepository) List(ctx context.Context, sellerID string, l
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+
+func (r *PostgresVoucherRepository) ListByOwner(ctx context.Context, ownerID string, now time.Time, limit int) ([]Voucher, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	const q = `SELECT ` + voucherColumns + ` FROM vouchers
+		WHERE owner_user_id = $1 AND active AND (quota = 0 OR used < quota)
+			AND (starts_at IS NULL OR starts_at <= $2) AND (ends_at IS NULL OR ends_at > $2)
+		ORDER BY ends_at ASC NULLS LAST, code ASC LIMIT $3`
+	rows, err := r.pool.Query(ctx, q, ownerID, now, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list vouchers by owner: %w", err)
+	}
+	defer rows.Close()
+	var out []Voucher
+	for rows.Next() {
+		var v Voucher
+		if err := scanVoucher(rows, &v); err != nil {
+			return nil, fmt.Errorf("scan voucher: %w", err)
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+func (r *PostgresVoucherRepository) UpdatePerUser(ctx context.Context, id string, perUserLimit *int32, newUserOnly *bool) (Voucher, error) {
+	const q = `UPDATE vouchers SET per_user_limit = COALESCE($2::int, per_user_limit),
+			new_user_only = COALESCE($3::boolean, new_user_only), updated_at = now()
+		WHERE id = $1 AND active AND kind = 1
+		RETURNING ` + voucherColumns
+	var v Voucher
+	err := scanVoucher(r.pool.QueryRow(ctx, q, id, perUserLimit, newUserOnly), &v)
+	if err == nil {
+		return v, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return Voucher{}, fmt.Errorf("update voucher %q: %w", id, err)
+	}
+	cur, gerr := r.GetByID(ctx, id)
+	if gerr != nil {
+		return Voucher{}, gerr
+	}
+	if !cur.Active {
+		return Voucher{}, ErrVoucherInactive
+	}
+	return Voucher{}, ErrVoucherKind
 }
 
 func (r *PostgresVoucherRepository) IncrementUsed(ctx context.Context, id string, delta int64) error {

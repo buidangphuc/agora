@@ -1,8 +1,10 @@
 # team-referral
 
 Go gRPC service for the **referral program** bounded context: per-user referral codes, redemption of
-someone else's code (each user can be referred at most once), and a **mock coin-credit** reward ledger.
-It owns the `referral_db` Postgres database; no other service writes these tables. Rewards are
+someone else's code (each user can be referred at most once), and an inviter reward ledger in xu.
+Invitees are attributed asynchronously from `identity.events`; the inviter reward is `PENDING` when the
+invitee's first order completes and is released by a sweeper after that order's return window ends with no
+return. It owns the `referral_db` Postgres database; no other service writes these tables. Rewards are
 accounting intent only: no wallet or money movement happens here. Deployed in the local compose stack
 on gRPC port **50062**; reached from clients through `team-gateway` (`UPSTREAM_REFERRAL_ADDR`,
 default `team-referral-svc:50062`).
@@ -20,25 +22,48 @@ data; there is no admin or cross-user path. There are no `RequireScopes` / scope
 | RPC | Behavior | Errors |
 |---|---|---|
 | `CreateReferralCode` | Returns the caller's code, minting one (`REF` + 8 chars of a UUID) if none exists. Idempotent. | `Unauthenticated` |
-| `GetMyReferral` | Caller's code (minted on first read), `invited_count`, `rewards_total` (minor units). | `Unauthenticated` |
-| `RedeemReferral` | Caller redeems `code` owned by another user: records the referral, appends a reward of `10000` minor units, reason `invitee_joined`, to the **referrer's** ledger. | `InvalidArgument` empty code; `NotFound` unknown code; `FailedPrecondition` own code or caller already redeemed; `Unauthenticated` |
-| `ListReferralRewards` | Caller's own rewards, newest first. Cursor is a decimal row offset; default page size 20, max 100. `page.total` is the length of the returned page, not the full count. | `Unauthenticated` |
+| `GetMyReferral` | Caller's code (minted on first read), `invited_count`, `pending_xu`, `released_xu` and `rewards_total` (equal to `released_xu`), all xu. | `Unauthenticated` |
+| `RedeemReferral` | Caller redeems `code` owned by another user: attributes the caller as referee (status `ATTRIBUTED`, `ReferralAttributed` in the same transaction) and credits nothing. Only an account younger than `REFERRAL_REDEEM_MAX_ACCOUNT_AGE` with a stored registration and no completed order may redeem. | `InvalidArgument` empty code; `NotFound` unknown code; `FailedPrecondition` (Vietnamese message) own code, caller already referred, ineligible account or code owner at the lifetime cap; `Unauthenticated` |
+| `ListReferralRewards` | Caller's own `PENDING` and `RELEASED` rewards (`VOID` omitted) with `status`, `amount` in xu and `release_at`, newest first. Cursor is a decimal row offset; default page size 20, max 100. `page.total` is the length of the returned page, not the full count. | `Unauthenticated` |
 
-Consumes: no upstream RPCs. Only Postgres.
+Consumes: no upstream RPCs. Postgres and Kafka.
 
 ## Events
 
-None. The service neither produces nor consumes Kafka or RabbitMQ messages.
+Consumed (envelope `platform.events.v1.EventEnvelope`, durable consumer groups, idempotent through
+`referral_processed_events`, malformed payloads go to the dead-letter topic):
+
+| Topic | Envelope type | Effect |
+|---|---|---|
+| `identity.events` | `platform.identity.v1.UserRegistered` | Stores the registration time; a non-empty `referral_code` creates an `ATTRIBUTED` referral or a rejection. DLQ `referral.identity.dlq`. |
+| `order.events` | `platform.order.v1.OrderCompleted` | Stores the buyer's completed-order fact; the first completed order of an `ATTRIBUTED` referral creates a `PENDING` reward with `release_at = return_window_ends_at`, or marks the referral `CAPPED`. DLQ `referral.order.dlq`. |
+| `order.events` | `platform.order.v1.ReturnRequested` | Voids a `PENDING` reward of that order and returns the referral to `ATTRIBUTED`. |
+
+Produced through the `referral_outbox_events` outbox relayer on `referral.events`, keyed by referee id,
+with a stable event id:
+
+| Envelope type | When |
+|---|---|
+| `platform.referral.v1.ReferralAttributed` | A referral row is created (signup or manual redeem). |
+| `platform.referral.v1.ReferralRejected` | A signup code is unknown, the user's own, or its owner is at the lifetime cap. |
+| `platform.referral.v1.ReferralRewardReleased` | The sweeper releases a due reward under the daily and lifetime caps. |
+
+A sweeper runs every `REFERRAL_RELEASE_SWEEP_INTERVAL`, releases due `PENDING` rewards oldest first
+(daily cap counted per calendar day in `REFERRAL_CAP_TIMEZONE`) and purges processed-event rows older than 7 days.
 
 ## Data
 
-Database `referral_db` (role `referral_svc`), migration `migrations/001_create_referrals.up.sql`:
+Database `referral_db` (role `referral_svc`), migrations `migrations/001_create_referrals.up.sql` and `migrations/002_referral_attribution.up.sql`:
 
 | Table | Purpose |
 |---|---|
 | `referral_codes` | One code per user (`user_id` PK, `code` unique). |
-| `referrals` | `referrer_id`, `referee_id` (unique, so a user is referred once), `code`; index on `referrer_id`. |
-| `referral_rewards` | Append-only mock ledger: `id`, `user_id`, `amount` (BIGINT minor units), `reason`; index `(user_id, created_at DESC)`. |
+| `referrals` | `referrer_id`, `referee_id` (unique, so a user is referred once), `code`, `status` (`ATTRIBUTED`, `QUALIFIED`, `REWARDED`, `CAPPED`), `attributed_at`; index on `referrer_id`. |
+| `referral_rewards` | Reward ledger: `id`, `user_id`, `amount` (BIGINT xu), `reason`, `status` (`PENDING`, `RELEASED`, `VOID`), `release_at`, `released_at`, `order_id` (unique when set), `referee_id`; indexes `(user_id, created_at DESC)`, `(status, release_at)`, `(user_id, released_at)`. |
+| `referral_accounts` | `user_id` PK, `registered_at` from `UserRegistered`. |
+| `referral_buyer_orders` | `buyer_id` PK, `first_completed_at` from `OrderCompleted`. |
+| `referral_processed_events` | `event_id` PK, `processed_at`; consumer idempotency, purged after 7 days. |
+| `referral_outbox_events` | go-sdk outbox rows published to `referral.events`. |
 
 Migrations are applied by the `team-referral-migrate` job in the root `docker-compose.services.yaml`
 (golang-migrate `up` against the shared `postgres` container). The service itself never migrates.
@@ -62,6 +87,23 @@ Settings are loaded by `internal/config` through go-sdk `pkg/config` (go-sdk at 
 | `OTEL_ENABLED` | `false` | Enable OpenTelemetry. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTLP endpoint. |
 | `OTEL_SERVICE_NAME` | `team-referral` | OTel service name. |
+| `KAFKA_BROKERS` | `localhost:9092` | Broker list; required in staging and production. |
+| `OUTBOX_POLL_INTERVAL` | `1s` | Outbox relayer poll interval. |
+| `OUTBOX_BATCH_SIZE` | `100` | Outbox rows per relay pass. |
+| `OUTBOX_CLAIM_LOCK` | `60s` | Outbox row lease. |
+| `REFERRAL_REWARD_XU` | `10000` | Reward per qualified invitee, in xu; must be positive. |
+| `REFERRAL_DAILY_CAP` | `5` | Rewards released per inviter per calendar day; must be positive. |
+| `REFERRAL_LIFETIME_CAP` | `50` | Rewards per inviter over a lifetime; must be positive. |
+| `REFERRAL_REDEEM_MAX_ACCOUNT_AGE` | `168h` | Oldest account that may redeem manually. |
+| `REFERRAL_RELEASE_SWEEP_INTERVAL` | `1m` | Sweeper interval. |
+| `REFERRAL_CAP_TIMEZONE` | `Asia/Ho_Chi_Minh` | Timezone of the daily cap day. |
+| `IDENTITY_EVENTS_TOPIC` | `identity.events` | Consumed topic for `UserRegistered`. |
+| `ORDER_EVENTS_TOPIC` | `order.events` | Consumed topic for `OrderCompleted` and `ReturnRequested`. |
+| `REFERRAL_EVENTS_TOPIC` | `referral.events` | Produced topic. |
+| `REFERRAL_IDENTITY_CONSUMER_GROUP` | `team-referral-identity` | Consumer group for `identity.events`. |
+| `REFERRAL_ORDER_CONSUMER_GROUP` | `team-referral-order` | Consumer group for `order.events`. |
+| `REFERRAL_IDENTITY_DLQ_TOPIC` | `referral.identity.dlq` | Dead-letter topic for `identity.events`. |
+| `REFERRAL_ORDER_DLQ_TOPIC` | `referral.order.dlq` | Dead-letter topic for `order.events`. |
 
 ## Run locally
 
@@ -76,11 +118,11 @@ docker compose up -d --build team-referral   # this service + its migrate job an
 `--profile jobs` component for this service.
 
 Standalone: `make run` (`go run ./cmd/server`) needs generated code (see Gotchas) and a Postgres
-reachable at `DATABASE_URL` with the migration applied.
+reachable at `DATABASE_URL` with the migrations applied and a Kafka broker at `KAFKA_BROKERS`.
 
 ## Build, test, lint
 
-Layout follows ADR-0016 on go-sdk at a tagged release (`vX.Y.Z`, no `replace`; currently `v1.0.3`): `cmd/server` (entry), `internal/app` (wiring), `internal/config` (settings), `internal/rpc` (gRPC handlers), `internal/referral` (domain logic), `internal/store` (Postgres store, `internal/store/fake` for tests).
+Layout follows ADR-0016 on go-sdk at a tagged release (`vX.Y.Z`, no `replace`; currently `v1.0.3`): `cmd/server` (entry), `internal/app` (wiring), `internal/config` (settings), `internal/rpc` (gRPC handlers), `internal/referral` (domain logic and sweeper), `internal/store` (Postgres store, `internal/store/fake` for tests), `internal/consumer` (Kafka consumers), `internal/events` (outbox envelopes).
 
 | Command | Does |
 |---|---|
@@ -114,13 +156,6 @@ The Dockerfile builds with Go 1.26 (`go.mod` is `go 1.26.0`).
   the gateway.
 - No scope gates (`RequireScopes`); authorization is "authenticated and own data" only.
 - `ListReferralRewards` `page.total` is the page length, not the ledger size.
-- `HasRedeemed` exists in the repository but is unused; dedup relies on the `referrals.referee_id`
-  unique constraint.
-- Reward is a fixed constant (`RewardOnReferral = 10000`) in `internal/referral/referral.go`, and the
-  proto comment example reason `invitee_first_order` differs from the reason actually written
-  (`invitee_joined`).
-- Redeem is not transactional: the referral insert and reward insert are separate statements, so a
-  failure in between leaves a referral without a reward.
 
 ## Links
 

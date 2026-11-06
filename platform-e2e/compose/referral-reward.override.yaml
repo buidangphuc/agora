@@ -1,0 +1,18 @@
+# Short referral reward timing for platform-e2e/tests/e2e/features/referral/referral_reward.feature
+# (change referral-attribution-reward).
+#
+# Layer it on top of the stack, from the workspace root (any compose project name):
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/referral-reward.override.yaml up -d
+#
+# team-referral sweeps every second and releases at most 2 rewards per inviter per day;
+# team-order closes the return window 3s after completion. RETURN_WINDOW here conflicts with the
+# 20s value of order-inventory.override.yaml, so do not layer the two together.
+# Keys by service name only (no container_name), so it works under any project.
+services:
+  team-referral:
+    environment:
+      REFERRAL_RELEASE_SWEEP_INTERVAL: 1s
+      REFERRAL_DAILY_CAP: "2"
+  team-order:
+    environment:
+      RETURN_WINDOW: 3s

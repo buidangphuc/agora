@@ -8,8 +8,10 @@ import (
 )
 
 const (
-	aggregateIDKey = "aggregate_id"
-	keyFingerprint = "key_fp"
+	aggregateIDKey  = "aggregate_id"
+	keyFingerprint  = "key_fp"
+	referralCodeKey = "referral_code"
+	referralCodeFP  = "referral_code_fp"
 )
 
 type redactingHandler struct {
@@ -58,6 +60,9 @@ func (h *redactingHandler) redact(a slog.Attr) slog.Attr {
 	}
 	if a.Key == aggregateIDKey {
 		return slog.String(keyFingerprint, h.fp.Of([]byte(v.String())))
+	}
+	if a.Key == referralCodeKey {
+		return slog.String(referralCodeFP, h.fp.Of([]byte(v.String())))
 	}
 	return a
 }

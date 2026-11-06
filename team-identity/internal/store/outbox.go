@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,6 +28,14 @@ func Migrations() fs.FS {
 }
 
 type OutboxRow = outbox.Row
+
+type Registration struct {
+	UserID       string
+	ReferralCode string
+	RegisteredAt time.Time
+}
+
+type RegisteredEnqueueFn func(Registration) (OutboxRow, error)
 
 type EnqueueFn func(revoked Session) (OutboxRow, error)
 

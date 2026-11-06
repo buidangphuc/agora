@@ -33,8 +33,10 @@ func NewHandler(svc *referral.Service, logger *slog.Logger) (*Handler, error) {
 		grpcx.Rule{Target: referral.ErrEmptyUser, Code: codes.Unauthenticated},
 		grpcx.Rule{Target: referral.ErrEmptyCode, Code: codes.InvalidArgument},
 		grpcx.Rule{Target: referral.ErrCodeNotFound, Code: codes.NotFound},
-		grpcx.Rule{Target: referral.ErrSelfReferral, Code: codes.FailedPrecondition},
-		grpcx.Rule{Target: referral.ErrAlreadyRedeemed, Code: codes.FailedPrecondition},
+		grpcx.Rule{Target: referral.ErrSelfReferral, Code: codes.FailedPrecondition, Message: "Bạn không thể dùng mã giới thiệu của chính mình"},
+		grpcx.Rule{Target: referral.ErrAlreadyRedeemed, Code: codes.FailedPrecondition, Message: "Bạn đã nhập mã giới thiệu trước đó"},
+		grpcx.Rule{Target: referral.ErrNotEligible, Code: codes.FailedPrecondition, Message: "Chỉ tài khoản mới chưa có đơn hàng hoàn tất mới được nhập mã giới thiệu"},
+		grpcx.Rule{Target: referral.ErrReferrerCapped, Code: codes.FailedPrecondition, Message: "Mã giới thiệu này đã đạt giới hạn phần thưởng"},
 	)
 	if err != nil {
 		return nil, err
@@ -75,6 +77,8 @@ func (h *Handler) GetMyReferral(ctx context.Context, _ *referralv1.GetMyReferral
 		Code:         mr.Code,
 		InvitedCount: mr.InvitedCount,
 		RewardsTotal: mr.RewardsTotal,
+		PendingXu:    mr.PendingXU,
+		ReleasedXu:   mr.ReleasedXU,
 	}, nil
 }
 

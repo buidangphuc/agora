@@ -47,3 +47,58 @@ describe("RedeemReferralForm loop events", () => {
     expect(trackEcommerce).not.toHaveBeenCalled();
   });
 });
+
+describe("RedeemReferralForm 7-day rule", () => {
+  it("S22 renders the rule text under the redeem field", () => {
+    render(<RedeemReferralForm />);
+    expect(
+      screen.getByText(
+        "Chỉ nhập được trong 7 ngày đầu và khi bạn chưa có đơn hoàn thành.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("S23 shows the refusal in the error toast and under the field", async () => {
+    const msg =
+      "Không thể nhập mã: tài khoản đã quá 7 ngày, đã có đơn hoàn thành, đã nhập mã hoặc mã là của chính bạn.";
+    redeemReferralAction.mockResolvedValue({ ok: false, error: msg });
+    render(<RedeemReferralForm />);
+    const input = screen.getByPlaceholderText("Nhập mã của bạn bè");
+    fireEvent.change(input, { target: { value: "ABC123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nhập mã" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(msg));
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription(msg);
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("S24 an accepted code toasts Đã ghi nhận mã giới thiệu., clears the field and tracks once", async () => {
+    redeemReferralAction.mockResolvedValue({ ok: true });
+    render(<RedeemReferralForm />);
+    const input = screen.getByPlaceholderText("Nhập mã của bạn bè");
+    fireEvent.change(input, { target: { value: "ABC123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nhập mã" }));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("Đã ghi nhận mã giới thiệu."),
+    );
+    expect(input).toHaveValue("");
+    expect(trackEcommerce).toHaveBeenCalledTimes(1);
+    expect(trackEcommerce).toHaveBeenCalledWith("referral_redeem");
+  });
+
+  it("S25 a guest refusal toasts the gateway message and keeps the field value", async () => {
+    redeemReferralAction.mockResolvedValue({
+      ok: false,
+      error: "Vui lòng đăng nhập.",
+    });
+    render(<RedeemReferralForm />);
+    const input = screen.getByPlaceholderText("Nhập mã của bạn bè");
+    fireEvent.change(input, { target: { value: "ABC123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nhập mã" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Vui lòng đăng nhập."),
+    );
+    expect(input).toHaveValue("ABC123");
+    expect(trackEcommerce).not.toHaveBeenCalled();
+  });
+});

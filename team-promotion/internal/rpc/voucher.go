@@ -11,6 +11,7 @@ import (
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
+	"github.com/buidangphuc/team-promotion/internal/store"
 	"github.com/buidangphuc/team-promotion/internal/voucher"
 )
 
@@ -62,6 +63,8 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 		Quota:         req.GetQuota(),
 		StartsAt:      timeFromProto(req.GetStartsAt()),
 		EndsAt:        timeFromProto(req.GetEndsAt()),
+		PerUserLimit:  req.GetPerUserLimit(),
+		NewUserOnly:   req.GetNewUserOnly(),
 		AuditActorID:  principal.ID,
 		AuditAdmin:    auditAdmin,
 	})
@@ -94,6 +97,8 @@ func (h *VoucherHandler) UpdateVoucher(ctx context.Context, req *promotionv1.Upd
 	p := voucher.UpdateVoucherParams{
 		VoucherID:    req.GetVoucherId(),
 		Quota:        req.Quota,
+		PerUserLimit: req.PerUserLimit,
+		NewUserOnly:  req.NewUserOnly,
 		AuditActorID: principal.ID,
 	}
 	if req.EndsAt != nil {
@@ -118,7 +123,28 @@ func (h *VoucherHandler) GetVoucher(ctx context.Context, req *promotionv1.GetVou
 	if err != nil {
 		return nil, fail(ctx, h.logger, err)
 	}
+	if v.OwnerUserID != "" {
+		if p, ok := auth.FromContext(ctx); !ok || p.Anonymous() || p.ID != v.OwnerUserID {
+			return nil, fail(ctx, h.logger, store.ErrVoucherNotFound)
+		}
+	}
 	return &promotionv1.GetVoucherResponse{Voucher: voucherToProto(v)}, nil
+}
+
+func (h *VoucherHandler) ListMyVouchers(ctx context.Context, _ *promotionv1.ListMyVouchersRequest) (*promotionv1.ListMyVouchersResponse, error) {
+	p, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items, err := h.svc.ListMyVouchers(ctx, p.ID)
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	out := make([]*promotionv1.Voucher, 0, len(items))
+	for _, v := range items {
+		out = append(out, voucherToProto(v))
+	}
+	return &promotionv1.ListMyVouchersResponse{Vouchers: out}, nil
 }
 
 func (h *VoucherHandler) ListVouchers(ctx context.Context, req *promotionv1.ListVouchersRequest) (*promotionv1.ListVouchersResponse, error) {

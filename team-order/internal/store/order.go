@@ -109,6 +109,7 @@ type OrderRepository interface {
 	GetOrder(ctx context.Context, id string) (Order, error)
 	ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]Order, error)
 	ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]Order, error)
+	HasCompletedOrder(ctx context.Context, buyerID string) (bool, error)
 	// UpdateOrderStatusFrom is the only status write: a compare-and-set that moves
 	// the order to `to` only if its status at the moment of the write is one of
 	// allowedFrom. It returns ErrOrderNotFound or ErrStatusConflict otherwise. A move
@@ -471,6 +472,15 @@ func (r *PostgresOrderRepository) ListOrdersByCheckout(ctx context.Context, chec
 		orders[i].Items = items
 	}
 	return orders, nil
+}
+
+func (r *PostgresOrderRepository) HasCompletedOrder(ctx context.Context, buyerID string) (bool, error) {
+	const q = `SELECT EXISTS (SELECT 1 FROM orders WHERE buyer_id = $1 AND status = $2)`
+	var has bool
+	if err := r.pool.QueryRow(ctx, q, buyerID, int32(OrderStatusCompleted)).Scan(&has); err != nil {
+		return false, fmt.Errorf("has completed order: %w", err)
+	}
+	return has, nil
 }
 
 func (r *PostgresOrderRepository) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]Order, error) {

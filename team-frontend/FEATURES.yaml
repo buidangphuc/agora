@@ -10886,3 +10886,802 @@ features:
     tags: [buyer, notifications, unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/app/(shop)/notifications/page.test.tsx` `[Order lifecycle: the new-order notification opens the seller order] a /seller link opens on the seller app, buyer links stay relative`. Unit level; not producible end to end."
+
+  # ---- frontend-referral-invite (q7-q37-referral-welcome)
+
+  - id: frontend-referral-invite.s1-buyer-copies-the-invite-link
+    title: "S1 Buyer copies the invite link"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S1 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S1 Buyer copies the invite link"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S1 Buyer copies the invite link"
+
+  - id: frontend-referral-invite.s2-buyer-has-no-code-yet-boundary
+    title: "S2 Buyer has no code yet (boundary)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S2 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S2 Buyer has no code yet (boundary)"
+    tags: [buyer, referral, invite, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/account/referral/page.test.tsx` `S2 renders the invite button disabled and keeps generate-code when there is no code`. Not producible end to end: a buyer without a code never reaches the page with the button in the stack: GetMyReferral mints the code on first read."
+
+  - id: frontend-referral-invite.s3-share-link-creation-fails-error
+    title: "S3 Share link creation fails (error)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S3 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S3 Share link creation fails (error)"
+    tags: [buyer, referral, invite, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/account/referral/actions.test.ts` `S3 resolves with the Vietnamese failure message when CreateShareLink fails`. Not producible end to end: a CreateShareLink failure cannot be forced through the gateway."
+
+  - id: frontend-referral-invite.s4-guest-is-sent-to-login-permission
+    title: "S4 Guest is sent to login (permission)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S4 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S4 Guest is sent to login (permission)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S4 Guest is sent to login (permission)"
+
+  - id: frontend-referral-invite.s5-referral-link-redirects-to-register-with-attribution
+    title: "S5 Referral link redirects to register with attribution"
+    persona: guest
+    priority: P1
+    summary: "Scenario S5 of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S5 Referral link redirects to register with attribution"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S5 Referral link redirects to register with attribution"
+
+  - id: frontend-referral-invite.s6-listing-and-shop-links-keep-utm-and-set-no-cookie
+    title: "S6 Listing and shop links keep utm and set no cookie"
+    persona: guest
+    priority: P1
+    summary: "Scenario S6 of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S6 Listing and shop links keep utm and set no cookie"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S6 Listing and shop links keep utm and set no cookie"
+
+  - id: frontend-referral-invite.s7-unknown-short-code-error
+    title: "S7 Unknown short code (error)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S7 of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S7 Unknown short code (error)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S7 Unknown short code (error)"
+
+  - id: frontend-referral-invite.s8-unknown-target-type-error
+    title: "S8 Unknown target type (error)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S8 of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S8 Unknown target type (error)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S8 Unknown target type (error)"
+
+  - id: frontend-referral-invite.s9a-non-utm-key-dropped-boundary
+    title: "S9a Non-utm key dropped (boundary)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S9a of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S9a Non-utm key dropped (boundary)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S9a Non-utm key dropped (boundary)"
+
+  - id: frontend-referral-invite.s9b-unsafe-referral-id-error-permission
+    title: "S9b Unsafe referral id (error, permission)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S9b of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S9b Unsafe referral id (error, permission)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S9b Unsafe referral id (error, permission)"
+
+  - id: frontend-referral-invite.s10-register-with-ref
+    title: "S10 Register with ?ref"
+    persona: guest
+    priority: P1
+    summary: "Scenario S10 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S10 Register with ?ref"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S10 Register with ?ref"
+
+  - id: frontend-referral-invite.s11-register-with-only-the-cookie-then-cookie-cleared
+    title: "S11 Register with only the cookie, then cookie cleared"
+    persona: guest
+    priority: P1
+    summary: "Scenario S11 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S11 Register with only the cookie, then cookie cleared"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S11 Register with only the cookie, then cookie cleared"
+
+  - id: frontend-referral-invite.s12-field-wins-over-cookie-boundary
+    title: "S12 Field wins over cookie (boundary)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S12 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S12 Field wins over cookie (boundary)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S12 Field wins over cookie (boundary)"
+
+  - id: frontend-referral-invite.s13-malformed-code-is-ignored-error
+    title: "S13 Malformed code is ignored (error)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S13 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S13 Malformed code is ignored (error)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S13 Malformed code is ignored (error)"
+
+  - id: frontend-referral-invite.s14-failed-register-keeps-the-cookie-error
+    title: "S14 Failed register keeps the cookie (error)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S14 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S14 Failed register keeps the cookie (error)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S14 Failed register keeps the cookie (error)"
+
+  - id: frontend-referral-invite.s15-no-code-no-field
+    title: "S15 No code, no field"
+    persona: guest
+    priority: P1
+    summary: "Scenario S15 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S15 No code, no field"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S15 No code, no field"
+
+  - id: frontend-referral-invite.s16-returnurl-still-honoured
+    title: "S16 returnUrl still honoured"
+    persona: guest
+    priority: P1
+    summary: "Scenario S16 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S16 returnUrl still honoured"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S16 returnUrl still honoured"
+
+  - id: frontend-referral-invite.s17-totals-in-xu
+    title: "S17 Totals in xu"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S17 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S17 Totals in xu"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S17 Totals in xu"
+
+  - id: frontend-referral-invite.s18-reward-timeline-statuses
+    title: "S18 Reward timeline statuses"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S18 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S18 Reward timeline statuses"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S18 Reward timeline statuses"
+
+  - id: frontend-referral-invite.s19-no-rewards-boundary
+    title: "S19 No rewards (boundary)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S19 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S19 No rewards (boundary)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S19 No rewards (boundary)"
+
+  - id: frontend-referral-invite.s20-rewards-read-fails-error
+    title: "S20 Rewards read fails (error)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S20 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S20 Rewards read fails (error)"
+    tags: [buyer, referral, invite, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/gateway/referral.test.ts` `S20 returns an empty list when the read fails`. Not producible end to end: a ListReferralRewards failure cannot be forced through the gateway."
+
+  - id: frontend-referral-invite.s21-totals-are-the-caller-s-own-permission
+    title: "S21 Totals are the caller's own (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S21 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S21 Totals are the caller's own (permission)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S21 Totals are the caller's own (permission)"
+
+  - id: frontend-referral-invite.s22-rule-text-shown
+    title: "S22 Rule text shown"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S22 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S22 Rule text shown"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S22 Rule text shown"
+
+  - id: frontend-referral-invite.s23-redeem-refused-error
+    title: "S23 Redeem refused (error)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S23 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S23 Redeem refused (error)"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S23 Redeem refused (error)"
+
+  - id: frontend-referral-invite.s24-redeem-accepted
+    title: "S24 Redeem accepted"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S24 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S24 Redeem accepted"
+    tags: [buyer, referral, invite]
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S24 Redeem accepted"
+
+  - id: frontend-referral-invite.s25-guest-cannot-redeem-permission
+    title: "S25 Guest cannot redeem (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S25 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S25 Guest cannot redeem (permission)"
+    tags: [buyer, referral, invite, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/account/referral/RedeemReferralForm.test.tsx` `S25 a guest refusal toasts the gateway message and keeps the field value`. Not producible end to end: a guest never reaches the page that renders the redeem form (redirected to login)."
+
+  # ---- frontend-welcome-checklist (q7-q37-referral-welcome)
+
+  - id: frontend-welcome-checklist.w1-own-vouchers-listed-above-the-platform-list
+    title: "W1 Own vouchers listed above the platform list"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W1 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W1 Own vouchers listed above the platform list"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W1 Own vouchers listed above the platform list"
+
+  - id: frontend-welcome-checklist.w2-no-own-vouchers-boundary
+    title: "W2 No own vouchers (boundary)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W2 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W2 No own vouchers (boundary)"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/vouchers/page.test.tsx` `W2 No own vouchers (boundary)`. Not producible end to end: every registered buyer is issued a NEW_USER voucher, so a signed-in buyer with an empty ListMyVouchers cannot be arranged."
+
+  - id: frontend-welcome-checklist.w3-read-failure-keeps-the-page
+    title: "W3 Read failure keeps the page"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W3 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W3 Read failure keeps the page"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/vouchers/page.test.tsx` `W3 Read failure keeps the page`. Not producible end to end: needs ListMyVouchers to fail while the rest of the stack is healthy (fault injection)."
+
+  - id: frontend-welcome-checklist.w4-anonymous-visitor
+    title: "W4 Anonymous visitor"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W4 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W4 Anonymous visitor"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W4 Anonymous visitor"
+
+  - id: frontend-welcome-checklist.w5-another-buyer-s-voucher-is-never-shown-permission
+    title: "W5 Another buyer's voucher is never shown (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W5 of change frontend-welcome-checklist."
+    entry_route: "/vouchers"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W5 Another buyer's voucher is never shown (permission)"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W5 Another buyer's voucher is never shown (permission)"
+
+  - id: frontend-welcome-checklist.w6-own-voucher-offered-and-applied
+    title: "W6 Own voucher offered and applied"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W6 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W6 Own voucher offered and applied"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W6 Own voucher offered and applied"
+
+  - id: frontend-welcome-checklist.w22-anonymous-checkout-visitor-permission
+    title: "W22 Anonymous checkout visitor (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W22 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W22 Anonymous checkout visitor (permission)"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W22 Anonymous checkout visitor (permission)"
+
+  - id: frontend-welcome-checklist.w7-picker-survives-a-read-failure
+    title: "W7 Picker survives a read failure"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W7 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W7 Picker survives a read failure"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/VoucherModal.test.tsx` `W7 Picker survives a read failure`. Not producible end to end: needs ListMyVouchers to fail while the payment step renders (fault injection)."
+
+  - id: frontend-welcome-checklist.w8-ineligible-voucher-is-refused-by-the-quote
+    title: "W8 Ineligible voucher is refused by the quote"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W8 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W8 Ineligible voucher is refused by the quote"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W8 Ineligible voucher is refused by the quote"
+
+  - id: frontend-welcome-checklist.w9-banner-shows-the-voucher
+    title: "W9 Banner shows the voucher"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W9 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W9 Banner shows the voucher"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W9 Banner shows the voucher"
+
+  - id: frontend-welcome-checklist.w10-voucher-not-yet-issued
+    title: "W10 Voucher not yet issued"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W10 of change frontend-welcome-checklist."
+    entry_route: "/account/addresses"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W10 Voucher not yet issued"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W10 Voucher not yet issued"
+
+  - id: frontend-welcome-checklist.w11-voucher-read-failed
+    title: "W11 Voucher read failed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W11 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W11 Voucher read failed"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W11 Voucher read failed`. Not producible end to end: needs ListMyVouchers to fail for one buyer (fault injection)."
+
+  - id: frontend-welcome-checklist.w12-account-age-boundary
+    title: "W12 Account age boundary"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W12 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W12 Account age boundary"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W12 Account age boundary"
+
+  - id: frontend-welcome-checklist.w13-age-unknown-hides-the-panel
+    title: "W13 Age unknown hides the panel"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W13 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W13 Age unknown hides the panel"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/accountAge.test.ts` `W13 Age unknown hides the panel`. Not producible end to end: needs GetMyAccount to fail or return no created_at (fault injection)."
+
+  - id: frontend-welcome-checklist.w14-dismiss-the-banner
+    title: "W14 Dismiss the banner"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W14 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W14 Dismiss the banner"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W14 Dismiss the banner"
+
+  - id: frontend-welcome-checklist.w15-anonymous-visitor-sees-nothing-permission
+    title: "W15 Anonymous visitor sees nothing (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W15 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W15 Anonymous visitor sees nothing (permission)"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W15 Anonymous visitor sees nothing (permission)"
+
+  - id: frontend-welcome-checklist.w16-steps-ticked-from-the-reads
+    title: "W16 Steps ticked from the reads"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W16 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W16 Steps ticked from the reads"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W16 Steps ticked from the reads"
+
+  - id: frontend-welcome-checklist.w17-all-done-hides-the-checklist
+    title: "W17 All done hides the checklist"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W17 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W17 All done hides the checklist"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W17 All done hides the checklist"
+
+  - id: frontend-welcome-checklist.w18-one-read-fails
+    title: "W18 One read fails"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W18 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W18 One read fails"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W18 One read fails`. Not producible end to end: needs ListAddresses to fail while the other reads succeed (fault injection)."
+
+  - id: frontend-welcome-checklist.w19-dismiss-the-checklist
+    title: "W19 Dismiss the checklist"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W19 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W19 Dismiss the checklist"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W19 Dismiss the checklist"
+
+  - id: frontend-welcome-checklist.w20-account-older-than-14-days
+    title: "W20 Account older than 14 days"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W20 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W20 Account older than 14 days"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W20 Account older than 14 days"
+
+  - id: frontend-welcome-checklist.w21-slow-read-times-out-at-2-s
+    title: "W21 Slow read times out at 2 s"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W21 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W21 Slow read times out at 2 s"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W21 Slow read times out at 2 s`. Not producible end to end: needs ListAddresses to stall past 2 s (fault injection)."
+
+  - id: frontend-welcome-checklist.w24-expired-or-used-voucher
+    title: "W24 Expired or used voucher"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W24 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W24 Expired or used voucher"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W24 Expired or used voucher`. Not producible end to end: the NEW_USER voucher is server-owned, so an expired or used one cannot be arranged through the gateway."
+
+  - id: frontend-welcome-checklist.w25-cancelled-order-does-not-tick-the-first-order-step
+    title: "W25 Cancelled order does not tick the first-order step"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W25 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W25 Cancelled order does not tick the first-order step"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W25 Cancelled order does not tick the first-order step"
+
+  - id: frontend-welcome-checklist.w26-pending-text-expires-with-the-account-age-boundary
+    title: "W26 Pending text expires with the account age (boundary)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W26 of change frontend-welcome-checklist."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W26 Pending text expires with the account age (boundary)"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W26 Pending text expires with the account age (boundary)`. Not producible end to end: every registered buyer is issued a NEW_USER voucher, so a successful ListMyVouchers without one cannot be arranged."
+
+  - id: frontend-welcome-checklist.w27-picker-read-times-out
+    title: "W27 Picker read times out"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W27 of change frontend-welcome-checklist."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W27 Picker read times out"
+    tags: [buyer, welcome, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/gateway/promotion.test.ts` `W27 Picker read times out`. Not producible end to end: needs ListMyVouchers to stall past 2 s (fault injection)."
+
+  - id: frontend-welcome-checklist.w23-anonymous-visitor-on-an-account-page-permission
+    title: "W23 Anonymous visitor on an account page (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario W23 of change frontend-welcome-checklist."
+    entry_route: "/account/following"
+    services: [team-frontend, team-gateway, team-identity, team-promotion, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "W23 Anonymous visitor on an account page (permission)"
+    tags: [buyer, welcome]
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W23 Anonymous visitor on an account page (permission)"

@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,7 +17,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	"github.com/buidangphuc/team-identity/internal/authz"
+	"github.com/buidangphuc/team-identity/internal/events"
 	"github.com/buidangphuc/team-identity/internal/store"
 	"github.com/buidangphuc/team-identity/internal/token"
 )
@@ -105,6 +108,44 @@ func NewAuthService(repo store.UserRepository, sessions store.SessionRepository,
 // Register creates a user (role buyer/seller; admin is seeded only) and issues a
 // token. ErrConflict from the repo bubbles up (username taken).
 func (s *AuthService) Register(ctx context.Context, username, password, role string) (AuthResult, error) {
+	return s.RegisterWithReferral(ctx, username, password, role, "")
+}
+
+var referralCodePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
+
+func normalizeReferralCode(code string) string {
+	code = strings.TrimSpace(code)
+	if !referralCodePattern.MatchString(code) {
+		return ""
+	}
+	return code
+}
+
+func (s *AuthService) registeredEvent(ctx context.Context) store.RegisteredEnqueueFn {
+	requestID := requestIDFromCtx(ctx)
+	return func(r store.Registration) (store.OutboxRow, error) {
+		eventID := uuid.NewString()
+		principal := &commonv1.Principal{Id: r.UserID, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER}
+		payload, err := events.BuildUserRegisteredEnvelope(eventID, r.UserID, r.ReferralCode, r.RegisteredAt, principal, requestID)
+		if err != nil {
+			return store.OutboxRow{}, err
+		}
+		return store.OutboxRow{
+			EventID:       eventID,
+			AggregateType: "User",
+			AggregateID:   r.UserID,
+			EventType:     events.UserRegisteredEventType,
+			Payload:       payload,
+			RequestID:     requestID,
+		}, nil
+	}
+}
+
+func (s *AuthService) GetMyAccount(ctx context.Context, userID string) (store.User, error) {
+	return s.repo.GetByID(ctx, userID)
+}
+
+func (s *AuthService) RegisterWithReferral(ctx context.Context, username, password, role, referralCode string) (AuthResult, error) {
 	username = strings.TrimSpace(username)
 	if username == "" || len(password) < 4 {
 		return AuthResult{}, ErrInvalidInput
@@ -119,7 +160,7 @@ func (s *AuthService) Register(ctx context.Context, username, password, role str
 		PasswordHash: string(hash),
 		Roles:        []string{authz.NormalizeRole(role)},
 	}
-	created, err := s.repo.Create(ctx, u)
+	created, err := s.repo.CreateRegistered(ctx, u, normalizeReferralCode(referralCode), s.registeredEvent(ctx))
 	if err != nil {
 		return AuthResult{}, err
 	}

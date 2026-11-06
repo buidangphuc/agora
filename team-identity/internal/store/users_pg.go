@@ -59,6 +59,38 @@ func (r *PostgresUserRepository) Create(ctx context.Context, u User) (User, erro
 	return out, nil
 }
 
+// CreateRegistered inserts a user and its UserRegistered outbox row in one
+// transaction; a unique violation maps to ErrConflict and writes no row.
+func (r *PostgresUserRepository) CreateRegistered(ctx context.Context, u User, referralCode string, enqueue RegisteredEnqueueFn) (User, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return User{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	const q = `INSERT INTO users (id, username, password_hash, roles)
+		VALUES ($1, $2, $3, $4)
+		RETURNING ` + userColumns
+	var out User
+	if err := scanUser(tx.QueryRow(ctx, q, u.ID, u.Username, u.PasswordHash, u.Roles), &out); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return User{}, ErrConflict
+		}
+		return User{}, fmt.Errorf("create user %q: %w", u.Username, err)
+	}
+	row, err := enqueue(Registration{UserID: out.ID, ReferralCode: referralCode, RegisteredAt: out.CreatedAt})
+	if err != nil {
+		return User{}, fmt.Errorf("build registered event: %w", err)
+	}
+	if err := enqueueTx(ctx, r.ob, tx, row); err != nil {
+		return User{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return User{}, fmt.Errorf("commit tx: %w", err)
+	}
+	return out, nil
+}
+
 // GetByUsername loads a user by username, mapping a miss to ErrNotFound.
 func (r *PostgresUserRepository) GetByUsername(ctx context.Context, username string) (User, error) {
 	const q = `SELECT ` + userColumns + ` FROM users WHERE username = $1`

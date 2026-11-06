@@ -76,6 +76,17 @@ func (r *InMemoryOrderRepository) ListBuyerOrders(_ context.Context, buyerID str
 	return res, nil
 }
 
+func (r *InMemoryOrderRepository) HasCompletedOrder(_ context.Context, buyerID string) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, o := range r.orders {
+		if o.BuyerID == buyerID && o.Status == store.OrderStatusCompleted {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID string, statusFilter int32) ([]store.Order, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

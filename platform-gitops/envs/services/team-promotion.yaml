@@ -25,6 +25,15 @@ env:
   UPSTREAM_DOMAIN_ADDR: "team-domain:50051"
   # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
   UPSTREAM_AUDIT_ADDR: "team-audit:50066"
+  UPSTREAM_ORDER_ADDR: "team-order:50055"
+  UPSTREAM_ORDER_TIMEOUT: "500ms"
+  NEW_USER_WELCOME_AMOUNT: "20000"
+  NEW_USER_INVITED_AMOUNT: "30000"
+  NEW_USER_MIN_SPEND: "100000"
+  NEW_USER_VOUCHER_TTL: "336h"
+  NEW_USER_VERDICT_TIMEOUT: "30m"
+  NEW_USER_VERDICT_SWEEP_INTERVAL: "1m"
+  VOUCHER_RESERVATION_TTL: "15m"
 probes:
   livenessService: liveness
 migrate:

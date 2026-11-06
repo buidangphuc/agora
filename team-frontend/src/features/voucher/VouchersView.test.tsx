@@ -29,6 +29,8 @@ function voucher(over: Partial<ViewVoucher> = {}): ViewVoucher {
     used: 25,
     startsAt: "01/10/2026",
     endsAt: "31/10/2026",
+    kind: 0,
+    ownerUserId: "",
     ...over,
   };
 }

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CheckoutVoucherScope } from "@/generated/platform/order/v1/order_pb.js";
 import { trackEcommerce } from "@/lib/analytics";
 import type { ViewCheckoutGroup, ViewVoucherQuote } from "@/lib/gateway/orders";
+import type { ViewVoucher } from "@/lib/gateway/promotion";
 import { setupUser } from "@/test/user";
 
 import { VoucherModal } from "./VoucherModal";
@@ -414,5 +415,133 @@ describe("VoucherModal inactive reason", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Mã giảm giá đã ngừng áp dụng.")).toBeNull();
+  });
+});
+
+function ownVoucher(
+  code: string,
+  over: Partial<ViewVoucher> = {},
+): ViewVoucher {
+  return {
+    id: `id-${code}`,
+    code,
+    scope: 2,
+    scopeText: "Toàn sàn",
+    sellerId: "",
+    discountType: 2,
+    discountTypeText: "Giảm tiền",
+    discountValue: 50000,
+    minSpend: 200000,
+    maxDiscount: 0,
+    quota: 1,
+    used: 0,
+    startsAt: "",
+    endsAt: "30/11/2026",
+    kind: 2,
+    ownerUserId: "u1",
+    ...over,
+  } as ViewVoucher;
+}
+
+function setupWithOwn(
+  myVouchers: ViewVoucher[],
+  over: {
+    state?: Partial<CheckoutState>;
+    quotes?: ViewVoucherQuote[];
+    platformAvailable?: ViewVoucher[];
+  } = {},
+) {
+  return render(
+    <VoucherModal
+      state={{ ...baseState, ...over.state }}
+      groups={[group("s1")]}
+      quotes={over.quotes ?? []}
+      platformAvailable={over.platformAvailable}
+      {...({ myVouchers } as object)}
+    />,
+  );
+}
+
+describe("VoucherModal own vouchers", () => {
+  it("W6 lists the buyer's own voucher code in the platform slot only", () => {
+    setupWithOwn([ownVoucher("WELCOME50")]);
+    expect(
+      within(screen.getByTestId("platform-voucher")).getByRole("button", {
+        name: "WELCOME50",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("shop-voucher-s1")).queryByRole("button", {
+        name: "WELCOME50",
+      }),
+    ).toBeNull();
+  });
+
+  it("W6 applying the own voucher writes it as pv in the checkout url", async () => {
+    const user = setupUser();
+    setupWithOwn([ownVoucher("WELCOME50")], {
+      state: { sv: { s1: "SHOPA10" } },
+    });
+    await user.click(
+      within(screen.getByTestId("platform-voucher")).getByRole("button", {
+        name: "WELCOME50",
+      }),
+    );
+    const url = lastUrl();
+    expect(url.searchParams.get("pv")).toBe("WELCOME50");
+    expect(url.searchParams.getAll("sv")).toEqual(["s1:SHOPA10"]);
+    expect(url.searchParams.get("step")).toBe("payment");
+  });
+
+  it("W6 own vouchers come before platform vouchers in the slot", () => {
+    setupWithOwn([ownVoucher("WELCOME50")], {
+      platformAvailable: [ownVoucher("PLAT5", { kind: 1, ownerUserId: "" })],
+    });
+    const names = within(screen.getByTestId("platform-voucher"))
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    expect(names.indexOf("WELCOME50")).toBeGreaterThanOrEqual(0);
+    expect(names.indexOf("WELCOME50")).toBeLessThan(names.indexOf("PLAT5"));
+  });
+
+  it("W6 a code present in both lists is offered once", () => {
+    setupWithOwn([ownVoucher("WELCOME50")], {
+      platformAvailable: [ownVoucher("WELCOME50"), ownVoucher("PLAT5")],
+    });
+    const slot = within(screen.getByTestId("platform-voucher"));
+    expect(slot.getAllByRole("button", { name: "WELCOME50" })).toHaveLength(1);
+    expect(slot.getByRole("button", { name: "PLAT5" })).toBeInTheDocument();
+  });
+
+  it("W7 Picker survives a read failure", () => {
+    setupWithOwn([], {
+      platformAvailable: [ownVoucher("PLAT5", { kind: 1, ownerUserId: "" })],
+    });
+    expect(
+      within(screen.getByTestId("platform-voucher")).getByRole("button", {
+        name: "PLAT5",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("W8 an own voucher refused by the quote shows the quote reason in the platform slot", () => {
+    setupWithOwn([ownVoucher("WELCOME50")], {
+      state: { pv: "WELCOME50" },
+      quotes: [
+        quote({
+          code: "WELCOME50",
+          scope: CheckoutVoucherScope.PLATFORM,
+          valid: false,
+          reason: "below minimum spend",
+        }),
+      ],
+    });
+    const slot = within(screen.getByTestId("platform-voucher"));
+    expect(slot.getByText("below minimum spend")).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: "WELCOME50" })).toBeInTheDocument();
+    expect(screen.getByTestId("platform-share-s1").textContent?.trim()).toBe(
+      "-",
+    );
   });
 });

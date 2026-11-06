@@ -20,6 +20,7 @@ import {
   DiscountType,
   type FlashSaleCampaign,
   type Voucher,
+  VoucherKind,
   VoucherScope,
 } from "@/generated/platform/promotion/v1/promotion_pb.js";
 
@@ -43,7 +44,7 @@ function promotion() {
   };
 }
 
-export { DiscountType, VoucherScope };
+export { DiscountType, VoucherKind, VoucherScope };
 
 export interface ViewVoucher {
   id: string;
@@ -60,6 +61,8 @@ export interface ViewVoucher {
   used: number;
   startsAt: string;
   endsAt: string;
+  kind: VoucherKind;
+  ownerUserId: string;
 }
 
 export interface VoucherPreview {
@@ -132,6 +135,8 @@ function mapVoucher(v: Voucher): ViewVoucher {
     used: Number(v.used),
     startsAt: tsToString(v.startsAt),
     endsAt: tsToString(v.endsAt),
+    kind: v.kind,
+    ownerUserId: v.ownerUserId,
   };
 }
 
@@ -196,6 +201,23 @@ export async function listVouchers(sellerId?: string): Promise<ViewVoucher[]> {
     return res.vouchers.map(mapVoucher);
   } catch {
     return [];
+  }
+}
+
+export type MyVouchersResult =
+  | { ok: true; vouchers: ViewVoucher[] }
+  | { ok: false };
+
+export async function listMyVouchers(): Promise<MyVouchersResult> {
+  if (!getPrincipal()) return { ok: true, vouchers: [] };
+  try {
+    const res = await promotion().voucher.listMyVouchers(
+      {},
+      { signal: AbortSignal.timeout(2000) },
+    );
+    return { ok: true, vouchers: res.vouchers.map(mapVoucher) };
+  } catch {
+    return { ok: false };
   }
 }
 

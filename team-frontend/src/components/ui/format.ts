@@ -8,3 +8,11 @@ export function formatSoldCount(count: number): string {
   }
   return `Đã bán ${count}`;
 }
+
+const xuFormatter = new Intl.NumberFormat("vi-VN", {
+  maximumFractionDigits: 0,
+});
+
+export function formatXu(amount: number): string {
+  return `${xuFormatter.format(amount)} xu`;
+}

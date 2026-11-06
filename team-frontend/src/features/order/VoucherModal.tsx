@@ -105,13 +105,20 @@ export function VoucherModal({
   quotes,
   available = {},
   platformAvailable = [],
+  myVouchers = [],
 }: {
   state: CheckoutState;
   groups: ViewCheckoutGroup[];
   quotes: ViewVoucherQuote[];
   available?: Record<string, ViewVoucher[]>;
   platformAvailable?: ViewVoucher[];
+  myVouchers?: ViewVoucher[];
 }) {
+  const platformOffers = [
+    ...new Map(
+      [...myVouchers, ...platformAvailable].map((v) => [v.code, v]),
+    ).values(),
+  ];
   const router = useRouter();
   const [pending, setPending] = useState<{
     scope: CheckoutVoucherScope;
@@ -202,7 +209,7 @@ export function VoucherModal({
           label="Mã giảm giá của sàn"
           appliedCode={state.pv}
           quote={platformQuote}
-          available={platformAvailable}
+          available={platformOffers}
           onApply={(c) => {
             setPending({
               scope: CheckoutVoucherScope.PLATFORM,

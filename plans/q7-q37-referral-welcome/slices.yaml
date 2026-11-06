@@ -1,0 +1,30 @@
+initiative: q7-q37-referral-welcome
+slices:
+  - id: q7-referral-welcome-contract
+    owner: platform-core
+    depends_on: []
+    provides: [AuthService.GetMyAccount, identity.events/UserRegistered, referral.events/ReferralAttributed, referral.events/ReferralRejected, referral.events/ReferralRewardReleased, VoucherService.ListMyVouchers, OrderService.HasCompletedOrder]
+  - id: identity-user-registered
+    owner: team-identity
+    depends_on: [q7-referral-welcome-contract]
+    uses: [AuthService.Register, AuthService.GetMyAccount]
+  - id: order-has-completed-order
+    owner: team-order
+    depends_on: [q7-referral-welcome-contract]
+    uses: [OrderService.HasCompletedOrder]
+  - id: referral-attribution-reward
+    owner: team-referral
+    depends_on: [q7-referral-welcome-contract, identity-user-registered]
+    uses: [identity.events/UserRegistered, order.events/OrderCompleted, order.events/ReturnRequested, referral.events/ReferralAttributed, referral.events/ReferralRejected, referral.events/ReferralRewardReleased]
+  - id: promotion-new-user-vouchers
+    owner: team-promotion
+    depends_on: [q7-referral-welcome-contract, identity-user-registered, referral-attribution-reward, order-has-completed-order]
+    uses: [identity.events/UserRegistered, referral.events/ReferralAttributed, referral.events/ReferralRejected, OrderService.HasCompletedOrder, VoucherService.ListMyVouchers]
+  - id: frontend-referral-invite
+    owner: team-frontend
+    depends_on: [referral-attribution-reward]
+    uses: [SharingService.CreateShareLink, SharingService.ResolveShareLink, ReferralService.GetMyReferral, ReferralService.RedeemReferral]
+  - id: frontend-welcome-checklist
+    owner: team-frontend
+    depends_on: [promotion-new-user-vouchers, frontend-referral-invite]
+    uses: [VoucherService.ListMyVouchers, AuthService.GetMyAccount, EngagementService.ListFollowedSellers, AddressService.ListAddresses, OrderService.ListBuyerOrders]

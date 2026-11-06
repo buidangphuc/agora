@@ -84,6 +84,26 @@ func (f *VoucherForwarder) ListVouchers(
 	return connect.NewResponse(out), nil
 }
 
+func (f *VoucherForwarder) ListMyVouchers(
+	ctx context.Context,
+	req *connect.Request[promotionv1.ListMyVouchersRequest],
+) (*connect.Response[promotionv1.ListMyVouchersResponse], error) {
+	p, ok := principalFrom(ctx)
+	if !ok || p.ptype == "anonymous" || p.id == "" || p.id == "anonymous" {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+	var out *promotionv1.ListMyVouchersResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListMyVouchers(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
 func (f *VoucherForwarder) ValidateAndReserve(
 	ctx context.Context,
 	req *connect.Request[promotionv1.ValidateAndReserveRequest],

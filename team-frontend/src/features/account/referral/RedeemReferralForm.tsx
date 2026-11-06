@@ -9,6 +9,9 @@ import { usePendingAction } from "@/features/account/usePendingAction";
 import { trackEcommerce } from "@/lib/analytics";
 import { redeemReferralAction } from "./actions";
 
+const RULE_TEXT =
+  "Chỉ nhập được trong 7 ngày đầu và khi bạn chưa có đơn hoàn thành.";
+
 /**
  * Redeem someone else's referral code. A rejected code is reported twice: as an
  * error toast and as the FormItem help text (aria-invalid) under the field.
@@ -27,7 +30,7 @@ export function RedeemReferralForm() {
         trackEcommerce("referral_redeem");
         setCode("");
         setError("");
-        toast.success("Đã nhập mã giới thiệu.");
+        toast.success("Đã ghi nhận mã giới thiệu.");
       } else {
         setError(res.error);
         toast.error(res.error);
@@ -44,6 +47,7 @@ export function RedeemReferralForm() {
         <Input
           label="Mã của bạn bè"
           error={error || undefined}
+          helperText={error ? undefined : RULE_TEXT}
           name="code"
           value={code}
           onChange={(e) => {

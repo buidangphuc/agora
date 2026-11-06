@@ -123,3 +123,33 @@ func BuildUserRoleGranted(
 	}
 	return value, nil
 }
+
+const UserRegisteredEventType = "platform.identity.v1.UserRegistered"
+
+func BuildUserRegisteredEnvelope(
+	eventID, userID, referralCode string,
+	registeredAt time.Time,
+	principal *commonv1.Principal,
+	requestID string,
+) ([]byte, error) {
+	payload, err := proto.Marshal(&identityv1.UserRegistered{
+		UserId:       userID,
+		ReferralCode: referralCode,
+		RegisteredAt: timestamppb.New(registeredAt),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal UserRegistered: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       UserRegisteredEventType,
+		OccurredAt: timestamppb.Now(),
+		Principal:  principal,
+		RequestId:  requestID,
+		Payload:    payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return value, nil
+}

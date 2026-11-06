@@ -5078,3 +5078,622 @@ features:
     tags: [security, promotion]
     status: automated
     covered_by: "security/promotion_admin_scope.feature::Promotion admin scope: admin without promotion.admin or listing.write is denied a shop voucher"
+
+  # promotion-new-user-vouchers (planned until the implementation is merged and the stack run is green)
+  - id: promotion.nuv-registration-without-a-referral-code-issues-the-welcome-voucher
+    title: "Registration without a referral code issues the welcome voucher"
+    persona: buyer
+    priority: P0
+    summary: "Registration without a referral code issues the welcome voucher (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-identity, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.AuthService.Register, promotion.v1.VoucherService.ListMyVouchers]
+    acceptance:
+      - "When a visitor registers with no referral code"
+      - "Then within 10 seconds ListMyVouchers returns exactly one VOUCHER_KIND_NEW_USER voucher of 20000, min spend 100000, quota 1, per-user limit 1 and a 336h lifetime"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/new_user_vouchers.feature::Registration without a referral code issues the welcome voucher"
+
+  - id: promotion.nuv-invited-signup-waits-for-the-verdict-and-gets-the-invited-voucher
+    title: "Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher"
+    persona: buyer
+    priority: P1
+    summary: "Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-identity, team-referral, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.AuthService.Register, promotion.v1.VoucherService.ListMyVouchers]
+    acceptance:
+      - "When a visitor registers with the code of an inviter and ReferralAttributed is published"
+      - "Then within 10 seconds the user owns exactly one new-user voucher of 30000"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/new_user_vouchers.feature::Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher"
+
+  - id: promotion.nuv-a-rejected-referral-falls-back-to-the-welcome-voucher
+    title: "A rejected referral falls back to the welcome voucher"
+    persona: buyer
+    priority: P1
+    summary: "A rejected referral falls back to the welcome voucher (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-identity, team-referral, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.AuthService.Register, promotion.v1.VoucherService.ListMyVouchers]
+    acceptance:
+      - "When a visitor registers with an unknown well-formed code and ReferralRejected is published"
+      - "Then the user owns exactly one new-user voucher of 20000"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/new_user_vouchers.feature::A rejected referral falls back to the welcome voucher"
+
+  - id: promotion.nuv-missing-verdict-falls-back-to-the-welcome-voucher-after-the-timeout
+    title: "Missing verdict falls back to the welcome voucher after the timeout"
+    persona: buyer
+    priority: P1
+    summary: "Missing verdict falls back to the welcome voucher after the timeout (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-identity, team-referral, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.AuthService.Register, promotion.v1.VoucherService.ListMyVouchers]
+    acceptance:
+      - "When a visitor registers with a code while no verdict is published and the 2s timeout elapses"
+      - "Then the user owns exactly one voucher of 20000 and a late ReferralAttributed changes nothing"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/new_user_vouchers.feature::Missing verdict falls back to the welcome voucher after the timeout"
+
+  - id: promotion.nuv-another-buyer-cannot-use-a-user-bound-voucher
+    title: "Another buyer cannot use a user-bound voucher"
+    persona: buyer
+    priority: P0
+    summary: "Another buyer cannot use a user-bound voucher (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.VoucherService.ValidateAndReserve, promotion.v1.VoucherService.ListMyVouchers]
+    acceptance:
+      - "When buyer B reserves the voucher owned by buyer A"
+      - "Then the reservation is refused with VOUCHER_NOT_ELIGIBLE and A's voucher is still unused"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/voucher_per_user.feature::Another buyer cannot use a user-bound voucher"
+
+  - id: promotion.nuv-the-owner-uses-the-voucher-once
+    title: "The owner uses the voucher once"
+    persona: buyer
+    priority: P0
+    summary: "The owner uses the voucher once (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.VoucherService.ValidateAndReserve, promotion.v1.VoucherService.CommitReservation, promotion.v1.VoucherService.ListMyVouchers]
+    acceptance:
+      - "When the owner reserves and commits the voucher and reserves it again"
+      - "Then the first call is valid with discount 20000 and the second is refused with VOUCHER_PER_USER_LIMIT"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/voucher_per_user.feature::The owner uses the voucher once"
+
+  - id: promotion.nuv-new-user-only-refuses-a-buyer-with-a-completed-order
+    title: "new_user_only refuses a buyer with a completed order"
+    persona: buyer
+    priority: P1
+    summary: "new_user_only refuses a buyer with a completed order (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion, team-order, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.VoucherService.CreateVoucher, promotion.v1.VoucherService.ValidateAndReserve, order.v1.OrderService.HasCompletedOrder]
+    acceptance:
+      - "When a buyer with a completed order reserves a new_user_only shop voucher"
+      - "Then the reservation is refused with VOUCHER_NOT_ELIGIBLE and a buyer without a completed order is accepted"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/voucher_per_user.feature::new_user_only refuses a buyer with a completed order"
+
+  - id: promotion.nuv-a-signed-in-buyer-sees-only-their-own-vouchers
+    title: "A signed-in buyer sees only their own vouchers"
+    persona: buyer
+    priority: P0
+    summary: "A signed-in buyer sees only their own vouchers (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.VoucherService.ListMyVouchers]
+    acceptance:
+      - "When buyer A calls ListMyVouchers while buyer B also holds a voucher"
+      - "Then the response has exactly A's voucher and none owned by B"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/my_vouchers.feature::A signed-in buyer sees only their own vouchers"
+
+  - id: promotion.nuv-an-anonymous-caller-cannot-list-vouchers
+    title: "An anonymous caller cannot list vouchers"
+    persona: guest
+    priority: P1
+    summary: "An anonymous caller cannot list vouchers (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [promotion.v1.VoucherService.ListMyVouchers]
+    acceptance:
+      - "When ListMyVouchers is called without a token"
+      - "Then the response is UNAUTHENTICATED"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/my_vouchers.feature::An anonymous caller cannot list vouchers"
+
+  - id: promotion.nuv-public-list-excludes-user-bound-vouchers
+    title: "Public list excludes user-bound vouchers"
+    persona: guest
+    priority: P0
+    summary: "Public list excludes user-bound vouchers (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [promotion.v1.VoucherService.ListVouchers]
+    acceptance:
+      - "When an anonymous visitor lists vouchers while new-user vouchers exist"
+      - "Then no returned voucher has an owner or the new-user kind"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/my_vouchers.feature::Public list excludes user-bound vouchers"
+
+  - id: promotion.nuv-hascompletedorder-is-not-routed-at-the-gateway
+    title: "HasCompletedOrder is not routed at the gateway"
+    persona: buyer
+    priority: P1
+    summary: "HasCompletedOrder is not routed at the gateway (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.OrderService.HasCompletedOrder]
+    acceptance:
+      - "When a signed-in buyer posts HasCompletedOrder to the gateway"
+      - "Then the response is UNIMPLEMENTED (HTTP 404 or 501)"
+    tags: [promotion, promo]
+    status: automated
+    covered_by: "promotion/my_vouchers.feature::HasCompletedOrder is not routed at the gateway"
+
+  - id: promotion.nuv-unit-any-signed-in-principal-needs-no-scope
+    title: "Any signed-in principal needs no scope"
+    persona: buyer
+    priority: P2
+    summary: "Any signed-in principal needs no scope (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Any signed-in principal needs no scope (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY unit team-gateway `internal/edge/policy_test.go` TestAdminProceduresSetUnchanged; team-promotion `internal/rpc/voucher_my_test.go` TestListMyVouchersNoScope. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-used-expired-inactive-and-not-yet-started-vouchers-are-hidden
+    title: "Used, expired, inactive and not-yet-started vouchers are hidden"
+    persona: buyer
+    priority: P2
+    summary: "Used, expired, inactive and not-yet-started vouchers are hidden (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Used, expired, inactive and not-yet-started vouchers are hidden (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_my_test.go` TestListMyVouchersFilters. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-a-buyer-without-vouchers-gets-an-empty-list
+    title: "A buyer without vouchers gets an empty list"
+    persona: buyer
+    priority: P2
+    summary: "A buyer without vouchers gets an empty list (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A buyer without vouchers gets an empty list (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_my_test.go` TestListMyVouchersEmpty. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-more-than-50-vouchers-are-capped
+    title: "More than 50 vouchers are capped"
+    persona: buyer
+    priority: P2
+    summary: "More than 50 vouchers are capped (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "More than 50 vouchers are capped (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/store/voucher_my_test.go` TestListByOwnerLimit. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-a-non-owner-cannot-read-a-user-bound-voucher-by-code
+    title: "A non-owner cannot read a user-bound voucher by code"
+    persona: buyer
+    priority: P1
+    summary: "A non-owner cannot read a user-bound voucher by code (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A non-owner cannot read a user-bound voucher by code (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_my_test.go` TestGetVoucherOwnerOnly. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-a-verdict-that-arrives-before-the-registration-event-is-used
+    title: "A verdict that arrives before the registration event is used"
+    persona: buyer
+    priority: P1
+    summary: "A verdict that arrives before the registration event is used (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A verdict that arrives before the registration event is used (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/consumer/newuser_test.go` TestVerdictBeforeRegistration. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-redelivery-and-late-verdicts-issue-nothing-more
+    title: "Redelivery and late verdicts issue nothing more"
+    persona: buyer
+    priority: P1
+    summary: "Redelivery and late verdicts issue nothing more (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Redelivery and late verdicts issue nothing more (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/consumer/newuser_test.go` TestRedeliveryIdempotent, TestLateVerdictIgnored; Postgres `internal/store/migration_test.go` TestNewUserUniqueIndex. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-one-tick-before-the-timeout-nothing-is-issued
+    title: "One tick before the timeout nothing is issued"
+    persona: buyer
+    priority: P2
+    summary: "One tick before the timeout nothing is issued (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "One tick before the timeout nothing is issued (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/consumer/newuser_test.go` TestSweeperTimeoutBoundary. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-a-malformed-event-goes-to-the-dlq-and-does-not-block-the-partition
+    title: "A malformed event goes to the DLQ and does not block the partition"
+    persona: buyer
+    priority: P1
+    summary: "A malformed event goes to the DLQ and does not block the partition (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A malformed event goes to the DLQ and does not block the partition (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/consumer/dlq_test.go` TestPoisonRecordToDLQ. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-a-malformed-referral-event-goes-to-its-dlq
+    title: "A malformed referral event goes to its DLQ"
+    persona: buyer
+    priority: P1
+    summary: "A malformed referral event goes to its DLQ (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A malformed referral event goes to its DLQ (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/consumer/dlq_test.go` TestPoisonReferralRecordToDLQ. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-a-buyer-cannot-obtain-a-voucher-kind-new-user-voucher-without-a-registration-event
+    title: "A buyer cannot obtain a VOUCHER_KIND_NEW_USER voucher without a registration event"
+    persona: buyer
+    priority: P1
+    summary: "A buyer cannot obtain a VOUCHER_KIND_NEW_USER voucher without a registration event (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A buyer cannot obtain a VOUCHER_KIND_NEW_USER voucher without a registration event (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_my_test.go` TestNoSelfIssue. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-events-of-other-types-on-the-topics-are-ignored
+    title: "Events of other types on the topics are ignored"
+    persona: buyer
+    priority: P2
+    summary: "Events of other types on the topics are ignored (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Events of other types on the topics are ignored (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/consumer/newuser_test.go` TestIgnoresOtherTypes. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-config-boundary-values
+    title: "Config boundary values"
+    persona: admin
+    priority: P2
+    summary: "Config boundary values (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Config boundary values (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/config/config_test.go` TestNewUserConfigValidate. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-migration-0008-keeps-existing-vouchers-unchanged
+    title: "Migration 0008 keeps existing vouchers unchanged"
+    persona: admin
+    priority: P1
+    summary: "Migration 0008 keeps existing vouchers unchanged (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Migration 0008 keeps existing vouchers unchanged (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/store/migration_test.go` TestMigration0008UpDown. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-subtotal-below-the-minimum-spend-is-refused-for-a-voucher-kind-new-user-voucher
+    title: "Subtotal below the minimum spend is refused for a VOUCHER_KIND_NEW_USER voucher"
+    persona: buyer
+    priority: P1
+    summary: "Subtotal below the minimum spend is refused for a VOUCHER_KIND_NEW_USER voucher (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Subtotal below the minimum spend is refused for a VOUCHER_KIND_NEW_USER voucher (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/voucher/voucher_test.go` TestNewUserMinSpendBoundary. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-per-user-limit-counts-live-and-committed-holds-not-released-or-expired-ones
+    title: "Per-user limit counts live and committed holds, not released or expired ones"
+    persona: buyer
+    priority: P1
+    summary: "Per-user limit counts live and committed holds, not released or expired ones (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Per-user limit counts live and committed holds, not released or expired ones (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/voucher/voucher_test.go` TestPerUserLimitCountsLiveHolds. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-an-expired-hold-stops-counting-at-its-expiry
+    title: "An expired hold stops counting at its expiry"
+    persona: buyer
+    priority: P1
+    summary: "An expired hold stops counting at its expiry (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An expired hold stops counting at its expiry (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/voucher/voucher_test.go` TestExpiredHoldNotCounted, TestCommittedHoldCountsPastExpiry; Postgres `internal/store/migration_test.go` TestReservationExpiresAtColumn. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-per-user-limit-of-zero-keeps-the-global-quota-behaviour
+    title: "per_user_limit of zero keeps the global quota behaviour"
+    persona: buyer
+    priority: P2
+    summary: "per_user_limit of zero keeps the global quota behaviour (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "per_user_limit of zero keeps the global quota behaviour (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/voucher/voucher_test.go` TestZeroPerUserLimitUnchanged. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-parallel-reservations-cannot-exceed-the-per-user-limit
+    title: "Parallel reservations cannot exceed the per-user limit"
+    persona: buyer
+    priority: P1
+    summary: "Parallel reservations cannot exceed the per-user limit (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Parallel reservations cannot exceed the per-user limit (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY Postgres team-promotion `internal/voucher/voucher_concurrency_test.go` TestPerUserLimitRace. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-new-user-only-accepts-a-buyer-with-no-completed-order
+    title: "new_user_only accepts a buyer with no completed order"
+    persona: buyer
+    priority: P1
+    summary: "new_user_only accepts a buyer with no completed order (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "new_user_only accepts a buyer with no completed order (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/voucher/voucher_test.go` TestNewUserOnlyAcceptsNewBuyer. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-order-service-failure-fails-closed
+    title: "Order service failure fails closed"
+    persona: buyer
+    priority: P1
+    summary: "Order service failure fails closed (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Order service failure fails closed (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/voucher/voucher_test.go` TestNewUserOnlyFailsClosed. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-the-order-service-is-not-asked-for-vouchers-without-new-user-only
+    title: "The order service is not asked for vouchers without new_user_only"
+    persona: buyer
+    priority: P2
+    summary: "The order service is not asked for vouchers without new_user_only (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The order service is not asked for vouchers without new_user_only (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/voucher/voucher_test.go` TestOrderNotCalledWithoutFlag. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-idempotent-replay-returns-the-original-result-before-the-new-checks
+    title: "Idempotent replay returns the original result before the new checks"
+    persona: buyer
+    priority: P1
+    summary: "Idempotent replay returns the original result before the new checks (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Idempotent replay returns the original result before the new checks (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/voucher/voucher_test.go` TestReplayBeforePerUserChecks. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-seller-creates-a-shop-voucher-with-a-per-user-limit
+    title: "Seller creates a shop voucher with a per-user limit"
+    persona: seller
+    priority: P2
+    summary: "Seller creates a shop voucher with a per-user limit (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller creates a shop voucher with a per-user limit (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestCreateAcceptsPerUserFields. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-out-of-range-per-user-limit-is-refused
+    title: "Out-of-range per_user_limit is refused"
+    persona: seller
+    priority: P2
+    summary: "Out-of-range per_user_limit is refused (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Out-of-range per_user_limit is refused (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestPerUserLimitBounds. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-a-buyer-cannot-create-vouchers
+    title: "A buyer cannot create vouchers"
+    persona: buyer
+    priority: P1
+    summary: "A buyer cannot create vouchers (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A buyer cannot create vouchers (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestPerUserFieldsKeepAuthz. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-a-seller-cannot-update-vouchers
+    title: "A seller cannot update vouchers"
+    persona: seller
+    priority: P1
+    summary: "A seller cannot update vouchers (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A seller cannot update vouchers (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestPerUserFieldsKeepAuthz. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.nuv-unit-update-changes-the-new-fields-but-not-owner-or-kind
+    title: "Update changes the new fields but not owner or kind"
+    persona: admin
+    priority: P2
+    summary: "Update changes the new fields but not owner or kind (promotion-new-user-vouchers)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Update changes the new fields but not owner or kind (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestUpdatePerUserFields. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."

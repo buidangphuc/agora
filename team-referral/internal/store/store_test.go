@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -33,6 +34,48 @@ func openPool(t *testing.T, url string) *pgxpool.Pool {
 	}
 	t.Cleanup(pool.Close)
 	return pool
+}
+
+var t0 = time.Date(2026, 11, 6, 3, 0, 0, 0, time.UTC)
+
+func testkitSchemaURL(t *testing.T) string {
+	t.Helper()
+	return testkit.Schema(t, testkit.SharedPostgres(t))
+}
+
+func schemaPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	url := testkit.Schema(t, testkit.SharedPostgres(t))
+	if err := migrate.Up(context.Background(), url, migrations.Files); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	return openPool(t, url)
+}
+
+func signup(t testing.TB, r store.ReferralRepository, user, code string, at time.Time) {
+	t.Helper()
+	err := r.ApplyUserRegistered(context.Background(), store.UserRegisteredInput{
+		EventID: "ur-" + user, UserID: user, ReferralCode: code, RegisteredAt: at, At: at, LifetimeCap: 50,
+	})
+	if err != nil {
+		t.Fatalf("ApplyUserRegistered(%s): %v", user, err)
+	}
+}
+
+func complete(t testing.TB, r store.ReferralRepository, buyer, order string, releaseAt, at time.Time, lifetimeCap int) {
+	t.Helper()
+	err := r.ApplyOrderCompleted(context.Background(), store.OrderCompletedInput{
+		EventID: "oc-" + order, OrderID: order, BuyerID: buyer, CompletedAt: at, ReleaseAt: releaseAt,
+		At: at, RewardXU: 10000, LifetimeCap: lifetimeCap,
+	})
+	if err != nil {
+		t.Fatalf("ApplyOrderCompleted(%s): %v", order, err)
+	}
+}
+
+func releaseIn(at time.Time, daily, lifetime int) store.ReleaseInput {
+	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
+	return store.ReleaseInput{At: at, DailyCap: daily, LifetimeCap: lifetime, Location: loc}
 }
 
 func migratedPool(t *testing.T) *pgxpool.Pool {
@@ -72,54 +115,62 @@ func TestMigrationsApplyAndPostgresRoundtrip(t *testing.T) {
 		t.Fatalf("OwnerOfCode unknown = %v, want ErrCodeNotFound", err)
 	}
 
-	if err := r.CreateReferral(ctx, "alice", "bob", "REFAAAA1111"); err != nil {
-		t.Fatalf("CreateReferral: %v", err)
-	}
+	signup(t, r, "bob", "REFAAAA1111", t0)
 	if n, err := r.CountReferralsByReferrer(ctx, "alice"); err != nil || n != 1 {
 		t.Fatalf("CountReferralsByReferrer = %d, %v", n, err)
 	}
-	if ok, err := r.HasRedeemed(ctx, "bob"); err != nil || !ok {
-		t.Fatalf("HasRedeemed(bob) = %v, %v", ok, err)
+	ref, err := r.GetReferral(ctx, "bob")
+	if err != nil || ref.ReferrerID != "alice" || ref.Status != store.StatusAttributed {
+		t.Fatalf("GetReferral(bob) = %+v, %v", ref, err)
 	}
-	if ok, err := r.HasRedeemed(ctx, "carol"); err != nil || ok {
-		t.Fatalf("HasRedeemed(carol) = %v, %v", ok, err)
+	if _, err := r.GetReferral(ctx, "carol"); !errors.Is(err, store.ErrReferralNotFound) {
+		t.Fatalf("GetReferral(carol) = %v, want ErrReferralNotFound", err)
+	}
+	if at, err := r.RegisteredAt(ctx, "bob"); err != nil || !at.Equal(t0) {
+		t.Fatalf("RegisteredAt(bob) = %v, %v", at, err)
+	}
+	if _, err := r.RegisteredAt(ctx, "ghost"); !errors.Is(err, store.ErrNotRegistered) {
+		t.Fatalf("RegisteredAt(ghost) = %v, want ErrNotRegistered", err)
 	}
 
-	rw, err := r.AddReward(ctx, "alice", 10000, "invitee_joined")
-	if err != nil {
-		t.Fatalf("AddReward: %v", err)
+	complete(t, r, "bob", "o1", t0.Add(time.Hour), t0, 50)
+	tot, err := r.RewardTotals(ctx, "alice")
+	if err != nil || tot.PendingXU != 10000 || tot.ReleasedXU != 0 {
+		t.Fatalf("RewardTotals(alice) = %+v, %v", tot, err)
 	}
-	if rw.GetAmount() != 10000 || rw.GetReason() != "invitee_joined" || rw.GetId() == "" {
-		t.Fatalf("reward = %+v", rw)
-	}
-	if _, err := r.AddReward(ctx, "alice", 5, "bonus"); err != nil {
-		t.Fatalf("AddReward 2: %v", err)
-	}
-	if _, err := r.AddReward(ctx, "zed", 99, "other"); err != nil {
-		t.Fatalf("AddReward zed: %v", err)
-	}
-	if sum, err := r.SumRewards(ctx, "alice"); err != nil || sum != 10005 {
-		t.Fatalf("SumRewards(alice) = %d, %v; want 10005", sum, err)
+	other, err := r.RewardTotals(ctx, "zed")
+	if err != nil || other.PendingXU != 0 || other.ReleasedXU != 0 {
+		t.Fatalf("RewardTotals(zed) = %+v, %v", other, err)
 	}
 	list, err := r.ListRewards(ctx, "alice", 10, 0)
-	if err != nil || len(list) != 2 {
-		t.Fatalf("ListRewards = %d items, %v; want 2 (zed isolated)", len(list), err)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("ListRewards = %d items, %v; want 1", len(list), err)
 	}
-	page, err := r.ListRewards(ctx, "alice", 1, 1)
-	if err != nil || len(page) != 1 {
-		t.Fatalf("ListRewards limit1 offset1 = %d items, %v", len(page), err)
+	if none, err := r.ListRewards(ctx, "zed", 10, 0); err != nil || len(none) != 0 {
+		t.Fatalf("ListRewards(zed) = %d items, %v; want 0", len(none), err)
 	}
+}
+
+func redeemIn(referee, code string) store.RedeemInput {
+	return store.RedeemInput{RefereeID: referee, Code: code, At: t0.Add(time.Hour), MaxAccountAge: 168 * time.Hour, LifetimeCap: 50}
 }
 
 func TestPostgresRedeemTwiceIsAlreadyRedeemed(t *testing.T) {
 	ctx := context.Background()
-	pool := migratedPool(t)
+	pool := schemaPool(t)
 	r := store.NewPostgresReferralRepo(pool)
 
-	if err := r.CreateReferral(ctx, "alice", "bob", "REFAAAA1111"); err != nil {
+	if _, err := r.CreateCode(ctx, "alice", "REFAAAA1111"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.CreateCode(ctx, "carol", "REFCCCC2222"); err != nil {
+		t.Fatal(err)
+	}
+	signup(t, r, "bob", "", t0)
+	if err := r.Redeem(ctx, redeemIn("bob", "REFAAAA1111")); err != nil {
 		t.Fatalf("first redeem: %v", err)
 	}
-	err := r.CreateReferral(ctx, "carol", "bob", "REFCCCC2222")
+	err := r.Redeem(ctx, redeemIn("bob", "REFCCCC2222"))
 	if !errors.Is(err, store.ErrAlreadyRedeemed) {
 		t.Fatalf("second redeem = %v, want ErrAlreadyRedeemed", err)
 	}
@@ -135,10 +186,17 @@ func TestPostgresRedeemTwiceIsAlreadyRedeemed(t *testing.T) {
 func TestFakeRedeemTwiceIsAlreadyRedeemed(t *testing.T) {
 	ctx := context.Background()
 	r := fake.NewInMemoryReferralRepo()
-	if err := r.CreateReferral(ctx, "alice", "bob", "REFAAAA1111"); err != nil {
+	if _, err := r.CreateCode(ctx, "alice", "REFAAAA1111"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.CreateCode(ctx, "carol", "REFCCCC2222"); err != nil {
+		t.Fatal(err)
+	}
+	signup(t, r, "bob", "", t0)
+	if err := r.Redeem(ctx, redeemIn("bob", "REFAAAA1111")); err != nil {
 		t.Fatalf("first redeem: %v", err)
 	}
-	if err := r.CreateReferral(ctx, "carol", "bob", "REFCCCC2222"); !errors.Is(err, store.ErrAlreadyRedeemed) {
+	if err := r.Redeem(ctx, redeemIn("bob", "REFCCCC2222")); !errors.Is(err, store.ErrAlreadyRedeemed) {
 		t.Fatalf("second redeem = %v, want store.ErrAlreadyRedeemed", err)
 	}
 }

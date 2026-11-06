@@ -21,7 +21,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -370,6 +370,8 @@ services:
         condition: service_completed_successfully
       redpanda-init:
         condition: service_completed_successfully
+      team-order:
+        condition: service_started
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_URL=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
@@ -379,6 +381,15 @@ services:
       - PROMOTION_EVENTS_TOPIC=promotion.events
       # CreateCampaign checks listing ownership against team-domain (fails closed if unset).
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
+      - UPSTREAM_ORDER_ADDR=team-order-svc:50055
+      - UPSTREAM_ORDER_TIMEOUT=500ms
+      - NEW_USER_WELCOME_AMOUNT=20000
+      - NEW_USER_INVITED_AMOUNT=30000
+      - NEW_USER_MIN_SPEND=100000
+      - NEW_USER_VOUCHER_TTL=336h
+      - NEW_USER_VERDICT_TIMEOUT=30m
+      - NEW_USER_VERDICT_SWEEP_INTERVAL=1m
+      - VOUCHER_RESERVATION_TTL=15m
       - GRPC_PORT=50061
       - ENV=local
       - GRPC_REFLECTION_ENABLED=true
@@ -489,8 +500,27 @@ services:
     depends_on:
       team-referral-migrate:
         condition: service_completed_successfully
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - DATABASE_URL=postgres://referral_svc:referral_pass@postgres:5432/referral_db?sslmode=disable
+      - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - ORDER_EVENTS_TOPIC=order.events
+      - REFERRAL_EVENTS_TOPIC=referral.events
+      - REFERRAL_IDENTITY_CONSUMER_GROUP=team-referral-identity
+      - REFERRAL_ORDER_CONSUMER_GROUP=team-referral-order
+      - REFERRAL_IDENTITY_DLQ_TOPIC=referral.identity.dlq
+      - REFERRAL_ORDER_DLQ_TOPIC=referral.order.dlq
+      - OUTBOX_POLL_INTERVAL=1s
+      - OUTBOX_BATCH_SIZE=100
+      - OUTBOX_CLAIM_LOCK=60s
+      - REFERRAL_REWARD_XU=10000
+      - REFERRAL_DAILY_CAP=5
+      - REFERRAL_LIFETIME_CAP=50
+      - REFERRAL_REDEEM_MAX_ACCOUNT_AGE=168h
+      - REFERRAL_RELEASE_SWEEP_INTERVAL=1m
+      - REFERRAL_CAP_TIMEZONE=Asia/Ho_Chi_Minh
       - GRPC_PORT=50062
       - ENV=local
       - GRPC_REFLECTION_ENABLED=true

@@ -14,7 +14,10 @@ import { createPromiseClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-node";
 
 import { ReferralService } from "@/generated/platform/referral/v1/referral_connect.js";
-import type { ReferralReward } from "@/generated/platform/referral/v1/referral_pb.js";
+import {
+  type ReferralReward,
+  ReferralRewardStatus,
+} from "@/generated/platform/referral/v1/referral_pb.js";
 
 import { authInterceptor } from "./auth.js";
 import { gatewayConfig } from "./config.js";
@@ -33,18 +36,42 @@ export interface ViewReferral {
   code: string;
   invitedCount: number;
   rewardsTotal: number; // minor units
+  pendingXu: number;
+  releasedXu: number;
 }
+
+export type ViewReferralRewardStatus = "PENDING" | "RELEASED" | "VOID";
 
 export interface ViewReferralReward {
   id: string;
   amount: number; // minor units
   reason: string;
   createdAt: string;
+  status: ViewReferralRewardStatus;
+  releaseAt: string;
 }
 
 function tsToString(ts?: Timestamp): string {
   if (!ts) return "";
   return new Date(Number(ts.seconds) * 1000).toLocaleString("vi-VN");
+}
+
+const releaseAtFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Ho_Chi_Minh",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+function dateToString(ts?: Timestamp): string {
+  if (!ts) return "";
+  return releaseAtFormatter.format(new Date(Number(ts.seconds) * 1000));
+}
+
+function mapStatus(s: ReferralRewardStatus): ViewReferralRewardStatus {
+  if (s === ReferralRewardStatus.RELEASED) return "RELEASED";
+  if (s === ReferralRewardStatus.VOID) return "VOID";
+  return "PENDING";
 }
 
 function mapReward(r: ReferralReward): ViewReferralReward {
@@ -53,6 +80,8 @@ function mapReward(r: ReferralReward): ViewReferralReward {
     amount: Number(r.amount),
     reason: r.reason,
     createdAt: tsToString(r.createdAt),
+    status: mapStatus(r.status),
+    releaseAt: dateToString(r.releaseAt),
   };
 }
 
@@ -69,9 +98,17 @@ export async function getMyReferral(): Promise<ViewReferral> {
       code: res.code,
       invitedCount: Number(res.invitedCount),
       rewardsTotal: Number(res.rewardsTotal),
+      pendingXu: Number(res.pendingXu),
+      releasedXu: Number(res.releasedXu),
     };
   } catch {
-    return { code: "", invitedCount: 0, rewardsTotal: 0 };
+    return {
+      code: "",
+      invitedCount: 0,
+      rewardsTotal: 0,
+      pendingXu: 0,
+      releasedXu: 0,
+    };
   }
 }
 

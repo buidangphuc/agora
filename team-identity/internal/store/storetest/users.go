@@ -52,6 +52,20 @@ func (r *InMemoryUserRepository) Create(_ context.Context, u store.User) (store.
 	return u, nil
 }
 
+func (r *InMemoryUserRepository) CreateRegistered(ctx context.Context, u store.User, referralCode string, enqueue store.RegisteredEnqueueFn) (store.User, error) {
+	if u.CreatedAt.IsZero() {
+		u.CreatedAt = time.Now()
+	}
+	out, err := r.Create(ctx, u)
+	if err != nil {
+		return store.User{}, err
+	}
+	if _, err := enqueue(store.Registration{UserID: out.ID, ReferralCode: referralCode, RegisteredAt: out.CreatedAt}); err != nil {
+		return store.User{}, err
+	}
+	return out, nil
+}
+
 func (r *InMemoryUserRepository) GetByUsername(_ context.Context, username string) (store.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

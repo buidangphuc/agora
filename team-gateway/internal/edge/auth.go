@@ -144,3 +144,23 @@ func (f *AuthForwarder) BecomeSeller(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *AuthForwarder) GetMyAccount(
+	ctx context.Context,
+	req *connect.Request[identityv1.GetMyAccountRequest],
+) (*connect.Response[identityv1.GetMyAccountResponse], error) {
+	p, ok := principalFrom(ctx)
+	if !ok || p.ptype == "anonymous" || p.id == "" || p.id == "anonymous" {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+	var out *identityv1.GetMyAccountResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetMyAccount(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}

@@ -45,17 +45,32 @@ service VoucherService {
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
   // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc DeactivateVoucher(DeactivateVoucherRequest) returns (DeactivateVoucherResponse);
-  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action voucher.update.
-  // Only ends_at and quota are mutable.
+  // admin-only (scopes `admin` and `promotion.admin`): audited first as
+  // voucher.update, fail closed. ends_at, quota, per_user_limit and
+  // new_user_only are mutable; owner_user_id and kind are server-owned.
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
   // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc UpdateVoucher(UpdateVoucherRequest) returns (UpdateVoucherResponse);
   // Idempotent on reservation_id: same id returns the same discount without
   // decrementing quota twice. Reject (valid=false + reason) if expired,
-  // below min_spend, or quota exhausted.
+  // below min_spend, or quota exhausted. A user-bound voucher used by any other
+  // buyer or after its single use, and a new_user_only voucher for a buyer with
+  // a completed order, are refused with valid=false and reason
+  // VOUCHER_NOT_ELIGIBLE; per-user-limit exhaustion is refused with valid=false
+  // and reason VOUCHER_PER_USER_LIMIT. Only an unavailable eligibility check
+  // answers gRPC UNAVAILABLE (fail closed). buyer_id is honoured only from a
+  // service principal holding `promotion.reserve`; otherwise the principal id is
+  // used.
   rpc ValidateAndReserve(ValidateAndReserveRequest) returns (ValidateAndReserveResponse);
   rpc CommitReservation(CommitReservationRequest) returns (CommitReservationResponse);
   rpc ReleaseReservation(ReleaseReservationRequest) returns (ReleaseReservationResponse);
+  // Any authenticated USER principal (the signed-in buyer; non-anonymous,
+  // non-service), keyed on the principal id; the buyer id is never a request
+  // field. Anonymous gets UNAUTHENTICATED; a service principal gets
+  // PERMISSION_DENIED. Routed at the gateway with no admin edge policy; the
+  // anonymous reject lives in the service. Returns only the caller's own
+  // active, unexpired user-bound vouchers.
+  rpc ListMyVouchers(ListMyVouchersRequest) returns (ListMyVouchersResponse);
 }
 
 // Time-boxed sale price + capped stock for a listing/variant.
@@ -187,6 +202,18 @@ message GetEntitlementsResponse {
   map<string, string> limits = 2;
 }
 
+enum VoucherKind {
+  VOUCHER_KIND_UNSPECIFIED = 0;
+  VOUCHER_KIND_STANDARD = 1;
+  VOUCHER_KIND_NEW_USER = 2;
+}
+
+message ListMyVouchersRequest {}
+
+message ListMyVouchersResponse {
+  repeated Voucher vouchers = 1;
+}
+
 message Voucher {
   string id = 1;
   string code = 2;
@@ -202,6 +229,13 @@ message Voucher {
   google.protobuf.Timestamp ends_at = 12;
   bool active = 13;
   google.protobuf.Timestamp deactivated_at = 14;
+  // Buyer the voucher is bound to; empty = not user-bound. server-owned.
+  string owner_user_id = 15;
+  // server-owned.
+  VoucherKind kind = 16;
+  // Redemptions allowed per buyer; 0 = global quota only.
+  int32 per_user_limit = 17;
+  bool new_user_only = 18;
 }
 
 message DeactivateVoucherRequest {
@@ -216,12 +250,16 @@ message UpdateVoucherRequest {
   string voucher_id = 1;
   optional google.protobuf.Timestamp ends_at = 2;
   optional int64 quota = 3;
+  optional int32 per_user_limit = 4;
+  optional bool new_user_only = 5;
 }
 
 message UpdateVoucherResponse {
   Voucher voucher = 1;
 }
 
+// Admin-only (`admin`/`promotion.admin`) like the existing fields. owner_user_id and kind are server-owned:
+// they are never settable through Create or Update.
 message CreateVoucherRequest {
   string code = 1;
   VoucherScope scope = 2;
@@ -232,6 +270,8 @@ message CreateVoucherRequest {
   int64 quota = 7;
   google.protobuf.Timestamp starts_at = 8;
   google.protobuf.Timestamp ends_at = 9;
+  int32 per_user_limit = 10;
+  bool new_user_only = 11;
 }
 
 message CreateVoucherResponse {

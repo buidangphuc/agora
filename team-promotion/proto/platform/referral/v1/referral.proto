@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+// Referral program: per-user invite codes, redemptions, and reward ledger.
+// Rewards are pure accounting values here — no real money movement.
+package platform.referral.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+service ReferralService {
+  // Mint (or return the existing) referral code for the calling user.
+  rpc CreateReferralCode(CreateReferralCodeRequest) returns (CreateReferralCodeResponse);
+  // Fetch the caller's own referral summary. Principal-only: there is no user
+  // id field.
+  rpc GetMyReferral(GetMyReferralRequest) returns (GetMyReferralResponse);
+  // Redeem someone else's referral code (called by the invited user). Refused
+  // with FAILED_PRECONDITION for an account older than
+  // REFERRAL_REDEEM_MAX_ACCOUNT_AGE (default 168h, configured in team-referral),
+  // an account with a completed order, a second redeem or a self-referral; it
+  // credits nothing immediately. Principal-only: there is no user id field.
+  // "No completed order" is decided from the order.events/OrderCompleted facts
+  // team-referral consumes itself; it does not call HasCompletedOrder.
+  rpc RedeemReferral(RedeemReferralRequest) returns (RedeemReferralResponse);
+  rpc ListReferralRewards(ListReferralRewardsRequest) returns (ListReferralRewardsResponse);
+}
+
+enum ReferralRejectReason {
+  REFERRAL_REJECT_REASON_UNSPECIFIED = 0;
+  REFERRAL_REJECT_REASON_UNKNOWN_CODE = 1;
+  REFERRAL_REJECT_REASON_SELF_REFERRAL = 2;
+  REFERRAL_REJECT_REASON_REFERRER_CAPPED = 3;
+}
+
+enum ReferralRewardStatus {
+  REFERRAL_REWARD_STATUS_UNSPECIFIED = 0;
+  REFERRAL_REWARD_STATUS_PENDING = 1;
+  REFERRAL_REWARD_STATUS_RELEASED = 2;
+  REFERRAL_REWARD_STATUS_VOID = 3;
+}
+
+// ReferralReward amounts are xu, not đ.
+message ReferralReward {
+  string id = 1;
+  int64 amount = 2;   // xu
+  string reason = 3;  // e.g. "invitee_first_order"
+  google.protobuf.Timestamp created_at = 4;
+  ReferralRewardStatus status = 5;
+  google.protobuf.Timestamp release_at = 6;
+}
+
+// ReferralAttributed is an internal-only event (never exposed at the gateway)
+// published on Kafka topic `referral.events` (key = referee user id, wrapped in
+// platform.events.v1.EventEnvelope with type "platform.referral.v1.ReferralAttributed")
+// through the referral outbox. It and ReferralRejected are mutually exclusive
+// verdicts per referee.
+message ReferralAttributed {
+  string referee_id = 1;
+  string referrer_id = 2;
+  google.protobuf.Timestamp attributed_at = 3;
+}
+
+// ReferralRejected is an internal-only event (never exposed at the gateway)
+// published on Kafka topic `referral.events` (key = referee user id, wrapped in
+// platform.events.v1.EventEnvelope with type "platform.referral.v1.ReferralRejected")
+// through the referral outbox. It and ReferralAttributed are mutually exclusive
+// verdicts per referee.
+message ReferralRejected {
+  string referee_id = 1;
+  ReferralRejectReason reason = 2;
+}
+
+// ReferralRewardReleased is an internal-only event (never exposed at the gateway)
+// published on Kafka topic `referral.events` (key = referee user id, wrapped in
+// platform.events.v1.EventEnvelope with type "platform.referral.v1.ReferralRewardReleased")
+// through the referral outbox, once per reward. amount_xu is in xu. Consumers must be idempotent on the
+// event id.
+message ReferralRewardReleased {
+  string reward_id = 1;
+  string referrer_id = 2;
+  string referee_id = 3;
+  int64 amount_xu = 4;
+  google.protobuf.Timestamp released_at = 5;
+}
+
+message CreateReferralCodeRequest {}
+
+message CreateReferralCodeResponse {
+  string code = 1;
+}
+
+message GetMyReferralRequest {}
+
+// GetMyReferralResponse totals are all xu, not đ. rewards_total is kept and
+// equals released_xu.
+message GetMyReferralResponse {
+  string code = 1;
+  int64 invited_count = 2;
+  int64 rewards_total = 3; // xu
+  int64 pending_xu = 4;
+  int64 released_xu = 5;
+}
+
+message RedeemReferralRequest {
+  string code = 1;
+}
+
+message RedeemReferralResponse {}
+
+message ListReferralRewardsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListReferralRewardsResponse {
+  repeated ReferralReward rewards = 1;
+  platform.common.v1.PageResponse page = 2;
+}

@@ -33,6 +33,9 @@ func (r *InMemoryVoucherRepository) Create(_ context.Context, v store.Voucher, e
 			return store.Voucher{}, fmt.Errorf("voucher code %q already exists", v.Code)
 		}
 	}
+	if v.Kind == 0 {
+		v.Kind = store.VoucherKindStandard
+	}
 	if _, err := event(v); err != nil {
 		return store.Voucher{}, err
 	}
@@ -68,7 +71,7 @@ func (r *InMemoryVoucherRepository) List(_ context.Context, sellerID string, lim
 	defer r.mu.RUnlock()
 	var all []store.Voucher
 	for _, v := range r.vouchers {
-		if v.SellerID == sellerID {
+		if v.SellerID == sellerID && v.OwnerUserID == "" {
 			all = append(all, v)
 		}
 	}
@@ -82,6 +85,64 @@ func (r *InMemoryVoucherRepository) List(_ context.Context, sellerID string, lim
 		all = all[:limit]
 	}
 	return all, nil
+}
+
+func (r *InMemoryVoucherRepository) ListByOwner(_ context.Context, ownerID string, now time.Time, limit int) ([]store.Voucher, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []store.Voucher
+	for _, v := range r.vouchers {
+		if v.OwnerUserID != ownerID || !v.Active {
+			continue
+		}
+		if v.Quota > 0 && v.Used >= v.Quota {
+			continue
+		}
+		if !v.StartsAt.IsZero() && v.StartsAt.After(now) {
+			continue
+		}
+		if !v.EndsAt.IsZero() && !v.EndsAt.After(now) {
+			continue
+		}
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		switch {
+		case a.EndsAt.IsZero() != b.EndsAt.IsZero():
+			return !a.EndsAt.IsZero()
+		case !a.EndsAt.Equal(b.EndsAt):
+			return a.EndsAt.Before(b.EndsAt)
+		}
+		return a.Code < b.Code
+	})
+	if limit > 0 && limit < len(out) {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (r *InMemoryVoucherRepository) UpdatePerUser(_ context.Context, id string, perUserLimit *int32, newUserOnly *bool) (store.Voucher, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	v, ok := r.vouchers[id]
+	if !ok {
+		return store.Voucher{}, store.ErrVoucherNotFound
+	}
+	if !v.Active {
+		return store.Voucher{}, store.ErrVoucherInactive
+	}
+	if v.Kind != store.VoucherKindStandard {
+		return store.Voucher{}, store.ErrVoucherKind
+	}
+	if perUserLimit != nil {
+		v.PerUserLimit = *perUserLimit
+	}
+	if newUserOnly != nil {
+		v.NewUserOnly = *newUserOnly
+	}
+	r.vouchers[id] = v
+	return v, nil
 }
 
 func (r *InMemoryVoucherRepository) IncrementUsed(_ context.Context, id string, delta int64) error {

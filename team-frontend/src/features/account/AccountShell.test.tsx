@@ -1,7 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ACCOUNT_MENU, AccountShell } from "./AccountShell";
+
+vi.mock("@/features/welcome/WelcomePanel", () => ({
+  WelcomePanel: () => <p>WELCOME_PANEL</p>,
+}));
 
 describe("AccountShell", () => {
   it("labels the menu landmark and marks only the current entry", () => {
@@ -73,5 +77,29 @@ describe("AccountShell", () => {
     const nav = screen.getByRole("navigation", { name: "Menu tài khoản" });
     expect(nav.className).toContain("lg:w-60");
     expect(nav.querySelector("ul")?.className).toContain("overflow-x-auto");
+  });
+});
+
+describe("AccountShell welcome panel", () => {
+  it("W10 mounts the WelcomePanel above the page content on every account page", () => {
+    render(
+      <AccountShell current="addresses" title="Địa chỉ">
+        <p>nội dung</p>
+      </AccountShell>,
+    );
+    const panel = screen.getByText("WELCOME_PANEL");
+    expect(
+      panel.compareDocumentPosition(screen.getByText("nội dung")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("W9 mounts the WelcomePanel exactly once", () => {
+    render(
+      <AccountShell current="security" title="Bảo mật">
+        <p>x</p>
+      </AccountShell>,
+    );
+    expect(screen.getAllByText("WELCOME_PANEL")).toHaveLength(1);
   });
 });
