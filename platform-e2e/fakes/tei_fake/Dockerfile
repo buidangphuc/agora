@@ -1,6 +1,6 @@
 # Deterministic, fault-injecting TEI-compatible fake (changes add-platform-modelserve and
 # add-hybrid-retrieval-platform e2e track). Build context: platform-e2e/fakes/tei_fake
-FROM python:3.12-slim
+FROM python:3.12-alpine
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY server.py .

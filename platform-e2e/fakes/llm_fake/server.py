@@ -1,7 +1,7 @@
 """Fault-injecting, OpenAI-compatible fake LLM provider for the e2e stack.
 
 Change ai-path-resilience, design D8. Stdlib only (``http.server`` + threads), so the image
-is a bare ``python:3.12-slim`` with this one file.
+is a bare ``python:3.12-alpine`` with this one file.
 
 Routes
 ------
