@@ -9,7 +9,7 @@ import agora_env as ae  # noqa: E402
 SERVICES = {
     "postgres": {"image": "postgres:16-alpine", "ports": [{"published": "5432", "target": 5432}]},
     "redpanda": {
-        "image": "redpandadata/redpanda:v24.2.7",
+        "image": "redpandadata/redpanda:v24.3.1",
         "ports": [{"published": "19092", "target": 19092}],
         "command": ["redpanda", "start", "--advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092"],
     },

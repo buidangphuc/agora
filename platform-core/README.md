@@ -79,7 +79,7 @@ defaults are fixed in `infra/docker-compose.yaml`:
 | redis | `redis:7.4.11-alpine` | 6379 |
 | qdrant | `qdrant/qdrant:v1.19.0` | 6333 (http), 6334 (grpc) |
 | flipt (feature flags) | `flipt/flipt:v1.54.0` | 8083 (HTTP + UI) |
-| redpanda (Kafka API) | `redpandadata/redpanda:v24.2.7` | 19092 (host), 9644 (admin); in-network `redpanda:9092` |
+| redpanda (Kafka API) | `redpandadata/redpanda:v24.3.1` | 19092 (host), 9644 (admin); in-network `redpanda:9092` |
 | kafka-ui | `provectuslabs/kafka-ui:v0.7.2` | 8088 |
 | rabbitmq | `rabbitmq:3-management` | 5672, 15672 |
 | opensearch | `opensearchproject/opensearch:2.19.5` | 9200 |

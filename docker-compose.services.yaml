@@ -12,7 +12,7 @@ services:
   # One-shot: waits for the shared broker to be healthy, then creates the topics
   # idempotently (|| true tolerates re-runs). team-payment/team-order depend on it.
   redpanda-init:
-    image: redpandadata/redpanda:v24.2.7
+    image: redpandadata/redpanda:v24.3.1
     container_name: redpanda-init
     restart: on-failure
     tmpfs:
