@@ -54,32 +54,45 @@ Run every test/coverage/gate command below through the `gate-digest` skill (`scr
    ```bash
    $PY scripts/validate_plan.py plans/<id> --audit plans/<id>/wave<N>-task<M>-<slice>.md --base <slice base sha>
    git -C .claude/worktrees/<id> merge --no-ff asdlc/<slice>     # local integration branch only
+   $PY scripts/devenv/agora_env.py up <id> --slices plans/<id>/slices.yaml --src .claude/worktrees/<id>
+   $PY scripts/devenv/agora_env.py e2e <id> <slice's .feature paths>
    ```
+   The initiative env `<id>` (its own compose project, images `:<id>`) is rebuilt after each merge;
+   only changed services are rebuilt and each rebuild replaces the previous image. A red slice
+   e2e goes back to the task that owns the scenario.
    Audit fail (files outside the write-set) → back to that slice's implementer, counts as a round.
    A merge conflict means the write-set analysis was wrong → STOP (human).
 4. **Converge** in `.claude/worktrees/<id>` (branch `asdlc/<id>`), all must pass:
    ```bash
    make -C platform-e2e features-check VENV=$ROOT/platform-e2e/.venv/bin/
-   (cd platform-e2e && HEADLESS=true $PY -m pytest -q)                 # full suite, not only the new scenarios
+   $PY scripts/devenv/agora_env.py e2e <id> <every slice's .feature paths>   # the full suite runs on main after merge (step 6)
    for s in <slices>; do $PY platform-e2e/scripts/spec_sync.py $s --strict; openspec validate $s --strict; done
    $PY scripts/asdlc/cross_change_check.py --slices plans/<id>/slices.yaml
    ```
    Plus the CI checks of every touched repo (read `.github/workflows/*` and the repo Makefiles).
    Plus the `docs-sync` skill on `main..asdlc/<id>` (READMEs match the landed code).
    Then ONE message: `feature-reviewer` per change (decide.py feature gate, advisory) and
-   `privacy-reviewer` for each change routed `pii`. A regression in an older scenario → the slice
-   whose diff caused it (bisect by merge commit) goes back into feature-run.
+   `privacy-reviewer` for each change routed `pii`.
 5. **STOP — human.** Present: wave table, per-slice task/round summary, converge gate table,
    feature-reviewer tables, privacy verdicts, `NEEDS_HUMAN` tags (auth/payment/pii/proto routing),
    and the archive order (= build order). The human decides merge of `asdlc/<id>`, push, and
    `openspec archive <slice>` per slice. Never do these yourself. Log `run_done`.
+6. **After the human merged** (main env = compose project `mainx`, like prod):
+   ```bash
+   $PY scripts/devenv/agora_env.py promote                 # rebuild only services changed since the last promote, recreate them, drop old images
+   $PY scripts/devenv/agora_env.py e2e main --all          # full regression on main
+   $PY scripts/devenv/agora_env.py down <id>               # initiative env: containers, volumes, :<id> images
+   ```
+   Then the `dev-cleanup` skill (slice and integration worktrees, branches, build cache). A
+   regression on main → fix forward or revert; bisect by merge commit to find the slice.
 
 ## Failure handling
 - `decide.py` `ENGINE_DOWN` / missing → reviewers use their own checklists (LLM fallback); the
   converge table shows `ENGINE_DOWN (LLM fallback)` per affected gate.
 - A slice escalates (3 rounds) → finish independent slices of the wave, hold its dependents,
   report at step 5 or earlier if nothing else can progress.
-- Local stack down → steps 1-3 continue up to unit level; step 4 stops with `e2e=not run (stack down)`.
+- Initiative env cannot start (`agora_env.py up` fails: missing main image, busy port) → steps 1-3
+  continue up to unit level; e2e is marked `e2e=not run (env down)`.
 - Spec defect found while building → do not patch the spec here; run `spec-clarify` (human),
   update LOCK.md digest only after the human re-approves that slice.
 

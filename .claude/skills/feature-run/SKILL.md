@@ -80,11 +80,15 @@ Run every test/coverage/gate command below through the `gate-digest` skill (`scr
       to the next task if it depends on this one.
 4. **Converge** (worktree), all must pass:
    ```bash
-   (cd .claude/worktrees/<change>/platform-e2e && HEADLESS=true $PY -m pytest -q <change's .feature paths>)
+   $PY scripts/devenv/agora_env.py up <change> --services <owner repos> --src .claude/worktrees/<change>
+   $PY scripts/devenv/agora_env.py e2e <change> --wt .claude/worktrees/<change> <change's .feature paths>
    make -C .claude/worktrees/<change>/platform-e2e features-check VENV=$ROOT/platform-e2e/.venv/bin/
    (cd .claude/worktrees/<change> && $PY platform-e2e/scripts/spec_sync.py <change> --strict)
    ```
-   A red here goes back to the task that owns the failing scenario (counts as a round of it).
+   Under initiative-build the slice's e2e runs on the initiative env after its merge instead
+   (initiative-build step 3), so skip the two `agora_env.py` lines here. A red here goes back to
+   the task that owns the failing scenario (counts as a round of it). After the human merges a
+   standalone change: `agora_env.py down <change>`.
    Then run the `docs-sync` skill on `<base>..HEAD` (READMEs match the landed code).
 5. **Feature gate.** Agent `feature-reviewer` (change id, worktree path, optional units file
    `<run>/<change>.feature-units.json` for `decide.py --gate gates/feature.v1.yaml --mode advisory`;
