@@ -109,7 +109,7 @@ make run          # python -m modelserve, http://localhost:8100/docs
 Direct runs need a reachable Redis and TEI (override `REDIS_URL`, `TEI_EMBED_URL`), or set
 `EMBED_CACHE_ENABLED=false` to skip Redis.
 
-Docker image: `Dockerfile` (python:3.12-slim, `EXPOSE 8100`, `HEALTHCHECK` on `/healthz`, runs
+Docker image: `Dockerfile` (python:3.12-alpine, `EXPOSE 8100`, `HEALTHCHECK` on `/healthz`, runs
 `python -m modelserve`).
 
 ## 6. Build, test and lint

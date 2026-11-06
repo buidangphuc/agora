@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Build stage: resolve deps into an isolated virtualenv
-FROM python:3.12-slim AS builder
+FROM python:3.12-alpine AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/tmp/uv-cache \
 # Proto stage: the gRPC stubs under app/transport/grpc/_pb are generated and not
 # committed, so a clean checkout has none. Generate them from the vendored proto/
 # contract with the grpcio-tools version pinned in uv.lock; kept out of the app venv.
-FROM python:3.12-slim AS protogen
+FROM python:3.12-alpine AS protogen
 ENV UV_CACHE_DIR=/tmp/uv-cache \
     UV_LINK_MODE=copy
 WORKDIR /src
@@ -35,14 +35,14 @@ COPY scripts/gen_proto.py ./scripts/gen_proto.py
 RUN python -m scripts.gen_proto
 
 # Runtime stage: minimal image, non-root, healthcheck
-FROM python:3.12-slim AS runtime
+FROM python:3.12-alpine AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:${PATH}"
 
-RUN groupadd --system --gid 1001 app \
-    && useradd --system --uid 1001 --gid app --home-dir /app --shell /sbin/nologin app
+RUN addgroup -S -g 1001 app \
+    && adduser -S -u 1001 -G app -h /app -s /sbin/nologin app
 
 WORKDIR /app
 

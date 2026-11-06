@@ -1,6 +1,6 @@
 # Fault-injecting OpenAI-compatible fake provider (change ai-path-resilience, design D8).
 # Build context: platform-e2e/fakes/llm_fake
-FROM python:3.12-slim
+FROM python:3.12-alpine
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY server.py .

@@ -4,7 +4,7 @@
 # for generated/), or add a proto stage that runs `buf generate` in-image.
 
 # ── Builder: resolve + install deps into a venv ───────────────────────────────
-FROM python:3.12-slim AS builder
+FROM python:3.12-alpine AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
@@ -22,8 +22,8 @@ RUN uv sync --no-dev --no-install-project
 COPY . .
 RUN uv sync --no-dev
 
-# ── Runtime: slim, non-root ───────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+# ── Runtime: alpine, non-root ───────────────────────────────────────────────────
+FROM python:3.12-alpine AS runtime
 
 # gRPC health probe port. Keep in sync with GRPC_PORT.
 ENV GRPC_PORT=50052 \
@@ -32,8 +32,8 @@ ENV GRPC_PORT=50052 \
     PYTHONDONTWRITEBYTECODE=1
 
 # Dedicated unprivileged user.
-RUN groupadd --gid 1001 app \
-    && useradd --uid 1001 --gid 1001 --no-create-home --shell /usr/sbin/nologin app
+RUN addgroup -g 1001 app \
+    && adduser -D -H -u 1001 -G app -s /sbin/nologin app
 
 WORKDIR /app
 
