@@ -40,10 +40,11 @@ migrate:
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50055; only the
-# edge (team-gateway) and two gRPC peers may reach OrderService/CartService:
+# edge (team-gateway) and three gRPC peers may reach OrderService/CartService:
 # team-payment (GetOrder before creating/settling a payment; settlement itself is
-# event-carried, AD4) and team-engagement (GetOrderParties for order-bound reviews).
+# event-carried, AD4), team-engagement (GetOrderParties for order-bound reviews) and
+# team-promotion (HasCompletedOrder for new_user_only vouchers).
 # Deployed envs only (local exempt per ADR-0010).
 networkPolicy:
   enabled: true
-  allowFrom: [team-gateway, team-payment, team-engagement]
+  allowFrom: [team-gateway, team-payment, team-engagement, team-promotion]

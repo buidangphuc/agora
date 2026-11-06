@@ -12,6 +12,7 @@ Implement OpenSpec change `promotion-new-user-vouchers` test-first per its tasks
 - team-promotion/internal/**
 - team-promotion/cmd/**
 - team-promotion/README.md
+- team-promotion/.env.example
 - team-promotion/go.mod
 - team-promotion/go.sum
 - team-promotion/FEATURES.yaml

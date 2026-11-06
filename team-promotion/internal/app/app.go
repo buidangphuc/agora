@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/flags"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
@@ -20,6 +22,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-promotion/internal/config"
+	"github.com/buidangphuc/team-promotion/internal/consumer"
 	"github.com/buidangphuc/team-promotion/internal/events"
 	"github.com/buidangphuc/team-promotion/internal/flashsale"
 	"github.com/buidangphuc/team-promotion/internal/rpc"
@@ -38,6 +41,14 @@ const (
 	holdPurgeInterval  = 24 * time.Hour
 	holdRetention      = 30 * 24 * time.Hour
 	idemPurgeInterval  = time.Hour
+	newUserPurgeEvery  = 24 * time.Hour
+	consumeMaxAttempts = 3
+	identityTopic      = "identity.events"
+	referralTopic      = "referral.events"
+	identityGroup      = "team-promotion-identity"
+	referralGroup      = "team-promotion-referral"
+	identityDLQTopic   = "identity.events.promotion.dlq"
+	referralDLQTopic   = "referral.events.promotion.dlq"
 	closeGrace         = 2 * time.Second
 	auditScope         = "audit.write"
 	auditServicePrefix = "service-"
@@ -111,7 +122,18 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 
 	holds := store.NewPostgresFlashHoldRepository(pool)
 	campaigns := store.NewPostgresFlashSaleRepository(pool, outStore)
-	voucherSvc := voucher.New(store.NewPostgresVoucherRepository(pool, outStore), store.NewPostgresReservationRepository(pool), gate, voucherEvent, logger)
+	var orders voucher.OrderClient
+	if s.Upstream.OrderAddr != "" {
+		orderClient, err := upstream.NewOrderClient(s.Upstream.OrderAddr, s.Upstream.OrderTimeout)
+		if err != nil {
+			return err
+		}
+		stack.Push(func(context.Context) error { return orderClient.Close() })
+		orders = orderClient
+	}
+	voucherSvc := voucher.New(store.NewPostgresVoucherRepository(pool, outStore), store.NewPostgresReservationRepository(pool), gate, voucherEvent, logger).
+		WithOrderClient(orders).
+		WithReservationTTL(s.NewUser.ReservationTTL)
 	flashSvc := flashsale.New(campaigns, holds, evaluator, listings, gate, campaignEvent, logger)
 	subSvc := subscription.New(store.NewPostgresSubscriptionRepository(pool), logger)
 	adSvc := sponsored.New(store.NewPostgresAdCampaignRepository(pool), listings, gate, logger).WithLimits(s.Ads.MaxBid, s.Ads.MaxBudget)
@@ -165,6 +187,40 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		return err
 	}
 
+	nu := s.NewUser
+	handlerCfg := consumer.Config{
+		WelcomeAmount:  nu.WelcomeAmount,
+		InvitedAmount:  nu.InvitedAmount,
+		MinSpend:       nu.MinSpend,
+		VoucherTTL:     nu.VoucherTTL,
+		VerdictTimeout: nu.VerdictTimeout,
+		SweepInterval:  nu.SweepInterval,
+		Logger:         logger,
+	}
+	identityConsumer, err := newConsumer(s, &stack, pub, logger, identityGroup, identityTopic, identityDLQTopic,
+		consumer.NewIdentityHandler(pool, handlerCfg))
+	if err != nil {
+		return err
+	}
+	referralConsumer, err := newConsumer(s, &stack, pub, logger, referralGroup, referralTopic, referralDLQTopic,
+		consumer.NewReferralHandler(pool, handlerCfg))
+	if err != nil {
+		return err
+	}
+	verdictSweeper := consumer.NewSweeper(pool, handlerCfg)
+
+	newUserPurge, err := lifecycle.Every(newUserPurgeEvery, func(ctx context.Context) error {
+		n, err := consumer.Purge(ctx, pool, time.Now())
+		if err != nil {
+			return err
+		}
+		logger.InfoContext(ctx, "purged new-user voucher bookkeeping", "deleted", n)
+		return nil
+	}, lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		return err
+	}
+
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace + 2*closeGrace,
 		CloseGrace:    closeGrace,
@@ -172,5 +228,18 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, outboxPurge, holdPurge, idemPurge))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, outboxPurge, holdPurge, idemPurge, identityConsumer, referralConsumer, verdictSweeper, newUserPurge))
+}
+
+func newConsumer(s config.Settings, stack *lifecycle.Stack, dlq consume.DLQProducer, logger *slog.Logger, group, topic, dlqTopic string, handler consume.Handler) (*consume.Consumer, error) {
+	client, err := kafkax.NewConsumerClient(s.Kafka, group, []string{topic}, kgo.AllowAutoTopicCreation())
+	if err != nil {
+		return nil, fmt.Errorf("kafka: %w", err)
+	}
+	stack.Push(func(context.Context) error { client.Close(); return nil })
+	c, err := consume.NewConsumer(client, handler, dlq, consume.Options{DLQTopic: dlqTopic, MaxAttempts: consumeMaxAttempts, Logger: logger})
+	if err != nil {
+		return nil, fmt.Errorf("kafka consumer %s: %w", group, err)
+	}
+	return c, nil
 }

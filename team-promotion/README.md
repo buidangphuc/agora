@@ -18,11 +18,12 @@ these into a principal; each RPC handler in `internal/rpc` enforces its own rule
 
 | Service / RPC | Authorization (as implemented) |
 |---|---|
-| `VoucherService/CreateVoucher` | Principal required. Scope `PLATFORM` (and unspecified) needs `admin`. Scope `SHOP` needs `listing.write` or `admin`; `seller_id` is forced to the caller's id. |
-| `VoucherService/GetVoucher` | None (public read by code). |
-| `VoucherService/ListVouchers` | None. Filters by `seller_id` from the request (empty = platform). |
+| `VoucherService/CreateVoucher` | Principal required. Scope `PLATFORM` (and unspecified) needs `admin`. Scope `SHOP` needs `listing.write` or `admin`; `seller_id` is forced to the caller's id. `per_user_limit` outside 0..1000 is `InvalidArgument`; the voucher is always `VOUCHER_KIND_STANDARD` with no owner. |
+| `VoucherService/GetVoucher` | None (public read by code). A user-bound voucher (`owner_user_id` set) is readable only by its owner; anyone else, anonymous included, gets `NotFound`. |
+| `VoucherService/ListVouchers` | None. Filters by `seller_id` from the request (empty = platform). User-bound vouchers are never listed. |
+| `VoucherService/ListMyVouchers` | Any signed-in principal, no scope; `Unauthenticated` for anonymous. The caller's own usable vouchers (active, started, not expired, not used up), soonest expiry first, at most 50. |
 | `VoucherService/DeactivateVoucher` | Scope `admin`. Writes a `voucher.deactivate` audit event first (fail-closed, `Unavailable` with `ErrorInfo` `promotion.platform/AUDIT_UNAVAILABLE`), then sets `active = false`; idempotent (keeps the first `deactivated_at`). An inactive voucher is refused by `ValidateAndReserve` (`internal/voucher/voucher.go:350`). |
-| `VoucherService/UpdateVoucher` | Scope `admin`. Only `ends_at` (must be in the future and after `starts_at`) and `quota` (positive, never lowered, not on an unlimited voucher) change; nothing to change is `InvalidArgument`, an inactive voucher `FailedPrecondition`. Audited as `voucher.update` (fail-closed) (`internal/voucher/voucher.go:173`). |
+| `VoucherService/UpdateVoucher` | Scope `admin`. Only `ends_at` (must be in the future and after `starts_at`), `quota` (positive, never lowered, not on an unlimited voucher), `per_user_limit` (0..1000) and `new_user_only` change; the last two are `InvalidArgument` on a `VOUCHER_KIND_NEW_USER` voucher, and `owner_user_id` and `kind` are server-owned; nothing to change is `InvalidArgument`, an inactive voucher `FailedPrecondition`. Audited as `voucher.update` (fail-closed) (`internal/voucher/voucher.go:173`). |
 | `VoucherService/ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | `Commit`/`Release`: SERVICE principal holding `promotion.reserve` only (user/admin tokens are `PermissionDenied`). `ValidateAndReserve` is dual-mode: a SERVICE principal with `promotion.reserve` is trusted (request `buyer_id`/`seller_id` honoured); any other authenticated principal gets `buyer_id` forced to its own id and `reservation_id` must start `preview:<its id>:` (else `PermissionDenied`), so a preview hold can never be committed. |
 | `FlashSaleService/CreateCampaign` | Principal required plus `listing.write` or `admin`. Non-admins must own the listing: team-domain `GetListing` (as the caller) must return `seller_id` equal to the caller id. Foreign listing is `PermissionDenied`, unknown listing `InvalidArgument`, lookup failure or `UPSTREAM_DOMAIN_ADDR` unset is `Unavailable` (fails closed, `ErrorInfo` `promotion.platform/LISTING_UNAVAILABLE`). `sale_price` and `stock_cap` must be positive, `ends_at` after `starts_at` and in the future, and `sale_price` below the listing price. Admins must send an `idempotency_key` (8-64 of `[A-Za-z0-9_-]`): a replay with the same payload returns the first campaign, a different payload is `AlreadyExists`; the admin path now also looks the listing up (no owner check) (`internal/flashsale/flashsale.go`, `internal/rpc/flashsale.go`). |
 | `FlashSaleService/GetActiveFlashSale`, `ListActiveCampaigns`, `GetFlashSaleStock` | None (public reads). `ListActiveCampaigns` sets `flash_sale_disabled` when the kill-switch is off. |
@@ -38,7 +39,7 @@ these into a principal; each RPC handler in `internal/rpc` enforces its own rule
 
 Also served: `grpc.health.v1.Health` (services `liveness` and `postgres`) and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default false, only allowed when `ENV` is `local` or `test`).
 
-**Consumes:** team-domain `ListingService/GetListing` (vendored `platform/listing/v1`), called with the
+**Consumes:** team-order `OrderService/HasCompletedOrder` (service principal `service-team-promotion`, scope `order.read`, `UPSTREAM_ORDER_ADDR`) for `new_user_only` vouchers; any error, timeout or refusal is `Unavailable` (fail closed). Kafka `identity.events` (`UserRegistered`) and `referral.events` (`ReferralAttributed`, `ReferralRejected`) issue one `VOUCHER_KIND_NEW_USER` voucher per account (see [New-user vouchers](#new-user-vouchers)). team-domain `ListingService/GetListing` (vendored `platform/listing/v1`), called with the
 caller's forwarded principal, to verify listing ownership in `CreateCampaign` (`UPSTREAM_DOMAIN_ADDR`).
 It also reads the principal metadata and depends on Postgres, Kafka and Flipt (below). In the root compose, `team-order` and `team-gateway` set
 `UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061`.
@@ -50,6 +51,12 @@ quota (`used < quota`) and, for shop vouchers, that the voucher `seller_id` equa
 `vouchers.used` once. `ReleaseReservation` frees an uncommitted hold. Discount: percent =
 `subtotal*value/100` capped by `max_discount` (when > 0); fixed = `value`; always clamped to
 `[0, subtotal]`.
+
+Per-user rules: after the idempotent-replay check, `ValidateAndReserve` refuses with `valid=false` and reason `VOUCHER_NOT_ELIGIBLE` when the voucher has an owner other than the buyer, or when `new_user_only` is set and the buyer has a completed order; and with `VOUCHER_PER_USER_LIMIT` when `per_user_limit > 0` and the buyer already has that many committed or unexpired reserved holds. The per-user count and the hold insert share one transaction under an advisory lock per (voucher, buyer). These run before the global quota check. A hold expires `VOUCHER_RESERVATION_TTL` after it is created (`voucher_reservations.expires_at`) and then stops counting; committed holds always count. An unavailable `HasCompletedOrder` is gRPC `UNAVAILABLE`; no hold is made.
+
+## New-user vouchers
+
+`internal/consumer` consumes `identity.events` and `referral.events` (groups `team-promotion-identity` and `team-promotion-referral`, DLQ topics `identity.events.promotion.dlq` and `referral.events.promotion.dlq` after 3 attempts, malformed events are permanent failures). Each account gets at most one `VOUCHER_KIND_NEW_USER` voucher: a fixed, platform-scoped, single-quota, `per_user_limit` 1 voucher bound to the account, valid for `NEW_USER_VOUCHER_TTL` from issue. `UserRegistered` without a referral code issues the welcome voucher (`NEW_USER_WELCOME_AMOUNT`). With a code it waits for the referral verdict: `ReferralAttributed` issues the invited voucher (`NEW_USER_INVITED_AMOUNT`), `ReferralRejected` issues the welcome voucher, and a verdict that arrives before the registration is kept and used. If no verdict arrives within `NEW_USER_VERDICT_TIMEOUT` the sweeper (every `NEW_USER_VERDICT_SWEEP_INTERVAL`) issues the welcome voucher; a later verdict changes nothing. Processed event ids (`promotion_processed_events`) make redelivery a no-op; issued bookkeeping older than 30 days is purged daily. NEW_USER vouchers emit no `VoucherChanged`, and logs carry only fingerprints.
 
 `ValidateAndReserveResponse.scope` and `seller_id` echo the voucher's scope and owning seller on the valid, rejected and idempotent-replay paths. `scope` is `VOUCHER_SCOPE_SHOP` with `seller_id` set for shop vouchers, and the stored scope (`VOUCHER_SCOPE_PLATFORM`, or unspecified if it was created without one) with an empty `seller_id` for platform vouchers. Both are empty (unspecified scope, empty `seller_id`) when the code matches no voucher, or when a replayed `reservation_id` has no stored voucher.
 
@@ -63,7 +70,8 @@ ADR-0016 layout under `internal/`:
 | `internal/config` | settings (SDK `config.Load`) |
 | `internal/store` | Postgres stores and embedded migrations |
 | `internal/events` | event envelopes written to the outbox |
-| `internal/upstream` | team-audit and team-domain clients |
+| `internal/upstream` | team-audit, team-domain and team-order clients |
+| `internal/consumer` | new-user voucher issuance from identity and referral events, verdict sweeper, purge |
 | `internal/listing` | listing ownership check |
 | `internal/voucher` | voucher rules and discount arithmetic |
 | `internal/flashsale` | flash-sale campaigns and stock holds |
@@ -135,6 +143,15 @@ Startup fails when a required key is missing or invalid.
 | `MAX_AD_BID` | `1000000` | Upper bound on a sponsored ad bid; larger is `InvalidArgument` |
 | `MAX_AD_BUDGET` | `1000000000` | Upper bound on an ad campaign budget; larger is `InvalidArgument` |
 | `UPSTREAM_DOMAIN_ADDR` | none | required. team-domain gRPC address (`team-domain-svc:50051` in compose) |
+| `UPSTREAM_ORDER_ADDR` | none | team-order gRPC address (`team-order-svc:50055` in compose). Unset does not stop boot; `new_user_only` checks then fail closed with `Unavailable` |
+| `UPSTREAM_ORDER_TIMEOUT` | `500ms` | per-call bound for `HasCompletedOrder` |
+| `NEW_USER_WELCOME_AMOUNT` | `20000` | welcome voucher discount, must be > 0 |
+| `NEW_USER_INVITED_AMOUNT` | `30000` | invited voucher discount, must be > 0 |
+| `NEW_USER_MIN_SPEND` | `100000` | minimum subtotal of new-user vouchers, >= 0 |
+| `NEW_USER_VOUCHER_TTL` | `336h` | validity of an issued new-user voucher, must be > 0 |
+| `NEW_USER_VERDICT_TIMEOUT` | `30m` | wait for a referral verdict before issuing the welcome voucher |
+| `NEW_USER_VERDICT_SWEEP_INTERVAL` | `1m` | sweeper period |
+| `VOUCHER_RESERVATION_TTL` | `15m` | lifetime of a reserved hold for per-user counting |
 
 The only flag is `flash-sale-enabled` (fail-open, default true). Switched off, it makes
 `GetActiveFlashSale` and `ListActiveCampaigns` return nothing; `ListActiveCampaigns` and `ListCampaigns` report it in `flash_sale_disabled`.

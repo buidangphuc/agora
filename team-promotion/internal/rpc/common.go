@@ -150,6 +150,10 @@ func voucherToProto(v store.Voucher) *promotionv1.Voucher {
 		EndsAt:        protoTime(v.EndsAt),
 		Active:        v.Active,
 		DeactivatedAt: protoTime(v.DeactivatedAt),
+		OwnerUserId:   v.OwnerUserID,
+		Kind:          promotionv1.VoucherKind(v.Kind),
+		PerUserLimit:  v.PerUserLimit,
+		NewUserOnly:   v.NewUserOnly,
 	}
 }
 
