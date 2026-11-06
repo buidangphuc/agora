@@ -67,3 +67,6 @@ No raw code or user id goes to logs or analytics; `trackEcommerce("referral_rede
   (4) Register must not leak whether a code exists: the UI never shows a verdict. (5) Click inflation: out of scope (team-sharing).
 - Authz rule: `/s/<code>` and `/register` are public; "Chia sẻ link mời" and the redeem form require the signed-in buyer (guest is sent to
   login with the existing `redirectGuestToLogin("/account/referral")`); xu totals are the caller's own (`GetMyReferral`).
+
+## Clarifications
+- 2026-11-06 (Bùi Đăng Phúc, converge): S18 conflicted with the referral-service requirement that `ListReferralRewards` omits VOID rewards. The service spec wins: the referral page lists PENDING and RELEASED rewards only; a voided reward is neither listed nor counted.

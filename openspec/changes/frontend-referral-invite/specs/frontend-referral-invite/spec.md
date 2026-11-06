@@ -101,9 +101,9 @@ It SHALL show `pending_xu` as "Xu đang chờ", `released_xu` as "Xu đã nhận
 - **THEN** the system SHALL render "Xu đang chờ" as `10.000 xu` and "Xu đã nhận" as `20.000 xu`, and the page SHALL contain no "đ" currency amount
 
 #### Scenario: S18 Reward timeline statuses
-- **WHEN** `ListReferralRewards` returns one PENDING reward (release_at set), one RELEASED and one VOID
-- **THEN** the system SHALL show badges "Đang chờ" with "Dự kiến nhận: <release_at>" formatted dd/MM/yyyy in vi-VN and Asia/Ho_Chi_Minh, "Đã nhận" and "Đã hủy" respectively
-- **AND** the VOID reward amount SHALL be rendered struck through and not added to any total
+- **WHEN** `ListReferralRewards` returns PENDING rewards (release_at set) and RELEASED rewards, and the inviter also has a VOID reward that the service omits from the list
+- **THEN** the system SHALL show one row per listed reward: "Đang chờ" with "Dự kiến nhận: <release_at>" formatted dd/MM/yyyy in vi-VN and Asia/Ho_Chi_Minh for each PENDING reward, and "Đã nhận" for each RELEASED reward
+- **AND** the VOID reward SHALL appear neither in the timeline nor in any total
 
 #### Scenario: S19 No rewards (boundary)
 - **WHEN** `GetMyReferral` returns zero for both totals and the list is empty

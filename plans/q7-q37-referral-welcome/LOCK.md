@@ -11,7 +11,7 @@ spec: plans/q7-q37-referral-welcome/00-spec.md (Locked 2026-11-06, Clarification
 | identity-user-registered | team-identity | [contract] | 2 | pass | pass (2 PERM warnings accepted) | pass | ENGINE_DOWN (LLM fallback) | 6edb6eb22ac5 | [x] |
 | order-has-completed-order | team-order | [contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 82539d6485ca | [x] |
 | referral-attribution-reward | team-referral | [contract, identity-user-registered] | 2 | pass | pass (2 PERM warnings accepted) | pass | ENGINE_DOWN (LLM fallback) | fcf250eec794 | [x] |
-| frontend-referral-invite | team-frontend | [referral-attribution-reward] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6bcecad50d00 | [x] |
+| frontend-referral-invite | team-frontend | [referral-attribution-reward] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | e7167fb2b231 | [x] |
 | promotion-new-user-vouchers | team-promotion | [contract, identity-user-registered, referral-attribution-reward, order-has-completed-order] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 63a13632a561 | [x] |
 | frontend-welcome-checklist | team-frontend | [promotion-new-user-vouchers, frontend-referral-invite] | 2 | pass | pass | pass (round 1 fail fixed) | ENGINE_DOWN (LLM fallback) | 2912e5099f45 | [x] |
 
@@ -40,3 +40,4 @@ pass (`cross_change_check: OK`, after renaming to AuthService.Register, AddressS
 - Contract note: `ValidateAndReserveResponse.reason` becomes a stable machine code for `VOUCHER_NOT_ELIGIBLE` / `VOUCHER_PER_USER_LIMIT` (C3); checkout saga unchanged.
 - Routed risk: proto (contract), pii (identity, referral, promotion), auth (GetMyAccount + ListMyVouchers gateway routes; HasCompletedOrder must stay unrouted).
 - Remaining MINOR reviewer notes (non-blocking) are left to the e2e/test authors: identity wording at spec.md:89/104 and task 1.2 min length; contract C5 line in RedeemReferral comment; promotion DLQ case for referral.events; frontend-welcome design.md 1-hour note and W17 wording.
+- Re-approved 2026-11-06 (Bùi Đăng Phúc, converge): frontend-referral-invite S18 rewritten — VOID rewards are not listed (referral-service spec wins); digest 6bcecad50d00 → e7167fb2b231.

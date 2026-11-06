@@ -241,7 +241,7 @@ describe("/account/referral xu totals and statuses", () => {
     expect(container.textContent ?? "").not.toMatch(/\d\s*[đ₫]/i);
   });
 
-  it("S18 shows a status badge per reward with release date, and strikes through VOID", async () => {
+  it("S18 shows one status badge per listed reward with release date and no VOID row", async () => {
     vi.mocked(getMyReferral).mockResolvedValue({
       ...baseReferral,
       pendingXu: 10000,
@@ -264,16 +264,8 @@ describe("/account/referral xu totals and statuses", () => {
         status: "RELEASED",
         releaseAt: "",
       },
-      {
-        id: "v",
-        amount: 30000,
-        reason: "Thưởng hủy",
-        createdAt: "03/11",
-        status: "VOID",
-        releaseAt: "",
-      },
     ]);
-    render(await ReferralPage());
+    const { container } = render(await ReferralPage());
 
     const pending = screen.getByText("Thưởng chờ").closest("li") as HTMLElement;
     expect(within(pending).getByText("Đang chờ")).toBeInTheDocument();
@@ -287,13 +279,10 @@ describe("/account/referral xu totals and statuses", () => {
     expect(within(released).getByText("Đã nhận")).toBeInTheDocument();
     expect(within(released).queryByText(/Dự kiến nhận/)).toBeNull();
 
-    const voided = screen.getByText("Thưởng hủy").closest("li") as HTMLElement;
-    expect(within(voided).getByText("Đã hủy")).toBeInTheDocument();
-    const amount = within(voided).getByText(/30\.000 xu/);
-    const struck =
-      amount.closest("del, s, .line-through") ??
-      (amount.className.includes("line-through") ? amount : null);
-    expect(struck).not.toBeNull();
+    expect(screen.getAllByText("Đang chờ")).toHaveLength(1);
+    expect(screen.getAllByText("Đã nhận")).toHaveLength(1);
+    expect(screen.queryByText("Đã hủy")).toBeNull();
+    expect(container.querySelector("del, s, .line-through")).toBeNull();
     expect(within(pending).getByText(/10\.000 xu/)).toBeInTheDocument();
   });
 

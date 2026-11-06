@@ -250,7 +250,13 @@ def _shop(world: World) -> dict[str, Any]:
     return ex["ri_shop"]
 
 
-def _invitee_order(world: World, inviter: dict[str, Any], *, ret: bool) -> str:
+def _invitee_order(
+    world: World,
+    inviter: dict[str, Any],
+    *,
+    ret: bool,
+    before_return: Callable[[], None] | None = None,
+) -> str:
     before = _invited(inviter["token"])
     username = fake.unique_username("ri_invitee")
     token = _register_api(username, inviter["code"])
@@ -288,6 +294,8 @@ def _invitee_order(world: World, inviter: dict[str, Any], *, ret: bool) -> str:
     )
     d2.ship_order(shop, order_id, complete=True)
     if ret:
+        if before_return:
+            before_return()
         orders.create_return_request(order_id, "defective", 120_000)
     return order_id
 
@@ -698,28 +706,33 @@ def inviter_with_pending(world: World) -> None:
     login_via_api(world, user)
 
 
-@given("an inviter with one released, one pending and one void reward")
+@given(
+    "an inviter with two released rewards, one pending reward held by the daily cap "
+    "and one voided reward"
+)
 def inviter_three_states(world: World) -> None:
     inviter = _make_inviter(world, "ri_inviter")
-    _invitee_order(world, inviter, ret=False)
-    _wait_reward_count(inviter, 1)
+    for n in (1, 2, 3):
+        _invitee_order(world, inviter, ret=False)
+        _wait_reward_count(inviter, n)
     _until(
-        lambda: _int(_referral(inviter["token"]).get("releasedXu")) > 0,
+        lambda: (
+            sorted(_status(r) for r in _rewards(inviter["token"]))
+            == ["PENDING", "RELEASED", "RELEASED"]
+        ),
         timeout_s=RELEASE_WAIT_S,
-        what="the first reward to be released (needs a short RETURN_WINDOW on the stack)",
+        what="two rewards released and one held by the daily cap (needs the referral-reward overlay)",
         interval_s=2.0,
     )
-    _invitee_order(world, inviter, ret=False)
-    _wait_reward_count(inviter, 2)
-    _invitee_order(world, inviter, ret=True)
-    _wait_reward_count(inviter, 3)
+    _invitee_order(world, inviter, ret=True, before_return=lambda: _wait_reward_count(inviter, 4))
     _until(
-        lambda: any(_status(r) == "VOID" for r in _rewards(inviter["token"])),
+        lambda: len(_rewards(inviter["token"])) == 3,
         timeout_s=ATTRIBUTION_WAIT_S,
-        what="the returned order's reward to be VOID",
+        what="the returned order's reward to be voided and dropped from the list",
     )
-    statuses = sorted(_status(r) for r in _rewards(inviter["token"]))
-    assert statuses == ["PENDING", "RELEASED", "VOID"], statuses
+    time.sleep(SETTLE_S)
+    rewards = _rewards(inviter["token"])
+    assert sorted(_status(r) for r in rewards) == ["PENDING", "RELEASED", "RELEASED"], rewards
     user = User(username=inviter["username"], password=SETTINGS.seed_password, role="buyer")
     login_via_api(world, user)
 
@@ -788,10 +801,17 @@ def no_dong(world: World) -> None:
     assert "₫" not in body
 
 
-@then('the timeline shows the badges "Đang chờ", "Đã nhận" and "Đã hủy" once each')
-def badges_once(world: World) -> None:
-    for badge in ("Đang chờ", "Đã nhận", "Đã hủy"):
-        expect(world.page.get_by_text(badge, exact=True)).to_have_count(1, timeout=timeouts.DEFAULT)
+@then('the timeline shows "Đang chờ" once, "Đã nhận" once per released reward and no "Đã hủy"')
+def badges_listed(world: World) -> None:
+    rewards = _rewards(_inviter(world)["token"])
+    released = sum(1 for r in rewards if _status(r) == "RELEASED")
+    expect(world.page.get_by_text("Đang chờ", exact=True)).to_have_count(
+        1, timeout=timeouts.DEFAULT
+    )
+    expect(world.page.get_by_text("Đã nhận", exact=True)).to_have_count(
+        released, timeout=timeouts.DEFAULT
+    )
+    expect(world.page.get_by_text("Đã hủy", exact=True)).to_have_count(0)
 
 
 @then(
@@ -805,13 +825,13 @@ def pending_release_date(world: World) -> None:
     expect(world.page.get_by_text(f"Dự kiến nhận: {day}")).to_be_visible(timeout=timeouts.DEFAULT)
 
 
-_STRIKE_JS = """() => {
+_AMOUNT_JS = """() => {
   const amount = /^\\+?\\s*\\d[\\d.]*\\s*xu$/;
   const all = Array.from(document.querySelectorAll('body *'));
-  const out = {};
-  for (const badge of ['Đang chờ', 'Đã nhận', 'Đã hủy']) {
-    const el = all.find(e => e.children.length === 0 && e.textContent.trim() === badge);
-    if (!el) { out[badge] = null; continue; }
+  const out = [];
+  for (const el of all) {
+    const badge = el.textContent.trim();
+    if (el.children.length !== 0 || !['Đang chờ', 'Đã nhận', 'Đã hủy'].includes(badge)) continue;
     let item = el;
     let leaf = null;
     while (item && !leaf) {
@@ -819,27 +839,30 @@ _STRIKE_JS = """() => {
         e => e.children.length === 0 && amount.test(e.textContent.trim()));
       if (!leaf) item = item.parentElement;
     }
-    if (!leaf) { out[badge] = null; continue; }
     let struck = false;
-    for (let n = leaf; n && n !== item.parentElement; n = n.parentElement) {
+    for (let n = leaf; n && item && n !== item.parentElement; n = n.parentElement) {
       if (getComputedStyle(n).textDecorationLine.includes('line-through')) struck = true;
     }
-    out[badge] = struck;
+    out.push({ badge, amount: leaf ? leaf.textContent.trim() : null, struck });
   }
   return out;
 }"""
 
 
-@then("exactly the void reward amount is struck through")
-def void_struck(world: World) -> None:
-    struck = world.page.evaluate(_STRIKE_JS)
-    assert struck == {"Đang chờ": False, "Đã nhận": False, "Đã hủy": True}, struck
+@then("the listed rows are exactly the released and pending rewards, none struck through")
+def rows_match_list(world: World) -> None:
+    rewards = _rewards(_inviter(world)["token"])
+    badge = {"PENDING": "Đang chờ", "RELEASED": "Đã nhận"}
+    want = sorted((badge[_status(r)], _int(r.get("amount"))) for r in rewards)
+    rows = world.page.evaluate(_AMOUNT_JS)
+    got = sorted((row["badge"], int(re.sub(r"\D", "", row["amount"] or "0"))) for row in rows)
+    assert got == want, (got, want)
+    assert not any(row["struck"] for row in rows), rows
 
 
-@then('"Xu đang chờ" counts only the pending reward and "Xu đã nhận" only the released reward')
+@then('"Xu đang chờ" counts only the pending reward and "Xu đã nhận" only the released rewards')
 def totals_exclude_void(world: World) -> None:
     rewards = _rewards(_inviter(world)["token"])
-    assert _sum(rewards, "VOID") > 0, rewards
     _assert_stat(world, "Xu đang chờ", _sum(rewards, "PENDING"))
     _assert_stat(world, "Xu đã nhận", _sum(rewards, "RELEASED"))
 

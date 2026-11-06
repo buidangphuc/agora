@@ -125,12 +125,12 @@ Feature: Invite link, referral cookie, register attribution and xu rewards (fron
     And the page contains no đ currency amount
 
   Scenario: S18 Reward timeline statuses
-    Given an inviter with one released, one pending and one void reward
+    Given an inviter with two released rewards, one pending reward held by the daily cap and one voided reward
     When the inviter opens the referral page
-    Then the timeline shows the badges "Đang chờ", "Đã nhận" and "Đã hủy" once each
+    Then the timeline shows "Đang chờ" once, "Đã nhận" once per released reward and no "Đã hủy"
     And the pending reward shows "Dự kiến nhận:" with its release date as dd/MM/yyyy in Asia/Ho_Chi_Minh
-    And exactly the void reward amount is struck through
-    And "Xu đang chờ" counts only the pending reward and "Xu đã nhận" only the released reward
+    And the listed rows are exactly the released and pending rewards, none struck through
+    And "Xu đang chờ" counts only the pending reward and "Xu đã nhận" only the released rewards
 
   Scenario: S19 No rewards (boundary)
     Given a signed-in inviter with a referral code and clipboard access
