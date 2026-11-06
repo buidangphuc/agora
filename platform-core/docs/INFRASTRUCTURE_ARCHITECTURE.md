@@ -58,15 +58,15 @@ Môi trường Local được đóng gói đầy đủ trong `platform-core/infr
 |---|---|---|---|
 | **`kafka-ui`** | `provectuslabs/kafka-ui:v0.7.2` | `:8088` | Giao diện web trực quan để soi topic, message payload và consumer lag |
 | **`jaeger`** | `jaegertracing/all-in-one:1.57` | `:16686` | Web UI xem Distributed Tracing xuyên suốt Gateway $\rightarrow$ Services $\rightarrow$ Kafka |
-| **`prometheus`** | `prom/prometheus:v2.52.0` | `:9090` | Thu thập time-series metrics từ OTel Collector & Redpanda |
+| **`prometheus`** | `prom/prometheus:v2.55.1` | `:9090` | Thu thập time-series metrics từ OTel Collector & Redpanda |
 | **`grafana`** | `grafana/grafana:11.0.0` | `:3001` | Dashboard trực quan hóa RPS, Latency p95/p99, Error rate, JVM/Go runtime |
 | **`otel-collector`** | `otel/opentelemetry-collector-contrib:0.104.0` | `:4317, :4318` | Ingestion collector tiếp nhận OTLP Traces & Metrics từ tất cả services |
-| **`redpanda`** | `redpandadata/redpanda:v24.1.7` | `:19092, :9644` | Kafka-compatible event streaming broker |
+| **`redpanda`** | `redpandadata/redpanda:v24.2.7` | `:19092, :9644` | Kafka-compatible event streaming broker |
 | **`rabbitmq`** | `rabbitmq:3-management` | `:5672, :15672` | Task queue broker (cho background jobs) |
-| **`opensearch`** | `opensearchproject/opensearch:2.15.0` | `:9200` | Search read-model engine |
+| **`opensearch`** | `opensearchproject/opensearch:2.19.5` | `:9200` | Search read-model engine |
 | **`minio`** | `minio/minio:RELEASE.2024-05-28T17-19-04Z` | `:9000, :9001` | S3-compatible Object Storage lưu ảnh sản phẩm |
 | **`qdrant`** | `qdrant/qdrant:v1.19.0` | `:6333, :6334` | Vector Database cho tìm kiếm tương đồng AI |
-| **`redis`** | `redis:7-alpine` | `:6379` | L2 Distributed Cache & Session Store |
+| **`redis`** | `redis:7.4.11-alpine` | `:6379` | L2 Distributed Cache & Session Store |
 | **postgres** (1 instance) | `postgres:16-alpine` | `:5432` | Database-per-service: `postgres-init` tạo một DB và role riêng cho mỗi service |
 
 ---

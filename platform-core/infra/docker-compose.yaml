@@ -8,7 +8,7 @@ name: platform-core
 services:
   # ── SHARED INFRA — every service may connect ──────────────────────────
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine
     ports: ["6379:6379"]
     volumes:
       - redis_data:/data
@@ -132,7 +132,7 @@ services:
   # Redpanda: Kafka-API compatible, no JVM/ZooKeeper. Code uses a normal Kafka
   # client; swappable for Apache Kafka in prod (same API).
   redpanda:
-    image: redpandadata/redpanda:v24.1.7
+    image: redpandadata/redpanda:v24.2.7
     command:
       - redpanda
       - start
@@ -170,7 +170,7 @@ services:
   # OpenSearch: the search read-model store (ADR-0005). team-search consumes
   # listing events and indexes here; security disabled for local dev only.
   opensearch:
-    image: opensearchproject/opensearch:2.15.0
+    image: opensearchproject/opensearch:2.19.5
     environment:
       discovery.type: single-node
       DISABLE_SECURITY_PLUGIN: "true"
@@ -223,7 +223,7 @@ services:
       retries: 10
 
   prometheus:
-    image: prom/prometheus:v2.52.0
+    image: prom/prometheus:v2.55.1
     ports: ["9090:9090"]
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
