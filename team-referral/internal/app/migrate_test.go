@@ -21,7 +21,7 @@ import (
 	"github.com/buidangphuc/team-referral/internal/app"
 )
 
-var migrateTables = []string{"referral_codes", "referrals", "referral_rewards"}
+var migrateTables = []string{"referral_codes", "referrals", "referral_rewards", "referral_accounts", "referral_buyer_orders", "referral_processed_events", "referral_outbox_events"}
 
 func migrateEnv(t *testing.T, url string) {
 	t.Helper()
@@ -70,8 +70,8 @@ func TestMigrateUpAppliesEmbeddedMigrations(t *testing.T) {
 	if err := app.Migrate(context.Background()); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
-	if v, dirty := migVersion(t, url); v != 1 || dirty {
-		t.Fatalf("schema_migrations = (%d, dirty=%v), want (1, false)", v, dirty)
+	if v, dirty := migVersion(t, url); v != 2 || dirty {
+		t.Fatalf("schema_migrations = (%d, dirty=%v), want (2, false)", v, dirty)
 	}
 	for _, table := range migrateTables {
 		if !migTableExists(t, url, table) {
@@ -90,8 +90,8 @@ func TestMigrateUpIsIdempotent(t *testing.T) {
 			t.Fatalf("migrate up run %d: %v", i, err)
 		}
 	}
-	if v, dirty := migVersion(t, url); v != 1 || dirty {
-		t.Fatalf("schema_migrations = (%d, dirty=%v), want (1, false)", v, dirty)
+	if v, dirty := migVersion(t, url); v != 2 || dirty {
+		t.Fatalf("schema_migrations = (%d, dirty=%v), want (2, false)", v, dirty)
 	}
 }
 

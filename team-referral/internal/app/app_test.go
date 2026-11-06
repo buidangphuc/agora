@@ -48,7 +48,29 @@ func settings(port int, env string, db sdkconfig.Postgres) config.Settings {
 		Runtime:  sdkconfig.Runtime{Env: env, LogLevel: "error", LogJSON: true},
 		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGrace: 5 * time.Second},
 		Postgres: db,
+		Kafka:    sdkconfig.Kafka{Brokers: "127.0.0.1:1"},
+		Outbox:   sdkconfig.Outbox{PollInterval: 100 * time.Millisecond, BatchSize: 100, ClaimLock: 10 * time.Second},
+		Referral: config.Referral{
+			RewardXU:            10000,
+			DailyCap:            5,
+			LifetimeCap:         50,
+			RedeemMaxAccountAge: 168 * time.Hour,
+			SweepInterval:       200 * time.Millisecond,
+			CapTimezone:         "Asia/Ho_Chi_Minh",
+			IdentityTopic:       "identity.events",
+			OrderTopic:          "order.events",
+			EventsTopic:         "referral.events",
+			IdentityGroup:       "team-referral-identity",
+			OrderGroup:          "team-referral-order",
+			IdentityDLQTopic:    "referral.identity.dlq",
+			OrderDLQTopic:       "referral.order.dlq",
+		},
 	}
+}
+
+func withBrokers(s config.Settings, brokers string) config.Settings {
+	s.Kafka = sdkconfig.Kafka{Brokers: brokers}
+	return s
 }
 
 func startApp(t *testing.T, s config.Settings) *running {
@@ -144,7 +166,9 @@ func TestServesFromPostgresAcrossRestart(t *testing.T) {
 	defer cancel()
 	ctx = principal(ctx, "alice")
 
-	first := startApp(t, settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url}))
+	brokers := testkit.Redpanda(t)
+
+	first := startApp(t, withBrokers(settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url}), brokers))
 	created, err := referralv1.NewReferralServiceClient(first.conn).CreateReferralCode(ctx, &referralv1.CreateReferralCodeRequest{}, grpc.WaitForReady(true))
 	if err != nil {
 		t.Fatalf("CreateReferralCode: %v", err)
@@ -154,7 +178,7 @@ func TestServesFromPostgresAcrossRestart(t *testing.T) {
 	}
 	first.stop(t)
 
-	second := startApp(t, settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url}))
+	second := startApp(t, withBrokers(settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url}), brokers))
 	mine, err := referralv1.NewReferralServiceClient(second.conn).GetMyReferral(ctx, &referralv1.GetMyReferralRequest{}, grpc.WaitForReady(true))
 	if err != nil {
 		t.Fatalf("GetMyReferral after restart: %v", err)
@@ -187,7 +211,7 @@ func adminConn(t *testing.T, url string) *pgx.Conn {
 func TestHealthReportsDatabaseDown(t *testing.T) {
 	// scenario: Health turns NOT_SERVING when the database is lost
 	url := testkit.Postgres(t)
-	r := startApp(t, settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url}))
+	r := startApp(t, withBrokers(settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url}), testkit.Redpanda(t)))
 	waitServing(t, r)
 
 	admin := adminConn(t, url)
@@ -248,7 +272,7 @@ func TestEarlyFailureClosesPool(t *testing.T) {
 func TestShutdownWithinGrace(t *testing.T) {
 	// scenario: Context cancellation stops the server within the grace period
 	url := testkit.Postgres(t)
-	s := settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url})
+	s := withBrokers(settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url}), testkit.Redpanda(t))
 	s.ShutdownGrace = 2 * time.Second
 	r := startApp(t, s)
 	waitServing(t, r)

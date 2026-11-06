@@ -27,6 +27,11 @@ var managedKeys = []string{
 	"ENV", "LOG_LEVEL", "LOG_JSON", "GRPC_HOST", "GRPC_PORT", "SHUTDOWN_GRACE",
 	"SHUTDOWN_DRAIN_DELAY", "GRPC_REFLECTION_ENABLED", "DATABASE_URL", "DB_MAX_CONNS",
 	"DATABASE_ENABLED", "OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME",
+	"KAFKA_BROKERS", "OUTBOX_POLL_INTERVAL", "OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK",
+	"REFERRAL_REWARD_XU", "REFERRAL_DAILY_CAP", "REFERRAL_LIFETIME_CAP", "REFERRAL_REDEEM_MAX_ACCOUNT_AGE",
+	"REFERRAL_RELEASE_SWEEP_INTERVAL", "REFERRAL_CAP_TIMEZONE", "IDENTITY_EVENTS_TOPIC", "ORDER_EVENTS_TOPIC",
+	"REFERRAL_EVENTS_TOPIC", "REFERRAL_IDENTITY_CONSUMER_GROUP", "REFERRAL_ORDER_CONSUMER_GROUP",
+	"REFERRAL_IDENTITY_DLQ_TOPIC", "REFERRAL_ORDER_DLQ_TOPIC",
 }
 
 func cleanEnv(t *testing.T) {
@@ -170,6 +175,12 @@ func TestNoEnableFlagsDeclared(t *testing.T) {
 	}
 	sort.Strings(got)
 	want := []string{"GRPC_REFLECTION_ENABLED", "OTEL_ENABLED"}
+	declared := strings.Join(sdkconfig.DeclaredEnvKeys(config.Settings{}), ",")
+	for _, k := range []string{"KAFKA_BROKERS", "OUTBOX_POLL_INTERVAL", "REFERRAL_DAILY_CAP", "REFERRAL_EVENTS_TOPIC"} {
+		if !strings.Contains(declared, k) {
+			t.Errorf("Settings does not declare %s", k)
+		}
+	}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("declared enable flags = %v, want %v", got, want)
 	}

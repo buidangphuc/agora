@@ -76,7 +76,7 @@ func TestReadmeDropsStaleClaims_TheEnvExampleMatchesTheSettings(t *testing.T) {
 
 func TestReadmeLayoutAndSDKTag_TheEnvExampleMatchesTheSettings(t *testing.T) {
 	md := read(t, "README.md")
-	for _, p := range []string{"internal/app", "internal/rpc", "internal/referral", "internal/store", "ADR-0016", "go-sdk", "tagged release"} {
+	for _, p := range []string{"internal/app", "internal/rpc", "internal/referral", "internal/store", "internal/consumer", "internal/events", "ADR-0016", "go-sdk", "tagged release"} {
 		if !strings.Contains(md, p) {
 			t.Errorf("README missing %s", p)
 		}
@@ -100,7 +100,13 @@ func TestReadmeKeepsContractEventsData_TheEnvExampleMatchesTheSettings(t *testin
 	for _, s := range []string{"Contract", "Events", "Data"} {
 		section(t, md, s)
 	}
-	if !strings.Contains(section(t, md, "Events"), "None") {
-		t.Error("Events section must say None")
+	ev := section(t, md, "Events")
+	if strings.Contains(ev, "None") {
+		t.Error("Events section must no longer say None")
+	}
+	for _, want := range []string{"identity.events", "UserRegistered", "order.events", "OrderCompleted", "ReturnRequested", "referral.events", "ReferralAttributed", "ReferralRejected", "ReferralRewardReleased"} {
+		if !strings.Contains(ev, want) {
+			t.Errorf("Events section does not mention %s", want)
+		}
 	}
 }

@@ -2,10 +2,12 @@ package rpc_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/grpc"
@@ -25,10 +27,10 @@ import (
 
 type faultyRepo struct {
 	*fake.InMemoryReferralRepo
-	getCodeErr       error
-	createCodeErr    error
-	createReferralEr error
-	allErr           error
+	getCodeErr    error
+	createCodeErr error
+	redeemErr     error
+	allErr        error
 }
 
 func (r *faultyRepo) GetCodeByUser(ctx context.Context, u string) (string, error) {
@@ -51,14 +53,14 @@ func (r *faultyRepo) CreateCode(ctx context.Context, u, c string) (string, error
 	return r.InMemoryReferralRepo.CreateCode(ctx, u, c)
 }
 
-func (r *faultyRepo) CreateReferral(ctx context.Context, a, b, c string) error {
+func (r *faultyRepo) Redeem(ctx context.Context, in store.RedeemInput) error {
 	if r.allErr != nil {
 		return r.allErr
 	}
-	if r.createReferralEr != nil {
-		return r.createReferralEr
+	if r.redeemErr != nil {
+		return r.redeemErr
 	}
-	return r.InMemoryReferralRepo.CreateReferral(ctx, a, b, c)
+	return r.InMemoryReferralRepo.Redeem(ctx, in)
 }
 
 func (r *faultyRepo) OwnerOfCode(ctx context.Context, c string) (string, error) {
@@ -68,13 +70,6 @@ func (r *faultyRepo) OwnerOfCode(ctx context.Context, c string) (string, error) 
 	return r.InMemoryReferralRepo.OwnerOfCode(ctx, c)
 }
 
-func (r *faultyRepo) HasRedeemed(ctx context.Context, u string) (bool, error) {
-	if r.allErr != nil {
-		return false, r.allErr
-	}
-	return r.InMemoryReferralRepo.HasRedeemed(ctx, u)
-}
-
 func (r *faultyRepo) CountReferralsByReferrer(ctx context.Context, u string) (int64, error) {
 	if r.allErr != nil {
 		return 0, r.allErr
@@ -82,11 +77,11 @@ func (r *faultyRepo) CountReferralsByReferrer(ctx context.Context, u string) (in
 	return r.InMemoryReferralRepo.CountReferralsByReferrer(ctx, u)
 }
 
-func (r *faultyRepo) SumRewards(ctx context.Context, u string) (int64, error) {
+func (r *faultyRepo) RewardTotals(ctx context.Context, u string) (store.RewardTotals, error) {
 	if r.allErr != nil {
-		return 0, r.allErr
+		return store.RewardTotals{}, r.allErr
 	}
-	return r.InMemoryReferralRepo.SumRewards(ctx, u)
+	return r.InMemoryReferralRepo.RewardTotals(ctx, u)
 }
 
 func (r *faultyRepo) ListRewards(ctx context.Context, u string, l, o int) ([]*referralv1.ReferralReward, error) {
@@ -94,6 +89,35 @@ func (r *faultyRepo) ListRewards(ctx context.Context, u string, l, o int) ([]*re
 		return nil, r.allErr
 	}
 	return r.InMemoryReferralRepo.ListRewards(ctx, u, l, o)
+}
+
+var t0 = time.Date(2026, 11, 6, 3, 0, 0, 0, time.UTC)
+
+func registerNow(t testing.TB, repo store.ReferralRepository, users ...string) {
+	t.Helper()
+	now := time.Now()
+	for _, u := range users {
+		err := repo.ApplyUserRegistered(context.Background(), store.UserRegisteredInput{
+			EventID: "ur-" + u, UserID: u, RegisteredAt: now.Add(-time.Hour), At: now, LifetimeCap: 50,
+		})
+		if err != nil {
+			t.Fatalf("register %s: %v", u, err)
+		}
+	}
+}
+
+func seedReward(t testing.TB, repo store.ReferralRepository, _, code, referee, order string, releaseAt time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	now := time.Now()
+	err := repo.ApplyUserRegistered(ctx, store.UserRegisteredInput{EventID: "ur-" + referee, UserID: referee, ReferralCode: code, RegisteredAt: now.Add(-time.Hour), At: now, LifetimeCap: 1000})
+	if err != nil {
+		t.Fatalf("signup %s: %v", referee, err)
+	}
+	err = repo.ApplyOrderCompleted(ctx, store.OrderCompletedInput{EventID: "oc-" + order, OrderID: order, BuyerID: referee, CompletedAt: now, ReleaseAt: releaseAt, At: now, RewardXU: 10000, LifetimeCap: 1000})
+	if err != nil {
+		t.Fatalf("order %s: %v", order, err)
+	}
 }
 
 func newFaulty() *faultyRepo {
@@ -155,7 +179,9 @@ func TestHandlerRejectsAnonymous(t *testing.T) {
 
 // Scenario: One user cannot see another user's data.
 func TestHandlerScopesToPrincipal(t *testing.T) {
-	h := newHandler(t)
+	repo := fake.NewInMemoryReferralRepo()
+	h := handlerFor(t, repo)
+	registerNow(t, repo, "bob", "carol")
 
 	created, err := h.CreateReferralCode(userCtx("alice"), &referralv1.CreateReferralCodeRequest{})
 	if err != nil {
@@ -171,9 +197,8 @@ func TestHandlerScopesToPrincipal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if mine.GetInvitedCount() != 1 || mine.GetRewardsTotal() != referral.RewardOnReferral {
-		t.Fatalf("expected invited=1 total=%d, got invited=%d total=%d",
-			referral.RewardOnReferral, mine.GetInvitedCount(), mine.GetRewardsTotal())
+	if mine.GetInvitedCount() != 1 || mine.GetRewardsTotal() != 0 || mine.GetPendingXu() != 0 || mine.GetReleasedXu() != 0 {
+		t.Fatalf("expected invited=1 and no xu, got %v", mine)
 	}
 
 	bob, err := h.GetMyReferral(userCtx("bob"), &referralv1.GetMyReferralRequest{})
@@ -204,8 +229,11 @@ func TestRedeemEmptyCodeIsInvalidArgument(t *testing.T) {
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument, got %v", err)
 	}
-	if has, _ := repo.HasRedeemed(context.Background(), "bob"); has {
+	if _, err := repo.GetReferral(context.Background(), "bob"); err == nil {
 		t.Fatal("a row was written for an empty code")
+	}
+	if n := len(repo.OutboxRows()); n != 0 {
+		t.Fatalf("%d outbox rows written for an empty code", n)
 	}
 }
 
@@ -233,16 +261,21 @@ func TestAnonymousRedeemWritesNothing(t *testing.T) {
 	if mine.GetInvitedCount() != 0 || mine.GetRewardsTotal() != 0 {
 		t.Fatalf("anonymous redeem wrote rows: %+v", mine)
 	}
+	if n := len(repo.OutboxRows()); n != 0 {
+		t.Fatalf("anonymous redeem wrote %d outbox rows", n)
+	}
 }
 
 // Scenario: The page total is the page length.
 func TestPageTotalIsPageLength(t *testing.T) {
 	repo := fake.NewInMemoryReferralRepo()
 	h := handlerFor(t, repo)
+	code, err := repo.CreateCode(context.Background(), "alice", "REFAAAA1111")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 5; i++ {
-		if _, err := repo.AddReward(context.Background(), "alice", 100, referral.ReasonInviteeJoined); err != nil {
-			t.Fatal(err)
-		}
+		seedReward(t, repo, "alice", code, fmt.Sprintf("ref%d", i), fmt.Sprintf("o%d", i), time.Now().Add(48*time.Hour))
 	}
 	resp, err := h.ListReferralRewards(userCtx("alice"), &referralv1.ListReferralRewardsRequest{
 		Page: &commonv1.PageRequest{PageSize: 2},
@@ -312,7 +345,7 @@ func TestRedeemRaceIsFailedPrecondition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo.createReferralEr = store.ErrAlreadyRedeemed
+	repo.redeemErr = store.ErrAlreadyRedeemed
 	_, err = h.RedeemReferral(userCtx("bob"), &referralv1.RedeemReferralRequest{Code: created.GetCode()})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("expected FailedPrecondition, got %v", err)

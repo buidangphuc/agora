@@ -24,6 +24,7 @@ Implement OpenSpec change `referral-attribution-reward` test-first per its tasks
 - platform-gitops/envs/staging/services/team-referral.yaml
 - platform-gitops/envs/prod/services/team-referral.yaml
 - platform-gitops/envs/local/values.yaml
+- platform-gitops/argocd/apps/team-referral.yaml
 - platform-e2e/tests/e2e/features/referral/referral_reward.feature
 - platform-e2e/tests/e2e/step_definitions/referral_reward_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_referral_reward.py

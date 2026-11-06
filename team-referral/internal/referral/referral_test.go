@@ -5,12 +5,101 @@ import (
 	"errors"
 	"regexp"
 	"testing"
+	"time"
 
 	commonv1 "github.com/buidangphuc/team-referral/generated/platform/common/v1"
 	referralv1 "github.com/buidangphuc/team-referral/generated/platform/referral/v1"
 	"github.com/buidangphuc/team-referral/internal/referral"
+	"github.com/buidangphuc/team-referral/internal/store"
 	"github.com/buidangphuc/team-referral/internal/store/fake"
 )
+
+var t0 = time.Date(2026, 11, 6, 3, 0, 0, 0, time.UTC)
+
+type clock struct{ now time.Time }
+
+func (c *clock) Now() time.Time { return c.now }
+
+func testConfig() referral.Config {
+	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
+	return referral.Config{
+		RewardXU: 10000, DailyCap: 5, LifetimeCap: 50,
+		RedeemMaxAccountAge: 168 * time.Hour, SweepInterval: time.Minute, CapLocation: loc,
+	}
+}
+
+type fixture struct {
+	repo  *fake.InMemoryReferralRepo
+	svc   *referral.Service
+	clock *clock
+	cfg   referral.Config
+}
+
+func newFixture(mutate ...func(*referral.Config)) *fixture {
+	cfg := testConfig()
+	for _, m := range mutate {
+		m(&cfg)
+	}
+	repo := fake.NewInMemoryReferralRepo()
+	clk := &clock{now: t0}
+	return &fixture{
+		repo:  repo,
+		clock: clk,
+		cfg:   cfg,
+		svc:   referral.NewService(repo, referral.WithConfig(cfg), referral.WithClock(clk.Now)),
+	}
+}
+
+func (f *fixture) sweeper() *referral.Sweeper {
+	return referral.NewSweeper(f.repo, referral.WithConfig(f.cfg), referral.WithClock(f.clock.Now))
+}
+
+func (f *fixture) register(t testing.TB, user string, at time.Time) {
+	t.Helper()
+	err := f.repo.ApplyUserRegistered(context.Background(), store.UserRegisteredInput{
+		EventID: "ur-" + user, UserID: user, RegisteredAt: at, At: at, LifetimeCap: f.cfg.LifetimeCap,
+	})
+	if err != nil {
+		t.Fatalf("register %s: %v", user, err)
+	}
+}
+
+func (f *fixture) registerNow(t testing.TB, users ...string) {
+	t.Helper()
+	for _, u := range users {
+		f.register(t, u, t0.Add(-time.Hour))
+	}
+}
+
+func (f *fixture) invitee(t testing.TB, _, code, referee, order string, releaseAt time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	err := f.repo.ApplyUserRegistered(ctx, store.UserRegisteredInput{
+		EventID: "ur-" + referee, UserID: referee, ReferralCode: code, RegisteredAt: t0.Add(-time.Hour), At: t0.Add(-time.Hour), LifetimeCap: 1000,
+	})
+	if err != nil {
+		t.Fatalf("signup %s: %v", referee, err)
+	}
+	err = f.repo.ApplyOrderCompleted(ctx, store.OrderCompletedInput{
+		EventID: "oc-" + order, OrderID: order, BuyerID: referee, CompletedAt: t0.Add(-time.Hour),
+		ReleaseAt: releaseAt, At: t0.Add(-time.Hour), RewardXU: 10000, LifetimeCap: 1000,
+	})
+	if err != nil {
+		t.Fatalf("order %s: %v", order, err)
+	}
+}
+
+func (f *fixture) inviterWithRewards(t testing.TB, inviter string, n int, releaseAt time.Time) string {
+	t.Helper()
+	code, err := f.svc.CreateCode(context.Background(), inviter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < n; i++ {
+		f.invitee(t, inviter, code, inviter+"-ref-"+string(rune('a'+i%26))+string(rune('a'+i/26)), inviter+"-ord-"+string(rune('a'+i%26))+string(rune('a'+i/26)), releaseAt)
+	}
+	return code
+}
 
 func newReferralService() *referral.Service {
 	return referral.NewService(fake.NewInMemoryReferralRepo())
@@ -55,70 +144,73 @@ func TestCreateThenGetRoundtrip(t *testing.T) {
 	}
 }
 
-// Redeem attributes the referee to the referrer: the referrer's invited count
-// and reward total move, and a reward-intent row lands on the referrer's ledger.
-func TestRedeemAttributesReferee(t *testing.T) {
-	svc := newReferralService()
+func TestRedeemAttributesWithoutCredit(t *testing.T) {
+	f := newFixture()
 	ctx := context.Background()
-
-	code, err := svc.CreateCode(ctx, "alice")
+	f.registerNow(t, "bob")
+	code, err := f.svc.CreateCode(ctx, "alice")
 	if err != nil {
 		t.Fatalf("create code: %v", err)
 	}
 
-	if err := svc.Redeem(ctx, "bob", code); err != nil {
+	if err := f.svc.Redeem(ctx, "bob", code); err != nil {
 		t.Fatalf("redeem: %v", err)
 	}
 
-	// Referrer (alice) sees the invite and the mock coin credit.
-	alice, err := svc.GetMyReferral(ctx, "alice")
+	alice, err := f.svc.GetMyReferral(ctx, "alice")
 	if err != nil {
 		t.Fatalf("get alice: %v", err)
 	}
-	if alice.InvitedCount != 1 {
-		t.Fatalf("expected alice invited=1, got %d", alice.InvitedCount)
+	if alice.InvitedCount != 1 || alice.PendingXU != 0 || alice.ReleasedXU != 0 || alice.RewardsTotal != 0 {
+		t.Fatalf("alice = %+v, want invited=1 and no xu", alice)
 	}
-	if alice.RewardsTotal != referral.RewardOnReferral {
-		t.Fatalf("expected alice rewards=%d, got %d", referral.RewardOnReferral, alice.RewardsTotal)
+	rewards, _, err := f.svc.ListRewards(ctx, "alice", &referralv1.ListReferralRewardsRequest{})
+	if err != nil || len(rewards) != 0 {
+		t.Fatalf("rewards = %+v, %v; want none", rewards, err)
 	}
-
-	rewards, _, err := svc.ListRewards(ctx, "alice", &referralv1.ListReferralRewardsRequest{})
-	if err != nil {
-		t.Fatalf("list rewards: %v", err)
+	ref, err := f.repo.GetReferral(ctx, "bob")
+	if err != nil || ref.Status != store.StatusAttributed || ref.ReferrerID != "alice" {
+		t.Fatalf("referral = %+v, %v", ref, err)
 	}
-	if len(rewards) != 1 || rewards[0].GetReason() != referral.ReasonInviteeJoined {
-		t.Fatalf("expected one %q reward, got %+v", referral.ReasonInviteeJoined, rewards)
+	rows := f.repo.OutboxRows()
+	if len(rows) != 1 || rows[0].EventType != "platform.referral.v1.ReferralAttributed" {
+		t.Fatalf("outbox = %+v, want one ReferralAttributed", rows)
 	}
-
-	// A double redemption by the same referee is rejected.
-	if err := svc.Redeem(ctx, "bob", code); !errors.Is(err, referral.ErrAlreadyRedeemed) {
+	if err := f.svc.Redeem(ctx, "bob", code); !errors.Is(err, referral.ErrAlreadyRedeemed) {
 		t.Fatalf("expected ErrAlreadyRedeemed on second redeem, got %v", err)
 	}
 }
 
-// A user cannot redeem their own code, and unknown codes are rejected.
 func TestRedeemRejectsSelfAndUnknown(t *testing.T) {
-	svc := newReferralService()
+	f := newFixture()
 	ctx := context.Background()
-
-	code, err := svc.CreateCode(ctx, "alice")
+	f.registerNow(t, "alice", "bob")
+	code, err := f.svc.CreateCode(ctx, "alice")
 	if err != nil {
 		t.Fatalf("create code: %v", err)
 	}
-	if err := svc.Redeem(ctx, "alice", code); !errors.Is(err, referral.ErrSelfReferral) {
+	if err := f.svc.Redeem(ctx, "alice", code); !errors.Is(err, referral.ErrSelfReferral) {
 		t.Fatalf("expected ErrSelfReferral, got %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", "REFnope123"); !errors.Is(err, referral.ErrCodeNotFound) {
+	if err := f.svc.Redeem(ctx, "bob", "REFnope123"); !errors.Is(err, referral.ErrCodeNotFound) {
 		t.Fatalf("expected ErrCodeNotFound for unknown code, got %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", ""); !errors.Is(err, referral.ErrEmptyCode) {
+	if err := f.svc.Redeem(ctx, "bob", ""); !errors.Is(err, referral.ErrEmptyCode) {
 		t.Fatalf("expected ErrEmptyCode for empty code, got %v", err)
+	}
+	alice, _ := f.svc.GetMyReferral(ctx, "alice")
+	if alice.InvitedCount != 0 || alice.PendingXU != 0 || alice.ReleasedXU != 0 {
+		t.Fatalf("refused redeems left state: %+v", alice)
+	}
+	if n := len(f.repo.OutboxRows()); n != 0 {
+		t.Fatalf("%d outbox rows after refused redeems", n)
 	}
 }
 
 // One user's referral data never leaks into another user's view.
 func TestCrossUserIsolation(t *testing.T) {
-	svc := newReferralService()
+	f := newFixture()
+	svc := f.svc
 	ctx := context.Background()
 
 	aliceCode, err := svc.CreateCode(ctx, "alice")
@@ -133,7 +225,7 @@ func TestCrossUserIsolation(t *testing.T) {
 		t.Fatal("expected distinct codes per user")
 	}
 
-	// carol redeems alice's code; bob must be completely unaffected.
+	f.registerNow(t, "carol")
 	if err := svc.Redeem(ctx, "carol", aliceCode); err != nil {
 		t.Fatalf("redeem: %v", err)
 	}
@@ -142,8 +234,8 @@ func TestCrossUserIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get bob: %v", err)
 	}
-	if bob.InvitedCount != 0 || bob.RewardsTotal != 0 {
-		t.Fatalf("cross-user leak: bob should have zero stats, got invited=%d total=%d", bob.InvitedCount, bob.RewardsTotal)
+	if bob.InvitedCount != 0 || bob.RewardsTotal != 0 || bob.PendingXU != 0 || bob.ReleasedXU != 0 {
+		t.Fatalf("cross-user leak: bob should have zero stats, got %+v", bob)
 	}
 	bobRewards, _, err := svc.ListRewards(ctx, "bob", &referralv1.ListReferralRewardsRequest{})
 	if err != nil {
@@ -151,6 +243,19 @@ func TestCrossUserIsolation(t *testing.T) {
 	}
 	if len(bobRewards) != 0 {
 		t.Fatalf("cross-user leak: bob should have no rewards, got %d", len(bobRewards))
+	}
+
+	f.inviterWithRewards(t, "alice", 2, t0.Add(48*time.Hour))
+	f.inviterWithRewards(t, "bob", 1, t0.Add(48*time.Hour))
+	for user, wantRows := range map[string]int{"alice": 2, "bob": 1} {
+		mine, err := svc.GetMyReferral(ctx, user)
+		if err != nil {
+			t.Fatalf("get %s: %v", user, err)
+		}
+		rows, _, err := svc.ListRewards(ctx, user, &referralv1.ListReferralRewardsRequest{})
+		if err != nil || len(rows) != wantRows || mine.PendingXU != int64(wantRows)*10000 {
+			t.Fatalf("%s sees %d rows and pending=%d, want %d rows", user, len(rows), mine.PendingXU, wantRows)
+		}
 	}
 }
 
@@ -175,18 +280,11 @@ func TestEmptyUserRejected(t *testing.T) {
 
 // ListRewards paginates newest-first and surfaces a cursor for the next page.
 func TestListRewardsPagination(t *testing.T) {
-	svc := newReferralService()
+	f := newFixture()
+	svc := f.svc
 	ctx := context.Background()
 
-	code, err := svc.CreateCode(ctx, "alice")
-	if err != nil {
-		t.Fatalf("create code: %v", err)
-	}
-	for _, referee := range []string{"u1", "u2", "u3", "u4", "u5"} {
-		if err := svc.Redeem(ctx, referee, code); err != nil {
-			t.Fatalf("redeem %s: %v", referee, err)
-		}
-	}
+	f.inviterWithRewards(t, "alice", 5, t0.Add(48*time.Hour))
 
 	page1, cursor, err := svc.ListRewards(ctx, "alice", &referralv1.ListReferralRewardsRequest{
 		Page: &commonv1.PageRequest{PageSize: 2},
@@ -240,64 +338,52 @@ func TestListRewardsPagination(t *testing.T) {
 }
 
 func TestRedeemRejectsSecondRedeem(t *testing.T) {
-	svc := newReferralService()
+	f := newFixture()
 	ctx := context.Background()
-
-	aliceCode, err := svc.CreateCode(ctx, "alice")
+	f.registerNow(t, "alice", "bob")
+	aliceCode, err := f.svc.CreateCode(ctx, "alice")
 	if err != nil {
 		t.Fatalf("create alice code: %v", err)
 	}
-	carolCode, err := svc.CreateCode(ctx, "carol")
+	carolCode, err := f.svc.CreateCode(ctx, "carol")
 	if err != nil {
 		t.Fatalf("create carol code: %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", aliceCode); err != nil {
+	if err := f.svc.Redeem(ctx, "bob", aliceCode); err != nil {
 		t.Fatalf("first redeem: %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", carolCode); !errors.Is(err, referral.ErrAlreadyRedeemed) {
+	if err := f.svc.Redeem(ctx, "bob", carolCode); !errors.Is(err, referral.ErrAlreadyRedeemed) {
 		t.Fatalf("expected ErrAlreadyRedeemed redeeming a different code, got %v", err)
 	}
-	if err := svc.Redeem(ctx, "alice", aliceCode); !errors.Is(err, referral.ErrSelfReferral) {
+	if err := f.svc.Redeem(ctx, "alice", aliceCode); !errors.Is(err, referral.ErrSelfReferral) {
 		t.Fatalf("expected ErrSelfReferral, got %v", err)
 	}
 
-	alice, err := svc.GetMyReferral(ctx, "alice")
+	alice, err := f.svc.GetMyReferral(ctx, "alice")
 	if err != nil {
 		t.Fatalf("get alice: %v", err)
 	}
-	if alice.InvitedCount != 1 || alice.RewardsTotal != referral.RewardOnReferral {
-		t.Fatalf("alice should keep exactly one reward, got invited=%d total=%d", alice.InvitedCount, alice.RewardsTotal)
+	if alice.InvitedCount != 1 || alice.RewardsTotal != 0 || alice.PendingXU != 0 {
+		t.Fatalf("alice should keep one referral and no reward, got %+v", alice)
 	}
-	rewards, _, err := svc.ListRewards(ctx, "alice", &referralv1.ListReferralRewardsRequest{})
-	if err != nil {
-		t.Fatalf("list alice: %v", err)
+	rewards, _, err := f.svc.ListRewards(ctx, "alice", &referralv1.ListReferralRewardsRequest{})
+	if err != nil || len(rewards) != 0 {
+		t.Fatalf("expected no reward for alice, got %d, %v", len(rewards), err)
 	}
-	if len(rewards) != 1 {
-		t.Fatalf("expected exactly one reward for alice, got %d", len(rewards))
-	}
-	carol, err := svc.GetMyReferral(ctx, "carol")
+	carol, err := f.svc.GetMyReferral(ctx, "carol")
 	if err != nil {
 		t.Fatalf("get carol: %v", err)
 	}
-	if carol.InvitedCount != 0 || carol.RewardsTotal != 0 {
-		t.Fatalf("refused redeem must not credit carol, got invited=%d total=%d", carol.InvitedCount, carol.RewardsTotal)
-	}
-}
-
-func seedRewards(t *testing.T, repo *fake.InMemoryReferralRepo, user string, n int) {
-	t.Helper()
-	for i := 0; i < n; i++ {
-		if _, err := repo.AddReward(context.Background(), user, 1, "seed"); err != nil {
-			t.Fatalf("seed reward: %v", err)
-		}
+	if carol.InvitedCount != 0 {
+		t.Fatalf("refused redeem must not count for carol, got %d", carol.InvitedCount)
 	}
 }
 
 func TestListRewardsPageSizeClamp(t *testing.T) {
-	repo := fake.NewInMemoryReferralRepo()
-	svc := referral.NewService(repo)
+	f := newFixture()
+	svc := f.svc
 	ctx := context.Background()
-	seedRewards(t, repo, "alice", 150)
+	f.inviterWithRewards(t, "alice", 150, t0.Add(48*time.Hour))
 
 	for _, tc := range []struct {
 		size int32
@@ -316,10 +402,10 @@ func TestListRewardsPageSizeClamp(t *testing.T) {
 }
 
 func TestMalformedCursorStartsAtZero(t *testing.T) {
-	repo := fake.NewInMemoryReferralRepo()
-	svc := referral.NewService(repo)
+	f := newFixture()
+	svc := f.svc
 	ctx := context.Background()
-	seedRewards(t, repo, "alice", 5)
+	f.inviterWithRewards(t, "alice", 5, t0.Add(48*time.Hour))
 
 	first, firstCursor, err := svc.ListRewards(ctx, "alice", &referralv1.ListReferralRewardsRequest{
 		Page: &commonv1.PageRequest{PageSize: 2},
