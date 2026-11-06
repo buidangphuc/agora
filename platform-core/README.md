@@ -83,7 +83,7 @@ defaults are fixed in `infra/docker-compose.yaml`:
 | kafka-ui | `provectuslabs/kafka-ui:v0.7.2` | 8088 |
 | rabbitmq | `rabbitmq:3-management` | 5672, 15672 |
 | opensearch | `opensearchproject/opensearch:2.19.5` | 9200 |
-| minio | `minio/minio:RELEASE.2024-05-28T17-19-04Z` | 9000 (S3), 9001 (console); `minio-init` creates public-read bucket `listing-images`; root `minioadmin`/`minioadmin` |
+| minio | `cgr.dev/chainguard/minio` (pinned by digest, same as localinfra) | 9000 (S3), 9001 (console); `minio-init` creates public-read bucket `listing-images`; root `minioadmin`/`minioadmin` |
 | mlflow | `platform-core/mlflow:3.2.0` (built from `infra/mlflow`) | 5050 |
 | jaeger | `jaegertracing/all-in-one:1.57` | 16686 |
 | prometheus | `prom/prometheus:v2.55.1` | 9090 |
@@ -152,7 +152,7 @@ Proto change recipe: edit `packages/proto` additively, `make check`, then re-ven
   this directory with no git history skips the breaking check.
 - Consumers vendor `proto/` as a plain directory copy (for example `team-order/proto`)
   and gitignore their generated code. Never edit a vendored copy; edit here.
-- Every compose image is pinned to a tag (`minio/minio` to a `RELEASE.` tag, `mc` to `bitnamilegacy/minio-client`).
+- Every compose image is pinned to a tag (`cgr.dev/chainguard/minio` to a digest, `mc` to `bitnamilegacy/minio-client`).
 - Postgres, MinIO and Grafana use default dev credentials; local only.
 - Docs mix languages: `CONTRACT_VERSIONING_GUIDE.md` is Vietnamese.
 

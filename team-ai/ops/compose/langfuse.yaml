@@ -104,7 +104,7 @@ services:
       - ai-platform
 
   langfuse-minio:
-    image: cgr.dev/chainguard/minio
+    image: cgr.dev/chainguard/minio@sha256:cee9a8e35885e93f14b3cb32960e5017aff74e2adfb52ba87c65003b0163886b
     restart: unless-stopped
     entrypoint: sh
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
