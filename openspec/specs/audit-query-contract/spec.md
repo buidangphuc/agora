@@ -66,7 +66,7 @@ Proto contract and workspace rules for querying the audit log by target, action 
 
 ### Requirement: Audit action naming rule and catalogue are documented
 
-The `WriteAuditEventRequest` comment SHALL state the action naming rule `<entity>.<verb>`, state that every call by a caller holding `admin` (team-order: `order.admin`) to a catalogue RPC is audited even when that caller owns the resource, and list the catalogue: `review.hide`, `kyc.review`, `dispute.resolve`, `listing.admin_update`, `listing.admin_delete`, `order.force_fail`, `order.admin_status_update`, `return.admin_status_update`, `shipment.admin_create`, `payment.admin_refund`, `voucher.platform_create`, `flash_sale.admin_create`, `ad_campaign.admin_create`. The wire of `WriteAuditEventRequest`, `WriteAuditEventResponse` and `AuditEvent` SHALL NOT change.
+The `WriteAuditEventRequest` comment SHALL state the action naming rule `<entity>.<verb>`, state that every call by a caller holding `admin` (team-order: `order.admin`; team-promotion: `admin` and `promotion.admin`) to a catalogue RPC is audited even when that caller owns the resource, and list the catalogue: `review.hide`, `kyc.review`, `dispute.resolve`, `listing.admin_update`, `listing.admin_delete`, `order.force_fail`, `order.admin_status_update`, `return.admin_status_update`, `shipment.admin_create`, `payment.admin_refund`, `voucher.platform_create`, `flash_sale.admin_create`, `ad_campaign.admin_create`. The wire of `WriteAuditEventRequest`, `WriteAuditEventResponse` and `AuditEvent` SHALL NOT change.
 
 #### Scenario: Naming rule and catalogue are present
 - **WHEN** a reader opens the `WriteAuditEventRequest` comment
@@ -85,7 +85,7 @@ The `WriteAuditEventRequest` comment SHALL state the action naming rule `<entity
 
 #### Scenario: Uniform admin-path wording and non-admin exclusion
 - **WHEN** a reader opens the `WriteAuditEventRequest` comment
-- **THEN** it states that a caller holding the `admin` (team-order: `order.admin`) scope is audited even when they own the resource, and that a caller without that scope (permission denied for the admin path) is never audited
+- **THEN** it states that a caller holding the `admin` (team-order: `order.admin`; team-promotion: `admin` and `promotion.admin`) scope is audited even when they own the resource, and that a caller without that scope (permission denied for the admin path) is never audited
 - **VERIFIED BY**: comment-text assertion in `auditquery_roundtrip_test.go` (tasks 2.1)
 
 ### Requirement: Proto copies are identical across repos
