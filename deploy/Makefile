@@ -1,9 +1,13 @@
 # Local GitOps deploy plane (EKS/ECR/ALB/ArgoCD stand-ins). See README.md.
-.PHONY: cluster-up cluster-down images argocd-ui gitops-push smoke status release-tag smoke-staging status-staging
+.PHONY: cluster-up preview-cluster-up cluster-down images argocd-ui gitops-push smoke status release-tag smoke-staging status-staging
 
 cluster-up:            ## kind + registry + ingress + argocd + gitea + app-of-apps
 	bash kind/bootstrap.sh
 	bash gitea/bootstrap-gitea.sh
+
+preview-cluster-up:    ## kind + registry + ingress + argocd + gitea + only the e2e preview ApplicationSets (no marketplace stack)
+	bash kind/bootstrap.sh
+	ROOT_APP=preview-root-app.yaml bash gitea/bootstrap-gitea.sh
 
 images:                ## retag local service images -> registry (ECR) and push
 	bash images/push-images.sh
@@ -41,3 +45,4 @@ smoke-staging:         ## wait for the staging overlay to be Healthy, then run p
 cluster-down:          ## delete cluster + registry
 	kind delete cluster --name marketplace || true
 	docker rm -f kind-registry || true
+	docker volume rm kind-registry-data || true

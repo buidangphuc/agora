@@ -98,3 +98,8 @@ def test_owners_from_slices_skips_contract_owner(tmp_path):
     p = tmp_path / "slices.yaml"
     p.write_text("slices:\n  - {id: a, owner: platform-core}\n  - {id: b, owner: team-order}\n  - {id: c, owner: team-order}\n")
     assert ae.owners_from_slices(p) == ["team-order"]
+
+
+def test_k8s_value_maps_container_names_redis_and_public_urls():
+    v = ae.k8s_value("http://team-identity-svc:50063/x,redis:6379,redpanda.marketplace.svc:9092,http://localhost:3000", SERVICES, "fe.local", "api.local")
+    assert v == "http://team-identity:50063/x,valkey:6379,redpanda:9092,http://fe.local"

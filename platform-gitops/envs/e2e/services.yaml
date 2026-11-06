@@ -1,0 +1,16 @@
+secrets:
+  enabled: false
+networkPolicy:
+  enabled: false
+autoscaling:
+  enabled: false
+rollout:
+  enabled: false
+replicas: 1
+resources:
+  requests: { cpu: 10m, memory: 32Mi }
+  limits: { cpu: 500m, memory: 384Mi }
+probes:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 12

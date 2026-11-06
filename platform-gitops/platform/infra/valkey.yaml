@@ -1,7 +1,7 @@
 # Valkey (Redis-compatible) — shared; per-service isolation via key-prefix / db-index.
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: valkey, namespace: marketplace }
+metadata: { name: valkey }
 spec:
   replicas: 1
   selector: { matchLabels: { app: valkey } }
@@ -18,7 +18,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: valkey, namespace: marketplace }
+metadata: { name: valkey }
 spec:
   selector: { app: valkey }
   ports: [{ name: redis, port: 6379, targetPort: 6379 }]

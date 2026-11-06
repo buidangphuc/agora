@@ -65,7 +65,7 @@ Run every test/coverage/gate command below through the `gate-digest` skill (`scr
 4. **Converge** in `.claude/worktrees/<id>` (branch `asdlc/<id>`), all must pass:
    ```bash
    make -C platform-e2e features-check VENV=$ROOT/platform-e2e/.venv/bin/
-   $PY scripts/devenv/agora_env.py e2e <id> <every slice's .feature paths>   # the full suite runs on main after merge (step 6)
+   $PY scripts/devenv/agora_env.py e2e <id> <every slice's .feature paths>   # the full suite runs on main after merge (step 7)
    for s in <slices>; do $PY platform-e2e/scripts/spec_sync.py $s --strict; openspec validate $s --strict; done
    $PY scripts/asdlc/cross_change_check.py --slices plans/<id>/slices.yaml
    ```
@@ -73,15 +73,26 @@ Run every test/coverage/gate command below through the `gate-digest` skill (`scr
    Plus the `docs-sync` skill on `main..asdlc/<id>` (READMEs match the landed code).
    Then ONE message: `feature-reviewer` per change (decide.py feature gate, advisory) and
    `privacy-reviewer` for each change routed `pii`.
-5. **STOP — human.** Present: wave table, per-slice task/round summary, converge gate table,
+5. **Preview env (CI/CD stand-in), once the PR is open and before the human merges.** Same chart and
+   values as prod, deployed by ArgoCD on the local kind cluster into namespace `e2e-<id>` (own infra):
+   ```bash
+   $PY scripts/devenv/agora_env.py down <id>                               # free RAM: the compose env is done
+   $PY scripts/devenv/agora_env.py preview up <id> --slices plans/<id>/slices.yaml --src .claude/worktrees/<id> [--ui]
+   $PY scripts/devenv/agora_env.py preview e2e <id>                         # smoke
+   $PY scripts/devenv/agora_env.py preview e2e <id> <slice .feature paths that only use BASE_URL/GATEWAY_URL>
+   ```
+   Scenarios that need `docker exec`, container restarts or compose overlays stay on the compose env.
+   A red preview (chart/values/env drift) blocks the merge like a red e2e.
+6. **STOP — human.** Present: wave table, per-slice task/round summary, converge gate table,
    feature-reviewer tables, privacy verdicts, `NEEDS_HUMAN` tags (auth/payment/pii/proto routing),
    and the archive order (= build order). The human decides merge of `asdlc/<id>`, push, and
    `openspec archive <slice>` per slice. Never do these yourself. Log `run_done`.
-6. **After the human merged** (main env = compose project `mainx`, like prod):
+7. **After the human merged** (main env = compose project `mainx`, like prod):
    ```bash
    $PY scripts/devenv/agora_env.py promote                 # rebuild only services changed since the last promote, recreate them, drop old images
    $PY scripts/devenv/agora_env.py e2e main --all          # full regression on main
    $PY scripts/devenv/agora_env.py down <id>               # initiative env: containers, volumes, :<id> images
+   $PY scripts/devenv/agora_env.py preview down <id>       # Argo prunes e2e-<id>; then `make -C deploy cluster-down` if nothing else uses kind
    ```
    Then the `dev-cleanup` skill (slice and integration worktrees, branches, build cache). A
    regression on main → fix forward or revert; bisect by merge commit to find the slice.

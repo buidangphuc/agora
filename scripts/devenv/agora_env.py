@@ -607,6 +607,196 @@ def cmd_ls(a):
         print(f"{st['env']:<24} project={st['project']:<20} branch={st.get('branch')} gateway=:{pm.get('8080', 8080)} owners={','.join(st.get('owners', [])) or '-'}")
 
 
+GITOPS = REPO / "platform-gitops"
+GITEA = "http://ci:ci-pass-123@gitea.localtest.me/ci/platform-gitops.git"
+REGISTRY = "localhost:5001"
+INFRA_FILES = {
+    "postgres": "postgres/postgres.yaml", "redpanda": "infra/redpanda.yaml", "redis": "infra/valkey.yaml",
+    "flipt": "infra/flipt.yaml", "opensearch": "infra/opensearch.yaml", "qdrant": "infra/qdrant.yaml", "minio": "infra/minio.yaml",
+}
+K8S_HOST = {"redis": "valkey"}
+
+
+def preview_hosts(env):
+    return f"e2e-{env}.localtest.me", f"api.e2e-{env}.localtest.me"
+
+
+def kube(*args, check=True, capture=True):
+    return run(["kubectl", "--context", "kind-marketplace", *args], check=check, capture=capture)
+
+
+def ensure_cluster():
+    if "marketplace" not in out(["kind", "get", "clusters"]).split():
+        print("kind cluster missing: running make -C deploy preview-cluster-up (several minutes)")
+        run(["make", "-C", str(REPO / "deploy"), "preview-cluster-up"])
+    else:
+        run(["bash", str(REPO / "deploy" / "gitea" / "publish-gitops.sh")], capture=True)
+        kube("apply", "-f", str(REPO / "deploy" / "argocd" / "preview-root-app.yaml"))
+
+
+def k8s_value(v, services, fe, api):
+    v = str(v)
+    for name, s in services.items():
+        cn = s.get("container_name")
+        if cn:
+            v = re.sub(rf"(?<![\w.-]){re.escape(cn)}(?![\w-])", name, v)
+    for h, k in K8S_HOST.items():
+        v = re.sub(rf"(?<![\w.-]){h}(?=:\d)", k, v)
+    v = re.sub(r"([a-z0-9-]+)\.marketplace\.svc", r"\1", v)
+    return v.replace("http://localhost:3000", f"http://{fe}").replace("http://localhost:8080", f"http://{api}")
+
+
+def push_image(ref, repo):
+    iid = image_id(ref)
+    if not iid:
+        sys.exit(f"agora-env: image {ref} not found")
+    tag = f"sha-{iid.split(':')[-1][:12]}"
+    target = f"{REGISTRY}/{repo}:{tag}"
+    run(["docker", "tag", ref, target])
+    run(["docker", "push", "-q", target], capture=True)
+    run(["docker", "rmi", target], check=False, capture=True)
+    return tag
+
+
+def preview_frontend(src, env, fe, api):
+    d = Path(src) / "team-frontend"
+    gen_stubs(src, "team-frontend")
+    ref = f"team-frontend:{env}-preview"
+    old = image_id(ref)
+    args = {"NEXT_PUBLIC_GTM_ID": "GTM-E2E0001", "NEXT_PUBLIC_GATEWAY_URL": f"http://{api}",
+            "NEXT_PUBLIC_MEDIA_BASE_URL": f"http://{api}/listing-images", "NEXT_PUBLIC_SELLER_APP_URL": ""}
+    cmd = ["docker", "build", "-q", "-t", ref]
+    for k, v in args.items():
+        cmd += ["--build-arg", f"{k}={v}"]
+    run(cmd + [str(d)], capture=True)
+    if old and old != image_id(ref):
+        drop_unused([old])
+    return ref
+
+
+def gitea_write(env, files):
+    with tempfile.TemporaryDirectory() as w:
+        run(["git", "clone", "-q", GITEA, w], capture=True)
+        d = Path(w) / "envs" / "e2e" / "initiatives" / env
+        if d.exists():
+            shutil.rmtree(d)
+        if files:
+            d.mkdir(parents=True)
+            for name, doc in files.items():
+                (d / name).write_text(yaml.dump(doc, sort_keys=False, width=1000))
+        run(["git", "-C", w, "add", "-A"], capture=True)
+        if run(["git", "-C", w, "diff", "--cached", "--quiet"], check=False).returncode == 0:
+            return
+        msg = f"e2e: {'up' if files else 'down'} {env}"
+        run(["git", "-C", w, "-c", "user.email=ci@local", "-c", "user.name=ci", "commit", "-q", "-m", msg], capture=True)
+        run(["git", "-C", w, "push", "-q", "origin", "HEAD:main"], capture=True)
+    for appset in ("e2e-infra", "e2e-services"):
+        kube("-n", "argocd", "annotate", "applicationset", appset, "argocd.argoproj.io/application-set-refresh=true", "--overwrite", check=False)
+
+
+def preview_apps(env):
+    res = kube("-n", "argocd", "get", "applications", "-l", f"agora/preview={env}", "-o", "json", check=False)
+    return json.loads(res.stdout or '{"items": []}')["items"] if res.returncode == 0 else []
+
+
+def wait_apps(env, want, timeout):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        apps = preview_apps(env)
+        if want == 0 and not apps:
+            return True
+        if want and len(apps) >= want:
+            bad = [a["metadata"]["name"] for a in apps
+                   if a.get("status", {}).get("health", {}).get("status") != "Healthy"
+                   or a.get("status", {}).get("sync", {}).get("status") != "Synced"]
+            if not bad:
+                return True
+        time.sleep(10)
+    return False
+
+
+def cmd_preview_up(a):
+    env = slug(a.env)
+    src, services, owners, run_set = cmd_plan(a)
+    chart = {p.stem for p in (GITOPS / "envs" / "services").glob("*.yaml")}
+    svcs = sorted((set(run_set) & chart) | ({"team-frontend"} if a.ui else set()))
+    skipped = sorted(n for n in run_set if n.startswith(("team-", "platform-")) and not n.endswith("-migrate") and n not in chart)
+    infra = sorted({INFRA_FILES[n] for n in run_set if n in INFRA_FILES} | {INFRA_FILES["postgres"], INFRA_FILES["redpanda"]})
+    fe, api = preview_hosts(env)
+    ensure_cluster()
+    built = {base_image(services[o]) for o in owners}
+    files = {"env.yaml": {"id": env, "infraInclude": "{" + ",".join(infra) + "}", "services": [{"name": n} for n in svcs]}}
+    for n in svcs:
+        if n == "team-frontend":
+            ref = preview_frontend(src, env, fe, api)
+        else:
+            local = f"{base_image(services[n])}:{env}"
+            ref = local if base_image(services[n]) in built and image_id(local) else f"{base_image(services[n])}:{MAIN_TAG}"
+        tag = push_image(ref, n)
+        envmap = {k: k8s_value(v, services, fe, api) for k, v in (services[n].get("environment") or {}).items() if v is not None}
+        u = n.replace("-", "_")
+        for k, v in envmap.items():
+            envmap[k] = re.sub(r"postgres://\w+_svc:\w+_pass@postgres:5432/\w+_db", f"postgres://{u}_svc:{u}_pass@postgres:5432/{u}_db", v)
+        base = yaml.safe_load((GITOPS / "envs" / "services" / f"{n}.yaml").read_text()) or {}
+        for k, v in (base.get("env") or {}).items():
+            if k not in envmap and isinstance(v, str) and ".marketplace.svc" in v:
+                envmap[k] = k8s_value(v, services, fe, api)
+        doc = {"images": {n: tag}, "env": envmap}
+        if n == "team-gateway":
+            doc["ingress"] = {"enabled": True, "host": api, "path": "/"}
+        if n == "team-frontend":
+            doc["ingress"] = {"enabled": True, "host": fe, "path": "/", "annotations": None}
+        files[f"{n}.yaml"] = doc
+        print(f"{n}: {ref} -> {REGISTRY}/{n}:{tag}")
+    gitea_write(env, files)
+    st_path = state_dir(f"preview-{env}")
+    st_path.mkdir(parents=True, exist_ok=True)
+    (st_path / "preview.json").write_text(json.dumps({"env": env, "services": svcs, "infra": infra}, indent=2) + "\n")
+    if skipped:
+        print(f"not deployable by the chart (left out): {' '.join(skipped)}")
+    print(f"waiting for {len(svcs) + 1} apps in namespace e2e-{env} ...")
+    if not wait_apps(env, len(svcs) + 1, a.timeout):
+        sys.exit(f"agora-env: preview e2e-{env} not Healthy after {a.timeout}s (kubectl -n argocd get applications -l agora/preview={env})")
+    print(f"preview e2e-{env} Healthy: frontend http://{fe} gateway http://{api}")
+
+
+def cmd_preview_e2e(a):
+    env = slug(a.env)
+    fe, api = preview_hosts(env)
+    args = list(a.pytest)
+    if args and args[0] == "--":
+        args = args[1:]
+    if not args:
+        args = ["-m", "smoke"]
+    wt = Path(a.wt or REPO).resolve()
+    main_tree = Path(out(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=REPO).strip()).parent
+    py = next((c for c in [r / "platform-e2e" / ".venv" / "bin" / "python" for r in (wt, REPO, main_tree)] if c.exists()), None)
+    if not py:
+        sys.exit("agora-env: no platform-e2e venv found")
+    e = {**os.environ, "HEADLESS": "true", "BASE_URL": f"http://{fe}", "GATEWAY_URL": f"http://{api}"}
+    sys.exit(subprocess.run([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", *args], cwd=wt / "platform-e2e", env=e).returncode)
+
+
+def cmd_preview_down(a):
+    env = slug(a.env)
+    if "marketplace" in out(["kind", "get", "clusters"]).split():
+        gitea_write(env, {})
+        if not wait_apps(env, 0, a.timeout):
+            print(f"apps of e2e-{env} still present after {a.timeout}s")
+        kube("delete", "namespace", f"e2e-{env}", "--ignore-not-found", "--wait=false", check=False)
+    shutil.rmtree(state_dir(f"preview-{env}"), ignore_errors=True)
+    imgs = [r for r in out(["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]).split() if r.endswith(f":{env}-preview")]
+    if imgs:
+        run(["docker", "rmi", *imgs], check=False, capture=True)
+    print(f"preview e2e-{env} removed")
+
+
+def cmd_preview_status(a):
+    for app in preview_apps(slug(a.env)):
+        st = app.get("status", {})
+        print(f"{app['metadata']['name']:<40} {st.get('sync', {}).get('status', '?'):<10} {st.get('health', {}).get('status', '?')}")
+
+
 def main():
     ap = argparse.ArgumentParser(prog="agora_env.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -655,6 +845,26 @@ def main():
     p.add_argument("--apply", action="store_true")
     p.add_argument("--keep", default="72h")
     p.set_defaults(fn=cmd_gc)
+    p = sub.add_parser("preview")
+    psub = p.add_subparsers(dest="pcmd", required=True)
+    q = psub.add_parser("up")
+    q.add_argument("env")
+    scope(q)
+    q.add_argument("--ui", action="store_true")
+    q.add_argument("--timeout", type=int, default=900)
+    q.set_defaults(fn=cmd_preview_up)
+    q = psub.add_parser("e2e")
+    q.add_argument("env")
+    q.add_argument("--wt")
+    q.add_argument("pytest", nargs=argparse.REMAINDER)
+    q.set_defaults(fn=cmd_preview_e2e)
+    q = psub.add_parser("down")
+    q.add_argument("env")
+    q.add_argument("--timeout", type=int, default=300)
+    q.set_defaults(fn=cmd_preview_down)
+    q = psub.add_parser("status")
+    q.add_argument("env")
+    q.set_defaults(fn=cmd_preview_status)
     p = sub.add_parser("ls")
     p.add_argument("--porcelain", action="store_true")
     p.set_defaults(fn=cmd_ls)

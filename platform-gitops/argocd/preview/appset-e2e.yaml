@@ -1,0 +1,87 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: e2e-infra
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+        revision: main
+        files:
+          - path: envs/e2e/initiatives/*/env.yaml
+  template:
+    metadata:
+      name: 'e2e-{{.id}}-infra'
+      namespace: argocd
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+      labels: { agora/preview: '{{.id}}' }
+    spec:
+      project: default
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'e2e-{{.id}}'
+      source:
+        repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+        targetRevision: main
+        path: platform
+        directory:
+          recurse: true
+          include: '{{.infraInclude}}'
+      syncPolicy:
+        automated: { prune: true, selfHeal: true }
+        syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: e2e-services
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - git:
+              repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+              revision: main
+              files:
+                - path: envs/e2e/initiatives/*/env.yaml
+          - list:
+              elementsYaml: '{{ .services | toJson }}'
+  template:
+    metadata:
+      name: 'e2e-{{.id}}-{{.name}}'
+      namespace: argocd
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+      labels: { agora/preview: '{{.id}}' }
+    spec:
+      project: default
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'e2e-{{.id}}'
+      sources:
+        - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+          targetRevision: main
+          ref: values
+        - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+          targetRevision: main
+          path: charts/service
+          helm:
+            releaseName: '{{.name}}'
+            ignoreMissingValueFiles: true
+            valueFiles:
+              - $values/envs/e2e/values.yaml
+              - $values/envs/services/{{.name}}.yaml
+              - $values/envs/e2e/services.yaml
+              - $values/envs/e2e/initiatives/{{.id}}/{{.name}}.yaml
+            values: |
+              image:
+                repo: localhost:5001/{{.name}}
+                pullPolicy: IfNotPresent
+      syncPolicy:
+        automated: { prune: true, selfHeal: true }
+        syncOptions: [CreateNamespace=true]

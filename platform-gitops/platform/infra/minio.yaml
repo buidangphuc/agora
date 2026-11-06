@@ -2,7 +2,7 @@
 # created by a PostSync init Job (mirrors compose minio-init).
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: minio, namespace: marketplace }
+metadata: { name: minio }
 spec:
   replicas: 1
   selector: { matchLabels: { app: minio } }
@@ -25,7 +25,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: minio, namespace: marketplace }
+metadata: { name: minio }
 spec:
   selector: { app: minio }
   ports:
@@ -36,7 +36,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: minio-init
-  namespace: marketplace
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
@@ -57,7 +56,7 @@ spec:
             - sh
             - -c
             - |
-              until mc alias set local http://minio.marketplace.svc:9000 minioadmin minioadmin; do sleep 3; done
+              until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 3; done
               mc mb --ignore-existing local/listing-images
               mc anonymous set download local/listing-images
               echo "bucket listing-images ready"
