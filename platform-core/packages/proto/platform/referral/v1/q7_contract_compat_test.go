@@ -858,7 +858,7 @@ func TestQ7_VoucherUserBoundFieldsHaveFixedNumbers(t *testing.T) {
 	}
 	assertMessageFields(t, f, map[string]map[string]string{
 		"UpdateVoucherRequest": {
-			"voucher_id": "1 " + str, "ends_at": "2 " + tsType, "quota": "3 " + i64,
+			"voucher_id": "1 " + str, "ends_at": "2 " + tsType + " optional", "quota": "3 " + i64 + " optional",
 			"per_user_limit": "4 TYPE_INT32 optional", "new_user_only": "5 TYPE_BOOL optional",
 		},
 	})
