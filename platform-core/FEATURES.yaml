@@ -7643,3 +7643,635 @@ features:
     tags: [p10-gaps-contract, unit]
     status: not-testable
     notes: "p10-gaps-contract: unit-verified: gaps_consumer_copies_test.sh check audit-copies-drift-rejected in platform-core/packages/proto. Not producible end to end."
+
+  # q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp (no e2e).
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-registerrequest-carries-an-optional-referral-code
+    title: "Q7 referral welcome contract: RegisterRequest carries an optional referral code"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: RegisterRequest carries an optional referral code"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: RegisterRequest carries an optional referral code (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-userregistered-message-is-fixed
+    title: "Q7 referral welcome contract: UserRegistered message is fixed"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: UserRegistered message is fixed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: UserRegistered message is fixed (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-userregistered-without-a-code-round-trips
+    title: "Q7 referral welcome contract: UserRegistered without a code round-trips"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: UserRegistered without a code round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: UserRegistered without a code round-trips (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-old-readers-skip-the-referral-code
+    title: "Q7 referral welcome contract: Old readers skip the referral code"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Old readers skip the referral code"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Old readers skip the referral code (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-userregistered-semantics-are-documented
+    title: "Q7 referral welcome contract: UserRegistered semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: UserRegistered semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: UserRegistered semantics are documented (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-missing-never-fails-note-is-caught
+    title: "Q7 referral welcome contract: Missing never-fails note is caught"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Missing never-fails note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Missing never-fails note is caught (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-getmyaccount-exists-on-authservice
+    title: "Q7 referral welcome contract: GetMyAccount exists on AuthService"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: GetMyAccount exists on AuthService"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: GetMyAccount exists on AuthService (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-getmyaccount-scope-is-documented
+    title: "Q7 referral welcome contract: GetMyAccount scope is documented"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: GetMyAccount scope is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: GetMyAccount scope is documented (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: comment-text assertion in `q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-getmyaccount-response-round-trips
+    title: "Q7 referral welcome contract: GetMyAccount response round-trips"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: GetMyAccount response round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: GetMyAccount response round-trips (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-missing-principal-scope-note-is-caught
+    title: "Q7 referral welcome contract: Missing principal-scope note is caught"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Missing principal-scope note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Missing principal-scope note is caught (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: comment-text assertion in `q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-referral-enums-have-fixed-names-and-numbers
+    title: "Q7 referral welcome contract: Referral enums have fixed names and numbers"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Referral enums have fixed names and numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Referral enums have fixed names and numbers (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-referral-event-messages-have-fixed-fields
+    title: "Q7 referral welcome contract: Referral event messages have fixed fields"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Referral event messages have fixed fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Referral event messages have fixed fields (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-reward-and-summary-additions-are-fixed
+    title: "Q7 referral welcome contract: Reward and summary additions are fixed"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Reward and summary additions are fixed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Reward and summary additions are fixed (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-released-event-round-trips-with-a-large-amount
+    title: "Q7 referral welcome contract: Released event round-trips with a large amount"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Released event round-trips with a large amount"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Released event round-trips with a large amount (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-rejected-event-round-trips-and-tolerates-an-unknown-reason
+    title: "Q7 referral welcome contract: Rejected event round-trips and tolerates an unknown reason"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Rejected event round-trips and tolerates an unknown reason"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Rejected event round-trips and tolerates an unknown reason (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-old-readers-skip-the-reward-additions
+    title: "Q7 referral welcome contract: Old readers skip the reward additions"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Old readers skip the reward additions"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Old readers skip the reward additions (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-referral-event-semantics-are-documented
+    title: "Q7 referral welcome contract: Referral event semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Referral event semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Referral event semantics are documented (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-referral-events-are-documented-as-internal-only
+    title: "Q7 referral welcome contract: Referral events are documented as internal-only"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Referral events are documented as internal-only"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Referral events are documented as internal-only (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: comment-text assertion in `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-missing-xu-note-is-caught
+    title: "Q7 referral welcome contract: Missing xu note is caught"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Missing xu note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Missing xu note is caught (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-voucherkind-has-fixed-names-and-numbers
+    title: "Q7 referral welcome contract: VoucherKind has fixed names and numbers"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: VoucherKind has fixed names and numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: VoucherKind has fixed names and numbers (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-voucher-user-bound-fields-have-fixed-numbers
+    title: "Q7 referral welcome contract: Voucher user-bound fields have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Voucher user-bound fields have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Voucher user-bound fields have fixed numbers (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-listmyvouchers-exists-on-voucherservice
+    title: "Q7 referral welcome contract: ListMyVouchers exists on VoucherService"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: ListMyVouchers exists on VoucherService"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: ListMyVouchers exists on VoucherService (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-voucher-with-user-bound-fields-round-trips
+    title: "Q7 referral welcome contract: Voucher with user-bound fields round-trips"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Voucher with user-bound fields round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Voucher with user-bound fields round-trips (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-old-readers-skip-the-voucher-additions-and-tolerate-an-unknown-kind
+    title: "Q7 referral welcome contract: Old readers skip the voucher additions and tolerate an unknown kind"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Old readers skip the voucher additions and tolerate an unknown kind"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Old readers skip the voucher additions and tolerate an unknown kind (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-update-distinguishes-unset-from-zero
+    title: "Q7 referral welcome contract: Update distinguishes unset from zero"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Update distinguishes unset from zero"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Update distinguishes unset from zero (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-listmyvouchers-authz-and-scope-are-documented
+    title: "Q7 referral welcome contract: ListMyVouchers authz and scope are documented"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: ListMyVouchers authz and scope are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: ListMyVouchers authz and scope are documented (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-server-owned-voucher-fields-are-documented
+    title: "Q7 referral welcome contract: Server-owned voucher fields are documented"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Server-owned voucher fields are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Server-owned voucher fields are documented (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-voucher-refusal-reasons-are-documented
+    title: "Q7 referral welcome contract: Voucher refusal reasons are documented"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Voucher refusal reasons are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Voucher refusal reasons are documented (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-missing-server-owned-note-is-caught
+    title: "Q7 referral welcome contract: Missing server-owned note is caught"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Missing server-owned note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Missing server-owned note is caught (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-hascompletedorder-rpc-exists
+    title: "Q7 referral welcome contract: HasCompletedOrder RPC exists"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: HasCompletedOrder RPC exists"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: HasCompletedOrder RPC exists (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-hascompletedorder-response-round-trips-both-values
+    title: "Q7 referral welcome contract: HasCompletedOrder response round-trips both values"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: HasCompletedOrder response round-trips both values"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: HasCompletedOrder response round-trips both values (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-hascompletedorder-is-documented-as-internal
+    title: "Q7 referral welcome contract: HasCompletedOrder is documented as internal"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: HasCompletedOrder is documented as internal"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: HasCompletedOrder is documented as internal (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-missing-internal-note-is-caught
+    title: "Q7 referral welcome contract: Missing internal note is caught"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Missing internal note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Missing internal note is caught (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go` (tasks 2.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-change-is-backward-compatible
+    title: "Q7 referral welcome contract: Change is backward compatible"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Change is backward compatible"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Change is backward compatible (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `make -C platform-core breaking` (tasks 1.5)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-lint-passes
+    title: "Q7 referral welcome contract: Lint passes"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Lint passes"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Lint passes (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `make -C platform-core lint-proto` (tasks 1.5)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-wire-breaking-edit-is-rejected
+    title: "Q7 referral welcome contract: Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Wire-breaking edit is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Wire-breaking edit is rejected (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: one-off mutation run of `make -C platform-core breaking` (tasks 1.5)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-new-contract-in-every-generated-language
+    title: "Q7 referral welcome contract: New contract in every generated language"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: New contract in every generated language"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: New contract in every generated language (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: grep over generated outputs after `make -C platform-core proto` (tasks 2.2)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-copies-match-the-source
+    title: "Q7 referral welcome contract: Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Copies match the source (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `platform-core/packages/proto/q7_consumer_copies_test.sh` (tasks 3.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-drifted-or-missing-copy-is-rejected
+    title: "Q7 referral welcome contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Drifted or missing copy is rejected (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `q7_consumer_copies_test.sh` self-test on a scratch tree (tasks 3.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-consumer-copies-lint
+    title: "Q7 referral welcome contract: Consumer copies lint"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Consumer copies lint"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Consumer copies lint (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `q7_consumer_copies_test.sh` (tasks 3.2)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-referral-has-one-canonical-source
+    title: "Q7 referral welcome contract: Referral has one canonical source"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Referral has one canonical source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Referral has one canonical source (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `q7_consumer_copies_test.sh` (tasks 3.1)"
+
+  - id: q7-referral-welcome-contract.unit-q7-referral-welcome-contract-consumer-protos-build
+    title: "Q7 referral welcome contract: Consumer protos build"
+    persona: guest
+    priority: P2
+    summary: "Q7 referral welcome contract: Consumer protos build"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Q7 referral welcome contract: Consumer protos build (unit-verified)"
+    tags: [q7-referral-welcome-contract, unit]
+    status: not-testable
+    notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `platform-core/packages/proto/q7_consumer_copies_test.sh` (tasks 3.2)"
