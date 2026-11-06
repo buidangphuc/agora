@@ -11,6 +11,8 @@ manifests. It is not a deployed service; it is read by ArgoCD in the local kind 
 
 | Path | What it holds |
 |---|---|
+| `argocd/preview/` | E2E preview ApplicationSets (namespace `e2e-<id>` per initiative), watched by `deploy/argocd/preview-root-app.yaml` only. |
+| `envs/e2e/` | E2E preview overlay: `values.yaml` (registry), `services.yaml` (no Vault/NetworkPolicy/HPA), `initiatives/` (local Gitea only). |
 | `argocd/apps/` | Child ArgoCD Applications, synced by the root app-of-apps. Per-service Apps (`team-*.yaml`), infra/platform Apps, Helm-chart Apps (vault, external-secrets, keda, metrics-server, argo-rollouts), and `appset-services.yaml` (ApplicationSet for staging/prod). |
 | `charts/service/` | The **only** Helm chart. Renders Deployment (or Argo Rollout), Service, Ingress, NetworkPolicy, HPA or KEDA ScaledObject, and ServiceAccount + SecretStore + ExternalSecret. The knob surface is `charts/service/values.yaml`. A new service is not a new chart. |
 | `envs/local/values.yaml` | `global.registry` plus the `images:` tag map (one key per image, `local`). CI bumps these. |
@@ -75,6 +77,17 @@ real staging/prod cluster is provisioned. Infra and raw-manifest apps are local-
 tags `"1.0.0"`; staging uses `staging`. Design: archived OpenSpec change `add-staging-prod-overlays`.
 `argocd/apps/appset-staging-kind.yaml` (sync wave 5) runs the staging overlay on the local kind cluster,
 namespace `marketplace-staging`, for `team-gateway` and `team-frontend` only.
+
+## E2E preview (pre-merge, CI/CD stand-in)
+`argocd/preview/appset-e2e.yaml` holds two ApplicationSets (`e2e-infra`, `e2e-services`) driven by
+`envs/e2e/initiatives/<id>/env.yaml`. Each file yields namespace `e2e-<id>`: the infra manifests listed
+in its `infraInclude` (namespace-agnostic `platform/infra`, `platform/postgres`) and one Application per
+service with `charts/service`, layered `envs/e2e/values.yaml`, `envs/services/<svc>.yaml`,
+`envs/e2e/services.yaml` (no Vault, no NetworkPolicy, no HPA), `envs/e2e/initiatives/<id>/<svc>.yaml`
+(image tag, env, ingress `e2e-<id>.localtest.me` / `api.e2e-<id>.localtest.me`). Initiative files are
+written only to the local Gitea by `scripts/devenv/agora_env.py preview up|down`, never committed here;
+`deploy/gitea/publish-gitops.sh` leaves them in place. They are watched by the `e2e-root` app
+(`deploy/argocd/preview-root-app.yaml`), not by `marketplace-root`.
 
 ## Canary (Argo Rollouts)
 

@@ -22,14 +22,14 @@
 # Deployment uses Recreate; fsGroup 101 is the redpanda uid/gid that owns the data dir.
 apiVersion: v1
 kind: PersistentVolumeClaim
-metadata: { name: redpanda-data, namespace: marketplace }
+metadata: { name: redpanda-data }
 spec:
   accessModes: [ReadWriteOnce]
   resources: { requests: { storage: 2Gi } }
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: redpanda, namespace: marketplace }
+metadata: { name: redpanda }
 spec:
   replicas: 1
   strategy: { type: Recreate, rollingUpdate: null }
@@ -53,7 +53,10 @@ spec:
             - --node-id=0
             - --check=false
             - --kafka-addr=PLAINTEXT://0.0.0.0:9092
-            - --advertise-kafka-addr=PLAINTEXT://redpanda.marketplace.svc:9092
+            - --advertise-kafka-addr=PLAINTEXT://redpanda.$(POD_NAMESPACE).svc:9092
+          env:
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
           ports: [{ containerPort: 9092 }, { containerPort: 9644 }]
           volumeMounts:
             - { name: data, mountPath: /var/lib/redpanda/data }
@@ -64,7 +67,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: redpanda, namespace: marketplace }
+metadata: { name: redpanda }
 spec:
   selector: { app: redpanda }
   ports:
@@ -86,7 +89,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: redpanda-init
-  namespace: marketplace
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
@@ -102,7 +104,7 @@ spec:
           args:
             - |
               set -u
-              BROKERS=redpanda.marketplace.svc:9092
+              BROKERS=redpanda:9092
               for t in payment.events payment.events.dlq \
                        order.events order.events.dlq order.events.payment-settlement.dlq \
                        chat.events chat.events.dlq \

@@ -5,7 +5,7 @@
 # survive pod reschedules. No SDK is wired yet (see wire-openfeature).
 apiVersion: v1
 kind: PersistentVolumeClaim
-metadata: { name: flipt-data, namespace: marketplace }
+metadata: { name: flipt-data }
 spec:
   accessModes: ["ReadWriteOnce"]
   resources:
@@ -14,7 +14,7 @@ spec:
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: flipt, namespace: marketplace }
+metadata: { name: flipt }
 spec:
   replicas: 1
   selector: { matchLabels: { app: flipt } }
@@ -45,7 +45,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: flipt, namespace: marketplace }
+metadata: { name: flipt }
 spec:
   selector: { app: flipt }
   ports:

@@ -1,0 +1,4 @@
+global:
+  registry: localhost:5001
+  imagePullPolicy: IfNotPresent
+images: {}

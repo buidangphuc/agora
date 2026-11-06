@@ -9,7 +9,9 @@
 - **platform-recsys**: from `platform-recsys/`: `uv venv <scratch> && uv pip install -p <scratch> -r requirements-dev.txt -e .` (pulls py-modelregistry from `../platform-core/packages/py-modelregistry`, so run it from that dir), then `make -C platform-recsys compile lint check-env test-host PY=<scratch>/bin/python` — CI uses Python 3.10; Spark tests (`make test`, `make eval`) need Java 17 on `PATH`.
 - **py-modelregistry**: `cd platform-core/packages/py-modelregistry && pip install -e '.[dev]' && pytest -q` — offline, local MLflow file store; CI also runs `ruff check .` and `mypy src` (py3.10).
 - **platform-finetune**: `cd platform-finetune && uv pip install -e '.[dev,cpu]' 'mlflow>=3.2,<3.3' && pytest -q` — CPU, no GPU, no dataset download; the mlflow pin matches py-modelregistry's mlflow-skinny (pip's resolver hangs on the `dev` extra — use uv).
-- **e2e (full stack)**: `(cd platform-e2e && HEADLESS=true .venv/bin/python -m pytest -q tests/e2e/features/<area>/<file>.feature)` — the stack runs from `../agora-deps` (compose project `agora`), not this tree; rebuild one service before testing worktree code (see memory `reference-local-e2e-stack`).
+- **Feature env (e2e of one change or initiative)**: `PY=platform-e2e/.venv/bin/python; $PY scripts/devenv/agora_env.py up <id> --slices plans/<id>/slices.yaml --src <worktree>` then `$PY scripts/devenv/agora_env.py e2e <id> <.feature paths>` — its own compose project `<id>` (own infra, images `:<id>`, host ports +30000 on 127.0.0.1) next to main; `plan` shows what it builds and runs, `down <id>` removes containers, volumes and images.
+- **Main env (full e2e)**: `$PY scripts/devenv/agora_env.py promote` rebuilds only services changed on `origin/main` since the last promote (compose project `mainx`, images `:local`, source exported to `~/.cache/agora-env/main-src`), then `$PY scripts/devenv/agora_env.py e2e main --all`.
+- **Preview env (pre-merge CI/CD stand-in)**: `$PY scripts/devenv/agora_env.py preview up <id> --slices plans/<id>/slices.yaml --src <worktree> [--ui]` then `preview e2e <id> [paths]` (default `-m smoke`) — ArgoCD on kind (`make -C deploy preview-cluster-up`, created on demand) deploys namespace `e2e-<id>` from `platform-gitops/argocd/preview/appset-e2e.yaml` with the prod chart; the initiative file lives only in local Gitea (`envs/e2e/initiatives/<id>/`); `preview down <id>` prunes it.
 - **Frontend e2e base URLs**: buyer `BASE_URL` (:3000), seller `SELLER_BASE_URL` (:3001), admin `ADMIN_BASE_URL` (:3002); page objects pick the app (`app = "seller"`, `base_url_setting = "admin_base_url"`).
 - **Spec↔e2e for a change**: `platform-e2e/.venv/bin/python platform-e2e/scripts/spec_sync.py <change> [--strict]` — uncovered scenarios and tasks/FEATURES/.feature cross-check.
 
@@ -48,7 +50,7 @@
 ## Hot paths
 <!-- read by: everyone. Things that look alike but must not be confused. -->
 - `.github/workflows/` at repo root is the only live CI; there are no nested per-repo workflows.
-- Local e2e stack is built from `../agora-deps`, not this checkout — a stale image gives a wrong-reason red.
+- Two compose stacks: main (`mainx`, built only from `origin/main` by `agora_env.py promote`) and one feature env per change/initiative (project = its id). Build worktree code into a feature env, never into `:local` — a stale image gives a wrong-reason red.
 - `.claude/worktrees/<change>/` lacks gitignored artifacts (stubs, node_modules, `platform-e2e/.venv` symlink — never commit it); red_first temp worktrees report false "red at head" for stub-dependent tests.
 - `plans/`: initiatives (ASDLC) plus `plans/mlops/` (older free-form plan). ASDLC process docs: `docs/asdlc/`.
 - Two ADR-0006 files: `platform-core/docs/ADR/0006-rs256-jwks-auth.md` (auth) and `fe-platform/docs/ADR/0006-three-apps-on-the-platform.md` (three frontend apps).
@@ -63,3 +65,9 @@
 - `IMAGE_RE='team-[a-z-]+|agora-[a-z-]+|platform-[a-z-]+|modelserve-router|tei-fake'`
 - `KEEP_TAG_RE='^local$'`
 - Docker volumes are stack data: never removed by cleanup.
+
+## Cleanup
+<!-- read by: dev-cleanup -->
+- `IMAGE_RE='team-[a-z-]+|platform-[a-z-]+|agora-[a-z-]+|tei-fake|modelserve-router'`
+- `KEEP_TAG_RE='^local$'` (main env images; feature env images are tagged with the env id)
+- Feature envs: `platform-e2e/.venv/bin/python scripts/devenv/agora_env.py ls` / `down <id>`; `gc --apply` drops unused agora images with a non-`local`, non-live tag and build cache older than 72h.

@@ -12,7 +12,7 @@ log() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 
 log "1/4 local registry (ECR stand-in) on localhost:${REG_PORT}"
 if [ "$(docker inspect -f '{{.State.Running}}' ${REG_NAME} 2>/dev/null || true)" != "true" ]; then
-  docker run -d --restart=always -p "127.0.0.1:${REG_PORT}:5000" --network bridge --name "${REG_NAME}" registry:2
+  docker run -d --restart=always -e REGISTRY_STORAGE_DELETE_ENABLED=true -v kind-registry-data:/var/lib/registry -p "127.0.0.1:${REG_PORT}:5000" --network bridge --name "${REG_NAME}" registry:2
 fi
 
 log "2/4 kind cluster (EKS stand-in): ${CLUSTER}"
@@ -37,6 +37,8 @@ log "3/4 ingress-nginx (ALB stand-in)"
 kubectl apply -f "https://raw.githubusercontent.com/kubernetes/ingress-nginx/${INGRESS_VERSION}/deploy/static/provider/kind/deploy.yaml"
 kubectl -n ingress-nginx wait --for=condition=available deploy/ingress-nginx-controller --timeout=240s || \
   kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=240s || true
+kubectl -n ingress-nginx wait --for=condition=complete job --all --timeout=240s
+kubectl -n ingress-nginx wait --for=condition=ready pod -l app.kubernetes.io/component=controller --timeout=240s
 
 log "4/4 ArgoCD (GitOps CD engine)"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -

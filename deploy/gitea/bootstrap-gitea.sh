@@ -51,7 +51,7 @@ stringData:
   password: ${GIT_PASS}
 EOF
 
-log "6/6 apply app-of-apps"
-kubectl apply -f "${ROOT}/deploy/argocd/root-app.yaml"
+log "6/6 apply app-of-apps (${ROOT_APP:-root-app.yaml})"
+kubectl apply -f "${ROOT}/deploy/argocd/${ROOT_APP:-root-app.yaml}"
 echo "done. ArgoCD admin password:"
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' 2>/dev/null | base64 -d; echo
