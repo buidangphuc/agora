@@ -153,6 +153,7 @@ def rss_open_home_with_row(world: World) -> None:
     assert listing and listing.listing_id, "no seeded listing in state"
     serving = rss.keys(world, rss.SERVING_DB)
     prefix = rss.serving_prefix(serving)
+    serving.remove(f"{prefix}:ranker")
     own = rss.ids(rss.recommend(world, 10))
     wanted = [listing.listing_id, *[i for i in own if i != listing.listing_id]][:10]
     serving.put(

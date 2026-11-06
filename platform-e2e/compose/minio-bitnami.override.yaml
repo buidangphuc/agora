@@ -1,0 +1,8 @@
+services:
+  minio:
+    image: bitnamilegacy/minio:2024.5.28
+    user: "0"
+    entrypoint: ["/opt/bitnami/minio/bin/minio"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/minio/health/live"]

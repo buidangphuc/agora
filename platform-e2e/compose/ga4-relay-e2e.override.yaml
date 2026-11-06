@@ -1,0 +1,8 @@
+services:
+  ga4-relay:
+    environment:
+      - GA4_API_SECRET=e2e-relay-secret
+      - GA4_MEASUREMENT_ID=G-E2E0001
+      - GA4_ENDPOINT=http://host.docker.internal:${GA4_MOCK_PORT:-18120}/mp/collect
+    ports:
+      - "50059:50059"

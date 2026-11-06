@@ -274,10 +274,18 @@ def two_snapshots(fsm):
     manifests = snap["manifests"]
     assert len(manifests) == 2, manifests
     assert len({_parse(m["as_of"]) for m in manifests}) == 2, [m["as_of"] for m in manifests]
+    versions: dict[tuple[str, str], int] = {}
     for view in ENTITIES:
-        assert len(snap["snapshots"].get(view, [])) == 2, (view, snap["snapshots"])
+        runs = snap["snapshots"].get(view, [])
+        assert runs, (view, snap["snapshots"])
+        for run in runs:
+            key = (view, run["path"].split("/")[1])
+            versions[key] = versions.get(key, 0) + 1
+    for key, count in versions.items():
+        assert count == 2, (f"{key[0]}@{key[1]}", snap["snapshots"])
     for m in manifests:
-        assert {v["name"] for v in m["views"]} >= set(ENTITIES), m
+        named = {(v["name"], f"v{v['version']}") for v in m["views"]}
+        assert named >= set(versions), (sorted(set(versions) - named), m)
         for v in m["views"]:
             assert v["rows"] > 0, (m["as_of"], v)
             assert re.fullmatch(r"[0-9a-f]{64}", v["definition_sha256"]), v

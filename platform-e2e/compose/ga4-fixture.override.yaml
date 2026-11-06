@@ -1,0 +1,6 @@
+services:
+  team-analytics:
+    environment:
+      - MOCK_DATA=ga4export
+      - GA4_EXPORT_DATASET=fixture
+      - GA4_EXPORT_FIXTURE_DIR=/data/ga4_fixture
