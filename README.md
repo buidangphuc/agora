@@ -139,10 +139,15 @@ Parallel agents are only useful if they do not collide:
 3. **Workspace isolation.** Each feature runs in its own git worktree and branch (`asdlc/<change>`).
 4. **Track isolation.** Inside a change the e2e track and the code track are written by
    different agents from the same spec; the gate is the sync point.
-5. **Runtime isolation.** Each checkout runs its own compose project; parallel e2e workers that
-   touch shared stores get private namespaces.
-6. **Resource hygiene.** Heavy environments a task does not need (the kind cluster) stay off
-   during e2e.
+5. **Runtime isolation.** One initiative at a time gets its own compose project
+   (`scripts/devenv/agora_env.py up <id>`): own infra, containers named `<id>-*`, host ports
+   +30000, images `team-x:<id>` only for the services it changes. Main runs as project `mainx`
+   with `:local` images, rebuilt only after a merge (`promote`). Slice workers run unit tests and
+   red-first only, no containers.
+6. **Pre-merge preview.** `agora_env.py preview up <id>` deploys the initiative through ArgoCD
+   to namespace `e2e-<id>` on kind; kind is not left running afterwards.
+7. **Resource hygiene.** After a merge, `down <id>` and `preview down <id>` remove the env, its
+   volumes and `:<id>` images; `dev-cleanup` removes merged worktrees and branches.
 
 ## 6. Definition of Done
 
@@ -224,8 +229,11 @@ scripts/asdlc/red_first.sh --base origin/main
 scripts/asdlc/ci_local.sh                           # same jobs as CI (--docker-tools for gitleaks/trivy)
 make -C platform-e2e spec-check CHANGE=<change>
 
-# Run the system the tests run against
-docker compose up -d --build
+# Run the system the tests run against: the initiative's env, then the pre-merge preview
+$PY scripts/devenv/agora_env.py up <id> --slices plans/<id>/slices.yaml --src <worktree>
+$PY scripts/devenv/agora_env.py e2e <id> <feature files>
+$PY scripts/devenv/agora_env.py preview up <id> --slices plans/<id>/slices.yaml --src <worktree>
+$PY scripts/devenv/agora_env.py preview e2e <id>
 
 # 8-9  Release to local staging, roll back
 make -C deploy cluster-up
@@ -233,14 +241,15 @@ make -C deploy release-tag TAG=<sha> RELEASE_ENV=staging
 make -C deploy gitops-push smoke-staging
 scripts/rollback.sh <service> --env staging --to <sha>
 
-# 7    Archive (human)
+# 7    After the human merges: main env, full suite, teardown, archive
+$PY scripts/devenv/agora_env.py promote
+$PY scripts/devenv/agora_env.py e2e main --all
+$PY scripts/devenv/agora_env.py down <id>; $PY scripts/devenv/agora_env.py preview down <id>
 openspec archive <change>
 ```
 
 ## 11. Known gaps
 
-- **Kev is not live yet.** Gates run their scripts and LLM reviewers; Kev latency and the
-  A/B/C experiment are pending, so all gates stay advisory.
 - **`tdd` and `security` are not required checks.** Red-first fails on dependency bumps and
   pre-existing tests; Trivy's secret scan flags the committed dev JWT key (kept as a dev fixture,
   refused in strict environments).
