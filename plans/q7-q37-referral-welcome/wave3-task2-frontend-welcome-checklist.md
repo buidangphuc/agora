@@ -14,8 +14,9 @@ Implement OpenSpec change `frontend-welcome-checklist` test-first per its tasks.
 - team-frontend/src/features/voucher/**
 - team-frontend/src/features/order/VoucherModal.tsx
 - team-frontend/src/features/order/VoucherModal.test.tsx
-- team-frontend/src/features/checkout/**
-- team-frontend/src/app/(shop)/checkout/**
+- team-frontend/src/features/order/CheckoutSteps.tsx
+- team-frontend/src/features/order/CheckoutSteps.test.tsx
+- team-frontend/src/app/(checkout)/checkout/(summary)/**
 - team-frontend/src/features/welcome/**
 - team-frontend/src/app/(shop)/vouchers/**
 - team-frontend/src/app/(shop)/(home)/page.tsx

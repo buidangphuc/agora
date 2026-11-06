@@ -14,7 +14,11 @@ import type {
   ViewCheckoutPreview,
 } from "@/lib/gateway/orders";
 import { calculateShippingFee, previewCheckout } from "@/lib/gateway/orders";
-import { listVouchers, previewVoucher } from "@/lib/gateway/promotion";
+import {
+  listMyVouchers,
+  listVouchers,
+  previewVoucher,
+} from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import CheckoutPage from "./page";
@@ -42,6 +46,7 @@ vi.mock("@/lib/gateway/orders", () => ({
   previewCheckout: vi.fn(),
 }));
 vi.mock("@/lib/gateway/promotion", () => ({
+  listMyVouchers: vi.fn(),
   listVouchers: vi.fn(),
   previewVoucher: vi.fn(),
 }));
@@ -168,6 +173,7 @@ beforeEach(() => {
   ]);
   setPreview(preview());
   vi.mocked(listVouchers).mockResolvedValue([]);
+  vi.mocked(listMyVouchers).mockResolvedValue({ ok: true, vouchers: [] });
   vi.mocked(previewVoucher).mockResolvedValue({
     valid: false,
     reason: "",
@@ -810,5 +816,97 @@ describe("/checkout scoped vouchers", () => {
     expect(
       within(screen.getByTestId("order-summary")).getByTestId("order-total"),
     ).toHaveTextContent("670.000");
+  });
+});
+
+describe("/checkout payment step own vouchers", () => {
+  const welcome = {
+    id: "v9",
+    code: "WELCOME50",
+    scope: 2,
+    scopeText: "Toàn sàn",
+    sellerId: "",
+    discountType: 2,
+    discountTypeText: "Giảm tiền",
+    discountValue: 50000,
+    minSpend: 200000,
+    maxDiscount: 0,
+    quota: 1,
+    used: 0,
+    startsAt: "",
+    endsAt: "30/11/2026",
+    kind: 2,
+    ownerUserId: "u1",
+  };
+
+  it("W6 lists the own voucher code in the platform slot of the payment step", async () => {
+    vi.mocked(listMyVouchers).mockResolvedValue({
+      ok: true,
+      vouchers: [welcome],
+    } as never);
+    await go({ step: "payment", addr: "a2" });
+    expect(
+      within(screen.getByTestId("platform-voucher")).getByRole("button", {
+        name: "WELCOME50",
+      }),
+    ).toBeInTheDocument();
+    expect(listMyVouchers).toHaveBeenCalledTimes(1);
+  });
+
+  it("W7 a failed own read renders the picker with no error banner", async () => {
+    vi.mocked(listMyVouchers).mockResolvedValue({ ok: false });
+    await go({ step: "payment", addr: "a2" });
+    expect(listMyVouchers).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("platform-voucher")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("platform-voucher")).queryByRole("button", {
+        name: "WELCOME50",
+      }),
+    ).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("W8 the quote's invalid state for the applied own voucher is shown", async () => {
+    vi.mocked(listMyVouchers).mockResolvedValue({
+      ok: true,
+      vouchers: [welcome],
+    } as never);
+    setPreview(
+      preview({
+        vouchers: [
+          {
+            code: "WELCOME50",
+            scope: CheckoutVoucherScope.PLATFORM,
+            sellerId: "",
+            valid: false,
+            reason: "below minimum spend",
+            discountAmount: 0,
+          },
+        ],
+      }),
+    );
+    await go({ step: "payment", addr: "a2", pv: "WELCOME50" });
+    expect(
+      within(screen.getByTestId("platform-voucher")).getByText(
+        "below minimum spend",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("platform-voucher")).getByRole("button", {
+        name: "WELCOME50",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("W22 an anonymous visitor is redirected to login and listMyVouchers is never called", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    const url = await redirectOf({ step: "payment", addr: "a2" });
+    expect(url).toMatch(/^\/login/);
+    expect(listMyVouchers).not.toHaveBeenCalled();
+  });
+
+  it("W6 does not read own vouchers outside the payment step", async () => {
+    await go({ step: "shipping", addr: "a2" });
+    expect(listMyVouchers).not.toHaveBeenCalled();
   });
 });

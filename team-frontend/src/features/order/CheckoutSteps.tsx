@@ -114,11 +114,13 @@ export function PaymentStep({
   groups,
   quotes,
   available,
+  myVouchers,
 }: {
   state: CheckoutState;
   groups: ViewCheckoutGroup[];
   quotes: ViewVoucherQuote[];
   available?: Record<string, ViewVoucher[]>;
+  myVouchers?: ViewVoucher[];
 }) {
   return (
     <div className="space-y-4">
@@ -135,6 +137,7 @@ export function PaymentStep({
         groups={groups}
         quotes={quotes}
         available={available}
+        myVouchers={myVouchers}
       />
       <StepActions
         backHref={checkoutHref({ ...state, step: "shipping" })}

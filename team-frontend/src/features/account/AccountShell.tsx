@@ -1,8 +1,9 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { focusRing } from "@/components/ui/focus";
+import { WelcomePanel } from "@/features/welcome/WelcomePanel";
 
 export type AccountMenuKey =
   | "addresses"
@@ -77,6 +78,9 @@ export function AccountShell({
           { label: currentLabel },
         ]}
       />
+      <Suspense fallback={null}>
+        <WelcomePanel />
+      </Suspense>
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-text-primary">{title}</h1>
         {description && (

@@ -14,6 +14,7 @@ import { LoyaltyBlock } from "@/features/home/LoyaltyBlock";
 import { RecentlyViewedRow } from "@/features/home/RecentlyViewedRow";
 import { ServiceHubs } from "@/features/home/ServiceHubs";
 import { RecommendationsRow } from "@/features/recommendations/RecommendationsRow";
+import { WelcomePanel } from "@/features/welcome/WelcomePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,10 @@ export default function HomePage() {
     <div className="flex flex-col gap-8 sm:gap-12">
       <Suspense fallback={null}>
         <LoyaltyBlock />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <WelcomePanel />
       </Suspense>
 
       <Hero />

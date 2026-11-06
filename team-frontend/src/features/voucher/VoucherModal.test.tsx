@@ -40,6 +40,8 @@ const voucher: ViewVoucher = {
   used: 0,
   startsAt: "",
   endsAt: "",
+  kind: 0,
+  ownerUserId: "",
 };
 
 function setup(over: Partial<React.ComponentProps<typeof VoucherModal>> = {}) {

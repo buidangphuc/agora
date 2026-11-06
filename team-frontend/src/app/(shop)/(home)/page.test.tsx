@@ -25,6 +25,31 @@ vi.mock("@/features/home/FeedBlock", () => ({
 vi.mock("@/features/home/CategoryGridBlock", () => ({
   CategoryGridBlock: () => <p>CATEGORY_CONTENT</p>,
 }));
+const welcome = vi.hoisted(() => {
+  let release: () => void = () => {};
+  let released = true;
+  const promise = new Promise<void>((r) => {
+    release = () => {
+      released = true;
+      r();
+    };
+  });
+  return {
+    promise,
+    hold: () => {
+      released = false;
+    },
+    release: () => release(),
+    isReleased: () => released,
+  };
+});
+
+vi.mock("@/features/welcome/WelcomePanel", () => ({
+  WelcomePanel: () => {
+    if (!welcome.isReleased()) throw welcome.promise;
+    return <p>WELCOME_PANEL</p>;
+  },
+}));
 vi.mock("@/features/home/FlashSaleBlock", () => ({
   FlashSaleBlock: () => null,
 }));
@@ -82,5 +107,49 @@ describe("HomePage streaming", () => {
     expect(shell).toContain('aria-busy="true"');
     // Everything arrives once the feed resolves.
     expect(text()).toContain("FEED_CONTENT");
+  });
+
+  it("W9 mounts the WelcomePanel above the hero", async () => {
+    const { sink, text } = collect();
+    await new Promise<void>((resolve) => {
+      const stream = renderToPipeableStream(<HomePage />, {
+        onShellReady() {
+          stream.pipe(sink);
+        },
+        onAllReady() {
+          resolve();
+        },
+      });
+      setTimeout(() => gate.release(), 0);
+    });
+    const html = text();
+    expect(html).toContain("WELCOME_PANEL");
+    expect(html.indexOf("WELCOME_PANEL")).toBeLessThan(
+      html.indexOf("Mua ngay"),
+    );
+  });
+
+  it("W10 a slow WelcomePanel never delays the hero and renders nothing as fallback", async () => {
+    welcome.hold();
+    const { sink, text } = collect();
+    let shell = "";
+    await new Promise<void>((resolve) => {
+      const stream = renderToPipeableStream(<HomePage />, {
+        onShellReady() {
+          stream.pipe(sink);
+        },
+        onAllReady() {
+          resolve();
+        },
+      });
+      setTimeout(() => {
+        shell = text();
+        gate.release();
+        welcome.release();
+      }, 50);
+    });
+    expect(shell).toContain("Mua ngay");
+    expect(shell).not.toContain("WELCOME_PANEL");
+    expect(text()).toContain("WELCOME_PANEL");
   });
 });
