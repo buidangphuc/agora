@@ -29,3 +29,18 @@ Specs and proto comments still describe rules the code no longer follows:
 ## Impact
 
 team-frontend-admin: `src/lib/gateway/scopes.ts` (`isPromotionAdmin`) used by the 5 voucher/campaign pages and their 3 action modules. Proto comments only, no wire change. Data classification: unchanged.
+
+## Non-functional requirements
+
+- No wire change: `buf breaking` against main stays clean; proto copies stay byte-identical to `platform-core`.
+- The admin app adds no request: the scope check reads the session cookie already decoded by `getPrincipal`.
+
+## Data classification
+
+Internal. No new personal data is collected, stored, logged or sent. The specs stop describing a raw user id in logs, matching the code.
+
+## Threat model
+
+- Elevation of privilege: a token holding `admin` without `promotion.admin` could open voucher and campaign screens; the gateway and team-promotion already refuse its calls, and the admin app now refuses it first. The server actions re-check the scopes, so a hand-crafted action call is refused before any request.
+- Information disclosure: unchanged; the specs now forbid the raw principal id in logs, which the code already enforces.
+
