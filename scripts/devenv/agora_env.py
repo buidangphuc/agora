@@ -599,6 +599,10 @@ def cmd_gc(a):
 def cmd_ls(a):
     for p in sorted(STATE_ROOT.glob("*/state.json")):
         st = json.loads(p.read_text())
+        if a.porcelain:
+            if st["env"] != MAIN:
+                print(f"{st['env']} {st.get('branch') or '-'}")
+            continue
         pm = st.get("ports") or {}
         print(f"{st['env']:<24} project={st['project']:<20} branch={st.get('branch')} gateway=:{pm.get('8080', 8080)} owners={','.join(st.get('owners', [])) or '-'}")
 
@@ -652,6 +656,7 @@ def main():
     p.add_argument("--keep", default="72h")
     p.set_defaults(fn=cmd_gc)
     p = sub.add_parser("ls")
+    p.add_argument("--porcelain", action="store_true")
     p.set_defaults(fn=cmd_ls)
     a = ap.parse_args()
     a.fn(a)
