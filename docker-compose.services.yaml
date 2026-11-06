@@ -211,6 +211,7 @@ services:
       # event in the same tx; the relayer publishes it to identity.events so the
       # gateway denies the revoked session's token. Same OUTBOX_* names as team-domain.
       - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
       - OUTBOX_CLAIM_LOCK=60s
@@ -382,7 +383,6 @@ services:
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
       - UPSTREAM_ORDER_TIMEOUT=500ms
-      - IDENTITY_EVENTS_TOPIC=identity.events
       - NEW_USER_WELCOME_AMOUNT=20000
       - NEW_USER_INVITED_AMOUNT=30000
       - NEW_USER_MIN_SPEND=100000
