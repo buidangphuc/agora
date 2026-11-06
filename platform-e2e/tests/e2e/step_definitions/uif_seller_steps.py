@@ -8,6 +8,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
+from src.core.base_page import wait_streamed
 from tests.e2e.support import d2_support as d2
 from tests.e2e.support.apps import app_url
 from tests.e2e.support.uif_support import ALERTS
@@ -26,6 +27,7 @@ def seller_with_listings(world: World, count: int) -> None:
 @when("the uif seller opens the workplace")
 def open_workplace(world: World) -> None:
     world.page.goto(app_url(world.settings, "/seller"), wait_until="domcontentloaded")
+    wait_streamed(world.page)
 
 
 @then(
@@ -47,6 +49,7 @@ def kpi_hidden(world: World) -> None:
 def ask_magic(world: World) -> None:
     page = world.page
     page.goto(app_url(world.settings, "/seller/new"), wait_until="domcontentloaded")
+    wait_streamed(page)
     page.locator("#title").fill("Laptop Dell XPS 13")
     button = page.get_by_role("button", name="Tạo gợi ý")
     expect(button).to_be_enabled(timeout=timeouts.DEFAULT)

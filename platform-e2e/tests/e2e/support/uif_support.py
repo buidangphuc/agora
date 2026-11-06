@@ -11,6 +11,7 @@ Env overrides: ``UIF_<SERVICE>_CONTAINER`` (default ``agora-<service>-svc``).
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Callable
 
@@ -20,7 +21,7 @@ from tests.e2e.flows import stop_container
 from tests.e2e.support import pear_edge_support as pe
 from tests.e2e.support.world import World
 
-PROJECT = "agora"
+PROJECT = os.environ.get("UIF_COMPOSE_PROJECT", "agora")
 # Next's own (empty) route announcer is also a role=alert.
 ALERTS = '[role="alert"]:not(#__next-route-announcer__)'
 _UNREACHED = {"unavailable", "deadline_exceeded", "internal", "unknown"}

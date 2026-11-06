@@ -6,6 +6,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
+from src.core.base_page import wait_streamed
 from src.models import User
 from tests.e2e.step_definitions.review_ratings_steps import _register_buyer
 from tests.e2e.support import d2_support as d2
@@ -58,6 +59,7 @@ def _header_visible(world: World) -> None:
     page = world.page
     shop = _x(world)["uif_shop"]
     expect(page.locator("h1").first).to_have_text(shop["title"], timeout=timeouts.NAVIGATION)
+    wait_streamed(page)
     expect(page.get_by_test_id("pdp-price")).to_be_visible(timeout=timeouts.DEFAULT)
     expect(page.get_by_role("button", name="Thêm vào giỏ").first).to_be_visible(
         timeout=timeouts.DEFAULT

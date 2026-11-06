@@ -13,7 +13,42 @@ from pytest_bdd import given, parsers, then, when
 from src.constants import timeouts
 from tests.e2e.support.world import World
 
-_FOCUS_RING = "rgb(255, 181, 160)"  # --color-focus-ring (primary-300)
+_COLOR = re.compile(
+    r"rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)|color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)"
+)
+
+
+def _rgb_values(css: str) -> list[tuple[int, int, int]]:
+    out = []
+    for m in _COLOR.finditer(css):
+        if m.group(1) is not None:
+            out.append(tuple(round(float(v)) for v in m.group(1, 2, 3)))
+        else:
+            out.append(tuple(round(float(v) * 255) for v in m.group(4, 5, 6)))
+    return out
+
+
+def _focus_ring_token(world: World) -> tuple[int, int, int]:
+    css = world.page.evaluate(
+        """() => {
+            const probe = document.createElement("span");
+            probe.style.color = "var(--color-focus-ring)";
+            document.body.appendChild(probe);
+            const value = getComputedStyle(probe).color;
+            probe.remove();
+            return value;
+        }"""
+    )
+    values = _rgb_values(css)
+    assert values, f"--color-focus-ring did not resolve to a colour: {css!r}"
+    return values[0]
+
+
+def _has_ring(world: World, shadow: str) -> bool:
+    token = _focus_ring_token(world)
+    return any(
+        all(abs(a - b) <= 1 for a, b in zip(c, token, strict=True)) for c in _rgb_values(shadow)
+    )
 
 
 def _tid(world: World, testid: str) -> Locator:
@@ -117,7 +152,9 @@ def tab_to_primary(world: World) -> None:
 @then("a focus ring is drawn around the primary button")
 def ring_drawn(world: World) -> None:
     shadow = _ring(world)
-    assert _FOCUS_RING in shadow, f"expected focus ring colour in box-shadow, got {shadow!r}"
+    assert _has_ring(world, shadow), (
+        f"expected focus ring colour {_focus_ring_token(world)} in box-shadow, got {shadow!r}"
+    )
 
 
 @when("the primary button is clicked with the mouse")
@@ -129,7 +166,7 @@ def click_primary_with_mouse(world: World) -> None:
 @then("no focus ring is drawn around the primary button")
 def no_ring(world: World) -> None:
     shadow = _ring(world)
-    assert _FOCUS_RING not in shadow, f"focus ring drawn after a mouse click: {shadow!r}"
+    assert not _has_ring(world, shadow), f"focus ring drawn after a mouse click: {shadow!r}"
 
 
 # ---------------------------------------------------------------- Data states
@@ -197,6 +234,10 @@ def press_escape(world: World) -> None:
 @then("the dialog is closed and focus is back on the opening button")
 def dialog_closed_focus_restored(world: World) -> None:
     expect(world.page.get_by_role("dialog")).to_have_count(0)
+    world.page.wait_for_function(
+        "() => document.activeElement?.getAttribute('data-testid') === 'ui-modal-open'",
+        timeout=timeouts.DEFAULT,
+    )
     assert _active_testid(world) == "ui-modal-open", "focus did not return to the opener"
 
 
