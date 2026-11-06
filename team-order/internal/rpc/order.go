@@ -334,6 +334,24 @@ func (h *OrderHandler) ListBuyerOrders(ctx context.Context, req *orderv1.ListBuy
 	return &orderv1.ListBuyerOrdersResponse{Orders: wireOrders}, nil
 }
 
+func (h *OrderHandler) HasCompletedOrder(ctx context.Context, req *orderv1.HasCompletedOrderRequest) (*orderv1.HasCompletedOrderResponse, error) {
+	principal, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !isServiceWithScope(principal, "order.read") {
+		return nil, status.Error(codes.PermissionDenied, "order.read service scope required")
+	}
+	if req.GetBuyerId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "buyer id is required")
+	}
+	has, err := h.svc.HasCompletedOrder(ctx, req.GetBuyerId())
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &orderv1.HasCompletedOrderResponse{HasCompleted: has}, nil
+}
+
 func (h *OrderHandler) ListSellerOrders(ctx context.Context, req *orderv1.ListSellerOrdersRequest) (*orderv1.ListSellerOrdersResponse, error) {
 	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
