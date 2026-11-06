@@ -242,7 +242,7 @@ TBD - created by archiving change promotion-admin-campaigns. Update Purpose afte
 
 ### Requirement: Admin campaign screens
 
-The admin app `/admin/campaigns` SHALL list every campaign with a status filter (all, scheduled, active, ended, cancelled), paging, a cancel action with a confirmation, and an edit action enabled only for scheduled campaigns. The `/admin/campaigns/new` form SHALL generate one idempotency key per form session and reuse it on every retry of the same submit, SHALL validate price, stock cap and window client-side matching the server rules, and SHALL map ALREADY_EXISTS, INVALID_ARGUMENT, `LISTING_UNAVAILABLE`, `AUDIT_UNAVAILABLE` and `PROMOTION_UNAVAILABLE` to distinct messages, reusing the shared mapping from promotion-admin-vouchers. A `flash_sale_disabled` response SHALL show a banner "flash sale is switched off" instead of an empty-list message. The screens SHALL be reachable only by admin sessions.
+The admin app `/admin/campaigns` SHALL list every campaign with a status filter (all, scheduled, active, ended, cancelled), paging, a cancel action with a confirmation, and an edit action enabled only for scheduled campaigns. The `/admin/campaigns/new` form SHALL generate one idempotency key per form session and reuse it on every retry of the same submit, SHALL validate price, stock cap and window client-side matching the server rules, and SHALL map ALREADY_EXISTS, INVALID_ARGUMENT, `LISTING_UNAVAILABLE`, `AUDIT_UNAVAILABLE` and `PROMOTION_UNAVAILABLE` to distinct messages, reusing the shared mapping from promotion-admin-vouchers. A `flash_sale_disabled` response SHALL show a banner "flash sale is switched off" instead of an empty-list message. The screens and their server actions SHALL be reachable only by sessions holding both `admin` and `promotion.admin`, the scopes team-promotion requires for these RPCs.
 
 #### Scenario: Filter and cancel from the list
 - **WHEN** an admin opens `/admin/campaigns`, picks the filter "active" and confirms cancel on one row
@@ -273,3 +273,8 @@ The admin app `/admin/campaigns` SHALL list every campaign with a status filter 
 - **WHEN** a seller or an anonymous visitor opens `/admin/campaigns`
 - **THEN** the visitor is redirected to the admin login or shown forbidden and no campaign data is requested
 - **VERIFIED BY**: team-frontend-admin `src/app/admin/campaigns/page.test.tsx` "forbids non-admin"
+
+#### Scenario: Admin token without promotion.admin reaches no campaign screen
+- **WHEN** a session holding `admin` but not `promotion.admin` opens `/admin/campaigns` or `/admin/campaigns/new`, or runs the create, cancel or update action
+- **THEN** the app shows forbidden or returns a failed result and no campaign request is sent
+- **VERIFIED BY**: team-frontend-admin `src/app/admin/campaigns/**/page.test.tsx`, `src/features/campaigns/actions.test.ts` and `src/features/admin/campaignActions.test.ts` "(admin token without promotion.admin)"

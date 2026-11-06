@@ -382,11 +382,11 @@ On SIGINT or SIGTERM the gateway SHALL turn the health services NOT_SERVING, wai
 
 ### Requirement: Logs and telemetry use the SDK and keep the edge.request fields
 
-The gateway SHALL build its logger with `logx` and its tracer and meter with `otelx`. `OTEL_ENABLED=false` SHALL install no exporter. The `edge.request` line SHALL keep the fields `method`, `principal`, `code`, `latency_ms`, `request_id` and `attempts`, and SHALL gain `principal_id` and `trace_id` from the context. No log line SHALL contain a bearer token, a request body or a Kafka record key. The revocation gauges `gateway_revocation_consumer_up`, `gateway_revocation_consumer_lag` and `gateway_revocation_denylist_size` SHALL be registered on the global meter.
+The gateway SHALL build its logger with `logx` and its tracer and meter with `otelx`. `OTEL_ENABLED=false` SHALL install no exporter. The `edge.request` line SHALL carry the fields `method`, `principal_kind`, `code`, `latency_ms`, `request_id` and `attempts`, SHALL carry `principal_fp` for a user or service principal, and SHALL gain `trace_id` from the context. It SHALL NOT carry the raw principal id under any key, including `principal` and `principal_id`. No log line SHALL contain a bearer token, a request body or a Kafka record key. The revocation gauges `gateway_revocation_consumer_up`, `gateway_revocation_consumer_lag` and `gateway_revocation_denylist_size` SHALL be registered on the global meter.
 
 #### Scenario: The edge.request line keeps its fields
 - **WHEN** one unary call is served with `X-Request-Id` "req-9"
-- **THEN** the log line `edge.request` has `method`, `principal`, `code`, `latency_ms`, `request_id` "req-9" and `attempts`, with `request_id` appearing once
+- **THEN** the log line `edge.request` has `method`, `principal_kind`, `code`, `latency_ms`, `request_id` "req-9" and `attempts`, with `request_id` appearing once
 - **VERIFIED BY**: team-gateway `internal/edge` `TestEdgeRequestLineKeepsFields`
 
 #### Scenario: A token never reaches the logs

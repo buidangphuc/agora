@@ -284,7 +284,7 @@ The system SHALL fail closed on every admin voucher write and SHALL tell the bro
 - **THEN** the system SHALL return `PERMISSION_DENIED` without writing an audit entry
 
 ### Requirement: Admin app screens for stop and edit
-The admin app SHALL let an admin stop a voucher and edit its end date and quota from `/admin/vouchers`, and the buyer app SHALL tell the buyer a stopped voucher no longer applies.
+The admin app SHALL let an admin stop a voucher and edit its end date and quota from `/admin/vouchers`, and the buyer app SHALL tell the buyer a stopped voucher no longer applies. Only sessions holding both `admin` and `promotion.admin` SHALL reach the voucher screens and run their server actions.
 
 #### Scenario: V28 stop from the list
 - **WHEN** an admin confirms "Stop" on an active voucher in the admin app
@@ -321,6 +321,11 @@ The admin app SHALL let an admin stop a voucher and edit its end date and quota 
 #### Scenario: V32 non-admin sees no controls
 - **WHEN** a signed-in user without scope admin opens `/admin/vouchers`
 - **THEN** the app SHALL show the forbidden screen with no Stop or Edit control
+
+#### Scenario: V32a admin token without promotion.admin is refused
+- **WHEN** a session holding `admin` but not `promotion.admin` opens `/admin/vouchers`, `/admin/vouchers/new` or a voucher detail, or runs the create, stop or edit action
+- **THEN** the app SHALL show the forbidden screen or return the forbidden result, and SHALL send no request to the gateway
+- **VERIFIED BY**: team-frontend-admin `src/app/admin/vouchers/**/page.test.tsx` and `src/features/vouchers/actions.test.ts` "(admin token without promotion.admin)"
 
 #### Scenario: V33 create dialog no longer claims immutability
 - **WHEN** an admin opens the create confirmation dialog
