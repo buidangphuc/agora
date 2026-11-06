@@ -41,7 +41,7 @@ behind the sanitized message; the promotion forwarders add `promotion.platform/P
 when the upstream sent none (`internal/edge/promotion.go`).
 
 Identity `AuthService` extras at the edge (`internal/edge/auth.go`): `CreateHandoffCode` needs an
-authenticated principal (`UNAUTHENTICATED` for anonymous); `BecomeSeller` needs a `user` principal
+authenticated principal (`UNAUTHENTICATED` for anonymous); `BecomeSeller` needs a `user` principal; `AuthService.GetMyAccount` needs any authenticated principal (no scope) and is forwarded with the verified principal only; `Register` stays public and forwards `referral_code` unchanged
 (`UNAUTHENTICATED` for anonymous, `PERMISSION_DENIED` otherwise); `PeekHandoffCode` (read) and
 `RedeemHandoffCode` (write) are open, the code is the credential.
 

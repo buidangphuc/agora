@@ -19,6 +19,8 @@ not check scopes except in `GetPublicProfiles` (`identity.read`) and `AccountAdm
 |---|---|
 | `AuthService.Register` | No principal check. Role `seller` or `buyer`; anything else (including `admin`) becomes `buyer`. Username non-empty, password >= 4 chars. Creates a session and returns a token with `sid`. |
 | `AuthService.Login` | No principal check. Creates a session, returns token. Wrong credentials: `UNAUTHENTICATED`. |
+| `AuthService.Register` | Public. Optional `referral_code`: trimmed, kept (case preserved) only when it matches `^[A-Za-z0-9_-]{1,32}$`, otherwise dropped, never rejected; the response is identical for valid, unknown and malformed codes. The user row and a `UserRegistered` outbox row commit in one transaction; a duplicate username writes no event (`internal/identity/auth.go`). |
+| `AuthService.GetMyAccount` | `RequireUser` (`UNAUTHENTICATED` anonymous, `PERMISSION_DENIED` service principal). No request fields; returns `{user_id, created_at}` of the verified principal only; `NOT_FOUND` when the row is missing. |
 | `AuthService.ChangePassword` | `RequirePrincipal` and a `PRINCIPAL_TYPE_USER` principal (`PERMISSION_DENIED` for service principals). Always targets the principal's id; `user_id` in the request body is ignored. Verifies the old password. |
 | `AuthService.RequestPasswordReset` | No principal check. Returns `expires_at` (15 min TTL, SHA-256 hash stored); the raw reset token is returned in the response only when `PASSWORD_RESET_EXPOSE_TOKEN=true` (dev/e2e; startup refuses it when `ENV=prod`). |
 | `AuthService.ResetPassword` | No principal check. Token must exist, be unused and unexpired. |
@@ -61,6 +63,7 @@ Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), use
 | Produces | `identity.events` (`IDENTITY_EVENTS_TOPIC`) | `platform.identity.v1.SessionRevoked` in an `EventEnvelope` | user id |
 | Produces | `identity.events` | `platform.identity.v1.UserStatusChanged` in an `EventEnvelope` (on every `SetUserStatus` call) | user id |
 | Produces | `identity.events` | `platform.identity.v1.UserRoleGranted` in an `EventEnvelope` (when `BecomeSeller` adds the `seller` role; `internal/events/publisher.go:97`) | user id |
+| Produces | `identity.events` | `platform.identity.v1.UserRegistered` in an `EventEnvelope` (one per successful `Register`, same transaction as the user row; payload `user_id`, `referral_code` (empty when none), `registered_at`; the seed admin emits none; relay logs hash `referral_code`) | user id |
 | Consumes | none | | |
 
 `RevokeSession` inserts the outbox row in the same transaction as `sessions.revoked = true`. The

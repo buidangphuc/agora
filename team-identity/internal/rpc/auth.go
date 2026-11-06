@@ -45,11 +45,26 @@ func (h *AuthHandler) WithExposeResetToken(on bool) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(ctx context.Context, req *identityv1.RegisterRequest) (*identityv1.RegisterResponse, error) {
-	res, err := h.svc.Register(withClient(ctx), req.GetUsername(), req.GetPassword(), req.GetRole())
+	res, err := h.svc.RegisterWithReferral(withClient(ctx), req.GetUsername(), req.GetPassword(), req.GetRole(), req.GetReferralCode())
 	if err != nil {
 		return nil, statusErr(ctx, h.logger, err)
 	}
 	return &identityv1.RegisterResponse{Result: toResult(res)}, nil
+}
+
+func (h *AuthHandler) GetMyAccount(ctx context.Context, _ *identityv1.GetMyAccountRequest) (*identityv1.GetMyAccountResponse, error) {
+	p, err := auth.RequireUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	u, err := h.svc.GetMyAccount(ctx, p.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, status.Error(codes.NotFound, "account not found")
+		}
+		return nil, statusErr(ctx, h.logger, err)
+	}
+	return &identityv1.GetMyAccountResponse{UserId: u.ID, CreatedAt: timestamppb.New(u.CreatedAt)}, nil
 }
 
 func (h *AuthHandler) Login(ctx context.Context, req *identityv1.LoginRequest) (*identityv1.LoginResponse, error) {

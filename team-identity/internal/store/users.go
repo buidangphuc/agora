@@ -90,6 +90,7 @@ type PasswordResetToken struct {
 // UserRepository is the port the service depends on.
 type UserRepository interface {
 	Create(ctx context.Context, u User) (User, error)
+	CreateRegistered(ctx context.Context, u User, referralCode string, enqueue RegisteredEnqueueFn) (User, error)
 	GetByUsername(ctx context.Context, username string) (User, error)
 	GetByID(ctx context.Context, id string) (User, error)
 	UpdatePassword(ctx context.Context, userID, newPasswordHash string) error
