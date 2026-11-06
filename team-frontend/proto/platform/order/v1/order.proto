@@ -192,6 +192,17 @@ service OrderService {
   // Shipment & Logistics Tracking
   rpc CreateShipment(CreateShipmentRequest) returns (CreateShipmentResponse);
   rpc GetShipmentTracking(GetShipmentTrackingRequest) returns (GetShipmentTrackingResponse);
+  // The RPC is internal, service-to-service only (called by team-promotion for
+  // new_user_only vouchers); NOT routed at the gateway.
+  rpc HasCompletedOrder(HasCompletedOrderRequest) returns (HasCompletedOrderResponse);
+}
+
+message HasCompletedOrderRequest {
+  string buyer_id = 1;
+}
+
+message HasCompletedOrderResponse {
+  bool has_completed = 1;
 }
 
 message ConfirmReceiptRequest {

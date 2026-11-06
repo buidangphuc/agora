@@ -58,6 +58,10 @@ service AuthService {
   // requires a Principal, and the user id comes from the Principal, never from
   // the request. Publishes one UserRoleGranted event.
   rpc BecomeSeller(BecomeSellerRequest) returns (BecomeSellerResponse);
+  // GetMyAccount is principal-scoped: the caller sees only their own account and
+  // no request field selects another user. Routed at the gateway for any
+  // signed-in user (the frontend uses created_at for the 14-day welcome rule).
+  rpc GetMyAccount(GetMyAccountRequest) returns (GetMyAccountResponse);
 }
 
 enum HandoffApp {
@@ -107,6 +111,17 @@ message RegisterRequest {
   string password = 2;
   // "buyer" (default) or "seller". admin is seeded, not self-assignable.
   string role = 3;
+  // Optional referral code, accepted on the public Register RPC (no principal;
+  // the code grants no role or access). An empty, unknown or self-owned code
+  // never fails Register.
+  string referral_code = 4;
+}
+
+message GetMyAccountRequest {}
+
+message GetMyAccountResponse {
+  string user_id = 1;
+  google.protobuf.Timestamp created_at = 2;
 }
 
 message LoginRequest {
@@ -417,4 +432,16 @@ message UserRoleGranted {
   string user_id = 1;
   string role = 2;
   google.protobuf.Timestamp granted_at = 3;
+}
+
+// UserRegistered is an internal-only event (never exposed at the gateway)
+// published on Kafka topic `identity.events` (key = user id, wrapped in
+// platform.events.v1.EventEnvelope with type "platform.identity.v1.UserRegistered")
+// through the identity outbox in the same transaction as the user row, once per
+// registration. referral_code is empty when none was supplied. Consumers
+// (team-referral, team-promotion) must be idempotent on the event id.
+message UserRegistered {
+  string user_id = 1;
+  string referral_code = 2;
+  google.protobuf.Timestamp registered_at = 3;
 }
