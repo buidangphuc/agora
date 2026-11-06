@@ -127,7 +127,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: platform-finetune/pyproject.toml
       - name: Install (dev + cpu extras)
-        run: uv pip install --system -e '.[dev,cpu]' 'mlflow>=3.2,<3.3'
+        run: uv pip install --system -e '.[dev,cpu]' 'mlflow>=3.14,<3.15'
       - name: Run offline tests
         run: python -m pytest tests -q
 

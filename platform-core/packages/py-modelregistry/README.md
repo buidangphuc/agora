@@ -1,7 +1,7 @@
 # modelregistry
 
 Unified model registry client and publish gate on MLflow (ADR-0017). Python >= 3.10,
-depends on `mlflow-skinny` 3.2.x and `pyyaml`.
+depends on `mlflow-skinny` 3.14.x and `pyyaml`.
 
 ## Usage
 
