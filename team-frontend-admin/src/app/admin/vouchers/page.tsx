@@ -7,6 +7,7 @@ import {
   VoucherForbidden,
 } from "@/features/vouchers/VoucherForbidden";
 import { VoucherListView } from "@/features/vouchers/VoucherListView";
+import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 import { listPlatformVouchers } from "@/lib/gateway/vouchers";
 
@@ -40,7 +41,7 @@ export default async function VouchersPage({
     redirectGuestToLogin("/admin/vouchers", sp);
     return null;
   }
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return <VoucherForbidden subTitle={NO_ADMIN_SCOPE} />;
   }
 

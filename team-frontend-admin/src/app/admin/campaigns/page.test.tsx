@@ -19,7 +19,11 @@ vi.mock("@/features/campaigns/actions", () => ({
   createCampaignAction: vi.fn(),
 }));
 
-const admin = { id: "u-admin", name: "Admin", scopes: ["admin"] };
+const admin = {
+  id: "u-admin",
+  name: "Admin",
+  scopes: ["admin", "promotion.admin"],
+};
 
 const campaign: CampaignView = {
   id: "fs-1",
@@ -59,6 +63,18 @@ describe("CampaignsPage", () => {
       id: "u-2",
       name: "Seller",
       scopes: ["listing.write"],
+    });
+    render(await page());
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("campaign-row")).toHaveLength(0);
+    expect(listCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("forbids non-admin: a seller sees 403 and no campaign data is requested (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-2",
+      name: "Seller",
+      scopes: ["admin"],
     });
     render(await page());
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();

@@ -5,6 +5,7 @@ import { Link } from "@/components/ui/Link";
 import { Result } from "@/components/ui/Result";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { CreateCampaignForm } from "@/features/campaigns/CreateCampaignForm";
+import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export default async function NewCampaignPage() {
     redirectGuestToLogin("/admin/campaigns/new");
     return null;
   }
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return (
       <Result
         status="403"

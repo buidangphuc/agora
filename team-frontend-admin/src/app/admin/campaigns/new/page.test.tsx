@@ -22,7 +22,7 @@ beforeEach(() => {
   vi.mocked(getPrincipal).mockReturnValue({
     id: "u-admin",
     name: "Admin",
-    scopes: ["admin"],
+    scopes: ["admin", "promotion.admin"],
   });
   vi.mocked(getToken).mockReturnValue("tok");
 });
@@ -46,6 +46,17 @@ describe("NewCampaignPage", () => {
       id: "u-2",
       name: "Buyer",
       scopes: ["order.read"],
+    });
+    render(await NewCampaignPage());
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(screen.queryByTestId("campaign-form")).toBeNull();
+  });
+
+  it("forbids non-admin: shows 403 to a seller (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-2",
+      name: "Buyer",
+      scopes: ["admin"],
     });
     render(await NewCampaignPage());
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();

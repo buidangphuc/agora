@@ -25,7 +25,7 @@ describe("NewVoucherPage", () => {
     vi.mocked(getPrincipal).mockReturnValue({
       id: "a",
       name: "A",
-      scopes: ["admin"],
+      scopes: ["admin", "promotion.admin"],
     });
     render(await NewVoucherPage());
     expect(
@@ -36,6 +36,17 @@ describe("NewVoucherPage", () => {
 
   it("shows 403 without the admin scope", async () => {
     vi.mocked(getPrincipal).mockReturnValue({ id: "b", name: "B", scopes: [] });
+    render(await NewVoucherPage());
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(screen.queryByTestId("voucher-create-form")).toBeNull();
+  });
+
+  it("shows 403 without the admin scope (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "b",
+      name: "B",
+      scopes: ["admin"],
+    });
     render(await NewVoucherPage());
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
     expect(screen.queryByTestId("voucher-create-form")).toBeNull();

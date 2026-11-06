@@ -4923,6 +4923,32 @@ features:
     status: not-testable
     notes: "VERIFIED BY team-frontend-admin vitest `forbids non-admin` in app/admin/campaigns/page.test.tsx. Not producible end to end through the gateway (unit level)."
 
+  - id: promotion.admin-campaigns-admin-token-without-promotion-admin
+    title: "Admin token without promotion.admin reaches no campaign screen"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change scope-and-log-wording.
+    entry_route: /
+    services: [team-frontend-admin]
+    acceptance:
+      - "Admin token without promotion.admin reaches no campaign screen"
+    tags: [promotion, campaigns, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `(admin token without promotion.admin)` cases in app/admin/campaigns/page.test.tsx, app/admin/campaigns/new/page.test.tsx, features/campaigns/actions.test.ts and features/admin/campaignActions.test.ts. Not producible end to end: the local identity grants admin and promotion.admin together (unit level)."
+
+  - id: promotion.admin-vouchers-v32a-admin-token-without-promotion-admin
+    title: "V32a admin token without promotion.admin is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change scope-and-log-wording.
+    entry_route: /
+    services: [team-frontend-admin]
+    acceptance:
+      - "V32a admin token without promotion.admin is refused"
+    tags: [promotion, vouchers, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-admin vitest `(admin token without promotion.admin)` cases in app/admin/vouchers/page.test.tsx, app/admin/vouchers/new/page.test.tsx, app/admin/vouchers/[code]/page.test.tsx and features/vouchers/actions.test.ts. Not producible end to end: the local identity grants admin and promotion.admin together (unit level)."
+
   # promotion-admin-scope
   - id: promotion.pas-the-admin-deactivates-a-platform-voucher
     title: "Promotion admin scope: the admin deactivates a platform voucher"

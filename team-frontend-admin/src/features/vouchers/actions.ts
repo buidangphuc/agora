@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal } from "@/lib/gateway/session";
 import {
   type VoucherView,
@@ -43,7 +44,7 @@ export async function createPlatformVoucherAction(
 ): Promise<CreateVoucherActionResult> {
   const principal = getPrincipal();
   if (!principal) return redirectGuestToLogin(NEW_PATH);
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return fail(VOUCHER_MESSAGES.forbidden);
   }
 
@@ -98,7 +99,7 @@ export async function deactivateVoucherAction(
 ): Promise<ChangeVoucherActionResult> {
   const principal = getPrincipal();
   if (!principal) return redirectGuestToLogin(LIST_PATH);
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return { ok: false, error: VOUCHER_MESSAGES.forbidden };
   }
 
@@ -117,7 +118,7 @@ export async function updateVoucherAction(
 ): Promise<ChangeVoucherActionResult> {
   const principal = getPrincipal();
   if (!principal) return redirectGuestToLogin(LIST_PATH);
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return { ok: false, error: VOUCHER_MESSAGES.forbidden };
   }
 
