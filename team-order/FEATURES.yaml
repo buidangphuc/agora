@@ -6657,3 +6657,186 @@ features:
     tags: [ops, security]
     status: automated
     covered_by: "ops/boot_guard_order.feature::team-order refuses to start without a database in production"
+
+  # ---- order-has-completed-order (initiative q7-q37-referral-welcome; written from the spec, planned until the code lands).
+  - id: order.has-completed-order-buyer-with-a-completed-order
+    title: "Has completed order: Buyer with a completed order"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Buyer with a completed order"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-buyer-with-a-completed-and-a-cancelled-order
+    title: "Has completed order: Buyer with a completed and a cancelled order"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Buyer with a completed and a cancelled order"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-buyer-with-only-non-completed-orders
+    title: "Has completed order: Buyer with only non-completed orders"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Buyer with only non-completed orders"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-buyer-with-no-orders
+    title: "Has completed order: Buyer with no orders"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Buyer with no orders"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-another-buyers-completed-order-does-not-count
+    title: "Has completed order: Another buyer's completed order does not count"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Another buyer's completed order does not count"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-completed-by-seller-or-system-counts
+    title: "Has completed order: Completed by seller or system counts"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Completed by seller or system counts"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-status-change-is-visible-on-the-next-call
+    title: "Has completed order: Status change is visible on the next call"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Status change is visible on the next call"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-empty-buyer-id
+    title: "Has completed order: Empty buyer id"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Empty buyer id"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-buyer-principal-refused
+    title: "Has completed order: Buyer principal refused"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Buyer principal refused"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-admin-refused
+    title: "Has completed order: Admin refused"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Admin refused"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-service-without-the-scope-refused
+    title: "Has completed order: Service without the scope refused"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Service without the scope refused"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-unauthenticated-call-refused
+    title: "Has completed order: Unauthenticated call refused"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Unauthenticated call refused"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-not-routed-at-the-gateway
+    title: "Has completed order: Not routed at the gateway"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Not routed at the gateway"
+    tags: [order, q7]
+    status: planned
+
+  - id: order.has-completed-order-store-failure-is-not-reported-as-false
+    title: "Has completed order: Store failure is not reported as false"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Store failure is not reported as false"
+    tags: [order, q7]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` TestQ7HasCompletedOrder_StoreFailureIsNotReportedAsFalse (task 1.1). A store fault and the log content are not producible black box."
+
+  - id: order.has-completed-order-logs-carry-no-buyer-id-in-any-form
+    title: "Has completed order: Logs carry no buyer id in any form"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
+    entry_route: /
+    services: [team-order, team-gateway]
+    acceptance:
+      - "Logs carry no buyer id in any form"
+    tags: [order, q7]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` TestQ7HasCompletedOrder_LogsCarryNoBuyerIDInAnyForm (task 1.1). A store fault and the log content are not producible black box."
