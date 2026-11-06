@@ -8,7 +8,7 @@ Feature: Referral attribution and delayed rewards
     And the referral events topic is being observed
     And an inviter "alice" with a referral code
 
-  Scenario: An invited signup is attributed and the first order creates a pending reward
+  Scenario: Invite attribution works end to end through the chain
     When "bob" registers through the gateway with the code of "alice"
     Then ReferralAttributed for "bob" naming "alice" is observed within 10 seconds
     And "alice" shows invited_count 1
@@ -16,7 +16,7 @@ Feature: Referral attribution and delayed rewards
     Then "alice" shows pending_xu 10000 and released_xu 0
     And "alice" lists exactly one PENDING reward of 10000 xu
 
-  Scenario: A reward is released after the return window
+  Scenario: A sweep releases within twice the interval
     Given the stack sweeps releases every second and closes the return window after 3 seconds
     And "bob" registered through the gateway with the code of "alice"
     When "bob" completes an order

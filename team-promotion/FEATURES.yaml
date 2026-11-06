@@ -5095,14 +5095,14 @@ features:
       - "When a visitor registers with no referral code"
       - "Then within 10 seconds ListMyVouchers returns exactly one VOUCHER_KIND_NEW_USER voucher of 20000, min spend 100000, quota 1, per-user limit 1 and a 336h lifetime"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/new_user_vouchers.feature::Registration without a referral code issues the welcome voucher"
+    status: automated
+    covered_by: "promotion/new_user_vouchers.feature::Registration without a referral code issues the welcome voucher"
 
   - id: promotion.nuv-invited-signup-waits-for-the-verdict-and-gets-the-invited-voucher
-    title: "Invited signup waits for the verdict and gets the invited voucher"
+    title: "Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher"
     persona: buyer
     priority: P1
-    summary: "Invited signup waits for the verdict and gets the invited voucher (promotion-new-user-vouchers)."
+    summary: "Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher (promotion-new-user-vouchers)."
     entry_route: /
     services: [team-identity, team-referral, team-promotion, team-gateway]
     preconditions:
@@ -5113,8 +5113,8 @@ features:
       - "When a visitor registers with the code of an inviter and ReferralAttributed is published"
       - "Then within 10 seconds the user owns exactly one new-user voucher of 30000"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/new_user_vouchers.feature::Invited signup waits for the verdict and gets the invited voucher"
+    status: automated
+    covered_by: "promotion/new_user_vouchers.feature::Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher"
 
   - id: promotion.nuv-a-rejected-referral-falls-back-to-the-welcome-voucher
     title: "A rejected referral falls back to the welcome voucher"
@@ -5131,8 +5131,8 @@ features:
       - "When a visitor registers with an unknown well-formed code and ReferralRejected is published"
       - "Then the user owns exactly one new-user voucher of 20000"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/new_user_vouchers.feature::A rejected referral falls back to the welcome voucher"
+    status: automated
+    covered_by: "promotion/new_user_vouchers.feature::A rejected referral falls back to the welcome voucher"
 
   - id: promotion.nuv-missing-verdict-falls-back-to-the-welcome-voucher-after-the-timeout
     title: "Missing verdict falls back to the welcome voucher after the timeout"
@@ -5149,8 +5149,8 @@ features:
       - "When a visitor registers with a code while no verdict is published and the 2s timeout elapses"
       - "Then the user owns exactly one voucher of 20000 and a late ReferralAttributed changes nothing"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/new_user_vouchers.feature::Missing verdict falls back to the welcome voucher after the timeout"
+    status: automated
+    covered_by: "promotion/new_user_vouchers.feature::Missing verdict falls back to the welcome voucher after the timeout"
 
   - id: promotion.nuv-another-buyer-cannot-use-a-user-bound-voucher
     title: "Another buyer cannot use a user-bound voucher"
@@ -5167,8 +5167,8 @@ features:
       - "When buyer B reserves the voucher owned by buyer A"
       - "Then the reservation is refused with VOUCHER_NOT_ELIGIBLE and A's voucher is still unused"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/voucher_per_user.feature::Another buyer cannot use a user-bound voucher"
+    status: automated
+    covered_by: "promotion/voucher_per_user.feature::Another buyer cannot use a user-bound voucher"
 
   - id: promotion.nuv-the-owner-uses-the-voucher-once
     title: "The owner uses the voucher once"
@@ -5185,8 +5185,8 @@ features:
       - "When the owner reserves and commits the voucher and reserves it again"
       - "Then the first call is valid with discount 20000 and the second is refused with VOUCHER_PER_USER_LIMIT"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/voucher_per_user.feature::The owner uses the voucher once"
+    status: automated
+    covered_by: "promotion/voucher_per_user.feature::The owner uses the voucher once"
 
   - id: promotion.nuv-new-user-only-refuses-a-buyer-with-a-completed-order
     title: "new_user_only refuses a buyer with a completed order"
@@ -5203,8 +5203,8 @@ features:
       - "When a buyer with a completed order reserves a new_user_only shop voucher"
       - "Then the reservation is refused with VOUCHER_NOT_ELIGIBLE and a buyer without a completed order is accepted"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/voucher_per_user.feature::new_user_only refuses a buyer with a completed order"
+    status: automated
+    covered_by: "promotion/voucher_per_user.feature::new_user_only refuses a buyer with a completed order"
 
   - id: promotion.nuv-a-signed-in-buyer-sees-only-their-own-vouchers
     title: "A signed-in buyer sees only their own vouchers"
@@ -5221,8 +5221,8 @@ features:
       - "When buyer A calls ListMyVouchers while buyer B also holds a voucher"
       - "Then the response has exactly A's voucher and none owned by B"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/my_vouchers.feature::A signed-in buyer sees only their own vouchers"
+    status: automated
+    covered_by: "promotion/my_vouchers.feature::A signed-in buyer sees only their own vouchers"
 
   - id: promotion.nuv-an-anonymous-caller-cannot-list-vouchers
     title: "An anonymous caller cannot list vouchers"
@@ -5239,8 +5239,8 @@ features:
       - "When ListMyVouchers is called without a token"
       - "Then the response is UNAUTHENTICATED"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/my_vouchers.feature::An anonymous caller cannot list vouchers"
+    status: automated
+    covered_by: "promotion/my_vouchers.feature::An anonymous caller cannot list vouchers"
 
   - id: promotion.nuv-public-list-excludes-user-bound-vouchers
     title: "Public list excludes user-bound vouchers"
@@ -5257,8 +5257,8 @@ features:
       - "When an anonymous visitor lists vouchers while new-user vouchers exist"
       - "Then no returned voucher has an owner or the new-user kind"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/my_vouchers.feature::Public list excludes user-bound vouchers"
+    status: automated
+    covered_by: "promotion/my_vouchers.feature::Public list excludes user-bound vouchers"
 
   - id: promotion.nuv-hascompletedorder-is-not-routed-at-the-gateway
     title: "HasCompletedOrder is not routed at the gateway"
@@ -5275,8 +5275,8 @@ features:
       - "When a signed-in buyer posts HasCompletedOrder to the gateway"
       - "Then the response is UNIMPLEMENTED (HTTP 404 or 501)"
     tags: [promotion, promo]
-    status: planned
-    notes: "promotion-new-user-vouchers: promotion/my_vouchers.feature::HasCompletedOrder is not routed at the gateway"
+    status: automated
+    covered_by: "promotion/my_vouchers.feature::HasCompletedOrder is not routed at the gateway"
 
   - id: promotion.nuv-unit-any-signed-in-principal-needs-no-scope
     title: "Any signed-in principal needs no scope"

@@ -7,7 +7,7 @@ Feature: Every new account receives exactly one new-user voucher
     When "alice" registers through the gateway with no referral code
     Then "alice" owns exactly one new-user voucher with discount 20000 within 10 seconds
 
-  Scenario: Invited signup waits for the verdict and gets the invited voucher
+  Scenario: Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher
     Given the referral events topic is being observed for new-user vouchers
     And an inviter "inviter" with a referral code for new-user vouchers
     When "alice" registers through the gateway with the code of "inviter"

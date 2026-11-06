@@ -4723,8 +4723,8 @@ features:
       - "When a visitor registers a new username with referral code `AB12cd_-`"
       - "Then Register returns the same success response shape as without a code and the UserRegistered event carries `AB12cd_-`"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Register with a well-formed code succeeds"
+    status: automated
+    covered_by: "identity/register_referral.feature::Register with a well-formed code succeeds"
 
   - id: auth.q7-register-without-code
     title: "Register without a code succeeds"
@@ -4741,8 +4741,8 @@ features:
       - "When a visitor registers a new username with no referral code"
       - "Then Register succeeds and the UserRegistered event carries an empty referral code"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Register without a code succeeds"
+    status: automated
+    covered_by: "identity/register_referral.feature::Register without a code succeeds"
 
   - id: auth.q7-register-malformed-code-dropped
     title: "A malformed code is dropped, not rejected"
@@ -4759,8 +4759,8 @@ features:
       - "When a visitor registers with referral code `bad code;DROP TABLE`"
       - "Then Register succeeds with the same response shape and the event carries an empty referral code"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::A malformed code is dropped, not rejected"
+    status: automated
+    covered_by: "identity/register_referral.feature::A malformed code is dropped, not rejected"
 
   - id: auth.q7-register-code-trimmed
     title: "Surrounding whitespace is trimmed before validation"
@@ -4777,8 +4777,8 @@ features:
       - "When a visitor registers with referral code ` AB12 `"
       - "Then Register succeeds and the event carries `AB12`"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Surrounding whitespace is trimmed before validation"
+    status: automated
+    covered_by: "identity/register_referral.feature::Surrounding whitespace is trimmed before validation"
 
   - id: auth.q7-register-code-empty-after-trim
     title: "A code that is empty after trimming becomes empty"
@@ -4795,8 +4795,8 @@ features:
       - "When a visitor registers with a referral code of three spaces"
       - "Then Register succeeds and the event carries an empty referral code"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::A code that is empty after trimming becomes empty"
+    status: automated
+    covered_by: "identity/register_referral.feature::A code that is empty after trimming becomes empty"
 
   - id: auth.q7-register-code-non-ascii
     title: "A non-ASCII character is dropped"
@@ -4813,8 +4813,8 @@ features:
       - "When a visitor registers with referral code `ABé12`"
       - "Then Register succeeds and the event carries an empty referral code"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::A non-ASCII character is dropped"
+    status: automated
+    covered_by: "identity/register_referral.feature::A non-ASCII character is dropped"
 
   - id: auth.q7-register-code-case-preserved
     title: "Case is preserved"
@@ -4831,8 +4831,8 @@ features:
       - "When a visitor registers with referral code `REFa1B2c3D4`"
       - "Then the event carries `REFa1B2c3D4` with its original case"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Case is preserved"
+    status: automated
+    covered_by: "identity/register_referral.feature::Case is preserved"
 
   - id: auth.q7-register-role-escalation-ignored
     title: "A client-supplied user id or role escalation is ignored"
@@ -4849,8 +4849,8 @@ features:
       - "When a visitor calls Register with role `admin` and a client-supplied user id"
       - "Then the account is a buyer, its user id is server-generated and equals the event user_id"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::A client-supplied user id or role escalation is ignored"
+    status: automated
+    covered_by: "identity/register_referral.feature::A client-supplied user id or role escalation is ignored"
 
   - id: auth.q7-register-code-length-boundary
     title: "Boundary length of 32 versus 33 characters"
@@ -4867,8 +4867,8 @@ features:
       - "When one visitor registers with a 32-character valid code and another with a 33-character valid-charset code"
       - "Then the first event carries the 32-character code, the second an empty referral code, and both Register calls succeed"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Boundary length of 32 versus 33 characters"
+    status: automated
+    covered_by: "identity/register_referral.feature::Boundary length of 32 versus 33 characters"
 
   - id: auth.q7-register-unknown-code-parity
     title: "An unknown code never reveals itself"
@@ -4885,8 +4885,8 @@ features:
       - "When a visitor registers with a well-formed code that belongs to no user"
       - "Then Register returns a success response with the same status code and body shape as another registration"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::An unknown code never reveals itself"
+    status: automated
+    covered_by: "identity/register_referral.feature::An unknown code never reveals itself"
 
   - id: auth.q7-register-one-event-per-registration
     title: "One event per successful registration"
@@ -4903,8 +4903,8 @@ features:
       - "When a visitor registers successfully"
       - "Then exactly one UserRegistered event exists for the new user id and its registered_at is within 5 seconds of the user's created_at"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::One event per successful registration"
+    status: automated
+    covered_by: "identity/register_referral.feature::One event per successful registration"
 
   - id: auth.q7-register-duplicate-no-event
     title: "A duplicate username writes no event"
@@ -4921,8 +4921,8 @@ features:
       - "When a visitor registers a username that already exists"
       - "Then Register returns the conflict error and no UserRegistered event is added for that attempt"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::A duplicate username writes no event"
+    status: automated
+    covered_by: "identity/register_referral.feature::A duplicate username writes no event"
 
   - id: auth.q7-register-decoupled-from-downstream
     title: "Register does not depend on downstream services"
@@ -4939,8 +4939,8 @@ features:
       - "When a visitor registers while team-referral, team-promotion and Kafka are stopped"
       - "Then Register returns success within the latency budget and the event is delivered once Kafka is up"
     tags: [auth, referral, destructive]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Register does not depend on downstream services"
+    status: automated
+    covered_by: "identity/register_referral.feature::Register does not depend on downstream services"
 
   - id: auth.q7-register-logs-no-raw-ids
     title: "Register logs contain no raw identifiers"
@@ -4957,8 +4957,8 @@ features:
       - "When a visitor registers with a referral code and the identity and gateway logs are searched"
       - "Then neither the new user id nor the referral code appears in any log line"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Register logs contain no raw identifiers"
+    status: automated
+    covered_by: "identity/register_referral.feature::Register logs contain no raw identifiers"
 
   - id: auth.q7-register-failed-logs-no-raw-ids
     title: "A failed Register logs no raw identifiers either"
@@ -4975,8 +4975,8 @@ features:
       - "When a visitor registers a duplicate username with a referral code and the logs are searched"
       - "Then the log lines contain no raw user id or referral code"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::A failed Register logs no raw identifiers either"
+    status: automated
+    covered_by: "identity/register_referral.feature::A failed Register logs no raw identifiers either"
 
   - id: auth.q7-register-gateway-forwards-code
     title: "Gateway forwards the field"
@@ -4993,8 +4993,8 @@ features:
       - "When a client calls Register at the gateway with referral code `AB12cd`"
       - "Then the UserRegistered event for the new user carries `AB12cd`"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Gateway forwards the field"
+    status: automated
+    covered_by: "identity/register_referral.feature::Gateway forwards the field"
 
   - id: auth.q7-register-public-at-edge
     title: "Register stays public at the edge"
@@ -5011,8 +5011,8 @@ features:
       - "When an anonymous client calls Register at the gateway with a referral code"
       - "Then the gateway answers with the Register result and not 401 or 403"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/register_referral.feature::Register stays public at the edge"
+    status: automated
+    covered_by: "identity/register_referral.feature::Register stays public at the edge"
 
   - id: auth.q7-account-own-account
     title: "A signed-in user reads their own account"
@@ -5029,8 +5029,8 @@ features:
       - "When a registered buyer calls GetMyAccount through the gateway"
       - "Then the response user_id is that buyer's id and created_at is within 5 seconds of the registration time"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/get_my_account.feature::A signed-in user reads their own account"
+    status: automated
+    covered_by: "identity/get_my_account.feature::A signed-in user reads their own account"
 
   - id: auth.q7-account-anonymous-refused
     title: "An anonymous call is refused"
@@ -5047,8 +5047,8 @@ features:
       - "When a caller with no token calls GetMyAccount at the gateway"
       - "Then the gateway answers 401"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/get_my_account.feature::An anonymous call is refused"
+    status: automated
+    covered_by: "identity/get_my_account.feature::An anonymous call is refused"
 
   - id: auth.q7-account-never-another-users
     title: "A caller can never read another user's account"
@@ -5065,8 +5065,8 @@ features:
       - "When buyer B calls GetMyAccount with a header and body value naming buyer A's id"
       - "Then the response user_id is B's own id and nothing of A's account is returned"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/get_my_account.feature::A caller can never read another user's account"
+    status: automated
+    covered_by: "identity/get_my_account.feature::A caller can never read another user's account"
 
   - id: auth.q7-account-seller-and-buyer-allowed
     title: "A seller and a buyer are both allowed"
@@ -5083,8 +5083,8 @@ features:
       - "When a seller and a buyer each call GetMyAccount through the gateway"
       - "Then each response carries that caller's own user_id"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/get_my_account.feature::A seller and a buyer are both allowed"
+    status: automated
+    covered_by: "identity/get_my_account.feature::A seller and a buyer are both allowed"
 
   - id: auth.q7-account-principal-without-account
     title: "A principal whose account no longer exists"
@@ -5101,8 +5101,8 @@ features:
       - "When a valid token's subject has no user row and the caller invokes GetMyAccount"
       - "Then the call fails with not_found and returns no account data"
     tags: [auth, referral]
-    status: planned
-    notes: "identity-user-registered: identity/get_my_account.feature::A principal whose account no longer exists"
+    status: automated
+    covered_by: "identity/get_my_account.feature::A principal whose account no longer exists"
 
   - id: auth.q7-unit-user-row-and-event-commit-together
     title: "The user row and the event commit together"

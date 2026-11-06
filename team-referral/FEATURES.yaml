@@ -1247,8 +1247,8 @@ features:
   - And the reward is listed as PENDING
   tags:
   - referral-service
-  status: planned
-  notes: Will be covered by `referral/referral_reward.feature::An invited signup is attributed and the first order creates a pending reward` once green.
+  status: automated
+  covered_by: "referral/referral_reward.feature::Invite attribution works end to end through the chain"
 - id: referral.a-sweep-releases-within-twice-the-interval
   title: A sweep releases within twice the interval
   persona: buyer
@@ -1268,8 +1268,8 @@ features:
   - And one ReferralRewardReleased of 10000 xu is on referral.events
   tags:
   - referral-service
-  status: planned
-  notes: Will be covered by `referral/referral_reward.feature::A reward is released after the return window` once green.
+  status: automated
+  covered_by: "referral/referral_reward.feature::A sweep releases within twice the interval"
 - id: referral.a-return-before-release-voids-the-reward-and-the-next-order-qualifies
   title: A return before release voids the reward and the next order qualifies
   persona: buyer
@@ -1288,8 +1288,8 @@ features:
   - And when the invitee completes a new order a new PENDING reward of 10000 xu exists
   tags:
   - referral-service
-  status: planned
-  notes: Will be covered by `referral/referral_reward.feature::A return before release voids the reward and the next order qualifies` once green.
+  status: automated
+  covered_by: "referral/referral_reward.feature::A return before release voids the reward and the next order qualifies"
 - id: referral.manual-redeem-is-accepted-for-a-new-account-and-credits-nothing
   title: Manual redeem is accepted for a new account and credits nothing
   persona: buyer
@@ -1307,8 +1307,8 @@ features:
   - And the inviter's invited_count is 1, pending_xu and released_xu are 0 and the reward list is empty
   tags:
   - referral-service
-  status: planned
-  notes: Will be covered by `referral/referral_reward.feature::Manual redeem is accepted for a new account and credits nothing` once green.
+  status: automated
+  covered_by: "referral/referral_reward.feature::Manual redeem is accepted for a new account and credits nothing"
 - id: referral.manual-redeem-is-refused-for-a-buyer-with-a-completed-order
   title: Manual redeem is refused for a buyer with a completed order
   persona: buyer
@@ -1327,8 +1327,8 @@ features:
   - And the inviter's invited_count stays 0 and no ReferralAttributed is published for the buyer
   tags:
   - referral-service
-  status: planned
-  notes: Will be covered by `referral/referral_reward.feature::Manual redeem is refused for a buyer with a completed order` once green.
+  status: automated
+  covered_by: "referral/referral_reward.feature::Manual redeem is refused for a buyer with a completed order"
 - id: referral.the-daily-cap-defers-rewards
   title: The daily cap defers rewards
   persona: buyer
@@ -1346,5 +1346,5 @@ features:
   - Then two rewards are RELEASED and one stays PENDING after the release sweeps
   tags:
   - referral-service
-  status: planned
-  notes: Will be covered by `referral/referral_reward.feature::The daily cap defers rewards` once green.
+  status: automated
+  covered_by: "referral/referral_reward.feature::The daily cap defers rewards"

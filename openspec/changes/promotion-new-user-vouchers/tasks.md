@@ -21,7 +21,7 @@
 
 ## 4. E2E track
 
-- [ ] 4.1 `platform-e2e/tests/e2e/features/promotion/new_user_vouchers.feature`: Registration without a referral code issues the welcome voucher (asserts the voucher exists within 10 s, polling every 500 ms, failing at 10 s); Invited signup waits for the verdict and gets the invited voucher (same 10 s assertion after the verdict); A rejected referral falls back to the welcome voucher; Missing verdict falls back to the welcome voucher after the timeout (compose override `NEW_USER_VERDICT_TIMEOUT=2s`, sweep 1s)
+- [ ] 4.1 `platform-e2e/tests/e2e/features/promotion/new_user_vouchers.feature`: Registration without a referral code issues the welcome voucher (asserts the voucher exists within 10 s, polling every 500 ms, failing at 10 s); Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher (same 10 s assertion after the verdict); A rejected referral falls back to the welcome voucher; Missing verdict falls back to the welcome voucher after the timeout (compose override `NEW_USER_VERDICT_TIMEOUT=2s`, sweep 1s)
 - [ ] 4.2 `platform-e2e/tests/e2e/features/promotion/voucher_per_user.feature`: Another buyer cannot use a user-bound voucher; The owner uses the voucher once; new_user_only refuses a buyer with a completed order
 - [ ] 4.3 `platform-e2e/tests/e2e/features/promotion/my_vouchers.feature`: A signed-in buyer sees only their own vouchers; An anonymous caller cannot list vouchers; Public list excludes user-bound vouchers; HasCompletedOrder is not routed at the gateway
 - [ ] 4.4 Helper in `platform-e2e/tests/e2e/support/` to register a user and poll `ListMyVouchers` every 500 ms and fail at 10 s (shared hot file, serialised with other slices)

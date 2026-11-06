@@ -13,10 +13,12 @@ SHALL NOT render and `ListMyVouchers` SHALL NOT be called for an anonymous visit
 #### Scenario: W2 No own vouchers (boundary)
 - **WHEN** a signed-in buyer whose `ListMyVouchers` returns an empty list opens `/vouchers`
 - **THEN** the system SHALL render no "Voucher của bạn" heading and the platform list unchanged
+- **VERIFIED BY**: `team-frontend/src/app/(shop)/vouchers/page.test.tsx` `W2 No own vouchers (boundary)`
 
 #### Scenario: W3 Read failure keeps the page
 - **WHEN** `ListMyVouchers` fails with Unavailable while the buyer opens `/vouchers`
 - **THEN** the system SHALL render the platform list with HTTP 200 and no "Voucher của bạn" section
+- **VERIFIED BY**: `team-frontend/src/app/(shop)/vouchers/page.test.tsx` `W3 Read failure keeps the page`
 
 #### Scenario: W4 Anonymous visitor
 - **WHEN** an anonymous visitor opens `/vouchers`
@@ -42,6 +44,7 @@ In the payment step the platform voucher slot of `VoucherModal` SHALL list the b
 #### Scenario: W7 Picker survives a read failure
 - **WHEN** `ListMyVouchers` fails while the payment step renders
 - **THEN** the system SHALL render the picker with the platform vouchers only and no error banner
+- **VERIFIED BY**: `team-frontend/src/features/order/VoucherModal.test.tsx` `W7 Picker survives a read failure`
 
 #### Scenario: W8 Ineligible voucher is refused by the quote
 - **WHEN** the buyer applies their own voucher while the cart total is below its minimum spend
@@ -66,6 +69,7 @@ An expired or used `NEW_USER` voucher SHALL show no code and no pending text.
 #### Scenario: W11 Voucher read failed
 - **WHEN** `ListMyVouchers` fails for a buyer in the 14-day window
 - **THEN** the system SHALL render the checklist without the voucher line and without the text "Voucher đang được chuẩn bị"
+- **VERIFIED BY**: `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W11 Voucher read failed`
 
 #### Scenario: W12 Account age boundary
 - **WHEN** the account is 13 days 23 hours old
@@ -76,6 +80,7 @@ An expired or used `NEW_USER` voucher SHALL show no code and no pending text.
 - **WHEN** `GetMyAccount` fails or returns no `created_at`
 - **THEN** the system SHALL render no banner and no checklist
 - **AND** the host page SHALL render with HTTP 200
+- **VERIFIED BY**: `team-frontend/src/features/welcome/accountAge.test.ts` `W13 Age unknown hides the panel`
 
 #### Scenario: W14 Dismiss the banner
 - **WHEN** the buyer clicks the banner close control
@@ -105,6 +110,7 @@ done or when `agora_checklist_dismissed=1` is present.
 #### Scenario: W18 One read fails
 - **WHEN** `ListAddresses` fails with Unavailable and the other two reads succeed
 - **THEN** the system SHALL render the address step as not done and the other two steps from their own results
+- **VERIFIED BY**: `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W18 One read fails`
 
 #### Scenario: W19 Dismiss the checklist
 - **WHEN** the buyer clicks "Ẩn danh sách" on the checklist
@@ -118,10 +124,12 @@ done or when `agora_checklist_dismissed=1` is present.
 #### Scenario: W21 Slow read times out at 2 s
 - **WHEN** `ListAddresses` does not answer within 2 s while the buyer opens `/`
 - **THEN** the system SHALL render the address step as not done within 2.5 s of the request, with the other panel parts rendered from their own results
+- **VERIFIED BY**: `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W21 Slow read times out at 2 s`
 
 #### Scenario: W24 Expired or used voucher
 - **WHEN** `ListMyVouchers` returns a `NEW_USER` voucher whose `ends_at` is in the past or whose `used` equals its `quota` for a buyer in the 14-day window
 - **THEN** the system SHALL render no voucher code and not render "Voucher đang được chuẩn bị"
+- **VERIFIED BY**: `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W24 Expired or used voucher`
 
 #### Scenario: W25 Cancelled order does not tick the first-order step
 - **WHEN** `ListBuyerOrders` returns only orders with status cancelled
@@ -130,10 +138,12 @@ done or when `agora_checklist_dismissed=1` is present.
 #### Scenario: W26 Pending text expires with the account age (boundary)
 - **WHEN** a buyer whose account is 2 hours old has no `NEW_USER` voucher in a successful `ListMyVouchers`
 - **THEN** the system SHALL render no voucher line and not render "Voucher đang được chuẩn bị"
+- **VERIFIED BY**: `team-frontend/src/features/welcome/WelcomePanel.test.tsx` `W26 Pending text expires with the account age (boundary)`
 
 #### Scenario: W27 Picker read times out
 - **WHEN** `ListMyVouchers` does not answer within 2 s while the payment step renders
 - **THEN** the system SHALL render the picker with the platform vouchers only and no error banner within 2.5 s of the request
+- **VERIFIED BY**: `team-frontend/src/lib/gateway/promotion.test.ts` `W27 Picker read times out`
 #### Scenario: W23 Anonymous visitor on an account page (permission)
 - **WHEN** an anonymous visitor opens `/account/following`
 - **THEN** the system SHALL redirect to `/login` without rendering the checklist or issuing any of its reads

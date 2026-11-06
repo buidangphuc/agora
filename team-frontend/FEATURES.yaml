@@ -10901,7 +10901,8 @@ features:
     acceptance:
       - "S1 Buyer copies the invite link"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S1 Buyer copies the invite link"
 
   - id: frontend-referral-invite.s2-buyer-has-no-code-yet-boundary
     title: "S2 Buyer has no code yet (boundary)"
@@ -10945,7 +10946,8 @@ features:
     acceptance:
       - "S4 Guest is sent to login (permission)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S4 Guest is sent to login (permission)"
 
   - id: frontend-referral-invite.s5-referral-link-redirects-to-register-with-attribution
     title: "S5 Referral link redirects to register with attribution"
@@ -10959,7 +10961,8 @@ features:
     acceptance:
       - "S5 Referral link redirects to register with attribution"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S5 Referral link redirects to register with attribution"
 
   - id: frontend-referral-invite.s6-listing-and-shop-links-keep-utm-and-set-no-cookie
     title: "S6 Listing and shop links keep utm and set no cookie"
@@ -10973,7 +10976,8 @@ features:
     acceptance:
       - "S6 Listing and shop links keep utm and set no cookie"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S6 Listing and shop links keep utm and set no cookie"
 
   - id: frontend-referral-invite.s7-unknown-short-code-error
     title: "S7 Unknown short code (error)"
@@ -10987,7 +10991,8 @@ features:
     acceptance:
       - "S7 Unknown short code (error)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S7 Unknown short code (error)"
 
   - id: frontend-referral-invite.s8-unknown-target-type-error
     title: "S8 Unknown target type (error)"
@@ -11001,7 +11006,8 @@ features:
     acceptance:
       - "S8 Unknown target type (error)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S8 Unknown target type (error)"
 
   - id: frontend-referral-invite.s9a-non-utm-key-dropped-boundary
     title: "S9a Non-utm key dropped (boundary)"
@@ -11015,7 +11021,8 @@ features:
     acceptance:
       - "S9a Non-utm key dropped (boundary)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S9a Non-utm key dropped (boundary)"
 
   - id: frontend-referral-invite.s9b-unsafe-referral-id-error-permission
     title: "S9b Unsafe referral id (error, permission)"
@@ -11029,7 +11036,8 @@ features:
     acceptance:
       - "S9b Unsafe referral id (error, permission)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S9b Unsafe referral id (error, permission)"
 
   - id: frontend-referral-invite.s10-register-with-ref
     title: "S10 Register with ?ref"
@@ -11043,7 +11051,8 @@ features:
     acceptance:
       - "S10 Register with ?ref"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S10 Register with ?ref"
 
   - id: frontend-referral-invite.s11-register-with-only-the-cookie-then-cookie-cleared
     title: "S11 Register with only the cookie, then cookie cleared"
@@ -11057,7 +11066,8 @@ features:
     acceptance:
       - "S11 Register with only the cookie, then cookie cleared"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S11 Register with only the cookie, then cookie cleared"
 
   - id: frontend-referral-invite.s12-field-wins-over-cookie-boundary
     title: "S12 Field wins over cookie (boundary)"
@@ -11071,7 +11081,8 @@ features:
     acceptance:
       - "S12 Field wins over cookie (boundary)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S12 Field wins over cookie (boundary)"
 
   - id: frontend-referral-invite.s13-malformed-code-is-ignored-error
     title: "S13 Malformed code is ignored (error)"
@@ -11085,7 +11096,8 @@ features:
     acceptance:
       - "S13 Malformed code is ignored (error)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S13 Malformed code is ignored (error)"
 
   - id: frontend-referral-invite.s14-failed-register-keeps-the-cookie-error
     title: "S14 Failed register keeps the cookie (error)"
@@ -11099,7 +11111,8 @@ features:
     acceptance:
       - "S14 Failed register keeps the cookie (error)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S14 Failed register keeps the cookie (error)"
 
   - id: frontend-referral-invite.s15-no-code-no-field
     title: "S15 No code, no field"
@@ -11113,7 +11126,8 @@ features:
     acceptance:
       - "S15 No code, no field"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S15 No code, no field"
 
   - id: frontend-referral-invite.s16-returnurl-still-honoured
     title: "S16 returnUrl still honoured"
@@ -11127,7 +11141,8 @@ features:
     acceptance:
       - "S16 returnUrl still honoured"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S16 returnUrl still honoured"
 
   - id: frontend-referral-invite.s17-totals-in-xu
     title: "S17 Totals in xu"
@@ -11141,7 +11156,8 @@ features:
     acceptance:
       - "S17 Totals in xu"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S17 Totals in xu"
 
   - id: frontend-referral-invite.s18-reward-timeline-statuses
     title: "S18 Reward timeline statuses"
@@ -11155,7 +11171,8 @@ features:
     acceptance:
       - "S18 Reward timeline statuses"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S18 Reward timeline statuses"
 
   - id: frontend-referral-invite.s19-no-rewards-boundary
     title: "S19 No rewards (boundary)"
@@ -11169,7 +11186,8 @@ features:
     acceptance:
       - "S19 No rewards (boundary)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S19 No rewards (boundary)"
 
   - id: frontend-referral-invite.s20-rewards-read-fails-error
     title: "S20 Rewards read fails (error)"
@@ -11198,7 +11216,8 @@ features:
     acceptance:
       - "S21 Totals are the caller's own (permission)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S21 Totals are the caller's own (permission)"
 
   - id: frontend-referral-invite.s22-rule-text-shown
     title: "S22 Rule text shown"
@@ -11212,7 +11231,8 @@ features:
     acceptance:
       - "S22 Rule text shown"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S22 Rule text shown"
 
   - id: frontend-referral-invite.s23-redeem-refused-error
     title: "S23 Redeem refused (error)"
@@ -11226,7 +11246,8 @@ features:
     acceptance:
       - "S23 Redeem refused (error)"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S23 Redeem refused (error)"
 
   - id: frontend-referral-invite.s24-redeem-accepted
     title: "S24 Redeem accepted"
@@ -11240,7 +11261,8 @@ features:
     acceptance:
       - "S24 Redeem accepted"
     tags: [buyer, referral, invite]
-    status: planned
+    status: automated
+    covered_by: "frontend/referral_invite.feature::S24 Redeem accepted"
 
   - id: frontend-referral-invite.s25-guest-cannot-redeem-permission
     title: "S25 Guest cannot redeem (permission)"
@@ -11271,7 +11293,8 @@ features:
     acceptance:
       - "W1 Own vouchers listed above the platform list"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W1 Own vouchers listed above the platform list"
 
   - id: frontend-welcome-checklist.w2-no-own-vouchers-boundary
     title: "W2 No own vouchers (boundary)"
@@ -11315,7 +11338,8 @@ features:
     acceptance:
       - "W4 Anonymous visitor"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W4 Anonymous visitor"
 
   - id: frontend-welcome-checklist.w5-another-buyer-s-voucher-is-never-shown-permission
     title: "W5 Another buyer's voucher is never shown (permission)"
@@ -11329,7 +11353,8 @@ features:
     acceptance:
       - "W5 Another buyer's voucher is never shown (permission)"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W5 Another buyer's voucher is never shown (permission)"
 
   - id: frontend-welcome-checklist.w6-own-voucher-offered-and-applied
     title: "W6 Own voucher offered and applied"
@@ -11343,7 +11368,8 @@ features:
     acceptance:
       - "W6 Own voucher offered and applied"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W6 Own voucher offered and applied"
 
   - id: frontend-welcome-checklist.w22-anonymous-checkout-visitor-permission
     title: "W22 Anonymous checkout visitor (permission)"
@@ -11357,7 +11383,8 @@ features:
     acceptance:
       - "W22 Anonymous checkout visitor (permission)"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W22 Anonymous checkout visitor (permission)"
 
   - id: frontend-welcome-checklist.w7-picker-survives-a-read-failure
     title: "W7 Picker survives a read failure"
@@ -11386,7 +11413,8 @@ features:
     acceptance:
       - "W8 Ineligible voucher is refused by the quote"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W8 Ineligible voucher is refused by the quote"
 
   - id: frontend-welcome-checklist.w9-banner-shows-the-voucher
     title: "W9 Banner shows the voucher"
@@ -11400,7 +11428,8 @@ features:
     acceptance:
       - "W9 Banner shows the voucher"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W9 Banner shows the voucher"
 
   - id: frontend-welcome-checklist.w10-voucher-not-yet-issued
     title: "W10 Voucher not yet issued"
@@ -11414,7 +11443,8 @@ features:
     acceptance:
       - "W10 Voucher not yet issued"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W10 Voucher not yet issued"
 
   - id: frontend-welcome-checklist.w11-voucher-read-failed
     title: "W11 Voucher read failed"
@@ -11443,7 +11473,8 @@ features:
     acceptance:
       - "W12 Account age boundary"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W12 Account age boundary"
 
   - id: frontend-welcome-checklist.w13-age-unknown-hides-the-panel
     title: "W13 Age unknown hides the panel"
@@ -11472,7 +11503,8 @@ features:
     acceptance:
       - "W14 Dismiss the banner"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W14 Dismiss the banner"
 
   - id: frontend-welcome-checklist.w15-anonymous-visitor-sees-nothing-permission
     title: "W15 Anonymous visitor sees nothing (permission)"
@@ -11486,7 +11518,8 @@ features:
     acceptance:
       - "W15 Anonymous visitor sees nothing (permission)"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W15 Anonymous visitor sees nothing (permission)"
 
   - id: frontend-welcome-checklist.w16-steps-ticked-from-the-reads
     title: "W16 Steps ticked from the reads"
@@ -11500,7 +11533,8 @@ features:
     acceptance:
       - "W16 Steps ticked from the reads"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W16 Steps ticked from the reads"
 
   - id: frontend-welcome-checklist.w17-all-done-hides-the-checklist
     title: "W17 All done hides the checklist"
@@ -11514,7 +11548,8 @@ features:
     acceptance:
       - "W17 All done hides the checklist"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W17 All done hides the checklist"
 
   - id: frontend-welcome-checklist.w18-one-read-fails
     title: "W18 One read fails"
@@ -11543,7 +11578,8 @@ features:
     acceptance:
       - "W19 Dismiss the checklist"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W19 Dismiss the checklist"
 
   - id: frontend-welcome-checklist.w20-account-older-than-14-days
     title: "W20 Account older than 14 days"
@@ -11557,7 +11593,8 @@ features:
     acceptance:
       - "W20 Account older than 14 days"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W20 Account older than 14 days"
 
   - id: frontend-welcome-checklist.w21-slow-read-times-out-at-2-s
     title: "W21 Slow read times out at 2 s"
@@ -11601,7 +11638,8 @@ features:
     acceptance:
       - "W25 Cancelled order does not tick the first-order step"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W25 Cancelled order does not tick the first-order step"
 
   - id: frontend-welcome-checklist.w26-pending-text-expires-with-the-account-age-boundary
     title: "W26 Pending text expires with the account age (boundary)"
@@ -11645,4 +11683,5 @@ features:
     acceptance:
       - "W23 Anonymous visitor on an account page (permission)"
     tags: [buyer, welcome]
-    status: planned
+    status: automated
+    covered_by: "frontend/welcome_checklist.feature::W23 Anonymous visitor on an account page (permission)"

@@ -6669,7 +6669,8 @@ features:
     acceptance:
       - "Buyer with a completed order"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Buyer with a completed order"
 
   - id: order.has-completed-order-buyer-with-a-completed-and-a-cancelled-order
     title: "Has completed order: Buyer with a completed and a cancelled order"
@@ -6681,7 +6682,8 @@ features:
     acceptance:
       - "Buyer with a completed and a cancelled order"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Buyer with a completed and a cancelled order"
 
   - id: order.has-completed-order-buyer-with-only-non-completed-orders
     title: "Has completed order: Buyer with only non-completed orders"
@@ -6693,7 +6695,8 @@ features:
     acceptance:
       - "Buyer with only non-completed orders"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Buyer with only non-completed orders"
 
   - id: order.has-completed-order-buyer-with-no-orders
     title: "Has completed order: Buyer with no orders"
@@ -6705,7 +6708,8 @@ features:
     acceptance:
       - "Buyer with no orders"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Buyer with no orders"
 
   - id: order.has-completed-order-another-buyers-completed-order-does-not-count
     title: "Has completed order: Another buyer's completed order does not count"
@@ -6717,7 +6721,8 @@ features:
     acceptance:
       - "Another buyer's completed order does not count"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Another buyer's completed order does not count"
 
   - id: order.has-completed-order-completed-by-seller-or-system-counts
     title: "Has completed order: Completed by seller or system counts"
@@ -6729,7 +6734,8 @@ features:
     acceptance:
       - "Completed by seller or system counts"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Completed by seller or system counts"
 
   - id: order.has-completed-order-status-change-is-visible-on-the-next-call
     title: "Has completed order: Status change is visible on the next call"
@@ -6741,7 +6747,8 @@ features:
     acceptance:
       - "Status change is visible on the next call"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Status change is visible on the next call"
 
   - id: order.has-completed-order-empty-buyer-id
     title: "Has completed order: Empty buyer id"
@@ -6753,7 +6760,8 @@ features:
     acceptance:
       - "Empty buyer id"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Empty buyer id"
 
   - id: order.has-completed-order-buyer-principal-refused
     title: "Has completed order: Buyer principal refused"
@@ -6765,7 +6773,8 @@ features:
     acceptance:
       - "Buyer principal refused"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Buyer principal refused"
 
   - id: order.has-completed-order-admin-refused
     title: "Has completed order: Admin refused"
@@ -6777,7 +6786,8 @@ features:
     acceptance:
       - "Admin refused"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Admin refused"
 
   - id: order.has-completed-order-service-without-the-scope-refused
     title: "Has completed order: Service without the scope refused"
@@ -6789,7 +6799,8 @@ features:
     acceptance:
       - "Service without the scope refused"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Service without the scope refused"
 
   - id: order.has-completed-order-unauthenticated-call-refused
     title: "Has completed order: Unauthenticated call refused"
@@ -6801,7 +6812,8 @@ features:
     acceptance:
       - "Unauthenticated call refused"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Unauthenticated call refused"
 
   - id: order.has-completed-order-not-routed-at-the-gateway
     title: "Has completed order: Not routed at the gateway"
@@ -6813,10 +6825,11 @@ features:
     acceptance:
       - "Not routed at the gateway"
     tags: [order, q7]
-    status: planned
+    status: automated
+    covered_by: "order/has_completed_order.feature::Not routed at the gateway"
 
   - id: order.has-completed-order-store-failure-is-not-reported-as-false
-    title: "Has completed order: Store failure is not reported as false"
+    title: "Store failure is not reported as false"
     persona: buyer
     priority: P1
     summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."
@@ -6829,7 +6842,7 @@ features:
     notes: "VERIFIED BY team-order `internal/rpc` TestQ7HasCompletedOrder_StoreFailureIsNotReportedAsFalse (task 1.1). A store fault and the log content are not producible black box."
 
   - id: order.has-completed-order-logs-carry-no-buyer-id-in-any-form
-    title: "Has completed order: Logs carry no buyer id in any form"
+    title: "Logs carry no buyer id in any form"
     persona: buyer
     priority: P1
     summary: "End-to-end scenario of change order-has-completed-order (initiative q7-q37-referral-welcome)."

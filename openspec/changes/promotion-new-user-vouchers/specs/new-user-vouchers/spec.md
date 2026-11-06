@@ -12,7 +12,7 @@ team-promotion SHALL consume `identity.events` (`platform.identity.v1.UserRegist
 #### Scenario: Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher
 - **WHEN** `UserRegistered{user_id: U, referral_code: "C"}` is consumed and no voucher exists, then 5 s later `ReferralAttributed{referee_id: U}` is consumed
 - **THEN** before the verdict U owns zero vouchers; after it U owns exactly one VOUCHER_KIND_NEW_USER voucher with discount_value 30000 and min_spend 100000
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/promotion/new_user_vouchers.feature` `Invited signup waits for the verdict and gets the invited voucher`; unit `team-promotion/internal/consumer/newuser_test.go` `TestWaitsThenInvited`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/promotion/new_user_vouchers.feature` `Non-empty code waits for the verdict, then an attributed verdict issues the invited voucher`; unit `team-promotion/internal/consumer/newuser_test.go` `TestWaitsThenInvited`
 
 #### Scenario: A rejected referral falls back to the welcome voucher
 - **WHEN** `UserRegistered{user_id: U, referral_code: "C"}` and then `ReferralRejected{referee_id: U, reason: UNKNOWN_CODE}` are consumed

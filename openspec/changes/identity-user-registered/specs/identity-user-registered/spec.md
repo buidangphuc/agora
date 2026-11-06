@@ -77,11 +77,13 @@ same database transaction as the user insert, keyed by the new user id, with env
 
 - **WHEN** the outbox insert fails during Register (error injected at store level)
 - **THEN** Register returns an internal error that is not the conflict error, and no user row is written, so no account exists without its event
+- **VERIFIED BY**: `team-identity/internal/store` `TestCreateRegisteredOutboxInsertFailureRollsBackUser`; `team-identity/internal/store` `TestCreateRegisteredEnqueueFailureRollsBackUser`
 
 #### Scenario: Redelivery carries a stable event id
 
 - **WHEN** the relay publishes the same outbox row twice
 - **THEN** both Kafka messages carry the same envelope `event_id`, equal to the outbox row id, and the same key (the user id)
+- **VERIFIED BY**: `team-identity/internal/events` `TestBuildUserRegisteredEnvelopeStableEventID`
 
 #### Scenario: Register does not depend on downstream services
 

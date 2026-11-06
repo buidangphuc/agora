@@ -16,10 +16,12 @@ and copies `<origin>/s/<shortCode>` to the clipboard.
 - **WHEN** a signed-in buyer without a referral code opens the page
 - **THEN** the system SHALL render "Chia sẻ link mời" disabled and keep the "generate code" button
 - **AND** the system SHALL call no `CreateShareLink`
+- **VERIFIED BY**: `team-frontend/src/app/(shop)/account/referral/page.test.tsx` `S2 renders the invite button disabled and keeps generate-code when there is no code`
 
 #### Scenario: S3 Share link creation fails (error)
 - **WHEN** `CreateShareLink` fails with an error
 - **THEN** the system SHALL show the error toast "Không tạo được link mời. Vui lòng thử lại." and leave the clipboard unchanged
+- **VERIFIED BY**: `team-frontend/src/features/account/referral/actions.test.ts` `S3 resolves with the Vietnamese failure message when CreateShareLink fails`
 
 #### Scenario: S4 Guest is sent to login (permission)
 - **WHEN** a guest opens `/account/referral`
@@ -112,6 +114,7 @@ It SHALL show `pending_xu` as "Xu đang chờ", `released_xu` as "Xu đã nhận
 #### Scenario: S20 Rewards read fails (error)
 - **WHEN** `ListReferralRewards` fails
 - **THEN** the system SHALL render the code and totals and an empty timeline with "Chưa có phần thưởng nào.", not an error page
+- **VERIFIED BY**: `team-frontend/src/lib/gateway/referral.test.ts` `S20 returns an empty list when the read fails`
 
 #### Scenario: S21 Totals are the caller's own (permission)
 - **WHEN** buyer A is signed in
@@ -137,3 +140,4 @@ The redeem form on `/account/referral` SHALL state the rule and SHALL surface a 
 #### Scenario: S25 Guest cannot redeem (permission)
 - **WHEN** a guest session submits `redeemReferralAction`
 - **THEN** the system SHALL show the gateway refusal as an error toast and keep the field value
+- **VERIFIED BY**: `team-frontend/src/features/account/referral/RedeemReferralForm.test.tsx` `S25 a guest refusal toasts the gateway message and keeps the field value`

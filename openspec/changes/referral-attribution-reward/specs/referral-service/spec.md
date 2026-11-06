@@ -275,7 +275,7 @@ Every `REFERRAL_RELEASE_SWEEP_INTERVAL` team-referral SHALL select `PENDING` rew
 #### Scenario: A sweep releases within twice the interval
 - **WHEN** the stack runs with `REFERRAL_RELEASE_SWEEP_INTERVAL=1s` and `RETURN_WINDOW=3s`, and an invitee's first order completes
 - **THEN** the inviter's reward is `RELEASED` within `RETURN_WINDOW` plus 2 seconds and `released_xu` shows 10000 through `GetMyReferral`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/referral/referral_reward.feature` scenario "A reward is released after the return window"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/referral/referral_reward.feature` scenario "A sweep releases within twice the interval"
 
 ### Requirement: The reward ledger and summary show state in xu
 
@@ -333,4 +333,4 @@ Every `REFERRAL_RELEASE_SWEEP_INTERVAL` team-referral SHALL select `PENDING` rew
 #### Scenario: Invite attribution works end to end through the chain
 - **WHEN** a visitor registers through the gateway with `referral_code` of `alice`, and then completes a first order
 - **THEN** `ReferralAttributed` is observed on `referral.events` within 10 seconds of registering, and `alice`'s `GetMyReferral` shows `pending_xu` 10000 after the order completes
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/referral/referral_reward.feature` scenario "An invited signup is attributed and the first order creates a pending reward"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/referral/referral_reward.feature` scenario "Invite attribution works end to end through the chain"

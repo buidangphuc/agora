@@ -13,13 +13,13 @@
 
 ## 2. E2E track (platform-e2e; owner repos' FEATURES.yaml entries are added by the e2e-author)
 
-- [ ] 2.1 [e2e] Feature `identity/register_referral.feature`: register through the gateway with a valid code, no code, a malformed code, trim/non-ASCII/case codes, a role-escalation attempt and 32/33-character codes; read the outbox row or consume `identity.events` and assert the payload (scenarios: Register with a well-formed code succeeds, Register without a code succeeds, A malformed code is dropped, not rejected, Boundary length of 32 versus 33 characters, Gateway forwards the field, Register stays public at the edge)
-- [ ] 2.2 [e2e] Duplicate username and unknown-code response parity checks (scenarios: A duplicate username writes no event, An unknown code never reveals itself, One event per successful registration)
-- [ ] 2.3 [e2e] Decoupling check: with only identity, gateway, Kafka and Postgres running, Register succeeds and the event is delivered after Kafka is up; redelivery keeps the same event id (scenarios: Register does not depend on downstream services, Redelivery carries a stable event id)
-- [ ] 2.4 [e2e] Log scan of the identity and gateway containers for the new user id and the code (scenario: Register logs contain no raw identifiers)
-- [ ] 2.5 [e2e] Feature `identity/get_my_account.feature`: buyer and seller read own account, anonymous 401, spoofed id header returns own id, account age matches registration time (scenarios: A signed-in user reads their own account, An anonymous call is refused, A caller can never read another user's account, A seller and a buyer are both allowed)
-- [ ] 2.6 [e2e] Register latency check: p95 over 50 registrations adds at most 10 ms over the recorded baseline (NFR; scenario: Register with a well-formed code succeeds)
-- [ ] 2.7 [e2e] The outbox-failure rollback scenario is covered at store level in 1.3 (The user row and the event commit together); no e2e fault injection
+- [ ] 2.1 [e2e] Feature `identity/register_referral.feature`: register through the gateway with a valid code, no code, a malformed code, trim/non-ASCII/case codes, a role-escalation attempt and 32/33-character codes; read the outbox row or consume `identity.events` and assert the payload (scenario: `Register with a well-formed code succeeds`; scenario: `Register without a code succeeds`; scenario: `A malformed code is dropped, not rejected`; scenario: `Boundary length of 32 versus 33 characters`; scenario: `Gateway forwards the field`; scenario: `Register stays public at the edge`)
+- [ ] 2.2 [e2e] Duplicate username and unknown-code response parity checks (scenario: `A duplicate username writes no event`; scenario: `An unknown code never reveals itself`; scenario: `One event per successful registration`)
+- [ ] 2.3 [e2e] Decoupling check: with only identity, gateway, Kafka and Postgres running, Register succeeds and the event is delivered after Kafka is up; redelivery keeps the same event id (scenario: `Register does not depend on downstream services`; scenario: `Redelivery carries a stable event id`)
+- [ ] 2.4 [e2e] Log scan of the identity and gateway containers for the new user id and the code (scenario: `Register logs contain no raw identifiers`)
+- [ ] 2.5 [e2e] Feature `identity/get_my_account.feature`: buyer and seller read own account, anonymous 401, spoofed id header returns own id, account age matches registration time (scenario: `A signed-in user reads their own account`; scenario: `An anonymous call is refused`; scenario: `A caller can never read another user's account`; scenario: `A seller and a buyer are both allowed`)
+- [ ] 2.6 [e2e] Register latency check: p95 over 50 registrations adds at most 10 ms over the recorded baseline (NFR; scenario: `Register with a well-formed code succeeds`)
+- [ ] 2.7 [e2e] The outbox-failure rollback scenario is covered at store level in 1.3 (scenario: `The user row and the event commit together`); no e2e fault injection
 
 ## 3. Review and verify
 

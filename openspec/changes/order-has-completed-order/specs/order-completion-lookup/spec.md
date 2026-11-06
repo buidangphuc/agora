@@ -49,11 +49,13 @@ one order in status `ORDER_STATUS_COMPLETED`, whoever completed it (`completed_b
 
 - **WHEN** the store query fails during `HasCompletedOrder`
 - **THEN** the system SHALL fail with `INTERNAL` or `UNAVAILABLE` and no `has_completed` value
+- **VERIFIED BY**: `team-order/internal/rpc` `TestQ7HasCompletedOrder_StoreFailureIsNotReportedAsFalse`
 
 #### Scenario: Logs carry no buyer id in any form
 
 - **WHEN** the RPC runs for buyer A, on success and on failure
 - **THEN** the system SHALL write no log line containing A's raw id or any fingerprint of it
+- **VERIFIED BY**: `team-order/internal/rpc` `TestQ7HasCompletedOrder_LogsCarryNoBuyerIDInAnyForm`
 
 ### Requirement: HasCompletedOrder is restricted to SERVICE principals with order.read
 
