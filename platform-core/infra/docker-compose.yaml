@@ -10,6 +10,8 @@ services:
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -212,6 +214,8 @@ services:
       # until the kernel OOM-killed it (exit 137) mid-suite. Bound it and restart if killed.
       - MEMORY_MAX_TRACES=20000
     restart: unless-stopped
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:16686/ | grep -q 'Jaeger UI'"]
       interval: 5s
@@ -294,6 +298,7 @@ services:
       "
 
 volumes:
+  redis_data:
   pg_data:
   pg_mlflow_data:
   qdrant_data:
