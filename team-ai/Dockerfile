@@ -11,6 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apk add --no-cache build-base zlib-dev
+
 COPY --from=ghcr.io/astral-sh/uv:0.5.4 /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
 # Opt-in optional extras (e.g. --build-arg UV_EXTRAS="ai kafka").
