@@ -11,6 +11,7 @@ import {
   type CampaignFilterStatus,
   listCampaigns,
 } from "@/lib/gateway/campaigns";
+import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
@@ -62,7 +63,7 @@ export default async function CampaignsPage({
     redirectGuestToLogin(PATH, sp);
     return null;
   }
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return (
       <Forbidden subTitle="Tài khoản của bạn không có quyền admin để quản lý chiến dịch." />
     );

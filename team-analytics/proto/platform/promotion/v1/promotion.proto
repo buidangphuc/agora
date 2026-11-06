@@ -34,18 +34,18 @@ enum VoucherScope {
 // Owned by team-promotion (DB-per-service). Checkout redemption is synchronous
 // gRPC from the order saga — never fire-and-forget.
 service VoucherService {
-  // admin-only (scope `admin`): audited, audit action voucher.create.
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action voucher.create.
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): ALREADY_EXISTS
   // when the code is taken; reasons AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc CreateVoucher(CreateVoucherRequest) returns (CreateVoucherResponse);
   rpc GetVoucher(GetVoucherRequest) returns (GetVoucherResponse);
   rpc ListVouchers(ListVouchersRequest) returns (ListVouchersResponse);
-  // admin-only (scope `admin`): audited, audit action voucher.deactivate.
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action voucher.deactivate.
   // Sets active=false and deactivated_at. Idempotent.
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
   // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc DeactivateVoucher(DeactivateVoucherRequest) returns (DeactivateVoucherResponse);
-  // admin-only (scope `admin`): audited, audit action voucher.update.
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action voucher.update.
   // Only ends_at and quota are mutable.
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
   // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
@@ -60,7 +60,7 @@ service VoucherService {
 
 // Time-boxed sale price + capped stock for a listing/variant.
 service FlashSaleService {
-  // admin-only (scope `admin`): audited, audit action campaign.create.
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action campaign.create.
   // idempotency_key is required on the admin path, 8..64 chars [A-Za-z0-9_-];
   // ALREADY_EXISTS on a payload mismatch for the same key.
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
@@ -68,16 +68,16 @@ service FlashSaleService {
   rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
   rpc GetActiveFlashSale(GetActiveFlashSaleRequest) returns (GetActiveFlashSaleResponse);
   rpc ListActiveCampaigns(ListActiveCampaignsRequest) returns (ListActiveCampaignsResponse);
-  // admin-only (scope `admin`): lists campaigns of any status, filtered by statuses.
+  // admin-only (scopes `admin` and `promotion.admin`): lists campaigns of any status, filtered by statuses.
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reason
   // PROMOTION_UNAVAILABLE.
   rpc ListCampaigns(ListCampaignsRequest) returns (ListCampaignsResponse);
-  // admin-only (scope `admin`): audited, audit action campaign.cancel.
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action campaign.cancel.
   // Moves a campaign to CAMPAIGN_STATUS_CANCELLED.
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
   // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
   rpc CancelCampaign(CancelCampaignRequest) returns (CancelCampaignResponse);
-  // admin-only (scope `admin`): audited, audit action campaign.update.
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action campaign.update.
   // Replaces sale_price, stock_cap, starts_at and ends_at.
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
   // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE, LISTING_UNAVAILABLE.

@@ -31,10 +31,11 @@ message AuditEvent {
 
 // Naming rule: action is "<entity>.<verb>" (lower snake_case parts), e.g.
 // "review.hide". Admin-path rule: every call by a caller holding the admin
-// scope (team-order: order.admin) to one of the catalogued RPCs is audited,
-// even when that admin also owns the resource. A caller without that scope
-// (for example a seller acting on their own order) is never audited, and a
-// caller whose request is permission denied writes no event.
+// scope (team-order: order.admin; team-promotion: admin and promotion.admin)
+// to one of the catalogued RPCs is audited, even when that admin also owns the
+// resource. A caller without that scope (for example a seller acting on their
+// own order) is never audited, and a caller whose request is permission denied
+// writes no event.
 //
 // Action catalogue (25):
 //   review.hide, kyc.review, dispute.resolve, listing.admin_update,

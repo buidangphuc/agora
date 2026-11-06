@@ -14,6 +14,7 @@ import {
   createCampaign,
   updateCampaign,
 } from "@/lib/gateway/campaigns";
+import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import {
@@ -69,7 +70,7 @@ export async function createCampaignAction(
 ): Promise<CreateCampaignActionResult> {
   const principal = getPrincipal();
   if (!principal) return redirectGuestToLogin(FORM_PATH);
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return { ok: false, error: campaignErrorMessage("forbidden") };
   }
   const parsed = parseCampaignDraft(draft);
@@ -91,7 +92,7 @@ export async function cancelCampaignAction(
 ): Promise<CampaignActionResult> {
   const principal = getPrincipal();
   if (!principal) return redirectGuestToLogin(LIST_PATH);
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return { ok: false, error: campaignErrorMessage("forbidden") };
   }
   return settle(await cancelCampaign(campaignId), LIST_PATH);
@@ -103,7 +104,7 @@ export async function updateCampaignAction(
 ): Promise<CampaignActionResult> {
   const principal = getPrincipal();
   if (!principal) return redirectGuestToLogin(LIST_PATH);
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return { ok: false, error: campaignErrorMessage("forbidden") };
   }
   const parsed = parseCampaignEdit(values);

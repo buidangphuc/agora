@@ -19,7 +19,11 @@ vi.mock("@/features/auth/guardPath", () => ({
   }),
 }));
 
-const admin = { id: "u-admin", name: "Admin", scopes: ["admin"] };
+const admin = {
+  id: "u-admin",
+  name: "Admin",
+  scopes: ["admin", "promotion.admin"],
+};
 
 const draft = {
   listingId: "l-1",
@@ -76,6 +80,19 @@ describe("createCampaignAction", () => {
       id: "u-2",
       name: "Seller",
       scopes: ["listing.write"],
+    });
+    expect(await createCampaignAction(draft)).toEqual({
+      ok: false,
+      error: CAMPAIGN_ERRORS.forbidden,
+    });
+    expect(createCampaign).not.toHaveBeenCalled();
+  });
+
+  it("refuses a non-admin without calling the gateway (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-2",
+      name: "Seller",
+      scopes: ["admin"],
     });
     expect(await createCampaignAction(draft)).toEqual({
       ok: false,

@@ -22,7 +22,11 @@ vi.mock("@/lib/gateway/session", () => ({
 }));
 vi.mock("@/lib/gateway/vouchers", () => ({ getVoucher: vi.fn() }));
 
-const admin = { id: "u-admin", name: "Admin", scopes: ["admin"] };
+const admin = {
+  id: "u-admin",
+  name: "Admin",
+  scopes: ["admin", "promotion.admin"],
+};
 
 const voucher = {
   id: "v-1",
@@ -84,6 +88,15 @@ describe("VoucherDetailPage", () => {
 
   it("V32 a non-admin sees the forbidden screen and no controls", async () => {
     vi.mocked(getPrincipal).mockReturnValue({ ...admin, scopes: [] });
+    render(await page("SALE11"));
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ngừng voucher" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sửa voucher" })).toBeNull();
+    expect(getVoucher).not.toHaveBeenCalled();
+  });
+
+  it("V32 a non-admin sees the forbidden screen and no controls (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({ ...admin, scopes: ["admin"] });
     render(await page("SALE11"));
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ngừng voucher" })).toBeNull();

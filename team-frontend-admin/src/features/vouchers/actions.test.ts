@@ -29,7 +29,11 @@ vi.mock("@/lib/gateway/vouchers", () => ({
   updateVoucher: vi.fn(),
 }));
 
-const admin = { id: "u-admin", name: "Admin", scopes: ["admin"] };
+const admin = {
+  id: "u-admin",
+  name: "Admin",
+  scopes: ["admin", "promotion.admin"],
+};
 
 const values = {
   code: "sale11",
@@ -95,6 +99,19 @@ describe("createPlatformVoucherAction", () => {
       id: "u-1",
       name: "Buyer",
       scopes: ["order.read"],
+    });
+    expect(await createPlatformVoucherAction(values)).toEqual({
+      ok: false,
+      error: VOUCHER_MESSAGES.forbidden,
+    });
+    expect(createPlatformVoucher).not.toHaveBeenCalled();
+  });
+
+  it("refuses a session without the admin scope (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-1",
+      name: "Buyer",
+      scopes: ["admin"],
     });
     expect(await createPlatformVoucherAction(values)).toEqual({
       ok: false,
@@ -227,6 +244,17 @@ describe("deactivateVoucherAction", () => {
     expect(deactivateVoucher).not.toHaveBeenCalled();
   });
 
+  it("V32 refuses a session without the admin scope before any request (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-1",
+      name: "Buyer",
+      scopes: ["admin"],
+    });
+    const res = await deactivateVoucherAction("v-1");
+    expect(res.ok).toBe(false);
+    expect(deactivateVoucher).not.toHaveBeenCalled();
+  });
+
   it("V32 sends a guest to login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     await expect(deactivateVoucherAction("v-1")).rejects.toThrow(
@@ -298,6 +326,17 @@ describe("updateVoucherAction", () => {
       id: "u-1",
       name: "Buyer",
       scopes: [],
+    });
+    const res = await updateVoucherAction(stored, edit);
+    expect(res.ok).toBe(false);
+    expect(updateVoucher).not.toHaveBeenCalled();
+  });
+
+  it("V32 refuses a session without the admin scope before any request (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-1",
+      name: "Buyer",
+      scopes: ["admin"],
     });
     const res = await updateVoucherAction(stored, edit);
     expect(res.ok).toBe(false);

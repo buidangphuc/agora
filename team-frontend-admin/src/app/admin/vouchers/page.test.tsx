@@ -14,7 +14,11 @@ vi.mock("@/lib/gateway/session", () => ({
 }));
 vi.mock("@/lib/gateway/vouchers", () => ({ listPlatformVouchers: vi.fn() }));
 
-const admin = { id: "u-admin", name: "Admin", scopes: ["admin"] };
+const admin = {
+  id: "u-admin",
+  name: "Admin",
+  scopes: ["admin", "promotion.admin"],
+};
 
 const voucher = {
   id: "v-1",
@@ -81,6 +85,15 @@ describe("VouchersPage", () => {
 
   it("V32 a non-admin sees the forbidden screen with no Stop or Edit control", async () => {
     vi.mocked(getPrincipal).mockReturnValue({ ...admin, scopes: [] });
+    render(await page());
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Ngừng/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Sửa/ })).toBeNull();
+    expect(screen.queryAllByTestId("voucher-row")).toHaveLength(0);
+  });
+
+  it("V32 a non-admin sees the forbidden screen with no Stop or Edit control (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({ ...admin, scopes: ["admin"] });
     render(await page());
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Ngừng/ })).toBeNull();

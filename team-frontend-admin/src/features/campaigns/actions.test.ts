@@ -32,7 +32,11 @@ vi.mock("@/features/auth/guardPath", () => ({
   }),
 }));
 
-const admin = { id: "u-admin", name: "Admin", scopes: ["admin"] };
+const admin = {
+  id: "u-admin",
+  name: "Admin",
+  scopes: ["admin", "promotion.admin"],
+};
 const seller = { id: "u-2", name: "Seller", scopes: ["listing.write"] };
 const KEY = "retry-key-0001";
 
@@ -94,6 +98,19 @@ describe("createCampaignAction", () => {
     );
     expect(redirectGuestToLogin).toHaveBeenCalledWith("/admin/campaigns/new");
     vi.mocked(getPrincipal).mockReturnValue(seller);
+    expect(await createCampaignAction(draft, KEY)).toMatchObject({
+      ok: false,
+    });
+    expect(createCampaign).not.toHaveBeenCalled();
+  });
+
+  it("redirects a guest and refuses a non-admin without calling the gateway (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    await expect(createCampaignAction(draft, KEY)).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(redirectGuestToLogin).toHaveBeenCalledWith("/admin/campaigns/new");
+    vi.mocked(getPrincipal).mockReturnValue({ ...seller, scopes: ["admin"] });
     expect(await createCampaignAction(draft, KEY)).toMatchObject({
       ok: false,
     });
@@ -165,6 +182,15 @@ describe("cancelCampaignAction", () => {
     expect(cancelCampaign).not.toHaveBeenCalled();
   });
 
+  it("refuses a non-admin without calling the gateway and redirects a guest (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({ ...seller, scopes: ["admin"] });
+    expect(await cancelCampaignAction("fs-1")).toMatchObject({ ok: false });
+    expect(cancelCampaign).not.toHaveBeenCalled();
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    await expect(cancelCampaignAction("fs-1")).rejects.toThrow("NEXT_REDIRECT");
+    expect(cancelCampaign).not.toHaveBeenCalled();
+  });
+
   it("audit outage is reported with the audit message and the list is not revalidated", async () => {
     vi.mocked(cancelCampaign).mockResolvedValueOnce({
       status: "audit_unavailable",
@@ -197,6 +223,21 @@ describe("updateCampaignAction", () => {
 
   it("refuses a non-admin and invalid values without calling the gateway", async () => {
     vi.mocked(getPrincipal).mockReturnValue(seller);
+    expect(await updateCampaignAction("fs-1", edit)).toMatchObject({
+      ok: false,
+    });
+    vi.mocked(getPrincipal).mockReturnValue(admin);
+    expect(
+      await updateCampaignAction("fs-1", { ...edit, stockCap: "0" }),
+    ).toMatchObject({
+      ok: false,
+      fieldErrors: { stockCap: expect.any(String) },
+    });
+    expect(updateCampaign).not.toHaveBeenCalled();
+  });
+
+  it("refuses a non-admin and invalid values without calling the gateway (admin token without promotion.admin)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({ ...seller, scopes: ["admin"] });
     expect(await updateCampaignAction("fs-1", edit)).toMatchObject({
       ok: false,
     });

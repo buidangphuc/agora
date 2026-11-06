@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { type CampaignView, createCampaign } from "@/lib/gateway/campaigns";
+import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import {
@@ -30,7 +31,7 @@ export async function createCampaignAction(
 ): Promise<CreateCampaignActionResult> {
   const principal = getPrincipal();
   if (!principal) return redirectGuestToLogin(FORM_PATH);
-  if (!principal.scopes.includes("admin")) {
+  if (!isPromotionAdmin(principal)) {
     return { ok: false, error: CAMPAIGN_ERRORS.forbidden };
   }
 
