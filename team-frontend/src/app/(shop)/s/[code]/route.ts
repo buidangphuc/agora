@@ -25,7 +25,7 @@ export async function GET(
 ) {
   const { code } = await params;
   const to = (path: string) =>
-    NextResponse.redirect(new URL(path, request.nextUrl), 307);
+    new NextResponse(null, { status: 307, headers: { Location: path } });
 
   let link: Awaited<ReturnType<typeof resolveShareLink>>;
   try {
