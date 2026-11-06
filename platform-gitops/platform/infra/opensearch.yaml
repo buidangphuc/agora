@@ -16,7 +16,7 @@ spec:
           securityContext: { privileged: true }
       containers:
         - name: opensearch
-          image: opensearchproject/opensearch:2.15.0
+          image: opensearchproject/opensearch:2.19.5
           env:
             - { name: discovery.type, value: single-node }
             - { name: DISABLE_SECURITY_PLUGIN, value: "true" }

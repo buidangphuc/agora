@@ -76,17 +76,17 @@ defaults are fixed in `infra/docker-compose.yaml`:
 | Service | Image | Host port(s) |
 |---|---|---|
 | postgres | `postgres:16-alpine` | 5432 |
-| redis | `redis:7-alpine` | 6379 |
+| redis | `redis:7.4.11-alpine` | 6379 |
 | qdrant | `qdrant/qdrant:v1.19.0` | 6333 (http), 6334 (grpc) |
 | flipt (feature flags) | `flipt/flipt:v1.54.0` | 8083 (HTTP + UI) |
-| redpanda (Kafka API) | `redpandadata/redpanda:v24.1.7` | 19092 (host), 9644 (admin); in-network `redpanda:9092` |
+| redpanda (Kafka API) | `redpandadata/redpanda:v24.2.7` | 19092 (host), 9644 (admin); in-network `redpanda:9092` |
 | kafka-ui | `provectuslabs/kafka-ui:v0.7.2` | 8088 |
 | rabbitmq | `rabbitmq:3-management` | 5672, 15672 |
-| opensearch | `opensearchproject/opensearch:2.15.0` | 9200 |
+| opensearch | `opensearchproject/opensearch:2.19.5` | 9200 |
 | minio | `minio/minio:RELEASE.2024-05-28T17-19-04Z` | 9000 (S3), 9001 (console); `minio-init` creates public-read bucket `listing-images`; root `minioadmin`/`minioadmin` |
 | mlflow | `platform-core/mlflow:3.2.0` (built from `infra/mlflow`) | 5050 |
 | jaeger | `jaegertracing/all-in-one:1.57` | 16686 |
-| prometheus | `prom/prometheus:v2.52.0` | 9090 |
+| prometheus | `prom/prometheus:v2.55.1` | 9090 |
 | grafana | `grafana/grafana:11.0.0` | 3001 |
 | otel-collector | `otel/opentelemetry-collector-contrib:0.104.0` | 4317 (OTLP gRPC), 4318 (OTLP HTTP), 8889 (metrics) |
 

@@ -42,7 +42,7 @@ spec:
         - { name: data, persistentVolumeClaim: { claimName: redpanda-data } }
       containers:
         - name: redpanda
-          image: redpandadata/redpanda:v24.1.7
+          image: redpandadata/redpanda:v24.2.7
           args:
             - redpanda
             - start
@@ -99,7 +99,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: rpk
-          image: redpandadata/redpanda:v24.1.7
+          image: redpandadata/redpanda:v24.2.7
           command: ["/bin/sh", "-c"]
           args:
             - |
