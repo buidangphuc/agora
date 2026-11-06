@@ -247,21 +247,6 @@ features:
   - unit
   status: not-testable
   notes: VERIFIED BY `team-referral/internal/referral` `TestCreateThenGetRoundtrip`. Not producible end to end through the gateway (unit, database, log or boot level).
-- id: referral-runtime.redeeming-credits-the-referrer
-  title: Redeeming credits the referrer
-  persona: buyer
-  priority: P2
-  summary: Unit-verified scenario of change referral-go-sdk-v1.
-  entry_route: /
-  services:
-  - team-referral
-  acceptance:
-  - Redeeming credits the referrer
-  tags:
-  - referral-service
-  - unit
-  status: not-testable
-  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemAttributesReferee`. Not producible end to end through the gateway (unit, database, log or boot level).
 - id: referral-runtime.an-empty-code-is-rejected
   title: An empty code is rejected
   persona: buyer
@@ -298,7 +283,7 @@ features:
   title: Self-referral and a second redeem are refused
   persona: buyer
   priority: P2
-  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  summary: Unit-verified scenario of change referral-attribution-reward; re-asserted without any reward.
   entry_route: /
   services:
   - team-referral
@@ -308,7 +293,7 @@ features:
   - referral-service
   - unit
   status: not-testable
-  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemRejectsSelfAndUnknown` and `TestRedeemRejectsSecondRedeem`. Not producible end to end through the gateway (unit, database, log or boot level).
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemRejectsSelfAndUnknown` and `team-referral/internal/referral` `TestRedeemRejectsSecondRedeem`, both asserting no reward and one referral. Not producible end to end through the gateway (unit, database, log or boot level).
 - id: referral-runtime.the-second-redeem-is-refused-by-the-database-too
   title: The second redeem is refused by the database too
   persona: buyer
@@ -568,3 +553,798 @@ features:
   - referral-service
   status: automated
   covered_by: services/new_services.feature::The service answers on its port after the migration
+- id: referral-runtime.referral-settings-default-to-the-locked-values
+  title: Referral settings default to the locked values
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Referral settings default to the locked values
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestReferralSettingsDefaults`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-non-positive-cap-or-an-unknown-timezone-fails-the-load
+  title: A non-positive cap or an unknown timezone fails the load
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A non-positive cap or an unknown timezone fails the load
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestReferralSettingsRejectInvalid`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.referral-settings-can-be-overridden-from-the-environment
+  title: Referral settings can be overridden from the environment
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Referral settings can be overridden from the environment
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestReferralSettingsOverride`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.redeeming-attributes-the-referee-and-credits-nothing
+  title: Redeeming attributes the referee and credits nothing
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Redeeming attributes the referee and credits nothing
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemAttributesWithoutCredit`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-account-older-than-the-limit-cannot-redeem
+  title: An account older than the limit cannot redeem
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An account older than the limit cannot redeem
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemRefusesOldAccount`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-account-exactly-at-the-age-limit-is-refused-and-one-just-under-is-accepted
+  title: An account exactly at the age limit is refused and one just under is accepted
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An account exactly at the age limit is refused and one just under is accepted
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemAgeBoundary`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-account-with-a-completed-order-cannot-redeem
+  title: An account with a completed order cannot redeem
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An account with a completed order cannot redeem
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemRefusesAfterCompletedOrder`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-account-with-no-stored-registration-cannot-redeem
+  title: An account with no stored registration cannot redeem
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An account with no stored registration cannot redeem
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemRefusesUnknownRegistration`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-code-owner-at-the-lifetime-cap-refuses-a-manual-redeem
+  title: A code owner at the lifetime cap refuses a manual redeem
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A code owner at the lifetime cap refuses a manual redeem
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemRefusesCappedReferrer`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-valid-code-creates-an-attributed-referral
+  title: A valid code creates an attributed referral
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A valid code creates an attributed referral
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestUserRegisteredAttributes`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-unknown-code-is-rejected-with-a-verdict-event
+  title: An unknown code is rejected with a verdict event
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An unknown code is rejected with a verdict event
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestUserRegisteredUnknownCode`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-self-referral-is-rejected-with-a-verdict-event
+  title: A self-referral is rejected with a verdict event
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A self-referral is rejected with a verdict event
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestUserRegisteredSelfReferral`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-capped-inviter-is-rejected-with-a-verdict-event
+  title: A capped inviter is rejected with a verdict event
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A capped inviter is rejected with a verdict event
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestUserRegisteredCappedReferrer`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-signup-without-a-code-stores-the-registration-and-emits-nothing
+  title: A signup without a code stores the registration and emits nothing
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A signup without a code stores the registration and emits nothing
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestUserRegisteredWithoutCode`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-redelivered-signup-creates-nothing-twice
+  title: A redelivered signup creates nothing twice
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A redelivered signup creates nothing twice
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestUserRegisteredRedelivery`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-signup-for-a-referee-who-already-has-a-referral-changes-nothing
+  title: A signup for a referee who already has a referral changes nothing
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A signup for a referee who already has a referral changes nothing
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestUserRegisteredForAlreadyReferredUser`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-malformed-event-is-dead-lettered
+  title: A malformed event is dead-lettered
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A malformed event is dead-lettered
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestMalformedUserRegisteredIsDeadLettered`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.referral-rows-are-committed-atomically-with-the-event
+  title: Referral rows are committed atomically with the event
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Referral rows are committed atomically with the event
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/store` `TestAttributionRollsBackWithOutbox`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-first-order-creates-a-pending-reward
+  title: The first order creates a pending reward
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The first order creates a pending reward
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestOrderCompletedCreatesPendingReward`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-buyer-with-no-referral-is-ignored
+  title: A buyer with no referral is ignored
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A buyer with no referral is ignored
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestOrderCompletedWithoutReferral`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-second-order-of-a-qualified-invitee-creates-nothing
+  title: A second order of a qualified invitee creates nothing
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A second order of a qualified invitee creates nothing
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestSecondOrderDoesNotCreateSecondReward`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-redelivered-order-event-creates-one-reward
+  title: A redelivered order event creates one reward
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A redelivered order event creates one reward
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestOrderCompletedRedelivery`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-capped-inviter-gets-no-pending-reward
+  title: A capped inviter gets no pending reward
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A capped inviter gets no pending reward
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestOrderCompletedAtLifetimeCap`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.concurrent-completions-cannot-exceed-the-lifetime-cap
+  title: Concurrent completions cannot exceed the lifetime cap
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Concurrent completions cannot exceed the lifetime cap
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/store` `TestLifetimeCapHoldsUnderConcurrency`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-return-voids-a-pending-reward
+  title: A return voids a pending reward
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A return voids a pending reward
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestReturnRequestedVoidsPendingReward`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-next-order-qualifies-again-after-a-void
+  title: The next order qualifies again after a void
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The next order qualifies again after a void
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestRequalifyAfterVoid`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-return-after-release-changes-nothing
+  title: A return after release changes nothing
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A return after release changes nothing
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestReturnAfterReleaseIgnored`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-return-for-an-unrelated-order-is-ignored
+  title: A return for an unrelated order is ignored
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A return for an unrelated order is ignored
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestReturnRequestedUnknownOrder`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-release-and-a-void-racing-on-one-reward-end-in-exactly-one-state
+  title: A release and a void racing on one reward end in exactly one state
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A release and a void racing on one reward end in exactly one state
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/store` `TestReleaseAndVoidAreMutuallyExclusive`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-due-reward-is-released-and-announced
+  title: A due reward is released and announced
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A due reward is released and announced
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestSweepReleasesDueReward`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-reward-whose-window-has-not-ended-stays-pending
+  title: A reward whose window has not ended stays pending
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A reward whose window has not ended stays pending
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestSweepKeepsFutureReward`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-daily-cap-defers-the-sixth-release-to-the-next-day
+  title: The daily cap defers the sixth release to the next day
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The daily cap defers the sixth release to the next day
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestSweepDailyCapDefersToNextDay`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-day-boundary-follows-the-configured-timezone
+  title: The day boundary follows the configured timezone
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The day boundary follows the configured timezone
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestDailyCapUsesConfiguredTimezone`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-lowered-lifetime-cap-stops-releases
+  title: A lowered lifetime cap stops releases
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A lowered lifetime cap stops releases
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestSweepLifetimeCap`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.two-sweepers-release-a-reward-once
+  title: Two sweepers release a reward once
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Two sweepers release a reward once
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/store` `TestConcurrentSweepReleasesOnce`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-failed-release-leaves-the-reward-pending
+  title: A failed release leaves the reward pending
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A failed release leaves the reward pending
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/store` `TestReleaseRollsBackWithOutbox`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.pending-and-released-totals-are-separate
+  title: Pending and released totals are separate
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Pending and released totals are separate
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestSummarySplitsPendingAndReleased`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-void-reward-is-not-listed
+  title: A void reward is not listed
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A void reward is not listed
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestListRewardsOmitsVoid`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.another-user-s-rewards-never-appear-in-the-summary
+  title: Another user's rewards never appear in the summary
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Another user's rewards never appear in the summary
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestSummaryScopedToPrincipal`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.legacy-rewards-migrate-as-released
+  title: Legacy rewards migrate as released
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Legacy rewards migrate as released
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/store` `TestMigration002BackfillsLegacyRewards`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-outbox-row-is-published-to-referral-events
+  title: An outbox row is published to referral.events
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An outbox row is published to referral.events
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/events` `TestRelayerPublishesReferralEvents`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.shutdown-stops-consumers-and-the-sweeper
+  title: Shutdown stops consumers and the sweeper
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Shutdown stops consumers and the sweeper
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/app` `TestShutdownStopsWorkers`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-unreachable-broker-does-not-lose-events
+  title: An unreachable broker does not lose events
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An unreachable broker does not lose events
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/events` `TestOutboxSurvivesBrokerOutage`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.logs-carry-no-raw-ids-or-codes
+  title: Logs carry no raw ids or codes
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Logs carry no raw ids or codes
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/consumer` `TestLogsContainNoRawIdentifiers`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-deploy-files-carry-the-kafka-and-referral-settings
+  title: The deploy files carry the Kafka and referral settings
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-attribution-reward.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The deploy files carry the Kafka and referral settings
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestDeployFilesCarryKafkaSettings`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral.invite-attribution-works-end-to-end-through-the-chain
+  title: Invite attribution works end to end through the chain
+  persona: buyer
+  priority: P1
+  summary: Invite attribution works end to end through the chain (change referral-attribution-reward).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-identity
+  - team-order
+  - team-gateway
+  acceptance:
+  - Given an inviter with a referral code
+  - When a visitor registers through the gateway with that code
+  - Then ReferralAttributed is observed on referral.events within 10 seconds
+  - And after the invitee completes a first order the inviter's GetMyReferral shows pending_xu 10000 and released_xu 0
+  - And the reward is listed as PENDING
+  tags:
+  - referral-service
+  status: planned
+  notes: Will be covered by `referral/referral_reward.feature::An invited signup is attributed and the first order creates a pending reward` once green.
+- id: referral.a-sweep-releases-within-twice-the-interval
+  title: A sweep releases within twice the interval
+  persona: buyer
+  priority: P1
+  summary: A sweep releases within twice the interval (change referral-attribution-reward).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-identity
+  - team-order
+  - team-gateway
+  acceptance:
+  - Given the stack runs with REFERRAL_RELEASE_SWEEP_INTERVAL=1s and RETURN_WINDOW=3s
+  - When the invitee's first order completes
+  - Then released_xu is 10000 within the return window plus 2 seconds
+  - And pending_xu is 0, rewards_total is 10000 and the list row is RELEASED
+  - And one ReferralRewardReleased of 10000 xu is on referral.events
+  tags:
+  - referral-service
+  status: planned
+  notes: Will be covered by `referral/referral_reward.feature::A reward is released after the return window` once green.
+- id: referral.a-return-before-release-voids-the-reward-and-the-next-order-qualifies
+  title: A return before release voids the reward and the next order qualifies
+  persona: buyer
+  priority: P1
+  summary: A return before release voids the reward and the next order qualifies (change referral-attribution-reward).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-identity
+  - team-order
+  - team-gateway
+  acceptance:
+  - Given an invitee whose first order created a pending reward
+  - When the invitee requests a return on that order
+  - Then the inviter's pending_xu is 0 and no reward is listed
+  - And when the invitee completes a new order a new PENDING reward of 10000 xu exists
+  tags:
+  - referral-service
+  status: planned
+  notes: Will be covered by `referral/referral_reward.feature::A return before release voids the reward and the next order qualifies` once green.
+- id: referral.manual-redeem-is-accepted-for-a-new-account-and-credits-nothing
+  title: Manual redeem is accepted for a new account and credits nothing
+  persona: buyer
+  priority: P1
+  summary: Manual redeem is accepted for a new account and credits nothing (change referral-attribution-reward).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-identity
+  - team-gateway
+  acceptance:
+  - Given a freshly registered buyer with no completed order
+  - When the buyer redeems the code of an inviter
+  - Then the redeem is accepted
+  - And the inviter's invited_count is 1, pending_xu and released_xu are 0 and the reward list is empty
+  tags:
+  - referral-service
+  status: planned
+  notes: Will be covered by `referral/referral_reward.feature::Manual redeem is accepted for a new account and credits nothing` once green.
+- id: referral.manual-redeem-is-refused-for-a-buyer-with-a-completed-order
+  title: Manual redeem is refused for a buyer with a completed order
+  persona: buyer
+  priority: P1
+  summary: Manual redeem is refused for a buyer with a completed order (change referral-attribution-reward).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-identity
+  - team-order
+  - team-gateway
+  acceptance:
+  - Given a buyer with a completed order
+  - When the buyer redeems the code of an inviter
+  - Then the call is refused with FAILED_PRECONDITION and a message
+  - And the inviter's invited_count stays 0 and no ReferralAttributed is published for the buyer
+  tags:
+  - referral-service
+  status: planned
+  notes: Will be covered by `referral/referral_reward.feature::Manual redeem is refused for a buyer with a completed order` once green.
+- id: referral.the-daily-cap-defers-rewards
+  title: The daily cap defers rewards
+  persona: buyer
+  priority: P1
+  summary: The daily cap defers rewards (change referral-attribution-reward).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-identity
+  - team-order
+  - team-gateway
+  acceptance:
+  - Given the stack runs with REFERRAL_DAILY_CAP=2, REFERRAL_RELEASE_SWEEP_INTERVAL=1s and RETURN_WINDOW=3s
+  - When three invitees of one inviter each complete a first order
+  - Then two rewards are RELEASED and one stays PENDING after the release sweeps
+  tags:
+  - referral-service
+  status: planned
+  notes: Will be covered by `referral/referral_reward.feature::The daily cap defers rewards` once green.

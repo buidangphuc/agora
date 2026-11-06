@@ -10886,3 +10886,373 @@ features:
     tags: [buyer, notifications, unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/app/(shop)/notifications/page.test.tsx` `[Order lifecycle: the new-order notification opens the seller order] a /seller link opens on the seller app, buyer links stay relative`. Unit level; not producible end to end."
+
+  # ---- frontend-referral-invite (q7-q37-referral-welcome)
+
+  - id: frontend-referral-invite.s1-buyer-copies-the-invite-link
+    title: "S1 Buyer copies the invite link"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S1 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S1 Buyer copies the invite link"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s2-buyer-has-no-code-yet-boundary
+    title: "S2 Buyer has no code yet (boundary)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S2 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S2 Buyer has no code yet (boundary)"
+    tags: [buyer, referral, invite, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/account/referral/page.test.tsx` `S2 renders the invite button disabled and keeps generate-code when there is no code`. Not producible end to end: a buyer without a code never reaches the page with the button in the stack: GetMyReferral mints the code on first read."
+
+  - id: frontend-referral-invite.s3-share-link-creation-fails-error
+    title: "S3 Share link creation fails (error)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S3 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S3 Share link creation fails (error)"
+    tags: [buyer, referral, invite, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/account/referral/actions.test.ts` `S3 resolves with the Vietnamese failure message when CreateShareLink fails`. Not producible end to end: a CreateShareLink failure cannot be forced through the gateway."
+
+  - id: frontend-referral-invite.s4-guest-is-sent-to-login-permission
+    title: "S4 Guest is sent to login (permission)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S4 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S4 Guest is sent to login (permission)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s5-referral-link-redirects-to-register-with-attribution
+    title: "S5 Referral link redirects to register with attribution"
+    persona: guest
+    priority: P1
+    summary: "Scenario S5 of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S5 Referral link redirects to register with attribution"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s6-listing-and-shop-links-keep-utm-and-set-no-cookie
+    title: "S6 Listing and shop links keep utm and set no cookie"
+    persona: guest
+    priority: P1
+    summary: "Scenario S6 of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S6 Listing and shop links keep utm and set no cookie"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s7-unknown-short-code-error
+    title: "S7 Unknown short code (error)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S7 of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S7 Unknown short code (error)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s8-unknown-target-type-error
+    title: "S8 Unknown target type (error)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S8 of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S8 Unknown target type (error)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s9a-non-utm-key-dropped-boundary
+    title: "S9a Non-utm key dropped (boundary)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S9a of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S9a Non-utm key dropped (boundary)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s9b-unsafe-referral-id-error-permission
+    title: "S9b Unsafe referral id (error, permission)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S9b of change frontend-referral-invite."
+    entry_route: "/s/{code}"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S9b Unsafe referral id (error, permission)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s10-register-with-ref
+    title: "S10 Register with ?ref"
+    persona: guest
+    priority: P1
+    summary: "Scenario S10 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S10 Register with ?ref"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s11-register-with-only-the-cookie-then-cookie-cleared
+    title: "S11 Register with only the cookie, then cookie cleared"
+    persona: guest
+    priority: P1
+    summary: "Scenario S11 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S11 Register with only the cookie, then cookie cleared"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s12-field-wins-over-cookie-boundary
+    title: "S12 Field wins over cookie (boundary)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S12 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S12 Field wins over cookie (boundary)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s13-malformed-code-is-ignored-error
+    title: "S13 Malformed code is ignored (error)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S13 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S13 Malformed code is ignored (error)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s14-failed-register-keeps-the-cookie-error
+    title: "S14 Failed register keeps the cookie (error)"
+    persona: guest
+    priority: P1
+    summary: "Scenario S14 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S14 Failed register keeps the cookie (error)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s15-no-code-no-field
+    title: "S15 No code, no field"
+    persona: guest
+    priority: P1
+    summary: "Scenario S15 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S15 No code, no field"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s16-returnurl-still-honoured
+    title: "S16 returnUrl still honoured"
+    persona: guest
+    priority: P1
+    summary: "Scenario S16 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: guest
+    acceptance:
+      - "S16 returnUrl still honoured"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s17-totals-in-xu
+    title: "S17 Totals in xu"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S17 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S17 Totals in xu"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s18-reward-timeline-statuses
+    title: "S18 Reward timeline statuses"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S18 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S18 Reward timeline statuses"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s19-no-rewards-boundary
+    title: "S19 No rewards (boundary)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S19 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S19 No rewards (boundary)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s20-rewards-read-fails-error
+    title: "S20 Rewards read fails (error)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S20 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S20 Rewards read fails (error)"
+    tags: [buyer, referral, invite, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/gateway/referral.test.ts` `S20 returns an empty list when the read fails`. Not producible end to end: a ListReferralRewards failure cannot be forced through the gateway."
+
+  - id: frontend-referral-invite.s21-totals-are-the-caller-s-own-permission
+    title: "S21 Totals are the caller's own (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S21 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S21 Totals are the caller's own (permission)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s22-rule-text-shown
+    title: "S22 Rule text shown"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S22 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S22 Rule text shown"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s23-redeem-refused-error
+    title: "S23 Redeem refused (error)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S23 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S23 Redeem refused (error)"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s24-redeem-accepted
+    title: "S24 Redeem accepted"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S24 of change frontend-referral-invite."
+    entry_route: "/account/referral"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S24 Redeem accepted"
+    tags: [buyer, referral, invite]
+    status: planned
+
+  - id: frontend-referral-invite.s25-guest-cannot-redeem-permission
+    title: "S25 Guest cannot redeem (permission)"
+    persona: buyer
+    priority: P1
+    summary: "Scenario S25 of change frontend-referral-invite."
+    entry_route: "/register"
+    services: [team-frontend, team-gateway, team-sharing, team-referral]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "S25 Guest cannot redeem (permission)"
+    tags: [buyer, referral, invite, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/account/referral/RedeemReferralForm.test.tsx` `S25 a guest refusal toasts the gateway message and keeps the field value`. Not producible end to end: a guest never reaches the page that renders the redeem form (redirected to login)."
