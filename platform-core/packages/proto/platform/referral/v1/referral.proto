@@ -10,13 +10,16 @@ import "platform/common/v1/common.proto";
 service ReferralService {
   // Mint (or return the existing) referral code for the calling user.
   rpc CreateReferralCode(CreateReferralCodeRequest) returns (CreateReferralCodeResponse);
-  // Fetch the caller's own referral summary.
+  // Fetch the caller's own referral summary. Principal-only: there is no user
+  // id field.
   rpc GetMyReferral(GetMyReferralRequest) returns (GetMyReferralResponse);
   // Redeem someone else's referral code (called by the invited user). Refused
   // with FAILED_PRECONDITION for an account older than
   // REFERRAL_REDEEM_MAX_ACCOUNT_AGE (default 168h, configured in team-referral),
   // an account with a completed order, a second redeem or a self-referral; it
-  // credits nothing immediately.
+  // credits nothing immediately. Principal-only: there is no user id field.
+  // "No completed order" is decided from the order.events/OrderCompleted facts
+  // team-referral consumes itself; it does not call HasCompletedOrder.
   rpc RedeemReferral(RedeemReferralRequest) returns (RedeemReferralResponse);
   rpc ListReferralRewards(ListReferralRewardsRequest) returns (ListReferralRewardsResponse);
 }
@@ -38,7 +41,7 @@ enum ReferralRewardStatus {
 // ReferralReward amounts are xu, not đ.
 message ReferralReward {
   string id = 1;
-  int64 amount = 2;   // minor units
+  int64 amount = 2;   // xu
   string reason = 3;  // e.g. "invitee_first_order"
   google.protobuf.Timestamp created_at = 4;
   ReferralRewardStatus status = 5;
@@ -69,7 +72,8 @@ message ReferralRejected {
 // ReferralRewardReleased is an internal-only event (never exposed at the gateway)
 // published on Kafka topic `referral.events` (key = referee user id, wrapped in
 // platform.events.v1.EventEnvelope with type "platform.referral.v1.ReferralRewardReleased")
-// through the referral outbox, once per reward. amount_xu is in xu.
+// through the referral outbox, once per reward. amount_xu is in xu. Consumers must be idempotent on the
+// event id.
 message ReferralRewardReleased {
   string reward_id = 1;
   string referrer_id = 2;
@@ -91,7 +95,7 @@ message GetMyReferralRequest {}
 message GetMyReferralResponse {
   string code = 1;
   int64 invited_count = 2;
-  int64 rewards_total = 3; // minor units
+  int64 rewards_total = 3; // xu
   int64 pending_xu = 4;
   int64 released_xu = 5;
 }

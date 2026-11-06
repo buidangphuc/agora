@@ -192,8 +192,15 @@ service OrderService {
   // Shipment & Logistics Tracking
   rpc CreateShipment(CreateShipmentRequest) returns (CreateShipmentResponse);
   rpc GetShipmentTracking(GetShipmentTrackingRequest) returns (GetShipmentTrackingResponse);
-  // The RPC is internal, service-to-service only (called by team-promotion for
-  // new_user_only vouchers); NOT routed at the gateway.
+  // The RPC is internal, service-to-service only. The only caller is
+  // team-promotion, for new_user_only eligibility; team-referral does NOT call
+  // it (referral decides "no completed order" for RedeemReferral from the
+  // order.events/OrderCompleted facts it consumes itself). Requires a SERVICE
+  // principal holding scope `order.read` (a service-only scope); USER,
+  // anonymous and admin principals (including `order.admin`) get
+  // PERMISSION_DENIED, enforced by the service itself and not only at the edge.
+  // NOT routed at the gateway, which answers 501. `service-team-promotion` must
+  // be granted `order.read` in identity.
   rpc HasCompletedOrder(HasCompletedOrderRequest) returns (HasCompletedOrderResponse);
 }
 

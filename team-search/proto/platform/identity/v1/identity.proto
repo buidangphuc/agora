@@ -61,6 +61,8 @@ service AuthService {
   // GetMyAccount is principal-scoped: the caller sees only their own account and
   // no request field selects another user. Routed at the gateway for any
   // signed-in user (the frontend uses created_at for the 14-day welcome rule).
+  // An anonymous caller gets UNAUTHENTICATED; a service principal gets
+  // PERMISSION_DENIED. The response carries only user_id and created_at.
   rpc GetMyAccount(GetMyAccountRequest) returns (GetMyAccountResponse);
 }
 
@@ -113,7 +115,9 @@ message RegisterRequest {
   string role = 3;
   // Optional referral code, accepted on the public Register RPC (no principal;
   // the code grants no role or access). An empty, unknown or self-owned code
-  // never fails Register.
+  // never fails Register. The value is trimmed and at most 32 chars of
+  // [A-Za-z0-9_-] after the trim, case kept; an out-of-bounds value is treated
+  // as empty, never an error, and is never echoed back or logged raw.
   string referral_code = 4;
 }
 
