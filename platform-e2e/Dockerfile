@@ -10,7 +10,9 @@ RUN pip install --no-cache-dir -e ".[dev]"
 RUN playwright install chromium --with-deps
 
 # Copy platform-e2e source
-COPY . .
+COPY --chown=pwuser:pwuser . .
+RUN chown pwuser:pwuser /workspace
+USER pwuser
 
 ENV BASE_URL=http://host.docker.internal:3000
 ENV GATEWAY_URL=http://team-gateway-svc:8080

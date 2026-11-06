@@ -3,6 +3,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
+RUN useradd --system --uid 1001 --no-create-home app \
+    && mkdir -p /features && chown 1001:1001 /features
+USER 1001
 
 # docker build --target test .
 FROM base AS test

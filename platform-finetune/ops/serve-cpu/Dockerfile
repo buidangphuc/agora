@@ -41,6 +41,9 @@ COPY config ./config
 # Imports are `datascience.*` (package lives under src/); no install step, just the path.
 ENV PYTHONPATH=/app/src
 
+RUN useradd --uid 1001 --create-home app
+USER 1001
+
 # Empty CUDA_VISIBLE_DEVICES forces CPU regardless of serving.yaml device — Predictor's
 # pick_device() falls to CPU when no GPU is visible.
 ENV CUDA_VISIBLE_DEVICES="" \
