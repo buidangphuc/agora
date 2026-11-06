@@ -2,7 +2,7 @@
 | wave | slices | status |
 |---|---|---|
 | 0 | q7-referral-welcome-contract | merged into feat/q7-q37 |
-| 1 | identity-user-registered (W1-T1), order-has-completed-order (W1-T2) | building in ../agora-q7-q37 directly (disjoint write-sets, orchestrator commits) |
+| 1 | identity-user-registered (W1-T1), order-has-completed-order (W1-T2) | done on feat/q7-q37 (ae200f73, 339e65e8, 3df08fa8); reviews pass; e2e not run |
 | 2 | referral-attribution-reward, frontend-referral-invite | todo |
 | later | promotion, frontend-welcome | wait PR #97 |
 integration branch: feat/q7-q37 (worktree ../agora-q7-q37); e2e written, not run (stack busy)
