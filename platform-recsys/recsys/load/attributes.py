@@ -119,7 +119,7 @@ def load_attributes(settings) -> AttributeSnapshot | None:
         return None
     try:
         snapshot = _read(path)
-    except Exception as exc:  # noqa: BLE001 - a corrupt snapshot must not abort a publish
+    except Exception as exc:  # noqa: BLE001
         log.warning("attributes=missing: item_attributes v2 snapshot unreadable (%s)", type(exc).__name__)
         return None
     snapshot.as_of = _stamp_of(path)

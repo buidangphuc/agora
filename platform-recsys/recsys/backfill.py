@@ -3,7 +3,9 @@
 Patches the serving and previous generations in place, from the latest ``item_attributes@v2`` snapshot:
 
 - Qdrant: ``set_payload`` on the item collections (ALS, and two-tower when present) of those generations,
-  at most 256 points per call. Vectors, user collections and other generations are untouched.
+  at most 256 points per call, and ``delete_payload`` of every attribute key the snapshot no longer has
+  for a point (so a stale ``visible`` never survives). Vectors, user collections and other generations
+  are untouched.
 - Redis: rewrites the user, item and popular entries of those generations and the legacy ``recs:v1:*``
   entries, keeping each key's remaining TTL (a persistent key stays persistent, a key that expired meanwhile
   is skipped). Pointers, ``recs:v1:model_version`` and the ranker artifact are untouched.
@@ -30,6 +32,7 @@ BATCH = 256
 
 def _patch_collection(client, collection: str, attributes) -> int:
     groups: dict[str, tuple[dict, list]] = {}
+    stale: dict[tuple, list] = {}
     offset = None
     while True:
         points, offset = client.scroll(
@@ -37,9 +40,14 @@ def _patch_collection(client, collection: str, attributes) -> int:
         )
         for point in points:
             listing_id = (point.payload or {}).get("listing_id")
-            attrs = attributes.get(listing_id) if listing_id else None
+            attrs = (attributes.get(listing_id) if listing_id else None) or {}
             if attrs:
                 groups.setdefault(json.dumps(attrs, sort_keys=True), (attrs, []))[1].append(point.id)
+            missing = tuple(
+                k for k in attributes_load.ATTRIBUTE_KEYS if k not in attrs and k in (point.payload or {})
+            )
+            if missing:
+                stale.setdefault(missing, []).append(point.id)
         if offset is None:
             break
     patched = 0
@@ -48,6 +56,9 @@ def _patch_collection(client, collection: str, attributes) -> int:
             batch = ids[i : i + BATCH]
             client.set_payload(collection_name=collection, payload=attrs, points=batch)
             patched += len(batch)
+    for keys, ids in stale.items():
+        for i in range(0, len(ids), BATCH):
+            client.delete_payload(collection_name=collection, keys=list(keys), points=ids[i : i + BATCH])
     return patched
 
 
