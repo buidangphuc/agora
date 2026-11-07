@@ -11685,3 +11685,514 @@ features:
     tags: [buyer, welcome]
     status: automated
     covered_by: "frontend/welcome_checklist.feature::W23 Anonymous visitor on an account page (permission)"
+
+  - id: frontend-seo.seo-1-a-page-title-ends-with-one-agora-suffix
+    title: "SEO-1 A page title ends with one Agora suffix"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-1 of change frontend-seo."
+    entry_route: /assistant
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous visitor fetches `/assistant`, whose page title was once hand-written with the suffix `| Sàn Thương Mại Điện Tử`"
+      - "Then the response `<title>` is `Trợ Lý Mua Sắm AI Thông Minh | Agora`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-2-the-home-page-uses-the-default-title-and-description
+    title: "SEO-2 The home page uses the default title and description"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-2 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous visitor fetches `/`"
+      - "Then the response `<title>` is `Agora | Sàn thương mại điện tử`, `<meta name=\"description\">` is non-empty Vietnamese text, and `link rel=canonical` is `<NEXT_PUBLIC_SITE_URL>/`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-3-a-forged-host-header-does-not-change-the-canonical-origin
+    title: "SEO-3 A forged Host header does not change the canonical origin"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-3 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a visitor fetches `/` with the request header `Host: evil.example`"
+      - "Then the canonical and `og:url` values start with `NEXT_PUBLIC_SITE_URL` and none contains `evil.example`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-4-a-listing-page-has-title-description-canonical-and-open-graph-tags
+    title: "SEO-4 A listing page has title, description, canonical and Open Graph tags"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-4 of change frontend-seo."
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler fetches `/listing/<id>` of a published listing with an image"
+      - "Then `<title>` is `<listing title> | Agora`, `og:type` is `product`, `og:site_name` is `Agora`, `og:url` equals the canonical `<NEXT_PUBLIC_SITE_URL>/listing/<id>`, and `og:image` is an absolute URL of the first image"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-5-a-missing-listing-answers-404-without-open-graph-tags
+    title: "SEO-5 A missing listing answers 404 without Open Graph tags"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-5 of change frontend-seo."
+    entry_route: /listing/does-not-exist
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/listing/does-not-exist`"
+      - "Then the response status is 404 and the HTML contains no `og:*` meta tag and no `link rel=canonical`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-6-a-long-description-is-cut-at-160-characters
+    title: "SEO-6 A long description is cut at 160 characters"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-6 of change frontend-seo."
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches the page of a listing whose description is 400 characters with line breaks"
+      - "Then `<meta name=\"description\">` and `og:description` hold at most 160 characters and no line break"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-7-a-listing-without-an-image-omits-og-image
+    title: "SEO-7 A listing without an image omits og:image"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-7 of change frontend-seo."
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches the page of a published listing that has no image"
+      - "Then the HTML contains no `og:image` tag and the other `og:*` tags are present"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-8-a-listing-metadata-build-makes-no-extra-gateway-call
+    title: "SEO-8 A listing metadata build makes no extra gateway call"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-8 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the listing layout, page and `generateMetadata` run for one request"
+      - "Then `getListing` is called exactly once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/listing/[id]/metadata.test.ts` `getListing is called once per request`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-9-a-shop-page-uses-the-shop-name-and-banner
+    title: "SEO-9 A shop page uses the shop name and banner"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-9 of change frontend-seo."
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler fetches `/shop/<sellerId>` for a seller with display name \"Cửa hàng Mai\" and a banner"
+      - "Then `<title>` is `Cửa hàng Mai | Agora`, `og:image` is the absolute banner URL, and the canonical is `<NEXT_PUBLIC_SITE_URL>/shop/<sellerId>`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-10-a-shop-whose-storefront-read-fails-still-renders
+    title: "SEO-10 A shop whose storefront read fails still renders"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-10 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the gateway answers an error to `getStorefront` for `/shop/<id>`"
+      - "Then `generateMetadata` resolves to the fallback shop name followed by ` | Agora` with no `og:image` and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/shop/[id]/metadata.test.ts` `storefront failure falls back`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-11-a-shop-metadata-build-makes-no-extra-gateway-call
+    title: "SEO-11 A shop metadata build makes no extra gateway call"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-11 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `generateMetadata` and the shop page run for one request"
+      - "Then `getStorefront` is called exactly once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/shop/[id]/metadata.test.ts` `getStorefront is called once per request`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-12-a-category-page-is-indexable-with-a-clean-canonical
+    title: "SEO-12 A category page is indexable with a clean canonical"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-12 of change frontend-seo."
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?category=<id>&sort=price_asc&page=2`"
+      - "Then `<title>` is `<category name> | Agora`, the canonical is `<NEXT_PUBLIC_SITE_URL>/search?category=<id>`, and no `noindex` robots tag is present"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-13-a-free-text-search-is-noindex-and-follow
+    title: "SEO-13 A free-text search is noindex and follow"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-13 of change frontend-seo."
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?q=<script>x</script>`"
+      - "Then the robots meta is `noindex, follow`, there is no `link rel=canonical`, and the query text appears in no `<title>` or `og:*` tag"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-14-an-unknown-category-falls-back-to-plain-search-metadata
+    title: "SEO-14 An unknown category falls back to plain search metadata"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-14 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?category=no-such-category`"
+      - "Then `<title>` is `Tất cả sản phẩm | Agora` and the canonical is `<NEXT_PUBLIC_SITE_URL>/search`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/search/metadata.test.ts` `unknown category uses plain search metadata`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-15-a-categories-outage-keeps-the-page-rendering
+    title: "SEO-15 A categories outage keeps the page rendering"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-15 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `listCategories` fails during `generateMetadata` for `/search?category=<id>`"
+      - "Then `generateMetadata` resolves to title `Tất cả sản phẩm` and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/search/metadata.test.ts` `categories failure falls back`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-16-an-anonymous-crawler-gets-noindex-on-the-private-pages-that-render
+    title: "SEO-16 An anonymous crawler gets noindex on the private pages that render"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-16 of change frontend-seo."
+    entry_route: /login
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler fetches `/login`, `/register` and `/dev/ui`, the private URLs that render HTML without a session"
+      - "Then each response contains `<meta name=\"robots\" content=\"noindex, nofollow\">` and no `og:*` tag"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-17-a-logged-in-buyer-gets-noindex-on-the-guest-redirected-pages
+    title: "SEO-17 A logged-in buyer gets noindex on the guest-redirected pages"
+    persona: buyer
+    priority: P2
+    summary: "Scenario SEO-17 of change frontend-seo."
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a logged-in buyer fetches `/cart`, `/favorites`, `/notifications`, `/chat`, `/account/orders` and `/account/addresses`, which redirect a guest to `/login`"
+      - "Then each response contains `<meta name=\"robots\" content=\"noindex, nofollow\">` and no `og:*` tag"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-18-the-checkout-group-layout-exports-noindex
+    title: "SEO-18 The checkout group layout exports noindex"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-18 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the `(checkout)` layout is scanned by `seoPrivateRoutes.test.ts`"
+      - "Then its `metadata` export contains `robots` with `index: false` and `follow: false`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/seoPrivateRoutes.test.ts` `every private segment layout exports noindex`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-19-the-login-page-keeps-its-no-referrer-declaration-beside-the-robots-layout
+    title: "SEO-19 The login page keeps its no-referrer declaration beside the robots layout"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-19 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `referrerMetadata.test.ts` and `seoPrivateRoutes.test.ts` scan `login/page.tsx` and `login/layout.tsx`"
+      - "Then the page's `metadata` block still declares `referrer: \"no-referrer\"` and the layout's `metadata` block declares `robots` with `index: false`, so Next merges both keys"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/referrerMetadata.test.ts` `login sets no-referrer (Referrer hygiene: login declares no-referrer)` ; `team-frontend/src/app/seoPrivateRoutes.test.ts` `every private segment layout exports noindex`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-20-a-new-private-segment-without-the-policy-fails-the-build
+    title: "SEO-20 A new private segment without the policy fails the build"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-20 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a segment layout under one of the private prefixes lacks `robots` with `index: false`"
+      - "Then `seoPrivateRoutes.test.ts` fails, naming the segment"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/seoPrivateRoutes.test.ts` `scanner rejects a private layout without robots`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-21-robots-txt-disallows-private-prefixes-and-lists-the-sitemap
+    title: "SEO-21 robots.txt disallows private prefixes and lists the sitemap"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-21 of change frontend-seo."
+    entry_route: /robots.txt
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/robots.txt`"
+      - "Then the response is 200, contains a `Disallow` for each of the twelve prefixes, and ends with `Sitemap: <NEXT_PUBLIC_SITE_URL>/sitemap.xml`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-22-robots-txt-does-not-depend-on-the-gateway
+    title: "SEO-22 robots.txt does not depend on the gateway"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-22 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the `robots` function is called with every gateway client mocked to throw"
+      - "Then no gateway call is made and the rules and sitemap line are returned unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/robots.test.ts` `robots makes no gateway call`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-23-the-sitemap-lists-home-categories-listings-and-shops
+    title: "SEO-23 The sitemap lists home, categories, listings and shops"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-23 of change frontend-seo."
+    entry_route: /sitemap.xml
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/sitemap.xml` on a stack with 3 categories, 4 published listings of 2 sellers"
+      - "Then the document holds the home URL, 3 category URLs, 4 `/listing/<id>` URLs newest first, and 2 `/shop/<sellerId>` URLs, all absolute"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-24-the-sitemap-omits-unpublished-listings
+    title: "SEO-24 The sitemap omits unpublished listings"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-24 of change frontend-seo."
+    entry_route: /sitemap.xml
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a seller's listing is held or banned and a crawler fetches `/sitemap.xml`"
+      - "Then that listing's URL is absent"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-25-the-sitemap-keeps-the-5000-newest-listings
+    title: "SEO-25 The sitemap keeps the 5000 newest listings"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-25 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the sitemap function reads a search index that holds 5,200 published listings"
+      - "Then exactly 5,000 `/listing/<id>` entries are returned in newest-first order and the 200 oldest are absent"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/sitemap.test.ts` `caps at 5000 newest listings`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-26-a-gateway-failure-leaves-home-in-the-sitemap
+    title: "SEO-26 A gateway failure leaves home in the sitemap"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-26 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the search call fails while a crawler fetches `/sitemap.xml`"
+      - "Then the response is 200 and contains at least the home URL"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/sitemap.test.ts` `gateway failure returns home`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-27-no-public-page-shows-a-demo-brand-string
+    title: "SEO-27 No public page shows a demo brand string"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-27 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a visitor opens `/`, `/search` and the student rental page and reads the page text and `<title>`"
+      - "Then none contains \"Marketplace Showcase\", \"Polyrepo\" or \"BATDONGSAN SINH VIÊN\""
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-28-a-source-scan-rejects-a-demo-brand-string
+    title: "SEO-28 A source scan rejects a demo brand string"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-28 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `brandStrings.test.ts` scans every non-test `.ts` and `.tsx` file under `team-frontend/src` and one contains a demo brand string"
+      - "Then the test fails, naming the file"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/brandStrings.test.ts` `no demo brand string in source`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-29-the-favicon-is-served
+    title: "SEO-29 The favicon is served"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-29 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a browser follows the `<link rel=\"icon\">` href found on `/`"
+      - "Then the response is 200 with a content type starting `image/`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-30-an-anonymous-crawler-is-told-to-stay-out-of-seller-and-admin-prefixes
+    title: "SEO-30 An anonymous crawler is told to stay out of seller and admin prefixes"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-30 of change frontend-seo."
+    entry_route: /robots.txt
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler reads `/robots.txt`"
+      - "Then the lines `Disallow: /seller` and `Disallow: /admin` are present, although those routes are served by other apps"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-31-a-listing-read-outage-does-not-break-the-metadata-build
+    title: "SEO-31 A listing read outage does not break the metadata build"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-31 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `getListing` rejects with an Unavailable error while `generateMetadata` runs for `/listing/<id>`"
+      - "Then `generateMetadata` resolves to the root default title and description and does not throw"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/listing/[id]/metadata.test.ts` `listing outage returns default metadata`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-32-an-unknown-shop-id-renders-with-the-fallback-name
+    title: "SEO-32 An unknown shop id renders with the fallback name"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-32 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/shop/unknown-seller` and `getStorefront` returns null"
+      - "Then `generateMetadata` resolves to the fallback shop label followed by ` | Agora` with no `og:image` and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/shop/[id]/metadata.test.ts` `unknown shop id falls back`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-33-a-whitespace-only-q-counts-as-empty
+    title: "SEO-33 A whitespace-only q counts as empty"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-33 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?q=%20%20%20`"
+      - "Then `generateMetadata` resolves to title `Tất cả sản phẩm`, canonical `<NEXT_PUBLIC_SITE_URL>/search` and no `noindex` robots, and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/search/metadata.test.ts` `whitespace q is empty`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-34-q-wins-over-category
+    title: "SEO-34 q wins over category"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-34 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?category=<id>&q=ao`"
+      - "Then `generateMetadata` resolves to robots `noindex, follow`, no canonical and a title that is not the category name, and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/search/metadata.test.ts` `q wins over category`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-35-plain-search-is-indexable-with-its-own-title-and-description
+    title: "SEO-35 Plain search is indexable with its own title and description"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-35 of change frontend-seo."
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search`"
+      - "Then `<title>` is `Tất cả sản phẩm | Agora` and `<meta name=\"description\">` is `Tìm và mua sản phẩm từ nhiều người bán trên Agora.`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-36-a-cold-sitemap-with-5000-listings-is-measured
+    title: "SEO-36 A cold sitemap with 5000 listings is measured"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-36 of change frontend-seo."
+    entry_route: /sitemap.xml
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/sitemap.xml` on a cold cache after 5,000 published listings are seeded"
+      - "Then the response is 200 with 5,000 listing URLs, produced by 100 `SearchListings` requests of `page_size` 50 with no `getListing` call, and the cold-render time is recorded in the run output"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-44-a-held-banned-or-draft-listing-answers-404-without-metadata
+    title: "SEO-44 A held, banned or draft listing answers 404 without metadata"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-44 of change frontend-seo."
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler fetches `/listing/<id>` of a listing whose status is held, banned or draft"
+      - "Then the response status is 404, the HTML contains no `og:*` meta tag and no `link rel=canonical`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-45-a-hit-without-seller-id-adds-no-shop-url
+    title: "SEO-45 A hit without seller_id adds no shop URL"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-45 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the sitemap function reads a hit with an empty `seller_id` and a hit with `seller_id` `s1`"
+      - "Then both listing URLs are present and exactly one shop URL, `/shop/s1`, is present"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/sitemap.test.ts` `empty seller_id adds no shop url`. Asserts internal calls or build-time scans that no HTTP response exposes."

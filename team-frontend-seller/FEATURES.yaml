@@ -2051,3 +2051,43 @@ features:
     tags: [seller, onboarding]
     status: automated
     covered_by: "frontend/seller_onboarding_ui.feature::Seller onboarding UI: a buyer restricted after page load is refused"
+
+  - id: frontend-seo.seo-37-a-seller-page-is-noindex-and-titled-with-one-agora-suffix
+    title: "SEO-37 A seller page is noindex and titled with one Agora suffix"
+    persona: seller
+    priority: P2
+    summary: "Scenario SEO-37 of change frontend-seo."
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway]
+    acceptance:
+      - "When a logged-in seller fetches `/seller/wallet` on `team-frontend-seller`"
+      - "Then `<title>` is `Ví người bán | Agora` (source title `Ví người bán`, `team-frontend-seller/src/app/seller/wallet/page.tsx:28`) and the robots meta is `noindex, nofollow`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-38-the-seller-login-page-is-noindex-for-an-anonymous-crawler
+    title: "SEO-38 The seller login page is noindex for an anonymous crawler"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-38 of change frontend-seo."
+    entry_route: /login
+    services: [team-frontend-seller, team-gateway]
+    acceptance:
+      - "When an anonymous crawler fetches `/login` on `team-frontend-seller`"
+      - "Then the robots meta is `noindex, nofollow` and `<title>` ends with exactly one ` | Agora`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-41-a-hand-written-suffix-in-a-seller-page-fails-the-build
+    title: "SEO-41 A hand-written suffix in a seller page fails the build"
+    persona: seller
+    priority: P2
+    summary: "Scenario SEO-41 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend-seller, team-gateway]
+    acceptance:
+      - "When `team-frontend-seller/src/app/titleSuffix.test.ts` scans the `metadata` titles of every page under `team-frontend-seller/src/app` and one contains `| Kênh người bán` or `| Marketplace`"
+      - "Then the test fails, naming the file"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."

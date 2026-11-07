@@ -3267,3 +3267,57 @@ features:
     covered_by: "frontend/admin_isolation.feature::Admin isolation: /admin on the buyer app is not found"
     tests:
       unit: "team-frontend/src/app/admin-isolation.test.ts"
+
+  - id: frontend-seo.seo-39-an-admin-page-is-noindex-titled-once-and-keeps-no-referrer
+    title: "SEO-39 An admin page is noindex, titled once and keeps no-referrer"
+    persona: admin
+    priority: P2
+    summary: "Scenario SEO-39 of change frontend-seo."
+    entry_route: /admin/audit
+    services: [team-frontend-admin, team-gateway, team-identity]
+    acceptance:
+      - "When an admin with scope `admin` fetches `/admin/audit` on `team-frontend-admin`"
+      - "Then `<title>` is `Nhật ký kiểm toán | Agora` (source title `Nhật ký kiểm toán`, `team-frontend-admin/src/app/admin/audit/page.tsx:15`), the robots meta is `noindex, nofollow`, and the referrer meta is `no-referrer`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-40-the-admin-login-and-forbidden-pages-deny-indexing-for-an-anonymous-crawler
+    title: "SEO-40 The admin login and forbidden pages deny indexing for an anonymous crawler"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-40 of change frontend-seo."
+    entry_route: /login
+    services: [team-frontend-admin, team-gateway, team-identity]
+    acceptance:
+      - "When an anonymous crawler fetches `/login` and `/forbidden` on `team-frontend-admin`"
+      - "Then each response contains the robots meta `noindex, nofollow` and the referrer meta `no-referrer`"
+    tags: [buyer, search]
+    status: planned
+
+  - id: frontend-seo.seo-42-the-admin-root-keeps-its-referrer-and-robots-declarations
+    title: "SEO-42 The admin root keeps its referrer and robots declarations"
+    persona: admin
+    priority: P2
+    summary: "Scenario SEO-42 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend-admin, team-gateway, team-identity]
+    acceptance:
+      - "When `team-frontend-admin/src/app/referrerMetadata.test.ts` scans the root layout after the title template is added"
+      - "Then the root `metadata` block still declares `referrer: \"no-referrer\"` and `robots` with `index: false`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/referrerMetadata.test.ts` `admin root declares no-referrer`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-43-a-hand-written-suffix-in-an-admin-page-fails-the-build
+    title: "SEO-43 A hand-written suffix in an admin page fails the build"
+    persona: admin
+    priority: P2
+    summary: "Scenario SEO-43 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend-admin, team-gateway, team-identity]
+    acceptance:
+      - "When `team-frontend-admin/src/app/titleSuffix.test.ts` scans the `metadata` titles of every page under `team-frontend-admin/src/app` and one contains `| Sàn Thương Mại Điện Tử` or `| Marketplace`"
+      - "Then the test fails, naming the file"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."
