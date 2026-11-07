@@ -49,13 +49,17 @@ def _rps(row: dict) -> float:
 
 
 # ── Traffic / reads ──────────────────────────────────────────────────────
+def _search_once(world: World) -> None:
+    try:
+        world.service_factory.search.search("laptop")
+    except GatewayError:
+        pass
+
+
 @given("traffic has been driven through the gateway to the search service")
 def drive_search_traffic(world: World) -> None:
     for _ in range(5):
-        try:
-            world.service_factory.search.search("laptop")
-        except GatewayError:
-            pass
+        _search_once(world)
     world.state.extra["drove_traffic"] = True
 
 
@@ -97,6 +101,7 @@ def search_rps_non_zero(world: World) -> None:
             return
         if time.monotonic() >= deadline:
             break
+        _search_once(world)
         time.sleep(3.0)
         metrics = svc.get_cockpit_metrics()
     raise AssertionError(

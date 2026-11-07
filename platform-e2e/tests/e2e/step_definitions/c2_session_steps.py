@@ -81,9 +81,16 @@ def c2_grows(world: World) -> None:
 
 @then("once the expiry has passed the gateway denylist no longer holds it")
 def c2_pruned(world: World) -> None:
-    peak = world.state.extra["denylist_peak"]
+    peak = [world.state.extra["denylist_peak"]]
+
+    def dropped(n: int) -> bool:
+        if n < peak[0]:
+            return True
+        peak[0] = n
+        return False
+
     # The gateway sweeps once a minute; the entry is gone within one sweep after expiry.
-    size = _wait_size(lambda n: n < peak, PRUNE_DEADLINE_S)
+    size = _wait_size(dropped, PRUNE_DEADLINE_S)
     world.logger.info(
-        f"denylist {peak} -> {size} after {time.monotonic() - world.state.extra['published_at']:.0f}s"
+        f"denylist {peak[0]} -> {size} after {time.monotonic() - world.state.extra['published_at']:.0f}s"
     )
