@@ -23,9 +23,9 @@ func TestEngine_SemanticFloorDropsUnrelatedCandidates(t *testing.T) {
 	idx := &osLikeIndex{fakeIndex: fakeIndex{
 		vecHits: []index.Hit{{ListingID: "n1", Score: cosScore(0.05)}, {ListingID: "n2", Score: cosScore(-0.04)}},
 	}}
-	res, _, _, err := floorEngine(idx, 0.6).Execute(context.Background(), hybridQ)
-	if err != nil {
-		t.Fatalf("err=%v", err)
+	res, mode, _, err := floorEngine(idx, 0.6).Execute(context.Background(), hybridQ)
+	if err != nil || string(mode) != "lexical" {
+		t.Fatalf("err=%v mode=%q", err, mode)
 	}
 	if len(res.Hits) != 0 || res.Total != 0 {
 		t.Errorf("hits=%v total=%d, want none: every neighbour is below the floor", res.Hits, res.Total)

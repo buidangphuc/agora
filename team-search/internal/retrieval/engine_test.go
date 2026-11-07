@@ -92,8 +92,8 @@ func TestEngine_HybridConcurrentRetrievalAndFusion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Engine execute failed: %v", err)
 	}
-	if string(mode) == "lexical" {
-		t.Errorf("expected a non-lexical mode, got %q", mode)
+	if string(mode) != "hybrid" {
+		t.Errorf("expected hybrid mode, got %q", mode)
 	}
 	if !idx.lexCalled || !idx.vecCalled {
 		t.Errorf("expected both lexical and vector strategies to be called: lex=%v, vec=%v", idx.lexCalled, idx.vecCalled)
