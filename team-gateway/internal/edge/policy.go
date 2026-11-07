@@ -37,6 +37,7 @@ var adminProcedures = map[string]string{
 	identityv1connect.AccountAdminServiceSetUserStatusProcedure:                   adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure:     adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure: adminScope,
+	analyticsv1connect.AnalyticsQueryServiceGetSearchPerformanceProcedure:         adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure:             adminScope,
 	promotionv1connect.VoucherServiceDeactivateVoucherProcedure:                   promotionAdminScope,
 	promotionv1connect.VoucherServiceUpdateVoucherProcedure:                       promotionAdminScope,
