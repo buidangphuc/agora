@@ -29,7 +29,7 @@ Trust model (ADR-0003): the gateway verifies the token and forwards a resolved P
 | `ListRecentOrders` | Latest orders, newest first; default 10, max 100; no buyer PII. |
 | `GetTrackingQualityReport` | Health of the tracking stream over a trailing `window_hours` (1 to 168, default 24; outside it -> `InvalidArgument`). Per event type: events, distinct `user_key` visitors (from `tracking_events_resolved`) and, for `view`/`click`/`add_to_cart`/`impression`, the share of events with an empty `listing_id`. Also ingest lag p50/p95 (`ingested_at - occurred_at`, rows with null `ingested_at` excluded), the latest `ingested_at`, and the summed `decode_failures` and `duplicates_skipped`. `status` is `OK` or `DEGRADED` with sorted `reasons`: `stale` (no event in the window, or latest ingest older than `TRACKING_STALE_AFTER_SECONDS`), `lagging` (p95 lag above `TRACKING_LAG_P95_MAX_SECONDS`), `incomplete` (a listing-scoped missing ratio above `TRACKING_MISSING_LISTING_MAX_RATIO`). DuckDB only. |
 | `GetChannelFunnel` | Funnel counts (`impression`, `view`, `add_to_cart`, `begin_checkout`; distinct `transaction_id` for `purchase`) per (`source`, `medium`, `campaign`) over `[from, to]`, read from `tracking_events_attributed`. Empty `seller_id` aggregates every seller; otherwise it narrows to that seller's listings. `from` after `to` -> `InvalidArgument`. DuckDB only. |
-| `GetSearchPerformance` | Admin only, enforced before the window is validated or the repository is read |
+| `GetSearchPerformance` | Admin only. The `GetRecommendationPerformance` report restricted to impressions with `placement_id = search_results`: one row per `model_version` over a trailing `window_hours` (0 -> 24, above 168 -> `InvalidArgument`), with the same impression, click, add-to-cart and purchase attribution, `ctr` and `conversion_rate`, and no fallback share. Rows are empty when the window has no search impressions. DuckDB only. |
 
 Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Upstream RPCs consumed: none. Data consumed: the two Kafka topics below.
 
@@ -125,7 +125,7 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `GA4_ENDPOINT` | `https://www.google-analytics.com/mp/collect` | Measurement Protocol endpoint |
 | `GA4_RELAY_CONSUMER_GROUP` | `team-analytics.ga4-relay` | Consumer group of the GA4 relay |
 | `GA4_RELAY_DLQ_TOPIC` | `analytics.ga4-relay.dlq` | Dead-letter topic of the GA4 relay |
-| `RECS_ATTRIBUTION_WINDOW_HOURS` | `24` | `GetRecommendationPerformance` credits an add-to-cart or purchase to a click made at most this many hours earlier; must be > 0 |
+| `RECS_ATTRIBUTION_WINDOW_HOURS` | `24` | `GetRecommendationPerformance` and `GetSearchPerformance` credit an add-to-cart or purchase to a click made at most this many hours earlier; must be > 0 |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | |
 | `OTEL_SERVICE_NAME` | `team-analytics` | |

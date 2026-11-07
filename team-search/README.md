@@ -41,9 +41,12 @@ Behaviour of `SearchListings`:
 - Sort: `SORT_BY_NEWEST` is `created_at` desc (unknown last), ties by `id`. A HYBRID (or
   defaulted) request with `NEWEST` / `PRICE_ASC` / `PRICE_DESC` is served by the lexical leg with
   that sort and page; RRF only runs for relevance order.
-- Contract only (discovery-seo-contract, not built): `SORT_BY_BEST_SELLING`, the `SearchHit` fields `sold_count`, `rating_avg`, `review_count`
-  and `seller_id`, and `request_id` / `model_version` on `SearchListingsResponse` and
-  `RunSavedSearchResponse` are defined in the proto; this service neither honours nor sets them.
+- Contract only (discovery-seo-contract, not built): `SORT_BY_BEST_SELLING` and the `SearchHit` fields `sold_count`, `rating_avg`, `review_count`
+  and `seller_id` are defined in the proto; this service neither honours nor sets them.
+- Attribution: every `SearchListingsResponse` and `RunSavedSearchResponse` carries a fresh random 32-hex `request_id` and a
+  `model_version` of `<mode>@<SEARCH_RANKER_VERSION>`, where mode is the leg that answered (`lexical`, `semantic`, `hybrid`, or
+  `hybrid+rerank` when the reranker reordered the fused list; a fail-open answer reports the leg that served it). `RunSavedSearch`
+  always reports `lexical`.
 - Semantic: embeds the query through modelserve `POST /embed`, then runs a `knn` query on `embedding`.
 - Hybrid: runs lexical and semantic concurrently (pool = `from + size`, at least 50, capped at
   `HYBRID_FUSION_WINDOW`), then fuses by RRF: `sum(w_s / (k + rank_s))`, with `k = HYBRID_RRF_K`
@@ -154,6 +157,7 @@ if `.env.example` and the config structs drift in either direction.
 | `HYBRID_LEXICAL_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_MIN_SCORE` | `0.65` | minimum cosine similarity (-1..1) of a semantic candidate; <= -1 disables the floor |
+| `SEARCH_RANKER_VERSION` | `v1` | suffix of the `model_version` on search responses; an empty value keeps `v1` |
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
