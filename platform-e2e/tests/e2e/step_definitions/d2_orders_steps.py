@@ -464,7 +464,8 @@ def tab_in_url(world: World) -> None:
     expect(page.get_by_role("tab", name="Trả hàng / Hoàn tiền")).to_have_attribute(
         "aria-selected", "true", timeout=timeouts.DEFAULT
     )
-    expect(page.get_by_test_id("return-section")).to_be_visible()
+    panel = page.get_by_role("tabpanel", name="Trả hàng / Hoàn tiền")
+    expect(panel.get_by_test_id("return-section")).to_be_visible()
 
 
 @then("an alert says the order was cancelled, no stepper is rendered and cancel is not offered")
