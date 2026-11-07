@@ -74,7 +74,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	}
 	engine := retrieval.NewEngine(idx, embed, rerank, s.Retrieval)
 
-	h, err := rpc.NewHandler(idx, engine, store.NewPostgresSavedSearchRepository(pool), logger)
+	h, err := rpc.NewHandler(idx, engine, store.NewPostgresSavedSearchRepository(pool), logger, rpc.WithRankerVersion(s.Retrieval.RankerVersion))
 	if err != nil {
 		return err
 	}

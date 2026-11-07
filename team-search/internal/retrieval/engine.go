@@ -26,6 +26,14 @@ type SearchParams struct {
 	Size       int
 }
 
+type Mode string
+
+const (
+	ModeLexical  Mode = "lexical"
+	ModeSemantic Mode = "semantic"
+	ModeHybrid   Mode = "hybrid"
+)
+
 // Engine coordinates multi-strategy retrieval, fail-open resiliency, and rank fusion.
 type Engine struct {
 	idx          index.Index
@@ -57,7 +65,7 @@ func NewEngine(idx index.Index, embedClient EmbedClient, rerankClient RerankClie
 }
 
 // Execute runs the appropriate retrieval pipeline based on SearchMode and parameters.
-func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.SearchResult, bool, error) {
+func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.SearchResult, Mode, bool, error) {
 	// Determine effective search mode
 	mode := params.SearchMode
 	if mode == searchv1.SearchMode_SEARCH_MODE_UNSPECIFIED {
@@ -71,7 +79,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 	// 1. Pure Lexical Mode
 	if mode == searchv1.SearchMode_SEARCH_MODE_LEXICAL || strings.TrimSpace(params.Query) == "" {
 		res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
-		return res, false, err
+		return res, ModeLexical, false, err
 	}
 
 	// 2. Pure Semantic Mode
@@ -79,26 +87,26 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		if e.embedClient == nil {
 			// Fail open to lexical
 			res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
-			return res, true, err
+			return res, ModeLexical, false, err
 		}
 		vec, err := e.embedClient.Embed(ctx, params.Query)
 		if err != nil {
 			// Fail open to lexical
 			log.Printf("[retrieval] semantic embed error: %v, falling back to lexical", err)
 			res, fallbackErr := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
-			return res, true, fallbackErr
+			return res, ModeLexical, false, fallbackErr
 		}
 		res, err := e.idx.SearchVector(ctx, vec, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
 		if err != nil {
 			log.Printf("[retrieval] search vector error: %v, falling back to lexical", err)
 			res, fallbackErr := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
-			return res, true, fallbackErr
+			return res, ModeLexical, false, fallbackErr
 		}
 		kept, dropped := e.applySemanticFloor(res, params.From)
 		if dropped {
 			kept.Facets = e.facetsFor(ctx, hitIDs(kept.Hits), params, kept.Facets)
 		}
-		return kept, false, nil
+		return kept, ModeSemantic, false, nil
 	}
 
 	// 3. Hybrid Mode (Multi-Strategy Fusion)
@@ -106,13 +114,13 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 	// newest/price sort is served by the lexical leg with that sort and page.
 	if isKeySort(params.SortBy) {
 		res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
-		return res, false, err
+		return res, ModeLexical, false, err
 	}
 
 	// D8: Deep paging beyond fusion window falls back to BM25
 	if params.From >= e.cfg.HybridFusionWindow {
 		res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
-		return res, false, err
+		return res, ModeLexical, false, err
 	}
 
 	// Fetch up to fusion window candidates from each strategy
@@ -131,7 +139,6 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		semResult  index.SearchResult
 		semErr     error
 		semFloored bool
-		isDegraded bool
 	)
 
 	// Execute Lexical Strategy
@@ -168,20 +175,19 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 
 	// Handle strategy outcomes (D2: Fail-open)
 	if lexErr != nil && semErr != nil {
-		return index.SearchResult{}, false, lexErr
+		return index.SearchResult{}, ModeLexical, false, lexErr
 	}
 
 	// Semantic failed: fail open cleanly to lexical.
 	if semErr != nil {
-		isDegraded = true
 		if lexErr != nil {
-			return index.SearchResult{}, false, lexErr
+			return index.SearchResult{}, ModeLexical, false, lexErr
 		}
 		return index.SearchResult{
 			Hits:   paginateHits(lexResult.Hits, params.From, params.Size),
 			Total:  lexResult.Total,
 			Facets: lexResult.Facets,
-		}, isDegraded, nil
+		}, ModeLexical, false, nil
 	}
 	// Semantic succeeded but nothing is above the similarity floor: the lexical
 	// leg alone answers, and it is not a degradation.
@@ -190,13 +196,12 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 			Hits:   paginateHits(lexResult.Hits, params.From, params.Size),
 			Total:  lexResult.Total,
 			Facets: lexResult.Facets,
-		}, false, nil
+		}, ModeLexical, false, nil
 	}
 
 	// Lexical failed or matched nothing: the semantic candidates (already above
 	// the floor) answer. Zero candidates means zero hits.
 	if lexErr != nil || len(lexResult.Hits) == 0 {
-		isDegraded = lexErr != nil
 		facets := semResult.Facets
 		switch {
 		case len(semResult.Hits) == 0 && lexErr == nil:
@@ -208,7 +213,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 			Hits:   paginateHits(semResult.Hits, params.From, params.Size),
 			Total:  semResult.Total,
 			Facets: facets,
-		}, isDegraded, nil
+		}, ModeSemantic, false, nil
 	}
 
 	// Perform in-process RRF Fusion
@@ -223,7 +228,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 
 	fused := RRF(candidates, e.cfg.HybridRRFK, weights)
 
-	// Optional Cross-Encoder Reranker
+	didRerank := false
 	if e.cfg.EnableReranker && e.rerankClient != nil && len(fused) > 0 {
 		rerankLimit := 20
 		if len(fused) < rerankLimit {
@@ -253,6 +258,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 				reranked = append(reranked, fused[i])
 			}
 			fused = reranked
+			didRerank = true
 		}
 	}
 
@@ -281,7 +287,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		Hits:   hits,
 		Total:  total,
 		Facets: facets,
-	}, false, nil
+	}, ModeHybrid, didRerank, nil
 }
 
 // semanticMinKNNScore converts the configured cosine-similarity floor to the

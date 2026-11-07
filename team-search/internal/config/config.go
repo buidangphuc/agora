@@ -36,6 +36,7 @@ type Retrieval struct {
 	LexicalWeight      float64 `env:"HYBRID_LEXICAL_WEIGHT" default:"1.0"`
 	SemanticWeight     float64 `env:"HYBRID_SEMANTIC_WEIGHT" default:"1.0"`
 	SemanticMinScore   float64 `env:"HYBRID_SEMANTIC_MIN_SCORE" default:"0.65"`
+	RankerVersion      string  `env:"SEARCH_RANKER_VERSION" default:"v1"`
 }
 
 type Taxonomy struct {
