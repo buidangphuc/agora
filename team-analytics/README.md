@@ -102,6 +102,7 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `ENGAGEMENT_CONSUMER_GROUP` | `team-analytics.engagement` | Own group; must not be empty |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Source of the `listing_sellers` mapping |
 | `KAFKA_LISTING_CONSUMER_GROUP` | `team-analytics-listing-attrs` | Own group, earliest offset. Renamed when `category_id` and `price` were added so the topic is replayed once and existing rows are backfilled; keep an explicit override in step |
+| `KAFKA_LISTING_REPLAY_GROUP` | `team-analytics-listing-replay` | Group of `cmd/listing-replay`; must not be empty and must differ from `KAFKA_LISTING_CONSUMER_GROUP` |
 | `WAREHOUSE_DRIVER` | `duckdb` | `duckdb` or `bigquery` |
 | `DUCKDB_PATH` | `/data/analytics.duckdb` | Required for `duckdb` |
 | `BIGQUERY_PROJECT` | empty | Required for `bigquery` |
@@ -153,6 +154,7 @@ Standalone: `docker-compose.local.yaml` runs only this worker against the platfo
 | `make tidy` | `go mod tidy` (the Dockerfile also runs it in the image) |
 | `make consumer` | Runs the analytics consumer (`go run ./cmd/consumer`) |
 | `make ga4-relay` | Runs the GA4 purchase relay (`go run ./cmd/ga4-relay`) |
+| `make listing-replay` | One-off replay of `listing.events` from the start up to the end offsets captured at start (`go run ./cmd/listing-replay`; image entrypoint `/listing-replay`); backfills `listing_sellers.status`. Stop the live consumer first (DuckDB lock), run once at deploy, then restart it |
 | `make check` | Merge gate: `check-env`, `gofmt -l` (fails on unformatted files), `go vet ./...`, `go test ./...` |
 | `make check-env` | `.env.example` vs `internal/config` drift gate |
 | `make test` | `go test ./...` |
