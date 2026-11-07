@@ -11,5 +11,5 @@
 ## 3. Verification
 
 - [x] 3.1 A 3.2.0 database upgraded by `mlflow db upgrade` serves its runs on 3.14.0; `GET /version` = `3.14.0`
-- [ ] 3.2 `model_registry` e2e on mainx after merge (`agora_env.py promote`)
+- [x] 3.2 `model_registry` e2e on mainx after merge (`agora_env.py promote`)
 - [x] 3.3 `openspec validate mlflow-3-14 --strict`, py-modelregistry tests, pre-commit-ci

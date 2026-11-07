@@ -7,11 +7,11 @@ TBD - created by archiving change add-model-registry. Update Purpose after archi
 
 ### Requirement: MLflow registry runs on the infra stack
 
-The infra compose stack SHALL run an MLflow server of version 3.2.0 reachable at `http://mlflow:5050` inside the stack and on host port 5050. Its backend store SHALL be a dedicated `postgres-mlflow` container, not the shared `postgres`. Its artifact root SHALL be `s3://mlflow-artifacts` on the existing MinIO. The `minio-init` job SHALL create the bucket `mlflow-artifacts` idempotently.
+The infra compose stack SHALL run an MLflow server of version 3.14.0 reachable at `http://mlflow:5050` inside the stack and on host port 5050. Its backend store SHALL be a dedicated `postgres-mlflow` container, not the shared `postgres`. Its artifact root SHALL be `s3://mlflow-artifacts` on the existing MinIO. The `minio-init` job SHALL create the bucket `mlflow-artifacts` idempotently.
 
 #### Scenario: Server is up with the pinned version
 - **WHEN** the infra stack is started and `GET http://localhost:5050/version` is called
-- **THEN** the response status is 200 and the body is `3.2.0`
+- **THEN** the response status is 200 and the body is `3.14.0`
 - **VERIFIED BY**: e2e `platform-e2e` feature `model_registry` scenario `mlflow_server_up`
 
 #### Scenario: A run and a registered model version are stored with artifacts in MinIO
