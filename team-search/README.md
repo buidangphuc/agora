@@ -76,6 +76,7 @@ Behaviour of `SearchListings`:
   see `facetAggs` in `internal/index/opensearch.go` for buckets. `ratings` holds the cumulative buckets `4` and `3`
   (listings with `rating_avg` >= 4 and >= 3, zero counts included); it ignores `min_rating` but applies the other filters.
   It is an empty list when the index returns no aggregation.
+  In semantic and hybrid modes the ratings buckets count the filtered corpus without the text query, because k-NN legs carry no text predicate; lexical applies the query.
 
 - Dynamic facets (change `add-tag-classifier-filter-enrichment`): the filters `tag.<group>` (SPU tags,
   `facet_tags`) and `sku.<group>` (variants, nested `skus`) take tag slugs, comma-separated (OR inside a
