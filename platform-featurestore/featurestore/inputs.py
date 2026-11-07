@@ -20,6 +20,14 @@ FILES = {
 
 # Optional input (featurestore-item-attributes): the listing -> seller, category, price table.
 LISTINGS_FILE = "listing_sellers.parquet"
+LISTING_STATUSES = (
+    "LISTING_STATUS_DRAFT",
+    "LISTING_STATUS_PUBLISHED",
+    "LISTING_STATUS_REJECTED",
+    "LISTING_STATUS_PENDING_REVIEW",
+    "LISTING_STATUS_BANNED",
+    "LISTING_STATUS_HELD",
+)
 
 
 def _lit(ts: datetime) -> str:
@@ -113,6 +121,7 @@ def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
     listings = listings_file(input_dir)
     if listings is not None:
         _require_listing_columns(listings)
+    has_status = listings is not None and "status" in pq.read_schema(listings).names
     con = duckdb.connect(":memory:")
     con.execute("SET TimeZone='UTC'")
     a = _lit(as_of)
@@ -143,12 +152,17 @@ def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
         if listings is None:
             con.execute(
                 "CREATE TEMP TABLE listings (listing_id VARCHAR, seller_id VARCHAR, category_id VARCHAR, "
-                "price BIGINT, updated_at TIMESTAMP)"
+                "price BIGINT, status VARCHAR, updated_at TIMESTAMP)"
             )
             return
+        if has_status:
+            known = ", ".join(f"'{n}'" for n in LISTING_STATUSES)
+            status = f"CASE WHEN status IN ({known}) THEN status END::VARCHAR AS status"
+        else:
+            status = "NULL::VARCHAR AS status"
         con.execute(
             "CREATE TEMP TABLE listings AS SELECT listing_id, seller_id, category_id, price::BIGINT AS price, "
-            f"updated_at::TIMESTAMP AS updated_at FROM read_parquet('{listings}') "
+            f"{status}, updated_at::TIMESTAMP AS updated_at FROM read_parquet('{listings}') "
             f"WHERE updated_at::TIMESTAMP <= {a}"
         )
 
@@ -157,6 +171,11 @@ def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
     if listings is None:
         print(
             f"warning: {LISTINGS_FILE} not found in {input_dir}: item_attributes and user_preferences are empty",
+            file=sys.stderr,
+        )
+    if listings is not None and not has_status:
+        print(
+            f"warning: {LISTINGS_FILE} has no status column: item_attributes status is null",
             file=sys.stderr,
         )
     con.execute("SET enable_external_access = false")
