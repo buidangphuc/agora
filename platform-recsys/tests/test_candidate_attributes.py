@@ -211,7 +211,16 @@ def test_point_payload_carries_attributes(tmp_path, attributes):
         assert payload["listing_id"] == "L1" and payload["model_version"] == "g1"
 
 
-@pytest.mark.parametrize("status", [BANNED, "LISTING_STATUS_DRAFT", "LISTING_STATUS_SOLD"])
+@pytest.mark.parametrize(
+    "status",
+    [
+        BANNED,
+        "LISTING_STATUS_DRAFT",
+        "LISTING_STATUS_HELD",
+        "LISTING_STATUS_REJECTED",
+        "LISTING_STATUS_PENDING_REVIEW",
+    ],
+)
 def test_non_published_status_is_not_visible(tmp_path, attributes, status):
     _snapshot(tmp_path, [["L2", "S2", "C2", 1, status]])
     settings = _settings(tmp_path)
