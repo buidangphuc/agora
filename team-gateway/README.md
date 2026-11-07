@@ -34,6 +34,8 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 | analytics `AnalyticsQueryService` | team-analytics (`UPSTREAM_ANALYTICS_ADDR`) |
 | referral / verification / sharing / audit | team-referral / team-verification / team-sharing / team-audit (`UPSTREAM_*_ADDR`) |
 
+`RecommendationService.Recommend` rejects more than 50 `context_listing_ids` with `INVALID_ARGUMENT` before any upstream call (no truncation).
+
 Upstream calls get a deadline (`CALL_TIMEOUT_SECONDS`). Idempotent reads (`callRead`) retry up to
 `RETRY_MAX` times on `Unavailable`; writes (`callWrite`) never retry. Upstream gRPC statuses map to
 the matching Connect codes. An upstream `Unavailable` keeps its first `ErrorInfo` detail (domain, reason)
