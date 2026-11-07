@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 
 export const metadata: Metadata = {
-  title: "Quản trị sàn",
+  title: { default: "Quản trị sàn | Agora", template: "%s | Agora" },
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

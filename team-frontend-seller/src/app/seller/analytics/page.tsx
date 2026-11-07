@@ -13,7 +13,7 @@ import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Báo cáo doanh thu | Kênh người bán" };
+export const metadata = { title: "Báo cáo doanh thu" };
 
 const href = (range: string) => `/seller/analytics?range=${range}`;
 

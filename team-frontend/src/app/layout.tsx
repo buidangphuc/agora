@@ -1,15 +1,21 @@
 import "./globals.css";
 
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ConsentBanner } from "@/features/consent/ConsentBanner";
 import { AnalyticsProvider } from "@/features/tracking/AnalyticsProvider";
+import { siteUrl } from "@/lib/seo";
 
-export const metadata = {
-  title: "Marketplace Showcase | Nền Tảng Thương Mại Điện Tử Polyrepo",
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default: "Agora | Sàn thương mại điện tử",
+    template: "%s | Agora",
+  },
   description:
-    "Dự án thương mại điện tử kiến trúc Polyrepo, Microservices gRPC, Event-driven Kafka, OpenSearch và Next.js SSR.",
+    "Agora là sàn thương mại điện tử: mua sắm sản phẩm từ nhiều người bán, giá tốt, giao hàng nhanh.",
 };
 
 /**

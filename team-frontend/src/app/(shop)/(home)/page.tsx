@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { AssistantBlock } from "@/features/home/AssistantBlock";
@@ -15,8 +16,19 @@ import { RecentlyViewedRow } from "@/features/home/RecentlyViewedRow";
 import { ServiceHubs } from "@/features/home/ServiceHubs";
 import { RecommendationsRow } from "@/features/recommendations/RecommendationsRow";
 import { WelcomePanel } from "@/features/welcome/WelcomePanel";
+import { pageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export function generateMetadata(): Metadata {
+  const md = pageMetadata({
+    title: "Agora | Sàn thương mại điện tử",
+    description:
+      "Agora là sàn thương mại điện tử: mua sắm sản phẩm từ nhiều người bán, giá tốt, giao hàng nhanh.",
+    path: "/",
+  });
+  return { ...md, title: { absolute: "Agora | Sàn thương mại điện tử" } };
+}
 
 /**
  * Home: static blocks first (hero, hubs), then every data block streams in its

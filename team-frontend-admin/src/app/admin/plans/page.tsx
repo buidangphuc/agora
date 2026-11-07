@@ -8,7 +8,7 @@ import { listPlans } from "@/lib/gateway/campaigns";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
-  title: "Gói đăng ký người bán | Sàn Thương Mại Điện Tử",
+  title: "Gói đăng ký người bán",
   description: "Xem danh mục gói đăng ký của người bán.",
   referrer: "no-referrer",
 };

@@ -61,6 +61,7 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `NEXT_PUBLIC_GTM_ID` | empty, GTM disabled (Dockerfile build `ARG`, inlined at build) | `src/lib/analytics/destinations/gtm.ts` |
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` | `src/lib/media.ts` |
 | `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); every link to the seller app goes through `src/lib/apps.ts`. "Kênh Người Bán" (`SellerChannelLink`) first mints a hand-off code for the seller app (`CreateHandoffCode`) and opens its `/auth/handoff`; without a usable session or on any error it falls back to `sellerEntryUrl()`, the seller `/login?next=/seller` | `src/lib/apps.ts`, `src/features/handoff/` |
+| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000`; public origin for canonical, Open Graph, `robots.txt` and `sitemap.xml` URLs; trailing slash removed; never taken from the `Host` header | `src/lib/seo.ts` |
 | `NEXT_PUBLIC_BUYER_APP_URL` | `http://localhost:3000` (build-time); this app's own origin, checked against the `Origin` of a hand-off `POST` | `src/features/handoff/config.ts` |
 | `NEXT_PUBLIC_APP_ENV` | unset; `staging` turns on GA4 `debug_mode` (build-time) | `src/lib/analytics/destinations/gtm.ts` |
 | `GA4_USER_ID_HMAC_KEY` | unset (server-only secret from Vault): `user_id` disabled, `/api/analytics/identity` returns 204 | `src/lib/analytics/ga4/userId.ts` |

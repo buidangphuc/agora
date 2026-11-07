@@ -28,7 +28,7 @@ import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Quản lý đơn hàng | Kênh người bán" };
+export const metadata = { title: "Quản lý đơn hàng" };
 
 const BASE = "/seller/orders";
 
