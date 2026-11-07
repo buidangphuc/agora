@@ -78,6 +78,18 @@ describe("checkoutAction", () => {
     });
   });
 
+  it("a placed order does not revalidate the checkout page it is leaving", async () => {
+    vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
+    vi.mocked(revalidatePath).mockClear();
+    const res = await checkoutAction({
+      addressId: "addr1",
+      itemIds: ["it1"],
+      paymentMethod: PaymentMethod.COD,
+    });
+    expect(res.ok).toBe(true);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
   it("Checkout coherence: placing an online order goes to the first pay page - an online order never calls createPayment even when it would fail", async () => {
     vi.mocked(createOrder).mockResolvedValue([{ id: "o9" }] as never);
     vi.mocked(createPayment).mockRejectedValue(new Error("pay down"));
