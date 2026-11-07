@@ -245,6 +245,21 @@ func TestRunSavedSearch_BR18b_RejectsAnOutOfRangeStoredMinRating(t *testing.T) {
 	}
 }
 
+func TestRunSavedSearch_BR18b_RejectsANonIntegerStoredMinRating(t *testing.T) {
+	for _, v := range []string{"4.5", "abc", "4x", "NaN", "1e1"} {
+		t.Run(v, func(t *testing.T) {
+			mi, _, id, run := seedSaved(t, "U", `{"min_rating":"`+v+`"}`)
+			_, err := run(id)
+			if status.Code(err) != codes.InvalidArgument {
+				t.Fatalf("code = %v (%v), want InvalidArgument", status.Code(err), err)
+			}
+			if mi.searchCalls != 0 {
+				t.Error("retrieval ran")
+			}
+		})
+	}
+}
+
 func TestRunSavedSearch_BR16_AppliesAValidStoredMinRating(t *testing.T) {
 	for _, tc := range []struct {
 		stored string

@@ -487,7 +487,7 @@ func indexerSettings(brokers, osURL string) config.IndexerSettings {
 		Retrieval:     config.Retrieval{ModelServerURL: "http://127.0.0.1:1"},
 		Taxonomy:      config.Taxonomy{AIAddr: "127.0.0.1:1"},
 		Kafka:         sdkconfig.Kafka{Brokers: brokers},
-		Events:        config.Events{ConsumerGroup: "run-indexer-group", ListingTopic: idxTopic},
+		Events:        config.Events{ConsumerGroup: "run-indexer-group", ListingTopic: idxTopic, OrderTopic: "order.events", EngagementTopic: "engagement.events"},
 		LogKeyFP:      sdkconfig.LogKeyFP{Secret: fpSecret},
 		Tombstone:     config.Tombstone{TTL: time.Hour, PurgeInterval: time.Hour},
 		ShutdownGrace: 5 * time.Second,
@@ -569,5 +569,34 @@ func TestRunIndexerIngestsWhileClassifierIsDown(t *testing.T) {
 		}
 	case <-time.After(s.ShutdownGrace + 5*time.Second):
 		t.Fatal("RunIndexer did not stop")
+	}
+}
+
+func TestRunIndexerFailsStartupOnAnEmptyTopic_BR7(t *testing.T) {
+	brokers := testkit.Redpanda(t)
+	for name, mutate := range map[string]func(*config.IndexerSettings){
+		"order topic":      func(s *config.IndexerSettings) { s.Events.OrderTopic = "" },
+		"engagement topic": func(s *config.IndexerSettings) { s.Events.EngagementTopic = "" },
+		"listing topic":    func(s *config.IndexerSettings) { s.Events.ListingTopic = "" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			stub := &indexStub{updates: map[string]string{}}
+			srv := httptest.NewServer(stub)
+			t.Cleanup(srv.Close)
+			s := indexerSettings(brokers, srv.URL)
+			mutate(&s)
+			_, done := startRunIndexer(t, s)
+			select {
+			case err := <-done:
+				if err == nil {
+					t.Fatal("RunIndexer returned nil, want a startup error")
+				}
+				if !strings.Contains(strings.ToLower(err.Error()), "topic") {
+					t.Errorf("error %q does not name the topic", err)
+				}
+			case <-time.After(20 * time.Second):
+				t.Fatal("RunIndexer kept running with an empty topic instead of failing startup")
+			}
+		})
 	}
 }
