@@ -15,9 +15,6 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
-// Contract tests for change discovery-seo-contract (capability discovery-seo-contract): order.proto.
-// Baseline tables below are copied from origin/main at the time of the change.
-
 const dsOrderProto = "platform/order/v1/order.proto"
 
 var dsBaselineOrderEvents = map[string]map[string]string{
@@ -35,7 +32,6 @@ var dsBaselineOrderEvents = map[string]map[string]string{
 	},
 }
 
-// Scenario: Message shape is fixed
 func TestDiscovery_ListingSalesChangedShape(t *testing.T) {
 	fd, _ := dsFile(t, dsOrderProto)
 	dsShape(t, fd, "ListingSalesChanged", map[string]string{
@@ -43,13 +39,11 @@ func TestDiscovery_ListingSalesChangedShape(t *testing.T) {
 	})
 }
 
-// Scenario: No personal or order fields
 func TestDiscovery_ListingSalesChangedHasNoForbiddenFields(t *testing.T) {
 	fd, _ := dsFile(t, dsOrderProto)
 	dsNoFields(t, dsMsg(t, fd, "ListingSalesChanged"), "buyer_id", "user_id", "seller_id", "order_id", "delta")
 }
 
-// Scenario: Round trip and absolute-value documentation
 func TestDiscovery_ListingSalesChangedRoundTrip(t *testing.T) {
 	fd, _ := dsFile(t, dsOrderProto)
 	md := dsMsg(t, fd, "ListingSalesChanged")
@@ -61,22 +55,18 @@ func TestDiscovery_ListingSalesChangedRoundTrip(t *testing.T) {
 	dsCheck(t, "ListingSalesChanged.sold_count", dsFieldComment(t, fd, "ListingSalesChanged", "sold_count"), "absolute", "never below 0")
 }
 
-// Scenario: Topic, key and envelope type are documented
 func TestDiscovery_ListingSalesChangedTopicKeyTypeDocumented(t *testing.T) {
 	fd, _ := dsFile(t, dsOrderProto)
 	dsCheck(t, "ListingSalesChanged", dsComment(fd, dsMsg(t, fd, "ListingSalesChanged")),
 		"order.events", "key = listing_id", "platform.order.v1.ListingSalesChanged")
 }
 
-// Scenario: Existing order messages are untouched
 func TestDiscovery_OrderEventsUnchanged(t *testing.T) {
 	fd, _ := dsFile(t, dsOrderProto)
 	for name, baseline := range dsBaselineOrderEvents {
 		dsKeepsBaseline(t, fd, name, baseline)
 	}
 }
-
-// ---- shared helpers (prefix ds; descriptors come from `buf build`, no generated code) ----
 
 const dsTS = "message:google.protobuf.Timestamp"
 

@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
-# Change discovery-seo-contract, task 1.7. Scenarios (capability "Discovery SEO contract"):
-#   "Discovery SEO contract: Copies match the source"
-#   "Discovery SEO contract: Drifted or missing copy is rejected"
-#   "Discovery SEO contract: Renumbering is rejected"
-#   "Discovery SEO contract: Consumer protos build"
-#   "Discovery SEO contract: buf lint and breaking pass"
-# Usage: [REPO_ROOT=...] [BASE_REF=origin/main] bash platform-core/packages/proto/discovery_seo_consumer_copies_test.sh
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${REPO_ROOT:-$(cd "$here/../../.." && pwd)}"
@@ -48,11 +41,9 @@ check_copies() {
 fail=0
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
-# Scenario: Copies match the source
 if [ "$NPAIRS" != 42 ]; then echo "FAIL pair table has $NPAIRS entries, expected 42 (14+14+3+6+5)"; fail=1; fi
 if out="$(check_copies "$ROOT")"; then echo "ok   copies match ($NPAIRS)"; else echo "$out"; fail=1; fi
 
-# Scenario: Drifted or missing copy is rejected (the check itself, on a synthetic tree)
 mk() {
   rm -rf "$tmp/t"
   local rel r
@@ -69,7 +60,6 @@ if out="$(check_copies "$tmp/t")"; then echo "FAIL drift and missing copy accept
 elif echo "$out" | grep -q "team-order/proto/$ORDER" && echo "$out" | grep -q "team-ai/proto/$RECO"; then echo "ok   drifted and missing copy rejected and named"
 else echo "FAIL drift/missing rejected without naming both: $out"; fail=1; fi
 
-# Scenario: Renumbering is rejected (scratch copy of the module, SearchHit.stock renumbered)
 rm -rf "$tmp/mod"; mkdir -p "$tmp/mod"; cp -R "$SRC_MOD/buf.yaml" "$SRC_MOD/platform" "$tmp/mod/"
 if sed -i.bak -E '/^message SearchHit /,/^}/ s/(stock = )3;/\18;/' "$tmp/mod/platform/search/v1/search.proto" \
    && ! cmp -s "$tmp/mod/platform/search/v1/search.proto" "$SRC_MOD/platform/search/v1/search.proto"; then
@@ -78,7 +68,6 @@ if sed -i.bak -E '/^message SearchHit /,/^}/ s/(stock = )3;/\18;/' "$tmp/mod/pla
   else echo "FAIL renumbering rejected without naming SearchHit: $(head -3 "$tmp/renum.out" | tr '\n' ' ')"; fail=1; fi
 else echo "FAIL renumbering: could not mutate SearchHit.stock in scratch copy"; fail=1; fi
 
-# Scenario: Consumer protos build (every repo in the union, no sampling)
 built=""
 for r in $UNION; do
   if [ ! -d "$ROOT/$r/proto" ]; then echo "FAIL buf build $r: proto dir missing"; fail=1; continue; fi
@@ -90,7 +79,6 @@ for r in $UNION; do case " $built " in *" $r "*) ;; *) missing="$missing $r";; e
 if [ -n "$missing" ]; then echo "FAIL build list incomplete, missing:$missing"; fail=1
 else echo "ok   built all $(echo "$UNION" | wc -l | tr -d ' ') repos in the union"; fi
 
-# Scenario: buf lint and breaking pass
 if (cd "$SRC_MOD" && buf lint) >"$tmp/lint.out" 2>&1; then echo "ok   buf lint"; else echo "FAIL buf lint: $(head -3 "$tmp/lint.out" | tr '\n' ' ')"; fail=1; fi
 if (cd "$SRC_MOD" && buf breaking --against "$ROOT/.git#ref=$BASE_REF,subdir=platform-core/packages/proto") >"$tmp/brk.out" 2>&1; then echo "ok   buf breaking vs $BASE_REF"
 else echo "FAIL buf breaking vs $BASE_REF: $(head -3 "$tmp/brk.out" | tr '\n' ' ')"; fail=1; fi

@@ -15,9 +15,6 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
-// Contract tests for change discovery-seo-contract (capability discovery-seo-contract): analytics.proto.
-// Baseline tables below are copied from origin/main at the time of the change.
-
 const dsAnalyticsProto = "platform/analytics/v1/analytics.proto"
 
 var dsBaselinePerfRequest = map[string]string{"window_hours": "1 uint32"}
@@ -47,7 +44,6 @@ func dsMethod(t *testing.T, fd protoreflect.FileDescriptor, name string) protore
 	return m
 }
 
-// Scenario: RPC and messages present
 func TestDiscovery_GetSearchPerformanceShape(t *testing.T) {
 	fd, _ := dsFile(t, dsAnalyticsProto)
 	rec := dsMethod(t, fd, "GetRecommendationPerformance")
@@ -69,7 +65,6 @@ func TestDiscovery_GetSearchPerformanceShape(t *testing.T) {
 	})
 }
 
-// Scenario: Window and admin semantics are documented
 func TestDiscovery_GetSearchPerformanceDocumented(t *testing.T) {
 	fd, _ := dsFile(t, dsAnalyticsProto)
 	rpc := dsComment(fd, dsMethod(t, fd, "GetSearchPerformance"))
@@ -78,7 +73,6 @@ func TestDiscovery_GetSearchPerformanceDocumented(t *testing.T) {
 	dsCheck(t, "GetSearchPerformanceRequest.window_hours", win, "0 = 24", "1..168", "values above 168 are rejected with INVALID_ARGUMENT")
 }
 
-// Scenario: Response semantics are documented
 func TestDiscovery_GetSearchPerformanceResponseDocumented(t *testing.T) {
 	fd, _ := dsFile(t, dsAnalyticsProto)
 	dsCheck(t, "GetSearchPerformanceResponse.rows", dsFieldComment(t, fd, "GetSearchPerformanceResponse", "rows"),
@@ -86,8 +80,6 @@ func TestDiscovery_GetSearchPerformanceResponseDocumented(t *testing.T) {
 	dsCheck(t, "GetSearchPerformanceResponse.attribution_window_hours", dsFieldComment(t, fd, "GetSearchPerformanceResponse", "attribution_window_hours"),
 		"attribution_window_hours is the attribution window used for purchases")
 }
-
-// ---- shared helpers (prefix ds; descriptors come from `buf build`, no generated code) ----
 
 const dsTS = "message:google.protobuf.Timestamp"
 

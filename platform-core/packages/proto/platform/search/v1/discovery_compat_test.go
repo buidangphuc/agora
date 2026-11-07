@@ -15,9 +15,6 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
-// Contract tests for change discovery-seo-contract (capability discovery-seo-contract): search.proto.
-// Baseline tables below are copied from origin/main at the time of the change.
-
 const dsSearchProto = "platform/search/v1/search.proto"
 
 var dsBaselineSortBy = map[string]int32{
@@ -73,7 +70,6 @@ func dsSortByValues(t *testing.T, fd protoreflect.FileDescriptor) map[string]int
 	return got
 }
 
-// Scenario: Enum value present with stable numbers
 func TestDiscovery_SortByBestSellingIsFive(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	want := map[string]int32{"SORT_BY_BEST_SELLING": 5}
@@ -91,7 +87,6 @@ func TestDiscovery_SortByBestSellingIsFive(t *testing.T) {
 	}
 }
 
-// Scenario: Ordering is documented
 func TestDiscovery_BestSellingOrderingDocumented(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	v := fd.Enums().ByName("SortBy").Values().ByName("SORT_BY_BEST_SELLING")
@@ -101,7 +96,6 @@ func TestDiscovery_BestSellingOrderingDocumented(t *testing.T) {
 	dsCheck(t, "SORT_BY_BEST_SELLING", dsComment(fd, v), "sold_count desc, created_at desc, id")
 }
 
-// Scenario: Old consumer meets the new value
 func TestDiscovery_OldSchemaParsesBestSelling(t *testing.T) {
 	fd, old := dsOldSearch(t)
 	if fd.Enums().ByName("SortBy").Values().ByNumber(5) == nil {
@@ -129,7 +123,6 @@ func TestDiscovery_OldSchemaParsesBestSelling(t *testing.T) {
 	}
 }
 
-// Scenario: Undefined sort number is not a defined value
 func TestDiscovery_NoUndefinedSortNumbers(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	if v := fd.Enums().ByName("SortBy").Values().ByNumber(6); v != nil {
@@ -137,7 +130,6 @@ func TestDiscovery_NoUndefinedSortNumbers(t *testing.T) {
 	}
 }
 
-// Scenario: Both responses expose the same two fields at the same numbers
 func TestDiscovery_ResponsesCarryAttributionFields(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	for _, r := range dsResponses {
@@ -149,7 +141,6 @@ func TestDiscovery_ResponsesCarryAttributionFields(t *testing.T) {
 	}
 }
 
-// Scenario: Attribution round trip and empty default
 func TestDiscovery_AttributionRoundTrip(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	for _, r := range dsResponses {
@@ -166,7 +157,6 @@ func TestDiscovery_AttributionRoundTrip(t *testing.T) {
 	}
 }
 
-// Scenario: Old payload stays readable and new payload is readable by the old schema
 func TestDiscovery_AttributionWireCompatible(t *testing.T) {
 	fd, old := dsOldSearch(t)
 	for _, r := range dsResponses {
@@ -195,7 +185,6 @@ func TestDiscovery_AttributionWireCompatible(t *testing.T) {
 	}
 }
 
-// Scenario: model_version format is documented
 func TestDiscovery_ModelVersionFormatDocumented(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	for _, r := range dsResponses {
@@ -204,7 +193,6 @@ func TestDiscovery_ModelVersionFormatDocumented(t *testing.T) {
 	}
 }
 
-// Scenario: Hit fields present with stable numbers
 func TestDiscovery_SearchHitFieldsStable(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	dsShape(t, fd, "SearchHit", map[string]string{
@@ -213,13 +201,11 @@ func TestDiscovery_SearchHitFieldsStable(t *testing.T) {
 	})
 }
 
-// Scenario: Existing hit fields are not renumbered
 func TestDiscovery_ExistingHitFieldsNotRenumbered(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	dsKeepsBaseline(t, fd, "SearchHit", dsBaselineHit)
 }
 
-// Scenario: Unprojected listing reads as zero
 func TestDiscovery_OldHitReadsZeroes(t *testing.T) {
 	fd, old := dsOldSearch(t)
 	newMD, oldMD := dsMsg(t, fd, "SearchHit"), dsMsg(t, old, "SearchHit")
@@ -239,7 +225,6 @@ func TestDiscovery_OldHitReadsZeroes(t *testing.T) {
 	}
 }
 
-// Scenario: Maximum count round trips
 func TestDiscovery_HitBoundaryValuesRoundTrip(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	m := dsNew(t, dsMsg(t, fd, "SearchHit"), "listing_id", "l-1",
@@ -251,7 +236,6 @@ func TestDiscovery_HitBoundaryValuesRoundTrip(t *testing.T) {
 	}
 }
 
-// Scenario: Rating semantics are documented
 func TestDiscovery_RatingSemanticsDocumented(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	var all []string
@@ -266,7 +250,6 @@ func TestDiscovery_RatingSemanticsDocumented(t *testing.T) {
 	dsCheck(t, "SearchHit.seller_id", all[3], "empty when not yet projected")
 }
 
-// Scenario: Seller id round trips
 func TestDiscovery_SellerIdRoundTrip(t *testing.T) {
 	fd, old := dsOldSearch(t)
 	newMD := dsMsg(t, fd, "SearchHit")
@@ -280,13 +263,10 @@ func TestDiscovery_SellerIdRoundTrip(t *testing.T) {
 	}
 }
 
-// Scenario: Hit exposes no private data
 func TestDiscovery_HitHasNoPrivateFields(t *testing.T) {
 	fd, _ := dsFile(t, dsSearchProto)
 	dsNoFields(t, dsMsg(t, fd, "SearchHit"), "user_id", "buyer_id", "email", "phone", "rating_by_user")
 }
-
-// ---- shared helpers (prefix ds; descriptors come from `buf build`, no generated code) ----
 
 const dsTS = "message:google.protobuf.Timestamp"
 

@@ -15,9 +15,6 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
-// Contract tests for change discovery-seo-contract (capability discovery-seo-contract): recommendation.proto.
-// Baseline table below is copied from origin/main at the time of the change.
-
 const dsRecProto = "platform/recommendation/v1/recommendation.proto"
 
 var dsBaselineRecommendRequest = map[string]string{
@@ -25,7 +22,6 @@ var dsBaselineRecommendRequest = map[string]string{
 	"context": "4 enum:platform.recommendation.v1.RecommendationContext", "limit": "5 int32",
 }
 
-// Scenario: Field present with stable number
 func TestDiscovery_ContextListingIdsIsSix(t *testing.T) {
 	fd, _ := dsFile(t, dsRecProto)
 	want := map[string]string{"context_listing_ids": "6 repeated string"}
@@ -35,7 +31,6 @@ func TestDiscovery_ContextListingIdsIsSix(t *testing.T) {
 	dsShape(t, fd, "RecommendRequest", want)
 }
 
-// Scenario: Old request reads an empty context
 func TestDiscovery_RecommendRequestWireCompatible(t *testing.T) {
 	fd, files := dsFile(t, dsRecProto)
 	old := dsOld(t, files, fd, func(p *descriptorpb.FileDescriptorProto) {
@@ -60,7 +55,6 @@ func TestDiscovery_RecommendRequestWireCompatible(t *testing.T) {
 	}
 }
 
-// Scenario: The 50-id cap is documented
 func TestDiscovery_ContextCapDocumented(t *testing.T) {
 	fd, _ := dsFile(t, dsRecProto)
 	c := dsFieldComment(t, fd, "RecommendRequest", "context_listing_ids")
@@ -69,8 +63,6 @@ func TestDiscovery_ContextCapDocumented(t *testing.T) {
 		t.Errorf("RecommendRequest.context_listing_ids: comment must state there is no truncation; got:\n%s", c)
 	}
 }
-
-// ---- shared helpers (prefix ds; descriptors come from `buf build`, no generated code) ----
 
 const dsTS = "message:google.protobuf.Timestamp"
 

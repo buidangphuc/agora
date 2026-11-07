@@ -1,9 +1,5 @@
 package engagementv1_test
 
-// Contract tests for change discovery-seo-contract (capability discovery-seo-contract): engagement events.proto.
-// Baseline tables below are copied from origin/main at the time of the change.
-// Helpers (tc*) come from trust_compat_test.go in this package.
-
 import (
 	"fmt"
 	"testing"
@@ -20,7 +16,6 @@ var dsBaselineReviewEvents = map[string]map[string]string{
 	},
 }
 
-// Scenario: Message shape is fixed
 func TestDiscovery_ListingRatingChangedShape(t *testing.T) {
 	fd, _ := tcFile(t, evProto)
 	tcShape(t, fd, "ListingRatingChanged", map[string]string{
@@ -28,7 +23,6 @@ func TestDiscovery_ListingRatingChangedShape(t *testing.T) {
 	})
 }
 
-// Scenario: No reviewer or text fields
 func TestDiscovery_ListingRatingChangedHasNoForbiddenFields(t *testing.T) {
 	fd, _ := tcFile(t, evProto)
 	md := tcMsg(t, fd, "ListingRatingChanged")
@@ -39,7 +33,6 @@ func TestDiscovery_ListingRatingChangedHasNoForbiddenFields(t *testing.T) {
 	}
 }
 
-// Scenario: Last review hidden leaves zero
 func TestDiscovery_ListingRatingChangedZeroReviews(t *testing.T) {
 	fd, _ := tcFile(t, evProto)
 	md := tcMsg(t, fd, "ListingRatingChanged")
@@ -52,14 +45,12 @@ func TestDiscovery_ListingRatingChangedZeroReviews(t *testing.T) {
 	tcCheck(t, "ListingRatingChanged.average_rating", tcFieldComment(t, fd, "ListingRatingChanged", "average_rating"), "0 when review_count is 0")
 }
 
-// Scenario: Topic, key and envelope type are documented
 func TestDiscovery_ListingRatingChangedTopicKeyTypeDocumented(t *testing.T) {
 	fd, _ := tcFile(t, evProto)
 	tcCheck(t, "ListingRatingChanged", tcComment(fd, tcMsg(t, fd, "ListingRatingChanged")),
 		"engagement.events", "key = listing_id", "platform.engagement.v1.ListingRatingChanged")
 }
 
-// Scenario: Existing review events are untouched
 func TestDiscovery_ReviewEventsUnchanged(t *testing.T) {
 	fd, _ := tcFile(t, evProto)
 	for name, baseline := range dsBaselineReviewEvents {
