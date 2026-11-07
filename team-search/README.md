@@ -24,7 +24,7 @@ missing scope gives `PermissionDenied`.
 
 | RPC | Required scope | Notes |
 |---|---|---|
-| `SearchListings` | `search:read` | `search_mode` HYBRID / LEXICAL / SEMANTIC; filters (incl. `in_stock="true"`), category, price range, sort; `min_rating` other than 0 is `InvalidArgument`; returns hits (with `stock` when projected) and facets |
+| `SearchListings` | `search:read` | `search_mode` HYBRID / LEXICAL / SEMANTIC; filters (incl. `in_stock="true"`), category, price range, sort; `min_rating` 0..5 keeps listings with `rating_avg >= min_rating` (outside 0..5 is `InvalidArgument`); returns hits (with `stock`, `sold_count`, `rating_avg`, `review_count`) and facets |
 | `Suggest` | `search:read` | Prefix completion over titles; default limit 5, max 20 |
 | `SaveSearch` | `search:write` | Needs a non-empty `query` or at least one filter; `filters_json` must be a JSON object of string values |
 | `ListSavedSearches` | `search:read` | Caller's own searches, newest first |
@@ -41,8 +41,10 @@ Behaviour of `SearchListings`:
 - Sort: `SORT_BY_NEWEST` is `created_at` desc (unknown last), ties by `id`. A HYBRID (or
   defaulted) request with `NEWEST` / `PRICE_ASC` / `PRICE_DESC` is served by the lexical leg with
   that sort and page; RRF only runs for relevance order.
-- Contract only (discovery-seo-contract, not built): `SORT_BY_BEST_SELLING` and the `SearchHit` fields `sold_count`, `rating_avg`, `review_count`
-  and `seller_id` are defined in the proto; this service neither honours nor sets them.
+- `SORT_BY_BEST_SELLING` is `sold_count` desc (missing counts as 0), then `created_at` desc (unknown last), then `id` asc;
+  it runs only the lexical leg in every search mode. `SearchHit` carries `sold_count`, `rating_avg` and `review_count`
+  (0 when nothing is projected). `RunSavedSearch` reads `filters_json` key `min_rating` (a string, 0..5; outside is
+  `InvalidArgument`, absent is 0).
 - Attribution: every `SearchListingsResponse` and `RunSavedSearchResponse` carries a fresh random 32-hex `request_id` and a
   `model_version` of `<mode>@<SEARCH_RANKER_VERSION>`, where mode is the leg that answered (`lexical`, `semantic`, `hybrid`, or
   `hybrid+rerank` when the reranker reordered the fused list; a fail-open answer reports the leg that served it). `RunSavedSearch`
@@ -71,8 +73,9 @@ Behaviour of `SearchListings`:
 - Facets (`categories`, `sellers`, `price_ranges`) are computed over the filtered lexical set (in hybrid,
   over the fused candidate set when it differs from the lexical set, via `FacetsForIDs`; the hybrid
   total is the fused count, not the k-NN leg's k);
-  see `facetAggs` in `internal/index/opensearch.go` for buckets. `ratings` is always an empty
-  list: no listing event carries a rating.
+  see `facetAggs` in `internal/index/opensearch.go` for buckets. `ratings` holds the cumulative buckets `4` and `3`
+  (listings with `rating_avg` >= 4 and >= 3, zero counts included); it ignores `min_rating` but applies the other filters.
+  It is an empty list when the index returns no aggregation.
 
 - Dynamic facets (change `add-tag-classifier-filter-enrichment`): the filters `tag.<group>` (SPU tags,
   `facet_tags`) and `sku.<group>` (variants, nested `skus`) take tag slugs, comma-separated (OR inside a
@@ -90,6 +93,9 @@ principal `service-team-search`, scope `ai.classify`, 2 s deadline; empty = no c
 | Direction | Topic | Type | Key |
 |---|---|---|---|
 | Consumes | `listing.events` (`KAFKA_LISTING_TOPIC`), group `team-search-indexer` | `platform.events.v1.EventEnvelope` wrapping `ListingChanged`, `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStockChanged`, `ListingStatusChanged`; other types are ignored | not used by the handler |
+| Consumes | `order.events` (`KAFKA_ORDER_TOPIC`), same group | `EventEnvelope` wrapping `platform.order.v1.ListingSalesChanged` (absolute `sold_count`, version = `changed_at` in ns); a malformed event is retried then parked on the DLQ | not used by the handler |
+| Consumes | `engagement.events` (`KAFKA_ENGAGEMENT_TOPIC`), same group | `EventEnvelope` wrapping `platform.engagement.v1.ListingRatingChanged` (absolute `average_rating` 0..5 and `review_count`, version = `changed_at` in ns); a malformed event is retried then parked on the DLQ | not used by the handler |
+| Produces | `order.events.dlq`, `engagement.events.dlq` | the original record, parked after retries are exhausted | original key |
 | Produces | `listing.events.dlq` (topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
 
 Handling (`internal/events/listing.go`):
@@ -97,6 +103,12 @@ Handling (`internal/events/listing.go`):
 - Version guard: the document version is the envelope `occurred_at` in nanoseconds. Every
   whole-document write (upsert and delete) is one `scripted_upsert` guarded on `_source.version`
   (`writeScript`), so stale or redelivered events are no-ops.
+- Sales and rating projection: each field group (`sold_count` + `sales_version`, `rating_avg` + `review_count` +
+  `rating_version`) is applied only when its event version is strictly newer than the stored one, independent of the
+  listing `version`. An event for an unknown listing creates a pending document (no `status`, `pending_at` set) that
+  search never returns; the listing upsert merges its values and clears `pending_at`. An event not newer than a
+  tombstone is ignored; a newer one is kept on the tombstone as pending. The sweep also deletes documents with no
+  `status` and a `pending_at` older than `TOMBSTONE_TTL`, never a document that has a `status`.
 - Deletes (`ListingChanged` / `ListingBaseInfoChanged` DELETED, `ListingStatusChanged` REJECTED)
   write a tombstone `{id, status: deleted, version, tombstoned_at}`. A `ListingChanged` at or
   before the tombstone's version (or with no `occurred_at`) is ignored; a newer one replaces it.
@@ -161,6 +173,8 @@ if `.env.example` and the config structs drift in either direction.
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
+| `KAFKA_ORDER_TOPIC` | `order.events` | indexer only; sales events; one consumer client per topic on `KAFKA_CONSUMER_GROUP`; a missing topic is auto-created and does not stop startup |
+| `KAFKA_ENGAGEMENT_TOPIC` | `engagement.events` | indexer only; rating events; same as above |
 | `UPSTREAM_AI_ADDR` | `""` | required by the indexer; team-ai gRPC address for tag classification (`team-ai-svc:50060` in compose) |
 | `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; must be a positive duration; invalid values fail startup |
 | `TOMBSTONE_PURGE_INTERVAL` | `1h` | indexer only; how often expired tombstones are purged; must be a positive duration; invalid values fail startup |

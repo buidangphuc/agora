@@ -51,8 +51,10 @@ func (t Taxonomy) Validate() error {
 }
 
 type Events struct {
-	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-search-indexer"`
-	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+	ConsumerGroup   string `env:"KAFKA_CONSUMER_GROUP" default:"team-search-indexer"`
+	ListingTopic    string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+	OrderTopic      string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
+	EngagementTopic string `env:"KAFKA_ENGAGEMENT_TOPIC" default:"engagement.events"`
 }
 
 type Tombstone struct {

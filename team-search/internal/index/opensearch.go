@@ -60,7 +60,10 @@ type Hit struct {
 	Stock *int32
 	// Text is the rerank document (title + description) from _source; empty when
 	// the doc holds neither.
-	Text string
+	Text        string
+	SoldCount   int64
+	RatingAvg   float64
+	ReviewCount int64
 }
 
 // RerankText is the document a cross-encoder scores against the query.
@@ -104,6 +107,8 @@ type Index interface {
 	// UpdateStock applies a ListingStockChanged under the stock_version guard (D2);
 	// it never creates a document and is a no-op on a tombstone.
 	UpdateStock(ctx context.Context, id string, stock int32, version int64) error
+	UpdateSales(ctx context.Context, id string, soldCount int64, version int64) error
+	UpdateRating(ctx context.Context, id string, avg float64, reviewCount int64, version int64) error
 	// PurgeTombstones removes tombstones applied before olderThan (D6) and
 	// returns how many it removed; it never touches a live document.
 	PurgeTombstones(ctx context.Context, olderThan time.Time) (int64, error)
@@ -182,6 +187,12 @@ const indexMapping = `{
       "stock_version":  { "type": "long" },
       "created_at":     { "type": "date", "format": "epoch_millis" },
       "tombstoned_at":  { "type": "date", "format": "epoch_millis" },
+      "sold_count":     { "type": "long" },
+      "sales_version":  { "type": "long" },
+      "rating_avg":     { "type": "double" },
+      "review_count":   { "type": "long" },
+      "rating_version": { "type": "long" },
+      "pending_at":     { "type": "date", "format": "epoch_millis" },
       "embedding":      {
         "type": "knn_vector",
         "dimension": 384,
@@ -221,6 +232,12 @@ const additiveMapping = `{
     "stock_version": { "type": "long" },
     "created_at":    { "type": "date", "format": "epoch_millis" },
     "tombstoned_at": { "type": "date", "format": "epoch_millis" },
+    "sold_count":     { "type": "long" },
+    "sales_version":  { "type": "long" },
+    "rating_avg":     { "type": "double" },
+    "review_count":   { "type": "long" },
+    "rating_version": { "type": "long" },
+    "pending_at":     { "type": "date", "format": "epoch_millis" },
     "facet_tags":    { "type": "keyword" },
     "tags_pending":  { "type": "boolean" },
     "skus": {
@@ -286,7 +303,7 @@ func (o *OpenSearchIndex) ensureAdditiveMapping(ctx context.Context) error {
 	}
 	defer res.Body.Close()
 	if res.IsError() {
-		return fmt.Errorf("put mapping on %q (stock, stock_version, created_at, tombstoned_at, facet_tags, tags_pending, skus): %s", o.name, res.String())
+		return fmt.Errorf("put mapping on %q (stock, stock_version, created_at, tombstoned_at, sold_count, sales_version, rating_avg, review_count, rating_version, pending_at, facet_tags, tags_pending, skus): %s", o.name, res.String())
 	}
 	return nil
 }
@@ -343,6 +360,11 @@ if (params.kind == 'delete') {
   def oldCreated = (absent || tomb) ? null : s.created_at;
   def oldFacetTags = (absent || tomb) ? null : s.facet_tags;
   def oldSkus = (absent || tomb) ? null : s.skus;
+  def oldSold = absent ? null : s.sold_count;
+  def oldSalesV = absent ? null : s.sales_version;
+  def oldAvg = absent ? null : s.rating_avg;
+  def oldReviews = absent ? null : s.review_count;
+  def oldRatingV = absent ? null : s.rating_version;
   boolean takeStock = live && params.stock != null && (oldSV == null || ((Number) oldSV).longValue() < v);
   def created = oldCreated;
   if (live && params.created_at != null && (created == null || ((Number) created).longValue() > ((Number) params.created_at).longValue())) {
@@ -356,6 +378,8 @@ if (params.kind == 'delete') {
       if (oldFacetTags != null) { s.facet_tags = oldFacetTags; }
       if (oldSkus != null) { s.skus = oldSkus; }
     }
+    if (oldSalesV != null) { s.sold_count = oldSold; s.sales_version = oldSalesV; }
+    if (oldRatingV != null) { s.rating_avg = oldAvg; s.review_count = oldReviews; s.rating_version = oldRatingV; }
   }
   if (takeStock) {
     s.stock = params.stock;
@@ -507,15 +531,100 @@ func (o *OpenSearchIndex) UpdateStockWithVariants(ctx context.Context, id string
 	return nil
 }
 
+const salesScript = `Map s = ctx._source;
+boolean absent = ctx.op == 'create' || s.isEmpty();
+boolean tomb = !absent && 'deleted'.equals(s.status);
+boolean skip = false;
+if (tomb && s.version != null && ((Number) s.version).longValue() >= params.v) { skip = true; }
+if (!absent && s.sales_version != null && ((Number) s.sales_version).longValue() >= params.v) { skip = true; }
+if (skip) {
+  ctx.op = 'noop';
+} else {
+  s.sold_count = params.sold;
+  s.sales_version = params.v;
+  if (absent || tomb || s.status == null) { s.pending_at = params.now; }
+}`
+
+const ratingScript = `Map s = ctx._source;
+boolean absent = ctx.op == 'create' || s.isEmpty();
+boolean tomb = !absent && 'deleted'.equals(s.status);
+boolean skip = false;
+if (tomb && s.version != null && ((Number) s.version).longValue() >= params.v) { skip = true; }
+if (!absent && s.rating_version != null && ((Number) s.rating_version).longValue() >= params.v) { skip = true; }
+if (skip) {
+  ctx.op = 'noop';
+} else {
+  s.rating_avg = params.avg;
+  s.review_count = params.reviews;
+  s.rating_version = params.v;
+  if (absent || tomb || s.status == null) { s.pending_at = params.now; }
+}`
+
+func (o *OpenSearchIndex) UpdateSales(ctx context.Context, id string, soldCount int64, version int64) error {
+	return o.writeProjection(ctx, id, "update sales", salesScript, map[string]any{
+		"sold": soldCount,
+		"v":    version,
+		"now":  o.now().UnixMilli(),
+	})
+}
+
+func (o *OpenSearchIndex) UpdateRating(ctx context.Context, id string, avg float64, reviewCount int64, version int64) error {
+	return o.writeProjection(ctx, id, "update rating", ratingScript, map[string]any{
+		"avg":     avg,
+		"reviews": reviewCount,
+		"v":       version,
+		"now":     o.now().UnixMilli(),
+	})
+}
+
+func (o *OpenSearchIndex) writeProjection(ctx context.Context, id, op, source string, params map[string]any) error {
+	body, err := json.Marshal(map[string]any{
+		"scripted_upsert": true,
+		"upsert":          map[string]any{},
+		"script": map[string]any{
+			"lang":   "painless",
+			"source": source,
+			"params": params,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	res, err := opensearchapi.UpdateRequest{
+		Index:      o.name,
+		DocumentID: id,
+		Body:       bytes.NewReader(body),
+		Refresh:    "true",
+	}.Do(ctx, o.client)
+	if err != nil {
+		return fmt.Errorf("%s %q: %w", op, id, err)
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return fmt.Errorf("%s %q: %s", op, id, res.String())
+	}
+	return nil
+}
+
 // PurgeTombstones runs delete_by_query on status=deleted AND tombstoned_at <
-// olderThan. Both clauses are required, so a live document is never matched.
-// Version conflicts (a tombstone replaced while the query ran) are skipped.
+// olderThan, plus pending documents (no status) whose pending_at is older than
+// olderThan. A document with a status is only matched as a tombstone, so a live
+// document is never matched. Version conflicts are skipped.
 func (o *OpenSearchIndex) PurgeTombstones(ctx context.Context, olderThan time.Time) (int64, error) {
 	body, err := json.Marshal(map[string]any{
-		"query": map[string]any{"bool": map[string]any{"filter": []any{
-			statusClause(statusDeleted),
-			map[string]any{"range": map[string]any{"tombstoned_at": map[string]any{"lt": olderThan.UnixMilli()}}},
-		}}},
+		"query": map[string]any{"bool": map[string]any{
+			"minimum_should_match": 1,
+			"should": []any{
+				map[string]any{"bool": map[string]any{"filter": []any{
+					statusClause(statusDeleted),
+					map[string]any{"range": map[string]any{"tombstoned_at": map[string]any{"lt": olderThan.UnixMilli()}}},
+				}}},
+				map[string]any{"bool": map[string]any{
+					"must_not": []any{map[string]any{"exists": map[string]any{"field": filterStatus}}},
+					"filter":   []any{map[string]any{"range": map[string]any{"pending_at": map[string]any{"lt": olderThan.UnixMilli()}}}},
+				}},
+			},
+		}},
 	})
 	if err != nil {
 		return 0, err
@@ -594,15 +703,22 @@ func (o *OpenSearchIndex) PartialUpdate(ctx context.Context, id string, partialD
 	return nil
 }
 
+type osSource struct {
+	ListingDoc
+	SoldCount   int64   `json:"sold_count"`
+	RatingAvg   float64 `json:"rating_avg"`
+	ReviewCount int64   `json:"review_count"`
+}
+
 type osSearchResponse struct {
 	Hits struct {
 		Total struct {
 			Value int64 `json:"value"`
 		} `json:"total"`
 		Hits []struct {
-			ID     string     `json:"_id"`
-			Score  float64    `json:"_score"`
-			Source ListingDoc `json:"_source"`
+			ID     string   `json:"_id"`
+			Score  float64  `json:"_score"`
+			Source osSource `json:"_source"`
 		} `json:"hits"`
 	} `json:"hits"`
 	Aggregations osAggregations `json:"aggregations"`
@@ -612,11 +728,23 @@ type osSearchResponse struct {
 // facets. terms aggs yield a buckets ARRAY; the keyed range/filters aggs yield a
 // buckets OBJECT (key -> {doc_count}), so those are decoded as maps.
 type osAggregations struct {
-	Categories  osTermsAgg `json:"categories"`
-	Sellers     osTermsAgg `json:"sellers"`
-	PriceRanges osKeyedAgg `json:"price_ranges"`
-	TagFacets   osTermsAgg `json:"tag_facets"`
-	SkuFacets   osSkuAgg   `json:"sku_facets"`
+	Categories  osTermsAgg  `json:"categories"`
+	Sellers     osTermsAgg  `json:"sellers"`
+	PriceRanges osKeyedAgg  `json:"price_ranges"`
+	TagFacets   osTermsAgg  `json:"tag_facets"`
+	SkuFacets   osSkuAgg    `json:"sku_facets"`
+	Floor4      *osCountAgg `json:"rating_floor_4"`
+	Floor3      *osCountAgg `json:"rating_floor_3"`
+	FloorScope  *struct {
+		Scope struct {
+			Floor4 *osCountAgg `json:"rating_floor_4"`
+			Floor3 *osCountAgg `json:"rating_floor_3"`
+		} `json:"scope"`
+	} `json:"rating_floor_scope"`
+}
+
+type osCountAgg struct {
+	DocCount int64 `json:"doc_count"`
 }
 
 type osTermsAgg struct {
@@ -654,6 +782,21 @@ var priceRangeBuckets = []priceRangeBucket{
 // query. It aggregates over the post-filter matched set (aggs sit outside the
 // query in the request body but count only documents the query matched).
 func facetAggs(filters map[string]string) map[string]any {
+	return facetAggsScoped(filters, nil)
+}
+
+func ratingFloorAggs() map[string]any {
+	return map[string]any{
+		"rating_floor_4": map[string]any{"filter": ratingClause(4)},
+		"rating_floor_3": map[string]any{"filter": ratingClause(3)},
+	}
+}
+
+func ratingClause(min int32) map[string]any {
+	return map[string]any{"range": map[string]any{"rating_avg": map[string]any{"gte": min}}}
+}
+
+func facetAggsScoped(filters map[string]string, ratingScope map[string]any) map[string]any {
 	priceRanges := make([]map[string]any, 0, len(priceRangeBuckets))
 	for _, b := range priceRangeBuckets {
 		r := map[string]any{"key": b.label}
@@ -677,6 +820,16 @@ func facetAggs(filters map[string]string) map[string]any {
 	for k, v := range attrAggs(filters) {
 		aggs[k] = v
 	}
+	if ratingScope != nil {
+		aggs["rating_floor_scope"] = map[string]any{
+			"global": map[string]any{},
+			"aggs":   map[string]any{"scope": map[string]any{"filter": ratingScope, "aggs": ratingFloorAggs()}},
+		}
+	} else {
+		for k, v := range ratingFloorAggs() {
+			aggs[k] = v
+		}
+	}
 	return aggs
 }
 
@@ -690,17 +843,22 @@ func parseFacets(aggs osAggregations) Facets {
 		Categories:  make([]FacetBucket, 0, len(aggs.Categories.Buckets)),
 		Sellers:     make([]FacetBucket, 0, len(aggs.Sellers.Buckets)),
 		PriceRanges: make([]FacetBucket, 0, len(priceRangeBuckets)),
-		// D9: no listing event carries a rating, so there is no ratings
-		// aggregation and the facet is always an empty (non-nil) list.
-		Ratings: []FacetBucket{},
-		Tags:    parseTagFacets(aggs.TagFacets),
-		SKUs:    parseSkuFacets(aggs.SkuFacets),
+		Ratings:     []FacetBucket{},
+		Tags:        parseTagFacets(aggs.TagFacets),
+		SKUs:        parseSkuFacets(aggs.SkuFacets),
 	}
 	for _, b := range aggs.Categories.Buckets {
 		f.Categories = append(f.Categories, FacetBucket{Key: termKey(b.Key), Count: b.DocCount})
 	}
 	for _, b := range aggs.Sellers.Buckets {
 		f.Sellers = append(f.Sellers, FacetBucket{Key: termKey(b.Key), Count: b.DocCount})
+	}
+	f4, f3 := aggs.Floor4, aggs.Floor3
+	if aggs.FloorScope != nil {
+		f4, f3 = aggs.FloorScope.Scope.Floor4, aggs.FloorScope.Scope.Floor3
+	}
+	if f4 != nil && f3 != nil {
+		f.Ratings = append(f.Ratings, FacetBucket{Key: "4", Count: f4.DocCount}, FacetBucket{Key: "3", Count: f3.DocCount})
 	}
 	for _, b := range priceRangeBuckets {
 		f.PriceRanges = append(f.PriceRanges, FacetBucket{Key: b.label, Count: aggs.PriceRanges.Buckets[b.label].DocCount})
@@ -780,7 +938,7 @@ func buildFilterClauses(filters map[string]string, categoryID string, minPrice, 
 		clauses = append(clauses, map[string]any{"range": map[string]any{"price": rangeQ}})
 	}
 	if minRating > 0 {
-		clauses = append(clauses, map[string]any{"range": map[string]any{"rating": map[string]any{"gte": minRating}}})
+		clauses = append(clauses, ratingClause(minRating))
 	}
 	return clauses
 }
@@ -796,6 +954,12 @@ func sortClause(sortBy searchv1.SortBy) []any {
 		return []any{map[string]any{"price": map[string]any{"order": "desc"}}}
 	case searchv1.SortBy_SORT_BY_NEWEST:
 		return []any{
+			map[string]any{"created_at": map[string]any{"order": "desc", "missing": "_last", "unmapped_type": "date"}},
+			map[string]any{"id": map[string]any{"order": "asc"}},
+		}
+	case searchv1.SortBy_SORT_BY_BEST_SELLING:
+		return []any{
+			map[string]any{"sold_count": map[string]any{"order": "desc", "missing": 0, "unmapped_type": "long"}},
 			map[string]any{"created_at": map[string]any{"order": "desc", "missing": "_last", "unmapped_type": "date"}},
 			map[string]any{"id": map[string]any{"order": "asc"}},
 		}
@@ -825,6 +989,13 @@ func (o *OpenSearchIndex) Search(
 		}
 	}
 	filterClauses := buildFilterClauses(filters, categoryID, minPrice, maxPrice, minRating)
+	var ratingScope map[string]any
+	if minRating > 0 {
+		ratingScope = map[string]any{"bool": map[string]any{
+			"must":   must,
+			"filter": buildFilterClauses(filters, categoryID, minPrice, maxPrice, 0),
+		}}
+	}
 
 	body := map[string]any{
 		"from": from,
@@ -836,7 +1007,7 @@ func (o *OpenSearchIndex) Search(
 			},
 		},
 		// Facet aggregations over the SAME filtered set as the hits (F2).
-		"aggs": facetAggs(filters),
+		"aggs": facetAggsScoped(filters, ratingScope),
 	}
 
 	if sort := sortClause(sortBy); sort != nil {
@@ -849,7 +1020,7 @@ func (o *OpenSearchIndex) Search(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText()})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText(), SoldCount: h.Source.SoldCount, RatingAvg: h.Source.RatingAvg, ReviewCount: h.Source.ReviewCount})
 	}
 	return SearchResult{
 		Hits:   hits,
@@ -913,7 +1084,7 @@ func (o *OpenSearchIndex) SearchVector(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText()})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText(), SoldCount: h.Source.SoldCount, RatingAvg: h.Source.RatingAvg, ReviewCount: h.Source.ReviewCount})
 	}
 	return SearchResult{
 		Hits:   hits,
