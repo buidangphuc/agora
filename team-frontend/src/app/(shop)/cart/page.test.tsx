@@ -25,6 +25,9 @@ vi.mock("@/features/voucher/actions", () => ({
   previewVoucherAction: vi.fn(),
 }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
+vi.mock("@/features/recommendations/CartCrossSellRow", () => ({
+  CartCrossSellRow: () => null,
+}));
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);

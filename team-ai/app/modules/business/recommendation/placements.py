@@ -1,16 +1,15 @@
 """Placement configuration (ADR-0012): the candidate ladder and ranking of each slot.
 
 ``placements.yaml`` is team-ai's file, copied verbatim. Only the fields the service enforces
-are declared here; every other key in the file (``name``, ``enabled``, ``timeout_ms``,
-``allow_cache``, ``filters``, ``tier``) is ignored, as it was in team-ai. A placement that
-names a strategy or ranking model this module does not implement fails at load.
+are declared here, and an unknown key at any level fails at load, as does a placement that
+names a strategy or ranking model this module does not implement.
 """
 
 from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 PLACEMENTS_FILE = Path(__file__).with_name("placements.yaml")
 DEFAULT_PLACEMENT = "home_feed"
@@ -26,6 +25,8 @@ RankingModel = Literal["cosine_rank", "gbdt"]
 
 
 class LadderStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     strategy: Strategy
     min_candidates: int = 1
 
@@ -35,11 +36,23 @@ class Ranking(BaseModel):
     use_featurestore: bool = False
 
 
+class Filters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    in_stock_only: bool = False
+    deduplicate_sellers: bool = False
+    exclude_seed: bool = False
+    exclude_cart_items: bool = False
+
+
 class Placement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     # 0 = fall back to RECS_RESULT_TOP_K.
     result_limit: int = Field(default=0, ge=0)
     candidate_ladder: list[LadderStep] = []
     ranking: Ranking = Ranking()
+    filters: Filters = Filters()
 
 
 class Placements(BaseModel):

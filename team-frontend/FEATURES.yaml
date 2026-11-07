@@ -12294,3 +12294,93 @@ features:
     tags: [search, unit]
     status: not-testable
     notes: "VERIFIED BY team-frontend `src/features/search/SearchBlocks.attribution.test.tsx` (task 1.8); the gateway always returns a request_id. Not producible end to end."
+
+  - id: frontend.ccs-row-shows-for-a-cart-with-items
+    title: "Row shows for a cart with items"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Row shows for a cart with items"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-ai, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer with items in the cart opens `/cart`"
+      - "Then the page shows the \"Thường được mua cùng\" row with 1 to 8 listings, none of them a cart line"
+    tags: [buyer, recommendations]
+    status: planned
+    notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
+
+  - id: frontend.ccs-row-is-hidden-for-an-empty-cart
+    title: "Row is hidden for an empty cart"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Row is hidden for an empty cart"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-ai, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer with an empty cart opens `/cart`"
+      - "Then no \"Thường được mua cùng\" row is rendered and no Recommend call is made"
+    tags: [buyer, recommendations]
+    status: planned
+    notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
+
+  - id: frontend.ccs-cart-renders-when-recommendations-fail
+    title: "Cart renders when recommendations fail"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Cart renders when recommendations fail"
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "When a buyer opens `/cart` while the Recommend call returns an error"
+      - "Then the cart lines and totals render and the row is absent"
+    tags: [buyer, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-frontend/src/app/(shop)/cart/crossSell.test.tsx` `cart renders when recommendations fail`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: frontend.ccs-row-is-hidden-for-an-empty-result
+    title: "Row is hidden for an empty result"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Row is hidden for an empty result"
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "When Recommend returns zero items for a non-empty cart"
+      - "Then the row is absent and the cart renders"
+    tags: [buyer, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-frontend/src/app/(shop)/cart/crossSell.test.tsx` `row is hidden for an empty result`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: frontend.ccs-at-most-50-lines-are-sent
+    title: "At most 50 lines are sent"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: At most 50 lines are sent"
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "When the cart holds 60 lines and `/cart` renders"
+      - "Then the Recommend request carries exactly the last 50 line listing ids in the order the cart returned them"
+    tags: [buyer, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-frontend/src/app/(shop)/cart/crossSell.test.tsx` `at most 50 lines are sent`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: frontend.ccs-beacons-carry-the-recommendation-identity
+    title: "Beacons carry the recommendation identity"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Beacons carry the recommendation identity"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-ai, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the row is visible and the buyer clicks an item"
+      - "Then the impression and click beacons carry `impressionId` equal to the response `request_id` and the response `model_version`"
+    tags: [buyer, recommendations]
+    status: planned
+    notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."

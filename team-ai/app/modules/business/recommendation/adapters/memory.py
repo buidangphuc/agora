@@ -19,6 +19,11 @@ class MemoryCandidateSource:
     ) -> list[Candidate]:
         return list(self._similar.get(seed_listing_id, [])[:top_k])
 
+    async def categories(
+        self, listing_ids: Sequence[str], *, generation: str | None
+    ) -> dict[str, str]:
+        return {}
+
     async def ready(self, generation: str | None) -> bool:
         return True
 

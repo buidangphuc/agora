@@ -49,6 +49,7 @@ export interface RecommendationsOptions {
   context?: RecommendationContext;
   /** Max cards to request; 0 = server default. */
   limit?: number;
+  contextListingIds?: string[];
 }
 
 export interface RecommendationsResult {
@@ -85,6 +86,7 @@ export async function getRecommendations(
       anonymousId: "",
       seedListingId: opts.seedListingId ?? "",
       context: opts.context ?? RecommendationContext.UNSPECIFIED,
+      contextListingIds: opts.contextListingIds ?? [],
       // Over-fetch so the stock filter below can still fill `limit` cards.
       limit: Math.min(limit * OVERFETCH_FACTOR, OVERFETCH_CAP),
     });

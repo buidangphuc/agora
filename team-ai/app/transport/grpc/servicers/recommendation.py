@@ -26,6 +26,8 @@ from app.transport.grpc.scopes import ADMIN_SCOPE, LISTING_READ_SCOPE
 
 _SERVICE_NAME = "platform.recommendation.v1.RecommendationService"
 
+_MAX_CONTEXT_LISTING_IDS = 50
+
 # Contexts without an entry leave the placement to the service.
 _PLACEMENT_BY_CONTEXT = {
     recommendation_pb2.RECOMMENDATION_CONTEXT_HOMEPAGE: "home_feed",
@@ -57,6 +59,12 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
     ) -> recommendation_pb2.RecommendResponse:
         principal = await ensure_scopes(context, LISTING_READ_SCOPE)
 
+        if len(request.context_listing_ids) > _MAX_CONTEXT_LISTING_IDS:
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"context_listing_ids holds at most {_MAX_CONTEXT_LISTING_IDS} ids",
+            )
+
         user_id, anonymous_id = _bound_identity(
             principal, request.user_id, request.anonymous_id
         )
@@ -68,6 +76,7 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
                     seed_listing_id=request.seed_listing_id,
                     placement_id=_PLACEMENT_BY_CONTEXT.get(request.context, ""),
                     limit=request.limit,
+                    context_listing_ids=tuple(request.context_listing_ids),
                 )
             )
         except ServiceUnavailableError as exc:
@@ -83,6 +92,7 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
             model_version=result.model_version,
             listing_ids=[item.listing_id for item in result.items],
             fallback=result.fallback,
+            context_count=len(request.context_listing_ids),
             principal_type=principal.type,
         ).info("recs.served")
         return recommendation_pb2.RecommendResponse(

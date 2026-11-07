@@ -3,6 +3,7 @@
 Read-only: this service never creates or writes the collection."""
 
 import asyncio
+from collections.abc import Sequence
 from typing import Any
 
 from loguru import logger
@@ -67,6 +68,31 @@ class QdrantCandidateSource:
             return []
         return [c for hit in response.points if (c := _candidate(hit))]
 
+    async def categories(
+        self, listing_ids: Sequence[str], *, generation: str | None
+    ) -> dict[str, str]:
+        """Category id of each listing that has one, within the retrieve budget."""
+        if not listing_ids:
+            return {}
+        collection = generation_collection(self._collection, generation)
+        try:
+            async with asyncio.timeout(self._timeout_s):
+                points = await self._client.retrieve(
+                    collection_name=collection,
+                    ids=[point_id(lid) for lid in listing_ids],
+                    with_payload=True,
+                    with_vectors=False,
+                )
+        except Exception as exc:
+            logger.warning("recs.categories.failed err={}", exc)
+            return {}
+        out: dict[str, str] = {}
+        for point in points:
+            payload = point.payload or {}
+            if payload.get("listing_id") and payload.get("category_id"):
+                out[str(payload["listing_id"])] = str(payload["category_id"])
+        return out
+
     async def ready(self, generation: str | None) -> bool:
         """The collection exists with the configured vector size and distance."""
         collection = generation_collection(self._collection, generation)
@@ -105,4 +131,7 @@ def _candidate(hit: Any) -> Candidate | None:
         listing_id=str(listing_id),
         score=float(hit.score),
         in_stock=bool(payload.get("in_stock", True)),
+        seller_id=str(payload.get("seller_id") or ""),
+        category_id=str(payload.get("category_id") or ""),
+        visible=bool(payload.get("visible", False)),
     )

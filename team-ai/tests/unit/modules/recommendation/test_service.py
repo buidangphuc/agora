@@ -81,13 +81,17 @@ def _service(
     )
 
 
+def _visible(*ids: str) -> str:
+    return json.dumps([{"listing_id": i, "visible": True} for i in ids])
+
+
 def _ids(result: Any) -> list[str]:
     return [i.listing_id for i in result.items]
 
 
 async def test_a_cache_hit_skips_retrieval() -> None:
     redis = aioredis.FakeRedis(decode_responses=True)
-    await redis.set("recs:v1:user:u1", '["l1","l2","l3"]')
+    await redis.set("recs:v1:user:u1", _visible("l1", "l2", "l3"))
     source = Source({"seed": [Candidate("x", 1.0)]})
     result = await _service(source, redis).recommend(
         RecommendationQuery(user_id="u1", seed_listing_id="seed")
@@ -109,7 +113,7 @@ async def test_a_cache_miss_falls_to_vector_similarity() -> None:
 
 async def test_an_anonymous_visitor_skips_the_user_list() -> None:
     redis = aioredis.FakeRedis(decode_responses=True)
-    await redis.set("recs:v1:user:", '["never"]')
+    await redis.set("recs:v1:user:", _visible("never"))
     source = Source({"seed": [Candidate("l1", 0.9)]})
     result = await _service(source, redis).recommend(
         RecommendationQuery(anonymous_id="anon", seed_listing_id="seed")
@@ -155,7 +159,7 @@ async def test_the_generation_is_resolved_once_per_request() -> None:
 
 async def test_retrieval_that_finds_nothing_falls_to_the_popular_list() -> None:
     redis = aioredis.FakeRedis(decode_responses=True)
-    await redis.set("recs:v1:popular", '["hot-1","hot-2"]')
+    await redis.set("recs:v1:popular", _visible("hot-1", "hot-2"))
     result = await _service(Source({"seed": []}), redis).recommend(
         RecommendationQuery(anonymous_id="anon", seed_listing_id="seed")
     )
@@ -165,7 +169,7 @@ async def test_retrieval_that_finds_nothing_falls_to_the_popular_list() -> None:
 
 async def test_limit_overrides_the_placement_default() -> None:
     redis = aioredis.FakeRedis(decode_responses=True)
-    await redis.set("recs:v1:popular", json.dumps([f"p{i}" for i in range(20)]))
+    await redis.set("recs:v1:popular", _visible(*[f"p{i}" for i in range(20)]))
     service = _service(redis=redis)
     assert len((await service.recommend(RecommendationQuery(limit=3))).items) == 3
     assert (
@@ -183,7 +187,7 @@ async def test_a_placement_without_a_limit_uses_result_top_k(tmp_path: Path) -> 
         encoding="utf-8",
     )
     redis = aioredis.FakeRedis(decode_responses=True)
-    await redis.set("recs:v1:popular", json.dumps([f"p{i}" for i in range(20)]))
+    await redis.set("recs:v1:popular", _visible(*[f"p{i}" for i in range(20)]))
     service = _service(redis=redis, placements=load_placements(path))
     assert len((await service.recommend(RecommendationQuery())).items) == 10
 
@@ -197,7 +201,7 @@ class _BrokenUserCache(RedisServingCache):
 
 async def test_an_internal_error_serves_the_popular_list_as_the_fallback() -> None:
     redis = aioredis.FakeRedis(decode_responses=True)
-    await redis.set("recs:v1:popular", '["p1","p2"]')
+    await redis.set("recs:v1:popular", _visible("p1", "p2"))
     await redis.set("recs:v1:model_version", "v0")
     cache = _BrokenUserCache(redis, ServingKeys("recs", "v1"))
     result = await _service(redis=redis, cache=cache).recommend(
@@ -232,7 +236,7 @@ async def test_an_unreachable_redis_is_an_empty_ok_result() -> None:
 async def test_the_serving_fallback_model_version_follows_the_generation() -> None:
     redis = aioredis.FakeRedis(decode_responses=True)
     await redis.set("recs:v1:serving", "g4")
-    await redis.set("recs:v1:gen:g4:user:u1", '["a"]')
+    await redis.set("recs:v1:gen:g4:user:u1", _visible("a"))
     result = await _service(redis=redis, model_version="serving-fallback").recommend(
         RecommendationQuery(user_id="u1")
     )
@@ -245,8 +249,8 @@ async def test_online_features_reorder_the_fixed_weight_ranking() -> None:
         "recs:v1:user:u1",
         json.dumps(
             [
-                {"listing_id": "plain", "score": 0.95},
-                {"listing_id": "hot", "score": 0.80},
+                {"listing_id": "plain", "score": 0.95, "visible": True},
+                {"listing_id": "hot", "score": 0.80, "visible": True},
             ]
         ),
     )
@@ -271,7 +275,7 @@ async def test_nearline_ctr_reorders_equal_candidates() -> None:
     redis = aioredis.FakeRedis(decode_responses=True)
     await redis.set(
         "recs:v1:user:u1",
-        '[{"listing_id":"a","score":0.8},{"listing_id":"b","score":0.8}]',
+        '[{"listing_id":"a","score":0.8,"visible":true},{"listing_id":"b","score":0.8,"visible":true}]',
     )
     service = _service(
         redis=redis, nearline=MemoryNearlineSignals({"b": 0.12, "a": 0.04})
@@ -334,7 +338,7 @@ async def test_the_check_names_the_serving_generation() -> None:
 
 async def test_concurrent_requests_do_not_leave_tasks_behind() -> None:
     redis = aioredis.FakeRedis(decode_responses=True)
-    await redis.set("recs:v1:popular", '["p1"]')
+    await redis.set("recs:v1:popular", _visible("p1"))
     service = _service(redis=redis)
     before = len(asyncio.all_tasks())
     await asyncio.gather(
