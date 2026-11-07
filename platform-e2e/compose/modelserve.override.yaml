@@ -11,7 +11,7 @@
 # `dc-agora-ov.sh` wrapper carries it next to the other e2e overlays.
 #
 # What it adds:
-# * tei-fake / modelserve-router: published host ports (below), the agora-*:local image names, and
+# * tei-fake / modelserve-router: published host ports (below) and
 #   MAX_QUEUE_DEPTH=10 (base default 100) so the backpressure scenario can saturate the router with a few
 #   dozen slow requests; the real traffic of the suite stays far below that.
 # * team-search and team-search-indexer: MODEL_SERVER_URL -> the router (the committed
@@ -21,17 +21,14 @@
 # The tests reach the router and the fake on the host at MODELSERVE_URL (default
 # http://localhost:18100) and TEI_FAKE_URL (default http://localhost:18110), i.e. the
 # published ports below; change both together with the *_HOST_PORT variables.
-# Keys by service name only (no container_name), so it works under any project. The images are
-# named agora-*:local here, so the agora isolation override needs no entry for these two services;
+# Keys by service name only (no container_name), so it works under any project;
 # the destructive scenarios `docker stop` the router container, default name
 # agora-modelserve-router-1 (override with MS_ROUTER_CONTAINER).
 services:
   tei-fake:
-    image: agora-tei-fake:local
     ports:
       - "127.0.0.1:${TEI_FAKE_HOST_PORT:-18110}:8110"
   modelserve-router:
-    image: agora-modelserve-router:local
     environment:
       MAX_QUEUE_DEPTH: "10"
     ports:
