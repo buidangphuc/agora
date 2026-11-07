@@ -80,7 +80,12 @@ def write_listings(d: Path, listings, drop=()):
         }
         for x in listings
     ]
-    table = pa.Table.from_pylist(rows, schema=LISTINGS)
+    schema = LISTINGS
+    if any("status" in x for x in listings):
+        for row, x in zip(rows, listings, strict=True):
+            row["status"] = x.get("status")
+        schema = LISTINGS.append(pa.field("status", pa.string()))
+    table = pa.Table.from_pylist(rows, schema=schema)
     for col in drop:
         table = table.drop_columns([col])
     pq.write_table(table, d / "listing_sellers.parquet")
