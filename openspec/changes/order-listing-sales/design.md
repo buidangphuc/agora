@@ -1,0 +1,17 @@
+## Context
+
+team-order writes `OrderPaidEvent`, `OrderCancelled` and `ReturnRefunded` to `order_outbox_events` in the same transaction as the status compare-and-set (`internal/events/publisher.go`, builders passed through `store.With*Outbox`). The relayer produces the rows to `order.events`.
+
+## Decisions
+
+- **Same-transaction projection.** The ledger and `listing_sales` are updated in the transaction that wins the compare-and-set, next to the existing outbox row. A transition that loses the claim touches nothing, which is what makes a redelivered or repeated call a no-op. Consuming our own events would add a second path and a lag.
+- **Per-(order, listing) ledger.** Lines are summed per listing. Payment inserts `counted` rows (`ON CONFLICT DO NOTHING`) and adds the quantity only for rows it inserted. Cancel-from-PAID and refund flip `counted` to `reversed` with `UPDATE ... WHERE state='counted'` and subtract only for rows it flipped. So an order is added at most once and subtracted at most once, whatever the order of arrival. A cancel from any other `previous_status` does not touch the ledger.
+- **Floor.** `sold_count = GREATEST(sold_count - qty, 0)` as a second guard on top of the ledger and the CHECK constraint.
+- **Emit on change only.** One `ListingSalesChanged` per listing whose `sold_count` changed in the transaction, event id derived deterministically from `(listing_id, new sold_count, source event id)` so a retried transaction cannot duplicate it. A no-op transition emits nothing. The Kafka key is `listing_id` so values for one listing stay ordered.
+- **Backfill (D2).** In SQL, in the migration: `counted` rows come from `order_items` joined to `orders` for non-cancelled orders that were paid: `paid_at IS NOT NULL`, or, for orders paid before `paid_at` existed (migration 0007 leaves it NULL), a non-COD order in status PAID, SHIPPED or COMPLETED; orders cancelled after payment (`status = CANCELLED AND paid_at IS NOT NULL`) are written as `reversed`; orders with a return in REFUNDED are `reversed`. `listing_sales` is the sum of `counted` quantities, and one outbox row per listing is inserted (listings whose count is 0 included, so search can set the field). Re-running is safe: `ON CONFLICT DO NOTHING` on the ledger and `ON CONFLICT (listing_id) DO UPDATE` on the totals; backfill outbox rows get event id `hash(listing_id, sold_count, 'backfill')` and `changed_at` is the transaction commit time (`now()` of the migration transaction).
+- **`paid_at` is a safe signal.** `paid_at` is written only by the status compare-and-set when the new status is PAID (`team-order/internal/store/order.go:545`), and `BuildCancelledOutboxRow` relies on the same invariant (`team-order/internal/events/publisher.go:143`). So a non-NULL `paid_at` never exists on an order that did not reach PAID. The only gap is the reverse (orders paid before migration 0007 have NULL `paid_at`, `migrations/0007_order_integrity.up.sql:7`), handled by the status fallback above. A pre-0007 order that was cancelled after payment cannot be told apart from one cancelled before payment and is treated as never paid, which matches the target count.
+- **Deploy order.** Migration and writer binary ship in the same deploy.
+
+## Risks
+
+- A refund that covers only part of an order's lines would over-reverse. The contract has one refund per return of the whole order amount, so the whole order quantity is reversed. Decision C2 (recorded in the proposal): partial refunds are out of scope until returns carry line items.
