@@ -655,3 +655,13 @@ message ReturnRequested {
   string currency = 6;
   google.protobuf.Timestamp requested_at = 7;
 }
+
+// A listing's sold count changed. Published on `order.events` (key = listing_id) as the
+// payload of an EventEnvelope with type "platform.order.v1.ListingSalesChanged".
+// By design this carries no buyer, seller or order ids.
+message ListingSalesChanged {
+  string listing_id = 1;
+  // Units sold as an absolute value, not a delta; never below 0.
+  int64 sold_count = 2;
+  google.protobuf.Timestamp changed_at = 3;
+}

@@ -51,6 +51,9 @@ message RecommendRequest {
   RecommendationContext context = 4;
   // Max items to return; 0 = server default.
   int32 limit = 5;
+  // Listings in the caller's current context (max 50). More than 50 is rejected with
+  // INVALID_ARGUMENT by the gateway and by team-ai; there is no truncation.
+  repeated string context_listing_ids = 6;
 }
 
 message RecommendedItem {

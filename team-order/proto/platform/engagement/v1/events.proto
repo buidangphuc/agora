@@ -55,6 +55,17 @@ message ReviewHidden {
   google.protobuf.Timestamp hidden_at = 3;
 }
 
+// A listing's rating aggregate changed. Published on `engagement.events` (key = listing_id) as the
+// payload of an EventEnvelope with type "platform.engagement.v1.ListingRatingChanged".
+// By design this carries no reviewer id and no review text.
+message ListingRatingChanged {
+  string listing_id = 1;
+  // Average over verified, non-hidden reviews; 0 when review_count is 0.
+  double average_rating = 2;
+  int64 review_count = 3;
+  google.protobuf.Timestamp changed_at = 4;
+}
+
 // A dispute was closed (RESOLVED or REJECTED). Published on `engagement.events` (key = dispute id)
 // as the payload of an EventEnvelope with type "platform.engagement.v1.DisputeResolved".
 // By design this carries no free text: only ids, status and ruling.

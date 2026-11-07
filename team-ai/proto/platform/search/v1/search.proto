@@ -15,6 +15,8 @@ enum SortBy {
   SORT_BY_PRICE_ASC = 2;   // Price: Low to High
   SORT_BY_PRICE_DESC = 3;  // Price: High to Low
   SORT_BY_NEWEST = 4;      // Newest listings first
+  // Best selling first: ordered by sold_count desc, created_at desc, id asc.
+  SORT_BY_BEST_SELLING = 5;
 }
 
 enum SearchMode {
@@ -63,6 +65,14 @@ message SearchHit {
   // listing.events (ListingStockChanged / ListingChanged). Absent = unknown (not
   // projected yet). Filled on SearchListings and RunSavedSearch.
   optional int32 stock = 3;
+  // Units sold, an absolute value projected from order.events (ListingSalesChanged); never below 0.
+  int64 sold_count = 4;
+  // Average rating over verified, non-hidden reviews, within 0 to 5; 0 when review_count is 0.
+  double rating_avg = 5;
+  // Number of verified, non-hidden reviews; never below 0.
+  int64 review_count = 6;
+  // Owning seller of the listing; empty when not yet projected.
+  string seller_id = 7;
 }
 
 message SearchListingsResponse {
@@ -70,6 +80,10 @@ message SearchListingsResponse {
   platform.common.v1.PageResponse page = 2;
   // Aggregated facet counts over the matched set, for filter navigation.
   Facets facets = 3;
+  // Opaque id correlating this response with its search_results impression events.
+  string request_id = 4;
+  // Format <mode>[+rerank]@<version>, where mode is the mode that actually ran.
+  string model_version = 5;
 }
 
 // One facet value + how many matching listings carry it.
@@ -152,4 +166,8 @@ message RunSavedSearchResponse {
   repeated SearchHit hits = 1;
   platform.common.v1.PageResponse page = 2;
   Facets facets = 3;
+  // Opaque id correlating this response with its search_results impression events.
+  string request_id = 4;
+  // Format <mode>[+rerank]@<version>, where mode is the mode that actually ran.
+  string model_version = 5;
 }

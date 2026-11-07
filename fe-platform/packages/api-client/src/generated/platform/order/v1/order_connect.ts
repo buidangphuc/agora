@@ -6,7 +6,7 @@
 // team-order (Go) owns this: shopping cart + order placement + order lifecycle.
 // It reserves and releases stock via gRPC to team-domain (Rule 3).
 
-import { AddToCartRequest, AddToCartResponse, CalculateShippingFeeRequest, CalculateShippingFeeResponse, CancelOrderRequest, CancelOrderResponse, ClearCartRequest, ClearCartResponse, ConfirmReceiptRequest, ConfirmReceiptResponse, CreateOrderRequest, CreateOrderResponse, CreateReturnRequestRequest, CreateReturnRequestResponse, CreateShipmentRequest, CreateShipmentResponse, ForceFailSagaRequest, ForceFailSagaResponse, GetCartRequest, GetCartResponse, GetOrderRequest, GetOrderResponse, GetReturnRequestRequest, GetReturnRequestResponse, GetSagaStateRequest, GetSagaStateResponse, GetShipmentTrackingRequest, GetShipmentTrackingResponse, ListBuyerOrdersRequest, ListBuyerOrdersResponse, ListOrderReturnsRequest, ListOrderReturnsResponse, ListSellerOrdersRequest, ListSellerOrdersResponse, PreviewCheckoutRequest, PreviewCheckoutResponse, RemoveFromCartRequest, RemoveFromCartResponse, ReorderRequest, ReorderResponse, UpdateCartItemRequest, UpdateCartItemResponse, UpdateOrderStatusRequest, UpdateOrderStatusResponse, UpdateReturnStatusRequest, UpdateReturnStatusResponse } from "./order_pb.js";
+import { AddToCartRequest, AddToCartResponse, CalculateShippingFeeRequest, CalculateShippingFeeResponse, CancelOrderRequest, CancelOrderResponse, ClearCartRequest, ClearCartResponse, ConfirmReceiptRequest, ConfirmReceiptResponse, CreateOrderRequest, CreateOrderResponse, CreateReturnRequestRequest, CreateReturnRequestResponse, CreateShipmentRequest, CreateShipmentResponse, ForceFailSagaRequest, ForceFailSagaResponse, GetCartRequest, GetCartResponse, GetOrderRequest, GetOrderResponse, GetReturnRequestRequest, GetReturnRequestResponse, GetSagaStateRequest, GetSagaStateResponse, GetShipmentTrackingRequest, GetShipmentTrackingResponse, HasCompletedOrderRequest, HasCompletedOrderResponse, ListBuyerOrdersRequest, ListBuyerOrdersResponse, ListOrderReturnsRequest, ListOrderReturnsResponse, ListSellerOrdersRequest, ListSellerOrdersResponse, PreviewCheckoutRequest, PreviewCheckoutResponse, RemoveFromCartRequest, RemoveFromCartResponse, ReorderRequest, ReorderResponse, UpdateCartItemRequest, UpdateCartItemResponse, UpdateOrderStatusRequest, UpdateOrderStatusResponse, UpdateReturnStatusRequest, UpdateReturnStatusResponse } from "./order_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -254,6 +254,25 @@ export const OrderService = {
       name: "GetShipmentTracking",
       I: GetShipmentTrackingRequest,
       O: GetShipmentTrackingResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * The RPC is internal, service-to-service only. The only caller is
+     * team-promotion, for new_user_only eligibility; team-referral does NOT call
+     * it (referral decides "no completed order" for RedeemReferral from the
+     * order.events/OrderCompleted facts it consumes itself). Requires a SERVICE
+     * principal holding scope `order.read` (a service-only scope); USER,
+     * anonymous and admin principals (including `order.admin`) get
+     * PERMISSION_DENIED, enforced by the service itself and not only at the edge.
+     * NOT routed at the gateway, which answers 501. `service-team-promotion` must
+     * be granted `order.read` in identity.
+     *
+     * @generated from rpc platform.order.v1.OrderService.HasCompletedOrder
+     */
+    hasCompletedOrder: {
+      name: "HasCompletedOrder",
+      I: HasCompletedOrderRequest,
+      O: HasCompletedOrderResponse,
       kind: MethodKind.Unary,
     },
   }

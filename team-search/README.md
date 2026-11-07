@@ -41,6 +41,9 @@ Behaviour of `SearchListings`:
 - Sort: `SORT_BY_NEWEST` is `created_at` desc (unknown last), ties by `id`. A HYBRID (or
   defaulted) request with `NEWEST` / `PRICE_ASC` / `PRICE_DESC` is served by the lexical leg with
   that sort and page; RRF only runs for relevance order.
+- Contract only (discovery-seo-contract, not built): `SORT_BY_BEST_SELLING`, the `SearchHit` fields `sold_count`, `rating_avg`, `review_count`
+  and `seller_id`, and `request_id` / `model_version` on `SearchListingsResponse` and
+  `RunSavedSearchResponse` are defined in the proto; this service neither honours nor sets them.
 - Semantic: embeds the query through modelserve `POST /embed`, then runs a `knn` query on `embedding`.
 - Hybrid: runs lexical and semantic concurrently (pool = `from + size`, at least 50, capped at
   `HYBRID_FUSION_WINDOW`), then fuses by RRF: `sum(w_s / (k + rank_s))`, with `k = HYBRID_RRF_K`

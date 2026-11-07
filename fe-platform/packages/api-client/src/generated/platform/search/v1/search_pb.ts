@@ -48,6 +48,13 @@ export enum SortBy {
    * @generated from enum value: SORT_BY_NEWEST = 4;
    */
   NEWEST = 4,
+
+  /**
+   * Best selling first: ordered by sold_count desc, created_at desc, id asc.
+   *
+   * @generated from enum value: SORT_BY_BEST_SELLING = 5;
+   */
+  BEST_SELLING = 5,
 }
 // Retrieve enum metadata with: proto3.getEnumType(SortBy)
 proto3.util.setEnumType(SortBy, "platform.search.v1.SortBy", [
@@ -56,6 +63,7 @@ proto3.util.setEnumType(SortBy, "platform.search.v1.SortBy", [
   { no: 2, name: "SORT_BY_PRICE_ASC" },
   { no: 3, name: "SORT_BY_PRICE_DESC" },
   { no: 4, name: "SORT_BY_NEWEST" },
+  { no: 5, name: "SORT_BY_BEST_SELLING" },
 ]);
 
 /**
@@ -211,6 +219,34 @@ export class SearchHit extends Message<SearchHit> {
    */
   stock?: number;
 
+  /**
+   * Units sold, an absolute value projected from order.events (ListingSalesChanged); never below 0.
+   *
+   * @generated from field: int64 sold_count = 4;
+   */
+  soldCount = protoInt64.zero;
+
+  /**
+   * Average rating over verified, non-hidden reviews, within 0 to 5; 0 when review_count is 0.
+   *
+   * @generated from field: double rating_avg = 5;
+   */
+  ratingAvg = 0;
+
+  /**
+   * Number of verified, non-hidden reviews; never below 0.
+   *
+   * @generated from field: int64 review_count = 6;
+   */
+  reviewCount = protoInt64.zero;
+
+  /**
+   * Owning seller of the listing; empty when not yet projected.
+   *
+   * @generated from field: string seller_id = 7;
+   */
+  sellerId = "";
+
   constructor(data?: PartialMessage<SearchHit>) {
     super();
     proto3.util.initPartial(data, this);
@@ -222,6 +258,10 @@ export class SearchHit extends Message<SearchHit> {
     { no: 1, name: "listing_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "score", kind: "scalar", T: 2 /* ScalarType.FLOAT */ },
     { no: 3, name: "stock", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 4, name: "sold_count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 5, name: "rating_avg", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 6, name: "review_count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 7, name: "seller_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SearchHit {
@@ -262,6 +302,20 @@ export class SearchListingsResponse extends Message<SearchListingsResponse> {
    */
   facets?: Facets;
 
+  /**
+   * Opaque id correlating this response with its search_results impression events.
+   *
+   * @generated from field: string request_id = 4;
+   */
+  requestId = "";
+
+  /**
+   * Format <mode>[+rerank]@<version>, where mode is the mode that actually ran.
+   *
+   * @generated from field: string model_version = 5;
+   */
+  modelVersion = "";
+
   constructor(data?: PartialMessage<SearchListingsResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -273,6 +327,8 @@ export class SearchListingsResponse extends Message<SearchListingsResponse> {
     { no: 1, name: "hits", kind: "message", T: SearchHit, repeated: true },
     { no: 2, name: "page", kind: "message", T: PageResponse },
     { no: 3, name: "facets", kind: "message", T: Facets },
+    { no: 4, name: "request_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "model_version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SearchListingsResponse {
@@ -897,6 +953,20 @@ export class RunSavedSearchResponse extends Message<RunSavedSearchResponse> {
    */
   facets?: Facets;
 
+  /**
+   * Opaque id correlating this response with its search_results impression events.
+   *
+   * @generated from field: string request_id = 4;
+   */
+  requestId = "";
+
+  /**
+   * Format <mode>[+rerank]@<version>, where mode is the mode that actually ran.
+   *
+   * @generated from field: string model_version = 5;
+   */
+  modelVersion = "";
+
   constructor(data?: PartialMessage<RunSavedSearchResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -908,6 +978,8 @@ export class RunSavedSearchResponse extends Message<RunSavedSearchResponse> {
     { no: 1, name: "hits", kind: "message", T: SearchHit, repeated: true },
     { no: 2, name: "page", kind: "message", T: PageResponse },
     { no: 3, name: "facets", kind: "message", T: Facets },
+    { no: 4, name: "request_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "model_version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RunSavedSearchResponse {
