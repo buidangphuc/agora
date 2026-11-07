@@ -241,7 +241,7 @@ def tab_still_selected(world: World, label: str) -> None:
 # ── Favorites not-found result ───────────────────────────────────────────
 @then(parsers.parse('a not-found result offers "{label}"'))
 def not_found_result(world: World, label: str) -> None:
-    expect(world.page.get_by_text("Không tìm thấy bộ sưu tập")).to_be_visible(
+    expect(world.page.get_by_role("heading", name="Không tìm thấy bộ sưu tập")).to_be_visible(
         timeout=timeouts.NAVIGATION
     )
     link = world.page.get_by_role("link", name=label)

@@ -268,6 +268,7 @@ def _redeem(world: World, code: str) -> None:
 
 @when("the buyer redeems that code on the referral page")
 def redeem_that_code(world: World) -> None:
+    lp.wait_referral_registration(lp.jwt_subject(_buyer(world).token))
     _redeem(world, _x(world)["loop_referral_code"])
     world.page.wait_for_timeout(1_500)
 

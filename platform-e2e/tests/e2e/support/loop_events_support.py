@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import base64
 import json
+import os
+import subprocess
 import time
 
 from config.settings import get_settings
@@ -141,6 +143,24 @@ def decode(raw) -> dict:
                     entry = {k: bytes(val).decode() for k, _, val in _fields(bytes(v))}  # type: ignore[arg-type]
                     out["properties"][entry.get(1, "")] = entry.get(2, "")
     return out
+
+
+def wait_referral_registration(user_id: str, timeout_s: float = 15.0) -> None:
+    """Block until team-referral has consumed the user's UserRegistered (referral_accounts row)."""
+    container = os.getenv("POSTGRES_CONTAINER", "agora-postgres-1")
+    sql = f"SELECT 1 FROM referral_accounts WHERE user_id = '{user_id}'"
+    deadline = time.monotonic() + timeout_s
+    while True:
+        proc = subprocess.run(
+            ["docker", "exec", container, "psql", "-U", "postgres", "-d", "referral_db", "-At", "-c", sql],
+            capture_output=True, text=True, timeout=30,
+        )  # fmt: skip
+        if proc.stdout.strip() == "1":
+            return
+        assert time.monotonic() < deadline, (
+            f"team-referral did not record the registration of {user_id} within {timeout_s}s"
+        )
+        time.sleep(0.5)
 
 
 def events_for(marker: str, event_type: int, *, listing_id: str | None = None) -> list[dict]:
