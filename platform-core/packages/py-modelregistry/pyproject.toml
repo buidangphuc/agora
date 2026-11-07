@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Unified model registry client and publish gate (MLflow, ADR-0017)"
 requires-python = ">=3.10"
 dependencies = [
-  "mlflow-skinny>=3.2,<3.3",
+  "mlflow-skinny>=3.14,<3.15",
   "pyyaml>=6",
 ]
 

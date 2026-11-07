@@ -69,11 +69,9 @@ def test_backend_store_is_dedicated():
 
 
 # Scenario: Server is up with the pinned version
-def test_mlflow_pinned_v3_2_0_on_5050():
+def test_mlflow_pinned_v3_14_0_on_5050():
     ml = _svc("mlflow")
-    assert re.search(r"mlflow:v?3\.2\.0\b", ml.get("image", "")) or "3.2.0" in str(
-        ml.get("build", "")
-    ), "mlflow must be pinned to 3.2.0 (no latest)"
+    assert re.search(r"mlflow:v?3\.14\.0\b", ml.get("image", "")), "mlflow must be pinned to 3.14.0 (no latest)"
     assert "latest" not in ml.get("image", "")
     args = _mlflow_args()
     assert re.search(r"--port\s+5050\b", args)

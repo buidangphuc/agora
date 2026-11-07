@@ -1,13 +1,13 @@
 @registry
 Feature: Model registry (MLflow on the infra stack)
-  A pinned MLflow 3.2.0 server on host port 5050 with a dedicated postgres-mlflow backend store and
+  A pinned MLflow 3.14.0 server on host port 5050 with a dedicated postgres-mlflow backend store and
   the MinIO bucket mlflow-artifacts as artifact root, plus the py-modelregistry publish gate driven
   against it. Needs only postgres-mlflow, minio, minio-init and mlflow from platform-core/infra.
   Change: add-model-registry, capabilities model-registry and model-publish-gate.
 
   Scenario: mlflow_server_up - Server is up with the pinned version
     When the version endpoint of the registry on port 5050 is called
-    Then the registry answers 200 and the body is "3.2.0"
+    Then the registry answers 200 and the body is "3.14.0"
 
   Scenario: run_and_artifact_stored - A run and a registered model version are stored with artifacts in MinIO
     Given the probe model "e2e-registry-probe" does not exist in the registry
