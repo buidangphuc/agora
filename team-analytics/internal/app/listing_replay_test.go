@@ -99,11 +99,11 @@ func commitOffset(t *testing.T, brokers, group, topic string, offset int64) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cl.PollFetches(ctx)
-	require.NoError(t, cl.CommitOffsetsSync(ctx, map[string]map[int32]kgo.EpochOffset{
+	cl.CommitOffsetsSync(ctx, map[string]map[int32]kgo.EpochOffset{
 		topic: {0: {Offset: offset, Epoch: -1}},
 	}, func(_ *kgo.Client, _ *kmsg.OffsetCommitRequest, _ *kmsg.OffsetCommitResponse, err error) {
 		require.NoError(t, err)
-	}))
+	})
 }
 
 func TestListingReplay_FillsStatusForAllListings(t *testing.T) {
