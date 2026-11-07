@@ -554,6 +554,13 @@ class _RecordingQdrant(FakeQdrantClient):
         for pid in points:
             store[pid]["payload"].update(payload)
 
+    def delete_payload(self, collection_name, keys, points=None, **kw):
+        self.writes.append("delete_payload")
+        store = self.collections[self._resolve(collection_name)]
+        for pid in points:
+            for key in keys:
+                store[pid]["payload"].pop(key, None)
+
 
 class _ScanThenExpire(fakeredis.FakeRedis):
     victims: tuple = ()
@@ -666,6 +673,46 @@ def test_backfill_is_idempotent_and_keeps_ttl(tmp_path, attributes, monkeypatch)
     assert q.collections == first_payloads
     for key in ttl_keys:
         assert 0 < r.pttl(key) <= after_first[key] <= before[key], key
+
+
+@pytest.mark.parametrize(
+    "second_rows",
+    [
+        [["L1", "S1", "C1", 100, "LISTING_STATUS_UNSPECIFIED"]],
+        [["L2", "S2", "C2", 200, BANNED]],
+    ],
+    ids=["unknown-status", "absent-from-snapshot"],
+)
+def test_backfill_removes_stale_attributes_in_qdrant(tmp_path, attributes, monkeypatch, second_rows):
+    settings, r, q = _old_world(tmp_path)
+    _snapshot(tmp_path, stamp="20261106T000000Z")
+    assert _run_backfill(monkeypatch, settings, r, q) == 0
+    for collection in _item_collections(settings, "g2"):
+        assert _payload(q, collection, "L1")["visible"] is True
+
+    _snapshot(tmp_path, second_rows, stamp="20261106T060000Z")
+    assert _run_backfill(monkeypatch, settings, r, q) == 0
+
+    expected = {}
+    for row in second_rows:
+        expected[row[0]] = {
+            k: v
+            for k, v in (
+                ("seller_id", row[1]),
+                ("category_id", row[2]),
+                ("visible", True if row[4] == PUBLISHED else False if row[4] == BANNED else None),
+            )
+            if v is not None
+        }
+    for lid in LISTINGS:
+        expected.setdefault(lid, {})
+    for gen in ("g1", "g2"):
+        for collection in _item_collections(settings, gen):
+            for lid in LISTINGS:
+                got = {k: v for k, v in _payload(q, collection, lid).items() if k in ATTR_KEYS}
+                assert got == expected[lid], (collection, lid)
+        _assert_entries_carry(r, _generation_keys(settings, gen), expected)
+    _assert_entries_carry(r, _legacy_keys(settings), expected)
 
 
 def test_backfill_without_snapshot_exits_2(tmp_path, attributes, monkeypatch):
