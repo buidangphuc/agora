@@ -66,7 +66,6 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 	}
 }
 
-// Scenario: Non-admin caller is denied at the gateway.
 func TestPolicy_GetSearchPerformanceAdminOnly(t *testing.T) {
 	proc := analyticsv1connect.AnalyticsQueryServiceGetSearchPerformanceProcedure
 	if got := adminProcedures[proc]; got != adminScope {
