@@ -8275,3 +8275,575 @@ features:
     tags: [q7-referral-welcome-contract, unit]
     status: not-testable
     notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `platform-core/packages/proto/q7_consumer_copies_test.sh` (tasks 3.2)"
+
+  # discovery-seo-contract: pure contract, verified by Go compat tests, gateway policy tests and the consumer-copies shell test (no e2e).
+
+  - id: discovery.contract-enum-value-present-with-stable-numbers
+    title: "Enum value present with stable numbers"
+    persona: guest
+    priority: P2
+    summary: "Enum value present with stable numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Enum value present with stable numbers (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_SortByBestSellingIsFive' (tasks 2.1)"
+
+  - id: discovery.contract-ordering-is-documented
+    title: "Ordering is documented"
+    persona: guest
+    priority: P2
+    summary: "Ordering is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Ordering is documented (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_BestSellingOrderingDocumented' (tasks 2.1)"
+
+  - id: discovery.contract-old-consumer-meets-the-new-value
+    title: "Old consumer meets the new value"
+    persona: guest
+    priority: P2
+    summary: "Old consumer meets the new value"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old consumer meets the new value (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_OldSchemaParsesBestSelling' (tasks 2.1)"
+
+  - id: discovery.contract-undefined-sort-number-is-not-a-defined-value
+    title: "Undefined sort number is not a defined value"
+    persona: guest
+    priority: P2
+    summary: "Undefined sort number is not a defined value"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Undefined sort number is not a defined value (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_NoUndefinedSortNumbers' (tasks 2.1)"
+
+  - id: discovery.contract-both-responses-expose-the-same-two-fields-at-the-same-numbers
+    title: "Both responses expose the same two fields at the same numbers"
+    persona: guest
+    priority: P2
+    summary: "Both responses expose the same two fields at the same numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Both responses expose the same two fields at the same numbers (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_ResponsesCarryAttributionFields' (tasks 2.1)"
+
+  - id: discovery.contract-attribution-round-trip-and-empty-default
+    title: "Attribution round trip and empty default"
+    persona: guest
+    priority: P2
+    summary: "Attribution round trip and empty default"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Attribution round trip and empty default (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_AttributionRoundTrip' (tasks 2.1)"
+
+  - id: discovery.contract-old-payload-stays-readable-and-new-payload-is-readable-by-the-old-schema
+    title: "Old payload stays readable and new payload is readable by the old schema"
+    persona: guest
+    priority: P2
+    summary: "Old payload stays readable and new payload is readable by the old schema"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old payload stays readable and new payload is readable by the old schema (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_AttributionWireCompatible' (tasks 2.1)"
+
+  - id: discovery.contract-model-version-format-is-documented
+    title: "model_version format is documented"
+    persona: guest
+    priority: P2
+    summary: "model_version format is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "model_version format is documented (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_ModelVersionFormatDocumented' (tasks 2.1)"
+
+  - id: discovery.contract-hit-fields-present-with-stable-numbers
+    title: "Hit fields present with stable numbers"
+    persona: guest
+    priority: P2
+    summary: "Hit fields present with stable numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Hit fields present with stable numbers (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_SearchHitFieldsStable' (tasks 2.1)"
+
+  - id: discovery.contract-unprojected-listing-reads-as-zero
+    title: "Unprojected listing reads as zero"
+    persona: guest
+    priority: P2
+    summary: "Unprojected listing reads as zero"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unprojected listing reads as zero (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_OldHitReadsZeroes' (tasks 2.1)"
+
+  - id: discovery.contract-maximum-count-round-trips
+    title: "Maximum count round trips"
+    persona: guest
+    priority: P2
+    summary: "Maximum count round trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Maximum count round trips (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_HitBoundaryValuesRoundTrip' (tasks 2.1)"
+
+  - id: discovery.contract-rating-semantics-are-documented
+    title: "Rating semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Rating semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Rating semantics are documented (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_RatingSemanticsDocumented' (tasks 2.1)"
+
+  - id: discovery.contract-existing-hit-fields-are-not-renumbered
+    title: "Existing hit fields are not renumbered"
+    persona: guest
+    priority: P2
+    summary: "Existing hit fields are not renumbered"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing hit fields are not renumbered (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_ExistingHitFieldsNotRenumbered' (tasks 2.1)"
+
+  - id: discovery.contract-seller-id-round-trips
+    title: "Seller id round trips"
+    persona: guest
+    priority: P2
+    summary: "Seller id round trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller id round trips (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_SellerIdRoundTrip' (tasks 2.1)"
+
+  - id: discovery.contract-hit-exposes-no-private-data
+    title: "Hit exposes no private data"
+    persona: guest
+    priority: P2
+    summary: "Hit exposes no private data"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Hit exposes no private data (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/discovery_compat_test.go` 'TestDiscovery_HitHasNoPrivateFields' (tasks 2.1)"
+
+  - id: discovery.contract-order-message-shape-is-fixed
+    title: "Message shape is fixed"
+    persona: guest
+    priority: P2
+    summary: "Message shape is fixed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Message shape is fixed (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/discovery_compat_test.go` 'TestDiscovery_ListingSalesChangedShape' (tasks 2.1)"
+
+  - id: discovery.contract-no-personal-or-order-fields
+    title: "No personal or order fields"
+    persona: guest
+    priority: P2
+    summary: "No personal or order fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "No personal or order fields (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/discovery_compat_test.go` 'TestDiscovery_ListingSalesChangedHasNoForbiddenFields' (tasks 2.1)"
+
+  - id: discovery.contract-round-trip-and-absolute-value-documentation
+    title: "Round trip and absolute-value documentation"
+    persona: guest
+    priority: P2
+    summary: "Round trip and absolute-value documentation"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Round trip and absolute-value documentation (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/discovery_compat_test.go` 'TestDiscovery_ListingSalesChangedRoundTrip' (tasks 2.1)"
+
+  - id: discovery.contract-order-topic-key-and-envelope-type-are-documented
+    title: "Topic, key and envelope type are documented"
+    persona: guest
+    priority: P2
+    summary: "Topic, key and envelope type are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Topic, key and envelope type are documented (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/discovery_compat_test.go` 'TestDiscovery_ListingSalesChangedTopicKeyTypeDocumented' (tasks 2.1)"
+
+  - id: discovery.contract-existing-order-messages-are-untouched
+    title: "Existing order messages are untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing order messages are untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing order messages are untouched (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/discovery_compat_test.go` 'TestDiscovery_OrderEventsUnchanged' (tasks 2.1)"
+
+  - id: discovery.contract-engagement-message-shape-is-fixed
+    title: "Message shape is fixed"
+    persona: guest
+    priority: P2
+    summary: "Message shape is fixed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Message shape is fixed (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/engagement/v1/discovery_compat_test.go` 'TestDiscovery_ListingRatingChangedShape' (tasks 2.1)"
+
+  - id: discovery.contract-no-reviewer-or-text-fields
+    title: "No reviewer or text fields"
+    persona: guest
+    priority: P2
+    summary: "No reviewer or text fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "No reviewer or text fields (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/engagement/v1/discovery_compat_test.go` 'TestDiscovery_ListingRatingChangedHasNoForbiddenFields' (tasks 2.1)"
+
+  - id: discovery.contract-last-review-hidden-leaves-zero
+    title: "Last review hidden leaves zero"
+    persona: guest
+    priority: P2
+    summary: "Last review hidden leaves zero"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Last review hidden leaves zero (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/engagement/v1/discovery_compat_test.go` 'TestDiscovery_ListingRatingChangedZeroReviews' (tasks 2.1)"
+
+  - id: discovery.contract-engagement-topic-key-and-envelope-type-are-documented
+    title: "Topic, key and envelope type are documented"
+    persona: guest
+    priority: P2
+    summary: "Topic, key and envelope type are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Topic, key and envelope type are documented (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/engagement/v1/discovery_compat_test.go` 'TestDiscovery_ListingRatingChangedTopicKeyTypeDocumented' (tasks 2.1)"
+
+  - id: discovery.contract-existing-review-events-are-untouched
+    title: "Existing review events are untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing review events are untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing review events are untouched (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/engagement/v1/discovery_compat_test.go` 'TestDiscovery_ReviewEventsUnchanged' (tasks 2.1)"
+
+  - id: discovery.contract-field-present-with-stable-number
+    title: "Field present with stable number"
+    persona: guest
+    priority: P2
+    summary: "Field present with stable number"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Field present with stable number (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/recommendation/v1/discovery_compat_test.go` 'TestDiscovery_ContextListingIdsIsSix' (tasks 2.1)"
+
+  - id: discovery.contract-old-request-reads-an-empty-context
+    title: "Old request reads an empty context"
+    persona: guest
+    priority: P2
+    summary: "Old request reads an empty context"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old request reads an empty context (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/recommendation/v1/discovery_compat_test.go` 'TestDiscovery_RecommendRequestWireCompatible' (tasks 2.1)"
+
+  - id: discovery.contract-the-50-id-cap-is-documented
+    title: "The 50-id cap is documented"
+    persona: guest
+    priority: P2
+    summary: "The 50-id cap is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The 50-id cap is documented (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/recommendation/v1/discovery_compat_test.go` 'TestDiscovery_ContextCapDocumented' (tasks 2.1)"
+
+  - id: discovery.contract-rpc-and-messages-present
+    title: "RPC and messages present"
+    persona: guest
+    priority: P2
+    summary: "RPC and messages present"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "RPC and messages present (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/discovery_compat_test.go` 'TestDiscovery_GetSearchPerformanceShape' (tasks 2.1)"
+
+  - id: discovery.contract-window-and-admin-semantics-are-documented
+    title: "Window and admin semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Window and admin semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Window and admin semantics are documented (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/discovery_compat_test.go` 'TestDiscovery_GetSearchPerformanceDocumented' (tasks 2.1)"
+
+  - id: discovery.contract-non-admin-caller-is-denied-at-the-gateway
+    title: "Non-admin caller is denied at the gateway"
+    persona: guest
+    priority: P2
+    summary: "Non-admin caller is denied at the gateway"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Non-admin caller is denied at the gateway (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `team-gateway/internal/edge/policy_test.go` 'TestPolicy_GetSearchPerformanceAdminOnly' (tasks 2.1)"
+
+  - id: discovery.contract-admin-procedure-set-includes-the-new-rpc
+    title: "Admin procedure set includes the new RPC"
+    persona: guest
+    priority: P2
+    summary: "Admin procedure set includes the new RPC"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Admin procedure set includes the new RPC (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `team-gateway/internal/edge/policy_test.go` 'TestAdminProceduresPinnedSet' (tasks 2.1)"
+
+  - id: discovery.contract-response-semantics-are-documented
+    title: "Response semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Response semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Response semantics are documented (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/discovery_compat_test.go` 'TestDiscovery_GetSearchPerformanceResponseDocumented' (tasks 2.1)"
+
+  - id: discovery.contract-lint-and-breaking-check-pass
+    title: "Lint and breaking check pass"
+    persona: guest
+    priority: P2
+    summary: "Lint and breaking check pass"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Lint and breaking check pass (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/discovery_seo_consumer_copies_test.sh` 'Discovery SEO contract: buf lint and breaking pass' (tasks 2.1)"
+
+  - id: discovery.contract-copies-match-the-source
+    title: "Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Copies match the source (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/discovery_seo_consumer_copies_test.sh` 'Discovery SEO contract: Copies match the source' (tasks 2.1)"
+
+  - id: discovery.contract-drifted-or-missing-copy-is-rejected
+    title: "Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Drifted or missing copy is rejected (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/discovery_seo_consumer_copies_test.sh` 'Discovery SEO contract: Drifted or missing copy is rejected' (tasks 2.1)"
+
+  - id: discovery.contract-renumbering-is-rejected
+    title: "Renumbering is rejected"
+    persona: guest
+    priority: P2
+    summary: "Renumbering is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Renumbering is rejected (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/discovery_seo_consumer_copies_test.sh` 'Discovery SEO contract: Renumbering is rejected' (tasks 2.1)"
+
+  - id: discovery.contract-consumer-protos-still-build
+    title: "Consumer protos still build"
+    persona: guest
+    priority: P2
+    summary: "Consumer protos still build"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Consumer protos still build (unit-verified)"
+    tags: [discovery-seo-contract, unit]
+    status: not-testable
+    notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/discovery_seo_consumer_copies_test.sh` 'Discovery SEO contract: Consumer protos build' (tasks 2.1)"
