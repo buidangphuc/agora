@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import re
+
 import grpc
 import pytest
 from llama_index.core.schema import NodeWithScore, TextNode
@@ -14,7 +16,8 @@ from app.transport.grpc._pb.platform.common.v1 import common_pb2
 from app.transport.grpc._pb.platform.search.v1 import search_pb2, search_pb2_grpc
 from app.transport.grpc.server import build_grpc_server
 from app.transport.grpc.servicers.search import search_service_registration
-from tests.factories import allow_all_limiter
+from app.core.config import get_settings
+from tests.factories import allow_all_limiter, build_test_settings
 
 
 def _md(*scopes: str):
@@ -169,3 +172,101 @@ async def test_other_rpcs_are_unimplemented() -> None:
         )
 
     assert error.code() == grpc.StatusCode.UNIMPLEMENTED
+
+
+async def test_sa_team_ai_search_sets_request_id_as_uuid4_hex() -> None:
+    async with _serving(FakeRag()) as stub:
+        reply = await stub.SearchListings(
+            search_pb2.SearchListingsRequest(query="tai nghe"),
+            metadata=_md("search:read"),
+        )
+
+    assert re.fullmatch(r"[0-9a-f]{32}", reply.request_id)
+    assert reply.request_id[12] == "4"
+    assert reply.request_id[16] in "89ab"
+
+
+async def test_sa_two_team_ai_calls_differ() -> None:
+    async with _serving(FakeRag()) as stub:
+        ids = {
+            (
+                await stub.SearchListings(
+                    search_pb2.SearchListingsRequest(query="tai nghe"),
+                    metadata=_md("search:read"),
+                )
+            ).request_id
+            for _ in range(20)
+        }
+
+    assert len(ids) == 20
+    assert "" not in ids
+
+
+def test_sa_search_ranker_version_setting_defaults_to_v1() -> None:
+    assert build_test_settings().SEARCH_RANKER_VERSION == "v1"
+
+
+async def test_sa_team_ai_search_model_version_defaults_to_semantic_v1(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SEARCH_RANKER_VERSION", raising=False)
+    get_settings.cache_clear()
+    try:
+        async with _serving(FakeRag()) as stub:
+            reply = await stub.SearchListings(
+                search_pb2.SearchListingsRequest(query="tai nghe"),
+                metadata=_md("search:read"),
+            )
+    finally:
+        get_settings.cache_clear()
+
+    assert reply.model_version == "semantic@v1"
+
+
+async def test_sa_team_ai_search_model_version_follows_ranker_setting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SEARCH_RANKER_VERSION", "v7")
+    get_settings.cache_clear()
+    try:
+        async with _serving(FakeRag()) as stub:
+            reply = await stub.SearchListings(
+                search_pb2.SearchListingsRequest(query="tai nghe"),
+                metadata=_md("search:read"),
+            )
+    finally:
+        get_settings.cache_clear()
+
+    assert reply.model_version == "semantic@v7"
+
+
+async def test_sa_store_failure_returns_no_attribution_fields() -> None:
+    rag = FakeRag(error=ServiceUnavailableError("qdrant down"))
+    async with _serving(rag) as stub:
+        error = await _fails(
+            stub.SearchListings(
+                search_pb2.SearchListingsRequest(query="a"),
+                metadata=_md("search:read"),
+            )
+        )
+
+    assert error.code() == grpc.StatusCode.UNAVAILABLE
+    assert error.details() == "service unavailable"
+    assert not any(
+        key in ("request_id", "model_version") for key, _ in error.trailing_metadata()
+    )
+
+
+async def test_sa_denied_scope_returns_no_attribution_fields() -> None:
+    async with _serving(FakeRag()) as stub:
+        error = await _fails(
+            stub.SearchListings(
+                search_pb2.SearchListingsRequest(query="a"),
+                metadata=_md("listing.read"),
+            )
+        )
+
+    assert error.code() == grpc.StatusCode.PERMISSION_DENIED
+    assert not any(
+        key in ("request_id", "model_version") for key, _ in error.trailing_metadata()
+    )
