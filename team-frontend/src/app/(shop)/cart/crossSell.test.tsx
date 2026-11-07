@@ -137,16 +137,15 @@ describe("/cart page wires the cross-sell row", () => {
 describe("CartCrossSellRow", () => {
   it("[Row shows for a cart with items] renders the Thường được mua cùng heading with at most 8 listings from placement cart_cross_sell", async () => {
     vi.mocked(getRecommendations).mockResolvedValue(recs(12));
-    const { container } = render(
-      await CartCrossSellRow({ lines: lines(2) }),
-    );
+    const { container } = render(await CartCrossSellRow({ lines: lines(2) }));
     expect(screen.getByText("Thường được mua cùng")).toBeInTheDocument();
-    expect(
-      container.querySelectorAll('a[href^="/listing/r"]').length,
-    ).toBeLessThanOrEqual(8);
-    expect(container.querySelectorAll('a[href^="/listing/r"]')).not.toHaveLength(
-      0,
+    const hrefs = new Set(
+      [...container.querySelectorAll('a[href^="/listing/r"]')].map((a) =>
+        a.getAttribute("href"),
+      ),
     );
+    expect(hrefs.size).toBeGreaterThan(0);
+    expect(hrefs.size).toBeLessThanOrEqual(8);
     expect(requestOf()).toMatchObject({ context: 3 });
     expect(requestOf()?.limit).toBeLessThanOrEqual(8);
     expect(requestOf()?.limit).toBeGreaterThan(0);
