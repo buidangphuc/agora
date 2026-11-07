@@ -18,6 +18,8 @@ Status: compose service `team-frontend-seller`, port `:3001`. Stack: React 19, T
 
 There is no `/admin` route and no link to the admin app.
 
+Every page is `noindex, nofollow` and titled `<page> | Agora` (`src/app/layout.tsx` metadata `robots` and title template).
+
 **Consumes**: only `team-gateway` (`GATEWAY_URL`) through `src/lib/gateway/*` (`server-only`, copied from `team-frontend`). Links to buyer pages (public listing, public shop, chat, home) go to the buyer app through `buyerAppUrl()` in `src/lib/apps.ts`.
 
 **Session** (`@fe-platform/session`, preset `seller`, `src/lib/session-config.ts`): cookies `seller_session` (access, 1 hour) and `seller_refresh` (refresh, 30 days), `httpOnly`, `sameSite=lax`, `path=/`, no `Domain`. On HTTPS (`X-Forwarded-Proto: https` or `COOKIE_SECURE=true`) both names carry the `__Host-` prefix and the `Secure` attribute. `src/middleware.ts` is `createSessionMiddleware` from the package: it refreshes an unusable access cookie once through the gateway, clears both cookies on `Unauthenticated`/`PermissionDenied`, and renders anonymous on a transient failure. The buyer app keeps `session`/`agora_refresh`, so the two apps never overwrite each other's cookies on the same host.
