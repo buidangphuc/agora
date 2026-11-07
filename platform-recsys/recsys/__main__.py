@@ -10,6 +10,9 @@ stale or missing dataset.
 
 ``python -m recsys rollback`` restores the previous generation instead of training: exit 0 on
 success, 2 (nothing changed) when there is no previous generation to restore.
+
+``python -m recsys backfill-attributes`` adds seller_id, category_id and visible to the serving and
+previous generations in place: exit 0 on success, 2 (nothing written) when the snapshot is missing or corrupt.
 """
 
 from __future__ import annotations
@@ -54,6 +57,12 @@ def _rollback(settings) -> int:
     return 0
 
 
+def _backfill_attributes(settings) -> int:
+    from .backfill import backfill  # noqa: PLC0415
+
+    return backfill(settings)
+
+
 def _migrate_registry(settings) -> int:
     from .load import redis_cache  # noqa: PLC0415
     from .migrate import migrate  # noqa: PLC0415
@@ -90,9 +99,13 @@ def main(argv: list[str] | None = None) -> int:
         return _rollback(settings)
     if argv and argv[0] == "migrate-registry":
         return _migrate_registry(settings)
+    if argv and argv[0] == "backfill-attributes":
+        return _backfill_attributes(settings)
     if argv:
         logging.getLogger("recsys").error(
-            "unknown command %r (only 'rollback' and 'migrate-registry' are supported)", argv[0]
+            "unknown command %r (only 'rollback', 'migrate-registry' and 'backfill-attributes' "
+            "are supported)",
+            argv[0],
         )
         return EXIT_REFUSED
     try:

@@ -18,6 +18,7 @@ import logging
 
 from . import registry_client
 from .config import Settings
+from .load import attributes as attributes_load
 from .load import qdrant as qdrant_load
 from .load import redis_cache
 
@@ -53,16 +54,25 @@ def publish_generation(
     if qdrant_client is None:
         qdrant_client = qdrant_load._connect(settings)
 
+    attributes = attributes_load.load_attributes(settings)
+
     cache_counts = redis_cache.load_cache(
-        settings, model_version, user_recs, item_recs, popular, client=redis_client, legacy=False
+        settings,
+        model_version,
+        user_recs,
+        item_recs,
+        popular,
+        client=redis_client,
+        legacy=False,
+        attributes=attributes,
     )
     qdrant_counts = qdrant_load.load_vectors(
-        settings, model_version, item_rows, user_rows, client=qdrant_client
+        settings, model_version, item_rows, user_rows, client=qdrant_client, attributes=attributes
     )
     two_tower_items = None
     if two_tower_vectors is not None:
         two_tower_items = qdrant_load.load_two_tower_vectors(
-            settings, model_version, two_tower_vectors, client=qdrant_client
+            settings, model_version, two_tower_vectors, client=qdrant_client, attributes=attributes
         )
 
     ranker_key = None
@@ -70,7 +80,9 @@ def publish_generation(
         ranker_key = redis_cache.load_ranker(settings, model_version, ranker_artifact, client=redis_client)
 
     qdrant_load.activate_aliases(settings, model_version, client=qdrant_client)
-    redis_cache.load_legacy_cache(settings, user_recs, item_recs, popular, client=redis_client)
+    redis_cache.load_legacy_cache(
+        settings, user_recs, item_recs, popular, client=redis_client, attributes=attributes
+    )
     replaced = redis_cache.activate_generation(settings, model_version, client=redis_client)
 
     serving, previous = redis_cache.pointers(settings, redis_client)

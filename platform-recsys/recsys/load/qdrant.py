@@ -1,5 +1,9 @@
 """Upsert ALS and Two-Tower factors into Qdrant (:6333).
 
+Item points carry ``listing_id``, ``model_version``, ``updated_at`` and, when the ``item_attributes@v2``
+snapshot knows them, ``seller_id``, ``category_id`` and ``visible`` (an unknown one is absent, never empty).
+User points carry no attributes.
+
 Names (recsys-generations):
 - ``item_als_vectors`` / ``user_als_vectors`` are ALIASES, a deprecated compatibility shim for
   readers that predate pointer-resolved collections (serving-switch-atomicity). team-ai now names
@@ -102,19 +106,20 @@ def _ensure_collection(client, name: str, dim: int) -> None:
     )
 
 
-def _upsert(client, name: str, rows, id_field: str, model_version: str, updated_at: str) -> int:
-    """rows: iterable of (source_id, normalized_vector). Returns count upserted."""
+def _upsert(
+    client, name: str, rows, id_field: str, model_version: str, updated_at: str, attributes=None
+) -> int:
+    """rows: iterable of (source_id, normalized_vector). Returns count upserted.
+
+    ``attributes`` ({source_id: {seller_id?, category_id?, visible?}}) is merged into each payload."""
     models = _get_models()
     points = []
     count = 0
     for source_id, vector in rows:
-        points.append(
-            models.PointStruct(
-                id=point_id(source_id),
-                vector=list(vector),
-                payload={id_field: source_id, "model_version": model_version, "updated_at": updated_at},
-            )
-        )
+        payload = {id_field: source_id, "model_version": model_version, "updated_at": updated_at}
+        if attributes:
+            payload.update(attributes.get(source_id, {}))
+        points.append(models.PointStruct(id=point_id(source_id), vector=list(vector), payload=payload))
         count += 1
         if len(points) >= 256:
             client.upsert(collection_name=name, points=points)
@@ -227,6 +232,7 @@ def load_vectors(
     item_rows,
     user_rows,
     client=None,
+    attributes=None,
 ) -> dict[str, int]:
     """Write the generation's item + user factors into its own fresh collections.
 
@@ -247,7 +253,7 @@ def load_vectors(
     _fresh_collection(client, item_coll, dim)
     _fresh_collection(client, user_coll, dim)
 
-    n_items = _upsert(client, item_coll, item_rows, "listing_id", model_version, updated_at)
+    n_items = _upsert(client, item_coll, item_rows, "listing_id", model_version, updated_at, attributes)
     n_users = _upsert(client, user_coll, user_rows, "user_key", model_version, updated_at)
 
     return {"items": n_items, "users": n_users, "legacy_migrated": sum(migrated)}
@@ -310,6 +316,7 @@ def load_two_tower_vectors(
     model_version: str,
     item_vectors: dict[str, list[float]],
     client=None,
+    attributes=None,
 ) -> int:
     """Write the generation's two-tower item vectors into their own fresh collection.
 
@@ -331,4 +338,5 @@ def load_two_tower_vectors(
         "listing_id",
         model_version,
         updated_at,
+        attributes,
     )

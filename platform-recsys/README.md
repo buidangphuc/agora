@@ -41,12 +41,12 @@ copied from the manifest (`sha256` is the manifest's `file_sha256`), and the run
 
 | Store | Name | Content |
 |---|---|---|
-| Qdrant | `item_als_vectors__<model_version>` | One generation's L2-normalised item factors, cosine, dim = `ALS_RANK`. Payload `listing_id`, `model_version`, `updated_at`. Created fresh by each publish. |
+| Qdrant | `item_als_vectors__<model_version>` | One generation's L2-normalised item factors, cosine, dim = `ALS_RANK`. Payload `listing_id`, `model_version`, `updated_at` plus, when the `item_attributes@v2` snapshot knows them, `seller_id`, `category_id` and `visible` (`status == LISTING_STATUS_PUBLISHED`; an unknown attribute is absent, a value over 128 characters counts as unknown). The two-tower item collection carries the same. User points carry none. Created fresh by each publish. |
 | Qdrant | `user_als_vectors__<model_version>` | Same for users; payload `user_key`. |
 | Qdrant | alias `QDRANT_ITEM_COLLECTION` (`item_als_vectors`) | Alias, not a collection: points at the serving generation's item collection. Deprecated compatibility shim (serving-switch-atomicity): team-ai names `<alias>__<recs:v1:serving>` itself, so one pointer decides Redis and Qdrant; the alias is only for readers that predate that and for a deployment with no pointer yet. |
 | Qdrant | alias `QDRANT_USER_COLLECTION` (`user_als_vectors`) | Same for users. |
 | Qdrant | `item_two_tower_vectors__<model_version>` (`QDRANT_TWO_TOWER_COLLECTION` + `__` + generation) | Only when `ENABLE_TWO_TOWER=true`: L2-normalised item vectors, dim `TWO_TOWER_DIM`, written with the generation before the switch, retired with it, no alias (name it from `recs:v1:serving`). Needs the `item_popularity@v1` and `user_activity@v2` featurestore snapshots under `/features` (else exit 2). Also reads `item_attributes@v1` (category, price; attribute-only listings join the catalogue) and `user_preferences@v1` (preferred categories) when present; `TWO_TOWER_REQUIRE_ATTRIBUTES=true` makes a missing item snapshot exit 2. |
-| Redis | `recs:v1:gen:<model_version>:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N` |
+| Redis | `recs:v1:gen:<model_version>:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N`; each entry also carries the `seller_id` / `category_id` / `visible` it has in the `item_attributes@v2` snapshot (same for the item, popular and legacy `recs:v1:*` entries) |
 | Redis | `recs:v1:gen:<model_version>:item:{listing_id}` | Similar items, same shape |
 | Redis | `recs:v1:gen:<model_version>:popular` | Popularity fallback (summed weight), same shape |
 | Redis | `recs:v1:gen:<model_version>:ranker` | Only when `ENABLE_GBDT=true` and the GBDT candidate was promoted: the trained ranker as JSON (`agora-gbdt/1`: feature list, defaults, trees, learning rate, metrics), written before the switch, TTL-refreshed and retired with its generation. A rejected candidate leaves the generation without one. Format and loader contract: change `recsys-gbdt-trainer` design D7. |
@@ -146,6 +146,8 @@ than `TOP_N` gives every user the same list, so it trips the overlap check; lowe
 A crash before step 2 leaves serving as it was. The first publish on a deployment with plain
 `item_als_vectors` / `user_als_vectors` collections copies them to `<name>__legacy`, deletes them and
 lets the aliases take the names; retention drops `__legacy` after the first switch.
+
+**Candidate attributes**: a publish reads the latest `as_of=<stamp>.parquet` under `ITEM_ATTRIBUTES_V2_DIR` (default `/features/item_attributes/v2`; `ITEM_ATTRIBUTES_V2_PATH` names one file and wins) and writes `seller_id`, `category_id` and `visible` into the item points and the Redis entries. A missing or corrupt snapshot is logged as `attributes=missing` and the publish continues with the old shape; a snapshot older than 24 hours is used with one warning naming its `as_of`. `in_stock` is never written. `python -m recsys backfill-attributes` patches the serving and previous generations in place (Qdrant `set_payload` in batches of 256, Redis entries rewritten with their remaining TTL, legacy keys included): exit 0, 2 with nothing written when the snapshot is missing or corrupt, 1 when Redis or Qdrant fails; no serving generation is exit 0 with no writes.
 
 **Rollback** (registry first): `python -m recsys rollback` checks its preconditions before moving anything
 (a previous generation with Redis keys and Qdrant collections, a `previous` registry version with an artifact for every
