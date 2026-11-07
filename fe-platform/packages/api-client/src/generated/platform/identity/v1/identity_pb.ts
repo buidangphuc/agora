@@ -417,6 +417,17 @@ export class RegisterRequest extends Message<RegisterRequest> {
    */
   role = "";
 
+  /**
+   * Optional referral code, accepted on the public Register RPC (no principal;
+   * the code grants no role or access). An empty, unknown or self-owned code
+   * never fails Register. The value is trimmed and at most 32 chars of
+   * [A-Za-z0-9_-] after the trim, case kept; an out-of-bounds value is treated
+   * as empty, never an error, and is never echoed back or logged raw.
+   *
+   * @generated from field: string referral_code = 4;
+   */
+  referralCode = "";
+
   constructor(data?: PartialMessage<RegisterRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -428,6 +439,7 @@ export class RegisterRequest extends Message<RegisterRequest> {
     { no: 1, name: "username", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "password", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "role", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "referral_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RegisterRequest {
@@ -444,6 +456,80 @@ export class RegisterRequest extends Message<RegisterRequest> {
 
   static equals(a: RegisterRequest | PlainMessage<RegisterRequest> | undefined, b: RegisterRequest | PlainMessage<RegisterRequest> | undefined): boolean {
     return proto3.util.equals(RegisterRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.GetMyAccountRequest
+ */
+export class GetMyAccountRequest extends Message<GetMyAccountRequest> {
+  constructor(data?: PartialMessage<GetMyAccountRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.GetMyAccountRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetMyAccountRequest {
+    return new GetMyAccountRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetMyAccountRequest {
+    return new GetMyAccountRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetMyAccountRequest {
+    return new GetMyAccountRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetMyAccountRequest | PlainMessage<GetMyAccountRequest> | undefined, b: GetMyAccountRequest | PlainMessage<GetMyAccountRequest> | undefined): boolean {
+    return proto3.util.equals(GetMyAccountRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.GetMyAccountResponse
+ */
+export class GetMyAccountResponse extends Message<GetMyAccountResponse> {
+  /**
+   * @generated from field: string user_id = 1;
+   */
+  userId = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 2;
+   */
+  createdAt?: Timestamp;
+
+  constructor(data?: PartialMessage<GetMyAccountResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.GetMyAccountResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "created_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetMyAccountResponse {
+    return new GetMyAccountResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetMyAccountResponse {
+    return new GetMyAccountResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetMyAccountResponse {
+    return new GetMyAccountResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetMyAccountResponse | PlainMessage<GetMyAccountResponse> | undefined, b: GetMyAccountResponse | PlainMessage<GetMyAccountResponse> | undefined): boolean {
+    return proto3.util.equals(GetMyAccountResponse, a, b);
   }
 }
 
@@ -2399,6 +2485,62 @@ export class UserRoleGranted extends Message<UserRoleGranted> {
 
   static equals(a: UserRoleGranted | PlainMessage<UserRoleGranted> | undefined, b: UserRoleGranted | PlainMessage<UserRoleGranted> | undefined): boolean {
     return proto3.util.equals(UserRoleGranted, a, b);
+  }
+}
+
+/**
+ * UserRegistered is an internal-only event (never exposed at the gateway)
+ * published on Kafka topic `identity.events` (key = user id, wrapped in
+ * platform.events.v1.EventEnvelope with type "platform.identity.v1.UserRegistered")
+ * through the identity outbox in the same transaction as the user row, once per
+ * registration. referral_code is empty when none was supplied. Consumers
+ * (team-referral, team-promotion) must be idempotent on the event id.
+ *
+ * @generated from message platform.identity.v1.UserRegistered
+ */
+export class UserRegistered extends Message<UserRegistered> {
+  /**
+   * @generated from field: string user_id = 1;
+   */
+  userId = "";
+
+  /**
+   * @generated from field: string referral_code = 2;
+   */
+  referralCode = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp registered_at = 3;
+   */
+  registeredAt?: Timestamp;
+
+  constructor(data?: PartialMessage<UserRegistered>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.UserRegistered";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "referral_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "registered_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UserRegistered {
+    return new UserRegistered().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UserRegistered {
+    return new UserRegistered().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UserRegistered {
+    return new UserRegistered().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UserRegistered | PlainMessage<UserRegistered> | undefined, b: UserRegistered | PlainMessage<UserRegistered> | undefined): boolean {
+    return proto3.util.equals(UserRegistered, a, b);
   }
 }
 

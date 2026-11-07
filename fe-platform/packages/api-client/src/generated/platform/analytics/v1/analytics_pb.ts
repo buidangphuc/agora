@@ -1421,6 +1421,98 @@ export class GetRecommendationPerformanceRequest extends Message<GetRecommendati
 }
 
 /**
+ * @generated from message platform.analytics.v1.GetSearchPerformanceRequest
+ */
+export class GetSearchPerformanceRequest extends Message<GetSearchPerformanceRequest> {
+  /**
+   * Trailing window in hours: 0 = 24, otherwise 1..168; values above 168 are rejected with INVALID_ARGUMENT.
+   *
+   * @generated from field: uint32 window_hours = 1;
+   */
+  windowHours = 0;
+
+  constructor(data?: PartialMessage<GetSearchPerformanceRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.GetSearchPerformanceRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "window_hours", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetSearchPerformanceRequest {
+    return new GetSearchPerformanceRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetSearchPerformanceRequest {
+    return new GetSearchPerformanceRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetSearchPerformanceRequest {
+    return new GetSearchPerformanceRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetSearchPerformanceRequest | PlainMessage<GetSearchPerformanceRequest> | undefined, b: GetSearchPerformanceRequest | PlainMessage<GetSearchPerformanceRequest> | undefined): boolean {
+    return proto3.util.equals(GetSearchPerformanceRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.analytics.v1.GetSearchPerformanceResponse
+ */
+export class GetSearchPerformanceResponse extends Message<GetSearchPerformanceResponse> {
+  /**
+   * rows is empty when the window has no search impressions.
+   *
+   * @generated from field: repeated platform.analytics.v1.RecommendationPerformanceRow rows = 1;
+   */
+  rows: RecommendationPerformanceRow[] = [];
+
+  /**
+   * @generated from field: uint32 window_hours = 2;
+   */
+  windowHours = 0;
+
+  /**
+   * attribution_window_hours is the attribution window used for purchases.
+   *
+   * @generated from field: uint32 attribution_window_hours = 3;
+   */
+  attributionWindowHours = 0;
+
+  constructor(data?: PartialMessage<GetSearchPerformanceResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.GetSearchPerformanceResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "rows", kind: "message", T: RecommendationPerformanceRow, repeated: true },
+    { no: 2, name: "window_hours", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 3, name: "attribution_window_hours", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetSearchPerformanceResponse {
+    return new GetSearchPerformanceResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetSearchPerformanceResponse {
+    return new GetSearchPerformanceResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetSearchPerformanceResponse {
+    return new GetSearchPerformanceResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetSearchPerformanceResponse | PlainMessage<GetSearchPerformanceResponse> | undefined, b: GetSearchPerformanceResponse | PlainMessage<GetSearchPerformanceResponse> | undefined): boolean {
+    return proto3.util.equals(GetSearchPerformanceResponse, a, b);
+  }
+}
+
+/**
  * @generated from message platform.analytics.v1.RecommendationPerformanceRow
  */
 export class RecommendationPerformanceRow extends Message<RecommendationPerformanceRow> {
