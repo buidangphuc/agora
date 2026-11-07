@@ -3,7 +3,7 @@
 A generation is one ``model_version``. Its keys are scoped to it and never overwrite another
 generation's (recsys-generations):
 
-- ``recs:v1:gen:<gen>:user:{user_key}``    → ranked ``[{listing_id, score}, ...]`` (JSON), capped at TOP_N
+- ``recs:v1:gen:<gen>:user:{user_key}``    → ranked ``[{listing_id, score, ...}, ...]``, capped at TOP_N
 - ``recs:v1:gen:<gen>:item:{listing_id}``  → precomputed similar items (same shape)
 - ``recs:v1:gen:<gen>:popular``            → global popularity fallback list (same shape)
 - ``recs:v1:gen:<gen>:ranker``             → the GBDT ranker artifact (JSON ``agora-gbdt/1``), if promoted
@@ -17,8 +17,9 @@ Pointers (no TTL), moved together by ONE Lua script so readers never see them di
 Generation keys carry a TTL longer than the batch cadence; the job refreshes the TTL of the
 serving and previous generations on every run so a rollback never lands on expired keys.
 With ``RECS_WRITE_LEGACY_KEYS`` (default true) the unscoped ``recs:v1:{user,item,popular}`` keys
-are written too, as a one-release shim for a reverted team-ai. Values hold listing ids + scores
-only — no hydrated listing content (Rule 3).
+are written too, as a one-release shim for a reverted team-ai. Each entry is ``{listing_id, score}`` plus,
+when the ``item_attributes@v2`` snapshot knows them, up to three scalar keys (``seller_id``, ``category_id``,
+``visible``): ids and one flag, never hydrated listing content (Rule 3). An unknown attribute is absent.
 """
 
 from __future__ import annotations
@@ -77,8 +78,15 @@ def connect(settings):
     )
 
 
-def _encode(pairs) -> str:
-    return json.dumps([{"listing_id": lid, "score": round(float(score), 6)} for lid, score in pairs])
+def _entry(listing_id, score, attributes) -> dict:
+    entry = {"listing_id": listing_id, "score": score}
+    if attributes:
+        entry.update(attributes.get(listing_id, {}))
+    return entry
+
+
+def _encode(pairs, attributes=None) -> str:
+    return json.dumps([_entry(lid, round(float(score), 6), attributes) for lid, score in pairs])
 
 
 def _text(value) -> str | None:
@@ -95,6 +103,7 @@ def load_cache(
     popular: list[tuple[str, float]],
     client=None,
     legacy: bool = True,
+    attributes=None,
 ) -> dict[str, int]:
     """Write the generation's per-user, per-item and popular keys. Returns counts.
 
@@ -111,18 +120,18 @@ def load_cache(
 
     pipe = client.pipeline()
     for user_key, pairs in user_recs.items():
-        body = _encode(pairs[: settings.top_n])
+        body = _encode(pairs[: settings.top_n], attributes)
         pipe.set(settings.gen_user_key(model_version, user_key), body, ex=ttl)
         if write_legacy:
             pipe.set(settings.user_cache_key(user_key), body, ex=ttl)
         n_users += 1
     for listing_id, pairs in item_recs.items():
-        body = _encode(pairs[: settings.top_n])
+        body = _encode(pairs[: settings.top_n], attributes)
         pipe.set(settings.gen_item_key(model_version, listing_id), body, ex=ttl)
         if write_legacy:
             pipe.set(settings.item_cache_key(listing_id), body, ex=ttl)
         n_items += 1
-    popular_body = _encode(popular[: settings.top_n])
+    popular_body = _encode(popular[: settings.top_n], attributes)
     pipe.set(settings.gen_popular_key(model_version), popular_body, ex=ttl)
     if write_legacy:
         pipe.set(settings.popular_cache_key, popular_body, ex=ttl)
@@ -137,6 +146,7 @@ def load_legacy_cache(
     item_recs: dict[str, list[tuple[str, float]]],
     popular: list[tuple[str, float]],
     client=None,
+    attributes=None,
 ) -> None:
     """Write the unscoped compatibility keys (a no-op with RECS_WRITE_LEGACY_KEYS off). Old readers see
     them live, so a publish writes them at the switch and not while the generation is still invisible."""
@@ -147,10 +157,10 @@ def load_legacy_cache(
     ttl = settings.cache_ttl_seconds
     pipe = client.pipeline()
     for user_key, pairs in user_recs.items():
-        pipe.set(settings.user_cache_key(user_key), _encode(pairs[: settings.top_n]), ex=ttl)
+        pipe.set(settings.user_cache_key(user_key), _encode(pairs[: settings.top_n], attributes), ex=ttl)
     for listing_id, pairs in item_recs.items():
-        pipe.set(settings.item_cache_key(listing_id), _encode(pairs[: settings.top_n]), ex=ttl)
-    pipe.set(settings.popular_cache_key, _encode(popular[: settings.top_n]), ex=ttl)
+        pipe.set(settings.item_cache_key(listing_id), _encode(pairs[: settings.top_n], attributes), ex=ttl)
+    pipe.set(settings.popular_cache_key, _encode(popular[: settings.top_n], attributes), ex=ttl)
     pipe.execute()
 
 

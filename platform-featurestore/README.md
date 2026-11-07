@@ -21,11 +21,15 @@ are empty and the job warns; with it but without `category_id` or `price` the jo
 | `item_popularity@v1` | `listing_id` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `review_count`, `avg_rating`, `ctr_7d` |
 | `item_popularity@v2` | `listing_id` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `review_count`, `avg_rating`, `ctr_7d` (reviews with a `hide` moderation decision are excluded from `review_count` and `avg_rating`) |
 | `item_attributes@v1` | `listing_id` | `seller_id`, `category_id` (strings), `price` (int, minor units); null when unknown |
+| `item_attributes@v2` | `listing_id` | `seller_id`, `category_id`, `price` as v1, plus `status` (string, the `ListingStatus` enum name such as `LISTING_STATUS_PUBLISHED`); null when unknown |
 | `user_preferences@v1` | `user_key` | `preferred_categories`: up to three category ids, comma-joined |
 
 `item_attributes@v1` is the latest recorded change of each listing with `updated_at <= AS_OF` (a listing edited later is
 absent from that snapshot). `user_preferences@v1` ranks categories by the user's views (1), clicks (2) and add-to-carts (5) on
 listings with a known category in `(AS_OF - 30d, AS_OF]`, weight descending then name; users with none have no row.
+`item_attributes@v2` adds `status`, read from an optional `status` column of `listing_sellers.parquet`. When the column is
+absent the job still succeeds, `status` is null for every listing and a warning naming `status` goes to stderr;
+`LISTING_STATUS_UNSPECIFIED` and unrecognised names are written as null. `fs:item_attributes:current` is 2; v1 keys stay readable.
 Feature types are `int`, `float` and `string`.
 
 `paid_orders_30d` is the number of distinct paid orders (`order_facts.status = 'PAID'`) whose `buyer_id` is the user,
