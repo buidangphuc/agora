@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
-
-import re
 
 import grpc
 import pytest
 from llama_index.core.schema import NodeWithScore, TextNode
 
+from app.core.config import get_settings
 from app.core.errors import ServiceUnavailableError
 from app.transport.grpc._pb.platform.common.v1 import common_pb2
 from app.transport.grpc._pb.platform.search.v1 import search_pb2, search_pb2_grpc
 from app.transport.grpc.server import build_grpc_server
 from app.transport.grpc.servicers.search import search_service_registration
-from app.core.config import get_settings
 from tests.factories import allow_all_limiter, build_test_settings
 
 
