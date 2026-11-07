@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -93,7 +92,7 @@ func applySalesDeltas(ctx context.Context, tx pgx.Tx, ob *outbox.Store, build Li
 			return fmt.Errorf("init listing sales %q: %w", d.listingID, err)
 		}
 		var old int64
-		if err := tx.QueryRow(ctx, `SELECT sold_count FROM listing_sales WHERE listing_id = $1 FOR UPDATE`, d.listingID).Scan(&old); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err := tx.QueryRow(ctx, `SELECT sold_count FROM listing_sales WHERE listing_id = $1 FOR UPDATE`, d.listingID).Scan(&old); err != nil {
 			return fmt.Errorf("lock listing sales %q: %w", d.listingID, err)
 		}
 		next := max(old+sign*d.quantity, 0)
