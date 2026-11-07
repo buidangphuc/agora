@@ -2,8 +2,10 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -77,16 +79,33 @@ func RunIndexer(ctx context.Context, s config.IndexerSettings) (err error) {
 		return fmt.Errorf("fingerprinter: %w", err)
 	}
 
-	client, err := kafkax.NewConsumerClient(s.Kafka, s.Events.ConsumerGroup, []string{s.Events.ListingTopic})
-	if err != nil {
-		return fmt.Errorf("kafka consumer client: %w", err)
+	type source struct {
+		topic   string
+		handler consume.Handler
 	}
-	stack.Push(func(context.Context) error { client.Close(); return nil })
-
-	handler := events.NewListingEventHandler(idx, embed, classifier)
-	cons, err := newIndexerConsumer(client, handler, dlq, s.Events.ListingTopic, fp, logger)
-	if err != nil {
-		return err
+	sources := []source{
+		{s.Events.ListingTopic, events.NewListingEventHandler(idx, embed, classifier)},
+		{s.Events.OrderTopic, events.NewListingSalesHandler(idx)},
+		{s.Events.EngagementTopic, events.NewListingRatingHandler(idx)},
+	}
+	runners := make([]lifecycle.Component, 0, len(sources)+1)
+	for _, src := range sources {
+		if strings.TrimSpace(src.topic) == "" {
+			return errors.New("kafka topic is empty: set KAFKA_LISTING_TOPIC, KAFKA_ORDER_TOPIC and KAFKA_ENGAGEMENT_TOPIC")
+		}
+		client, err := kafkax.NewConsumerClient(s.Kafka, s.Events.ConsumerGroup, []string{src.topic},
+			kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+			kgo.AllowAutoTopicCreation(),
+		)
+		if err != nil {
+			return fmt.Errorf("kafka consumer client for %s: %w", src.topic, err)
+		}
+		stack.Push(func(context.Context) error { client.Close(); return nil })
+		cons, err := newIndexerConsumer(client, src.handler, dlq, src.topic, fp, logger)
+		if err != nil {
+			return err
+		}
+		runners = append(runners, cons)
 	}
 
 	purge, err := lifecycle.Every(s.Tombstone.PurgeInterval, func(ctx context.Context) error {
@@ -97,7 +116,7 @@ func RunIndexer(ctx context.Context, s config.IndexerSettings) (err error) {
 	}
 
 	logger.InfoContext(ctx, "indexer consuming",
-		"topic", s.Events.ListingTopic,
+		"topics", []string{s.Events.ListingTopic, s.Events.OrderTopic, s.Events.EngagementTopic},
 		"group", s.Events.ConsumerGroup,
 		"opensearch_index", s.OpenSearch.Index,
 	)
@@ -105,7 +124,7 @@ func RunIndexer(ctx context.Context, s config.IndexerSettings) (err error) {
 		ShutdownGrace: s.ShutdownGrace,
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, cons, purge)
+	}, append(runners, purge)...)
 }
 
 func newIndexerConsumer(client *kgo.Client, h consume.Handler, dlq consume.DLQProducer, topic string, fp *kafkax.Fingerprinter, logger *slog.Logger) (*consume.Consumer, error) {

@@ -15,6 +15,7 @@ type mockIndex struct {
 	docs          []index.ListingDoc
 	lastMinRating int32
 	lastFilters   map[string]string
+	lastSort      searchv1.SortBy
 	searchCalls   int
 }
 
@@ -31,8 +32,13 @@ func (m *mockIndex) PartialUpdate(_ context.Context, _ string, _ map[string]inte
 func (m *mockIndex) Delete(_ context.Context, _ string, _ int64) error         { return nil }
 func (m *mockIndex) PurgeTombstones(context.Context, time.Time) (int64, error) { return 0, nil }
 func (m *mockIndex) UpdateStock(context.Context, string, int32, int64) error   { return nil }
-func (m *mockIndex) Search(_ context.Context, _ string, filters map[string]string, _ string, _, _ int64, minRating int32, _ searchv1.SortBy, _, _ int) (index.SearchResult, error) {
+func (m *mockIndex) UpdateSales(context.Context, string, int64, int64) error   { return nil }
+func (m *mockIndex) UpdateRating(context.Context, string, float64, int64, int64) error {
+	return nil
+}
+func (m *mockIndex) Search(_ context.Context, _ string, filters map[string]string, _ string, _, _ int64, minRating int32, sortBy searchv1.SortBy, _, _ int) (index.SearchResult, error) {
 	m.lastMinRating = minRating
+	m.lastSort = sortBy
 	m.lastFilters = filters
 	m.searchCalls++
 	return index.SearchResult{
@@ -99,8 +105,8 @@ func TestSearchHandler(t *testing.T) {
 		if len(f.GetPriceRanges()) != 2 || f.GetPriceRanges()[0].GetKey() != "0-100000" {
 			t.Errorf("price_ranges facet mismatch: %+v", f.GetPriceRanges())
 		}
-		if f.GetRatings() == nil || len(f.GetRatings()) != 0 {
-			t.Errorf("ratings facet must be an empty list (D9): %+v", f.GetRatings())
+		if r := f.GetRatings(); len(r) != 2 || r[0].GetKey() != "4" || r[0].GetCount() != 2 || r[1].GetKey() != "3" || r[1].GetCount() != 2 {
+			t.Errorf("ratings facet must carry the index buckets 4 and 3 (BR-18): %+v", r)
 		}
 		if len(f.GetSellers()) != 1 || f.GetSellers()[0].GetKey() != "seller_1" {
 			t.Errorf("sellers facet mismatch: %+v", f.GetSellers())

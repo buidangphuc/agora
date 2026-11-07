@@ -26,6 +26,8 @@ const (
 	maxPageSize     = 50
 	defaultSuggest  = 5
 	maxSuggest      = 20
+	maxMinRating    = 5
+	filterMinRating = "min_rating"
 
 	defaultRankerVersion = "v1"
 
@@ -97,8 +99,8 @@ func (h *Handler) SearchListings(ctx context.Context, req *searchv1.SearchListin
 	if err != nil {
 		return nil, err
 	}
-	if req.GetMinRating() != 0 {
-		return nil, status.Error(codes.InvalidArgument, "min_rating is not supported: no rating is indexed")
+	if err := validMinRating(req.GetMinRating()); err != nil {
+		return nil, err
 	}
 	filters, err := effectiveFilters(p, req.GetFilters())
 	if err != nil {
@@ -117,6 +119,7 @@ func (h *Handler) SearchListings(ctx context.Context, req *searchv1.SearchListin
 			CategoryID: req.GetCategoryId(),
 			MinPrice:   req.GetMinPrice(),
 			MaxPrice:   req.GetMaxPrice(),
+			MinRating:  req.GetMinRating(),
 			SortBy:     req.GetSortBy(),
 			SearchMode: req.GetSearchMode(),
 			From:       from,
@@ -127,7 +130,7 @@ func (h *Handler) SearchListings(ctx context.Context, req *searchv1.SearchListin
 			modelVersion += "+rerank"
 		}
 	} else {
-		res, err = h.idx.Search(ctx, req.GetQuery(), filters, req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), 0, req.GetSortBy(), from, size)
+		res, err = h.idx.Search(ctx, req.GetQuery(), filters, req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), req.GetMinRating(), req.GetSortBy(), from, size)
 	}
 	if err != nil {
 		return nil, h.fail(ctx, err)
@@ -178,14 +181,24 @@ func toWireHit(hit index.Hit) *searchv1.SearchHit {
 		v := *hit.Stock
 		out.Stock = &v
 	}
+	out.SoldCount = hit.SoldCount
+	out.RatingAvg = hit.RatingAvg
+	out.ReviewCount = hit.ReviewCount
 	return out
+}
+
+func validMinRating(v int32) error {
+	if v < 0 || v > maxMinRating {
+		return status.Error(codes.InvalidArgument, "min_rating must be between 0 and 5")
+	}
+	return nil
 }
 
 func toFacets(f index.Facets) *searchv1.Facets {
 	return &searchv1.Facets{
 		Categories:  toFacetBuckets(f.Categories),
 		PriceRanges: toFacetBuckets(f.PriceRanges),
-		Ratings:     []*searchv1.FacetBucket{},
+		Ratings:     toFacetBuckets(f.Ratings),
 		Sellers:     toFacetBuckets(f.Sellers),
 		Tags:        toAttributeFacets(f.Tags),
 		Skus:        toAttributeFacets(f.SKUs),

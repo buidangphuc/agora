@@ -77,7 +77,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 	}
 
 	// 1. Pure Lexical Mode
-	if mode == searchv1.SearchMode_SEARCH_MODE_LEXICAL || strings.TrimSpace(params.Query) == "" {
+	if mode == searchv1.SearchMode_SEARCH_MODE_LEXICAL || strings.TrimSpace(params.Query) == "" || params.SortBy == searchv1.SortBy_SORT_BY_BEST_SELLING {
 		res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
 		return res, ModeLexical, false, err
 	}
@@ -334,6 +334,14 @@ func (e *Engine) facetsFor(ctx context.Context, ids []string, params SearchParam
 	if err != nil {
 		log.Printf("[retrieval] facets for fused candidates: %v, keeping leg facets", err)
 		return fallback
+	}
+	if rc, ok := e.idx.(index.RatingFloorCounter); ok && params.MinRating > 0 {
+		ratings, err := rc.RatingFloors(ctx, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice)
+		if err != nil {
+			log.Printf("[retrieval] rating floors: %v, keeping candidate ratings", err)
+		} else {
+			f.Ratings = ratings
+		}
 	}
 	return f
 }

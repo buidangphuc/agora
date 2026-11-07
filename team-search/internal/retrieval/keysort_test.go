@@ -52,3 +52,29 @@ func TestEngine_RelevanceSortStillFuses(t *testing.T) {
 		}
 	}
 }
+
+func TestEngine_BR11_BestSellingRunsOnlyTheLexicalLegInEveryMode(t *testing.T) {
+	cfg := config.Retrieval{EnableHybridSearch: true, HybridFusionWindow: 200}
+	lex := []index.Hit{{ListingID: "a"}, {ListingID: "c"}, {ListingID: "b"}}
+	vec := []index.Hit{{ListingID: "x"}, {ListingID: "b"}}
+	for _, mode := range []searchv1.SearchMode{
+		searchv1.SearchMode_SEARCH_MODE_UNSPECIFIED, searchv1.SearchMode_SEARCH_MODE_LEXICAL,
+		searchv1.SearchMode_SEARCH_MODE_SEMANTIC, searchv1.SearchMode_SEARCH_MODE_HYBRID,
+	} {
+		idx := &fakeIndex{lexHits: lex, vecHits: vec}
+		e := retrieval.NewEngine(idx, &retrieval.MockEmbedClient{Dim: 4}, nil, cfg)
+		res, _, _, err := e.Execute(context.Background(), retrieval.SearchParams{Query: "q", SortBy: searchv1.SortBy_SORT_BY_BEST_SELLING, SearchMode: mode, From: 0, Size: 10})
+		if err != nil {
+			t.Fatalf("%v: %v", mode, err)
+		}
+		if idx.vecCalled {
+			t.Errorf("%v: k-NN leg ran", mode)
+		}
+		if !idx.lexCalled || idx.lexSort != searchv1.SortBy_SORT_BY_BEST_SELLING {
+			t.Errorf("%v: lexical leg sort = %v (called %v)", mode, idx.lexSort, idx.lexCalled)
+		}
+		if len(res.Hits) != 3 || res.Hits[0].ListingID != "a" || res.Hits[1].ListingID != "c" || res.Hits[2].ListingID != "b" {
+			t.Errorf("%v: hits = %+v, want a, c, b and no non-matching listing", mode, res.Hits)
+		}
+	}
+}
