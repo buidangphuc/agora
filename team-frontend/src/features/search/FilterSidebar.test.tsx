@@ -25,7 +25,10 @@ const facets = {
     { key: "100000-500000", count: 3 },
     { key: "1000000+", count: 1 },
   ],
-  ratings: [{ key: "4", count: 4 }],
+  ratings: [
+    { key: "rating_floor_4", count: 4 },
+    { key: "rating_floor_3", count: 7 },
+  ],
   sellers: [{ key: "s1", count: 1 }],
   tags: [],
   skus: [],
@@ -58,14 +61,100 @@ function setup(
 beforeEach(() => push.mockClear());
 
 describe("FilterSidebar", () => {
-  it("renders no rating group even when facets.ratings is non-empty", () => {
+  it("The search page shows the rating filter: Từ 4 sao and Từ 3 sao with their counts", () => {
     const { container } = setup();
-    expect(screen.queryByTestId("facet-ratings")).toBeNull();
-    expect(container.textContent).not.toContain("Đánh giá");
+    const inline = container.querySelector(".hidden.lg\\:block") as HTMLElement;
+    const group = within(inline).getByTestId("facet-ratings");
+    const buckets = within(group).getAllByTestId("facet-bucket");
+    expect(buckets).toHaveLength(2);
+    const four = buckets.find((b) => b.textContent?.includes("Từ 4 sao"));
+    const three = buckets.find((b) => b.textContent?.includes("Từ 3 sao"));
+    expect(four?.textContent).toContain("(4)");
+    expect(three?.textContent).toContain("(7)");
+    expect(four).toHaveAttribute("data-active", "false");
+    expect(three).toHaveAttribute("data-active", "false");
+  });
+
+  it("Choosing a rating filters the results by URL: links carry minRating, keep q and sort, drop page and never carry rating=", () => {
+    const { container } = setup({ currentSort: "newest" });
+    const group = within(
+      container.querySelector(".hidden.lg\\:block") as HTMLElement,
+    ).getByTestId("facet-ratings");
+    const four = within(group)
+      .getByText(/Từ 4 sao/)
+      .closest("a") as HTMLAnchorElement;
+    const three = within(group)
+      .getByText(/Từ 3 sao/)
+      .closest("a") as HTMLAnchorElement;
+    const p4 = new URL(`http://x${four.getAttribute("href")}`).searchParams;
+    expect(p4.get("minRating")).toBe("4");
+    expect(p4.get("q")).toBe("ao");
+    expect(p4.get("sort")).toBe("newest");
+    expect(p4.get("page")).toBeNull();
+    expect(three.getAttribute("href")).toContain("minRating=3");
+    expect(container.innerHTML).not.toMatch(/[?&]rating=/);
+  });
+
+  it("The rating group keeps both options while one is selected, marking the selected one and linking it back to unfiltered", () => {
+    const { container } = setup({ currentMinRating: 4 });
+    const group = within(
+      container.querySelector(".hidden.lg\\:block") as HTMLElement,
+    ).getByTestId("facet-ratings");
+    const four = within(group)
+      .getByText(/Từ 4 sao/)
+      .closest("a") as HTMLAnchorElement;
+    const three = within(group)
+      .getByText(/Từ 3 sao/)
+      .closest("a") as HTMLAnchorElement;
+    expect(four).toHaveAttribute("data-active", "true");
+    expect(four).toHaveAttribute("aria-current", "true");
+    expect(four).toHaveAttribute("href", "/search?q=ao");
+    expect(three).toHaveAttribute("data-active", "false");
+    expect(three.textContent).toContain("(7)");
+    expect(three.getAttribute("href")).toContain("minRating=3");
+  });
+
+  it("keeps minRating in the links of other filter groups", () => {
+    const { container } = setup({ currentMinRating: 3 });
+    const inline = container.querySelector(".hidden.lg\\:block") as HTMLElement;
+    const bucket = inline.querySelector(
+      '[data-key="100000-500000"]',
+    ) as HTMLAnchorElement;
+    expect(bucket.getAttribute("href")).toContain("minRating=3");
+  });
+
+  it("shows no rating group when facets.ratings is empty", () => {
+    const { container } = setup({ facets: { ...facets, ratings: [] } });
+    expect(container.querySelector('[data-testid="facet-ratings"]')).toBeNull();
+  });
+
+  it("The rating filter is offered in the mobile drawer", () => {
+    setup({ currentMinRating: 4 });
     fireEvent.click(screen.getByRole("button", { name: /Bộ lọc/ }));
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).queryByTestId("facet-ratings")).toBeNull();
-    expect(within(dialog).queryByText("Đánh giá")).toBeNull();
+    const group = within(dialog).getByTestId("facet-ratings");
+    const three = within(group)
+      .getByText(/Từ 3 sao/)
+      .closest("a") as HTMLAnchorElement;
+    expect(three.textContent).toContain("(7)");
+    expect(three.getAttribute("href")).toContain("minRating=3");
+    expect(
+      within(group)
+        .getByText(/Từ 4 sao/)
+        .closest("a"),
+    ).toHaveAttribute("data-active", "true");
+  });
+
+  it("counts the rating once on the mobile trigger", () => {
+    setup({ currentMinRating: 4 });
+    const trigger = screen.getByRole("button", { name: /Bộ lọc/ });
+    expect(within(trigger).getByText("1")).toBeInTheDocument();
+  });
+
+  it("counts the rating with the other filters on the mobile trigger", () => {
+    setup({ currentCategory: "c1", currentMinRating: 3 });
+    const trigger = screen.getByRole("button", { name: /Bộ lọc/ });
+    expect(within(trigger).getByText("2")).toBeInTheDocument();
   });
 
   it("renders buckets as links with counts and keeps q and sort", () => {
@@ -135,7 +224,7 @@ describe("FilterSidebar", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Danh mục")).toBeInTheDocument();
     expect(within(dialog).getByText("Khoảng giá")).toBeInTheDocument();
-    expect(within(dialog).queryByText("Đánh giá")).toBeNull();
+    expect(within(dialog).getByTestId("facet-ratings")).toBeInTheDocument();
     expect(within(dialog).getByText("Nơi bán")).toBeInTheDocument();
     expect(dialog.contains(document.activeElement)).toBe(true);
     expect(

@@ -61,6 +61,54 @@ describe("parseSearchParams", () => {
   });
 });
 
+describe("parseSearchParams sort and minRating (frontend-discovery-sort-rating)", () => {
+  it("Best-selling sort: parses sort=best_selling", () => {
+    expect(parseSearchParams({ sort: "best_selling" }).sort).toBe(
+      "best_selling",
+    );
+  });
+
+  it("An unknown sort value falls back to relevance", () => {
+    expect(parseSearchParams({ sort: "top_rated" }).sort).toBe("relevance");
+    expect(parseSearchParams({ sort: "BEST_SELLING" }).sort).toBe("relevance");
+  });
+
+  it("The search page offers a rating filter: minRating 4 and 3 are accepted", () => {
+    expect(parseSearchParams({ minRating: "4" }).minRating).toBe(4);
+    expect(parseSearchParams({ minRating: "3" }).minRating).toBe(3);
+  });
+
+  it("An unsupported minRating value is ignored", () => {
+    for (const v of [
+      "9",
+      "-1",
+      "0",
+      "1",
+      "2",
+      "5",
+      "abc",
+      "",
+      "4.5",
+      "04",
+      "3 ",
+    ]) {
+      const s = parseSearchParams({ q: "x", minRating: v });
+      expect(s.minRating).toBeUndefined();
+    }
+    expect(parseSearchParams({ q: "x", minRating: "9" })).toEqual(
+      parseSearchParams({ q: "x" }),
+    );
+  });
+
+  it("A repeated minRating uses the first value", () => {
+    expect(parseSearchParams({ minRating: ["4", "3"] }).minRating).toBe(4);
+    expect(parseSearchParams({ minRating: ["3", "4"] }).minRating).toBe(3);
+    expect(
+      parseSearchParams({ minRating: ["9", "4"] }).minRating,
+    ).toBeUndefined();
+  });
+});
+
 describe("buildSearchHref", () => {
   const base = parseSearchParams({ q: "ao", sort: "newest" });
 
@@ -108,6 +156,68 @@ describe("buildSearchHref", () => {
   });
 });
 
+describe("buildSearchHref sort and minRating (frontend-discovery-sort-rating)", () => {
+  const q = (href: string) => new URL(`http://x${href}`).searchParams;
+
+  it("Best-selling sort: builds sort=best_selling and round-trips", () => {
+    const href = buildSearchHref(parseSearchParams({ q: "ao" }), {
+      sort: "best_selling",
+    });
+    expect(href).toBe("/search?q=ao&sort=best_selling");
+    expect(parseSearchParams(Object.fromEntries(q(href))).sort).toBe(
+      "best_selling",
+    );
+  });
+
+  it("Choosing a rating filters the results by URL: builds minRating and keeps the other params", () => {
+    const href = buildSearchHref(
+      parseSearchParams({ q: "ao", sort: "newest", category: "c1" }),
+      { minRating: 4 },
+    );
+    const p = q(href);
+    expect(p.get("minRating")).toBe("4");
+    expect(p.get("q")).toBe("ao");
+    expect(p.get("sort")).toBe("newest");
+    expect(p.get("category")).toBe("c1");
+  });
+
+  it("keeps minRating in sort and page links", () => {
+    const s = parseSearchParams({ q: "ao", minRating: "3" });
+    expect(q(buildSearchHref(s, { sort: "newest" })).get("minRating")).toBe(
+      "3",
+    );
+    expect(q(buildSearchHref(s, { page: 2 })).get("minRating")).toBe("3");
+  });
+
+  it("Changing a filter resets the page when the rating changes", () => {
+    const onPage3 = parseSearchParams({ q: "ao", page: "3" });
+    expect(buildSearchHref(onPage3, { minRating: 4 })).toBe(
+      "/search?q=ao&minRating=4",
+    );
+    const rated = parseSearchParams({ q: "ao", page: "3", minRating: "4" });
+    expect(buildSearchHref(rated, { minRating: 3 })).not.toContain("page=");
+  });
+
+  it("The rating chip removes the filter: minRating undefined drops the param", () => {
+    const s = parseSearchParams({ q: "ao", minRating: "4" });
+    expect(buildSearchHref(s, { minRating: undefined })).toBe("/search?q=ao");
+  });
+
+  it("never writes an out-of-range minRating", () => {
+    const s = parseSearchParams({ q: "ao", minRating: "9" });
+    expect(buildSearchHref(s)).toBe("/search?q=ao");
+  });
+
+  it("counts the rating once and clear-all drops it", () => {
+    const s = parseSearchParams({ q: "ao", minRating: "4" });
+    expect(activeFilterCount(s)).toBe(1);
+    expect(
+      activeFilterCount(parseSearchParams({ category: "c1", minRating: "3" })),
+    ).toBe(2);
+    expect(clearFiltersHref(s)).toBe("/search?q=ao");
+  });
+});
+
 describe("an old rating link", () => {
   it("parses equal to the same URL without rating", () => {
     expect(parseSearchParams({ q: "x", rating: "4" })).toEqual(
@@ -116,6 +226,17 @@ describe("an old rating link", () => {
     expect(parseSearchParams({ q: "x", rating: "4" })).not.toHaveProperty(
       "rating",
     );
+  });
+
+  it("An old rating link renders the results without error: rating is not minRating", () => {
+    for (const r of ["4", "3", "5"]) {
+      const s = parseSearchParams({ q: "x", rating: r });
+      expect(s.minRating).toBeUndefined();
+      expect(buildSearchHref(s)).toBe("/search?q=x");
+    }
+    const both = parseSearchParams({ q: "x", rating: "4", minRating: "3" });
+    expect(both.minRating).toBe(3);
+    expect(buildSearchHref(both)).not.toContain("rating=4");
   });
 
   it("never reaches a built href and is not an active filter", () => {

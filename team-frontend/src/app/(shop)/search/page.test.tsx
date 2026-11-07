@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const loadSearch = vi.hoisted(() => vi.fn());
@@ -53,6 +53,50 @@ describe("SearchPage", () => {
       screen.getByTestId("results-state").textContent ?? "",
     );
     expect(state).not.toHaveProperty("rating");
+  });
+
+  const stateFor = async (params: Record<string, string | string[]>) => {
+    render(await SearchPage({ searchParams: Promise.resolve(params) }));
+    return JSON.parse(screen.getByTestId("results-state").textContent ?? "");
+  };
+
+  it("An old rating link renders the results without error: same state as without rating", async () => {
+    const withRating = await stateFor({ q: "ao", rating: "4" });
+    cleanup();
+    expect(withRating).toEqual(await stateFor({ q: "ao" }));
+    expect(withRating.minRating).toBeUndefined();
+  });
+
+  it("Choosing a rating filters the results by URL: minRating=4 and 3 reach the state", async () => {
+    expect((await stateFor({ q: "ao", minRating: "4" })).minRating).toBe(4);
+    cleanup();
+    expect((await stateFor({ q: "ao", minRating: "3" })).minRating).toBe(3);
+  });
+
+  it("An unsupported minRating value is ignored", async () => {
+    for (const v of ["9", "abc"]) {
+      const state = await stateFor({ q: "ao", minRating: v });
+      cleanup();
+      expect(state.minRating).toBeUndefined();
+    }
+  });
+
+  it("A repeated minRating uses the first value", async () => {
+    expect((await stateFor({ q: "ao", minRating: ["4", "3"] })).minRating).toBe(
+      4,
+    );
+  });
+
+  it("Best-selling sort: sort=best_selling reaches the state", async () => {
+    expect((await stateFor({ q: "ao", sort: "best_selling" })).sort).toBe(
+      "best_selling",
+    );
+  });
+
+  it("An unknown sort value falls back to relevance", async () => {
+    expect((await stateFor({ q: "ao", sort: "top_rated" })).sort).toBe(
+      "relevance",
+    );
   });
 
   it("parses URL params into state for the results block and starts one search", async () => {
