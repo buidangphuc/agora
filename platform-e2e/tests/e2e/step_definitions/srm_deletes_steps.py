@@ -186,7 +186,7 @@ def event_consumed_not_returned(world: World) -> None:
 
 @then(
     "after the search indexer has consumed past that event, an in-stock search for its title "
-    "does not return it and the record is not on listing.events.dlq"
+    "does not return it and the record is not on search-indexer.listing.events.dlq"
 )
 def in_stock_not_returned_not_parked(world: World) -> None:
     c = s.ctx(world)

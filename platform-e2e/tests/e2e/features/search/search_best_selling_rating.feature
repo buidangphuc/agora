@@ -49,14 +49,14 @@ Feature: Search best-selling sort, minimum rating and projected sales and rating
     And the listing "L" has sold_count 2 from a sales event at T1
     And the listing "L" has rating_avg 4 and review_count 1 from a rating event at T1
     When a ListingSalesChanged with sold_count -1 for "L" is published to order.events and a ListingRatingChanged with average_rating 7 for "L" is published to engagement.events
-    Then within 60 seconds the sales event is on order.events.dlq and the rating event is on engagement.events.dlq
+    Then within 60 seconds the sales event is on search-indexer.order.events.dlq and the rating event is on search-indexer.engagement.events.dlq
     And the hit of "L" still carries sold_count 2 and rating_avg 4
 
   Scenario: An event with an empty listing id or no changed_at is parked
     Given a published listing "L" that is indexed
     And the listing "L" has rating_avg 4 and review_count 1 from a rating event at T1
     When a ListingSalesChanged with an empty listing_id and a ListingRatingChanged for "L" with no changed_at are published
-    Then within 60 seconds the sales event is on order.events.dlq and the rating event is on engagement.events.dlq
+    Then within 60 seconds the sales event is on search-indexer.order.events.dlq and the rating event is on search-indexer.engagement.events.dlq
     And the hit of "L" still carries rating_avg 4
 
   Scenario: An event not later than the delete is ignored

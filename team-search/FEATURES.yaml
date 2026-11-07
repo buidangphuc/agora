@@ -336,7 +336,7 @@ features:
     acceptance:
       - "Given a listing whose search stock is 10"
       - "When a `ListingStockChanged` for that listing with stock -1 is published to `listing.events`"
-      - "Then within 60 seconds that record appears on `listing.events.dlq` and `SearchListings` still returns the listing with `stock` 10"
+      - "Then within 60 seconds that record appears on `search-indexer.listing.events.dlq` and `SearchListings` still returns the listing with `stock` 10"
     tags: [buyer, search]
     status: automated
     covered_by: "search/search_stock_read_model.feature::A malformed stock event is parked, not applied"
@@ -555,7 +555,7 @@ features:
     acceptance:
       - "Given a listing deleted through the gateway"
       - "When a valid `ListingStockChanged` with stock 5 and an `occurred_at` after the delete is published to `listing.events`"
-      - "Then after the search indexer has consumed past that event, `SearchListings` for its title with `filters[\"in_stock\"]=\"true\"` does not return it and the record is not on `listing.events.dlq`"
+      - "Then after the search indexer has consumed past that event, `SearchListings` for its title with `filters[\"in_stock\"]=\"true\"` does not return it and the record is not on `search-indexer.listing.events.dlq`"
     tags: [buyer, search]
     status: automated
     covered_by: "search/search_read_model_deletes.feature::A stock event for a deleted listing is ignored"
@@ -2643,7 +2643,7 @@ features:
       exercised: [search.v1.SearchListings]
     acceptance:
       - "When a `ListingSalesChanged` with `sold_count` -1 is published to `order.events` and a `ListingRatingChanged` with `average_rating` 7 is published to `engagement.events`, for a published listing L"
-      - "Then within 60 seconds the first record is on `order.events.dlq` and the second on `engagement.events.dlq`, and L's `sold_count` and `rating_avg` are unchanged"
+      - "Then within 60 seconds the first record is on `search-indexer.order.events.dlq` and the second on `search-indexer.engagement.events.dlq`, and L's `sold_count` and `rating_avg` are unchanged"
     tags: [buyer, search]
     status: planned
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A malformed event is parked and not applied"

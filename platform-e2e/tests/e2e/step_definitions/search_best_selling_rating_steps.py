@@ -2,7 +2,7 @@
 
 Black box: ListingSalesChanged and ListingRatingChanged are produced to order.events and
 engagement.events, the projection is observed through SearchListings at the gateway and, for
-parked events, on the `.dlq` topics. Waiting for the indexer uses the committed offset of its
+parked events, on the `search-indexer.<topic>.dlq` topics. Waiting for the indexer uses the committed offset of its
 consumer group on the topic of the event, never a sleep.
 """
 
@@ -171,7 +171,7 @@ def topic_has(topic: str, needle: bytes, since_ms: int) -> bool:
 
 def on_dlq(world: World, fact: Fact) -> bool:
     return topic_has(
-        fact.topic + ".dlq", fact.event_id.encode(), s.ctx(world).started_ms
+        "search-indexer." + fact.topic + ".dlq", fact.event_id.encode(), s.ctx(world).started_ms
     )
 
 
@@ -654,15 +654,15 @@ def new_title(world: World) -> None:
 
 
 @then(
-    "within 60 seconds the sales event is on order.events.dlq and the rating event is on "
-    "engagement.events.dlq"
+    "within 60 seconds the sales event is on search-indexer.order.events.dlq and the rating "
+    "event is on search-indexer.engagement.events.dlq"
 )
 def both_parked(world: World) -> None:
     c = s.ctx(world)
     sales, rating = c.extra["last:sales"], c.extra["last:rating"]
-    s.eventually(lambda: on_dlq(world, sales), "the sales event on order.events.dlq", DLQ_S)
+    s.eventually(lambda: on_dlq(world, sales), "the sales event on search-indexer.order.events.dlq", DLQ_S)
     s.eventually(
-        lambda: on_dlq(world, rating), "the rating event on engagement.events.dlq", DLQ_S
+        lambda: on_dlq(world, rating), "the rating event on search-indexer.engagement.events.dlq", DLQ_S
     )
 
 

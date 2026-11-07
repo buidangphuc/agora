@@ -25,7 +25,7 @@ Feature: Search read-model deletes
     Given a seller's published listing that appears in search next to a control listing
     And that listing is deleted through the gateway
     When a valid ListingStockChanged with stock 5 and an occurred_at after the delete is published to listing.events
-    Then after the search indexer has consumed past that event, an in-stock search for its title does not return it and the record is not on listing.events.dlq
+    Then after the search indexer has consumed past that event, an in-stock search for its title does not return it and the record is not on search-indexer.listing.events.dlq
 
   Scenario: A deleted listing leaves search results, totals and facets
     Given a seller with two published listings that a seller_id search counts as total 2 and a sellers facet of 2

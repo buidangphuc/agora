@@ -8,7 +8,7 @@ What the search scenarios need from Kafka and OpenSearch, with no vendored stubs
 * a reader of the records on `listing.events` for one listing (type, `occurred_at`, change type,
   partition/offset) so a scenario can derive times from the REAL domain events;
 * `wait_consumed`: the committed offset of the `team-search-indexer` group passing a record;
-* a reader of `listing.events.dlq`;
+* a reader of `search-indexer.listing.events.dlq`;
 * a reader of one OpenSearch `_doc` (the tombstone / "no document" observations).
 
 Names come from the environment with the local compose defaults: `KAFKA_BROKERS`
@@ -30,6 +30,7 @@ from .tracking_flow import _fields
 
 TOPIC = "listing.events"
 DLQ_TOPIC = "listing.events.dlq"
+SEARCH_INDEXER_DLQ_TOPIC = "search-indexer.listing.events.dlq"
 
 LISTING_CHANGED = "platform.listing.v1.ListingChanged"
 BASE_INFO_CHANGED = "platform.listing.v1.ListingBaseInfoChanged"
@@ -335,8 +336,8 @@ def records_for(listing_id: str, since_ms: int | None = None) -> list[Record]:
 
 
 def dlq_records_for(listing_id: str, since_ms: int | None = None) -> list[Record]:
-    """Every record about `listing_id` parked on `listing.events.dlq`."""
-    return sorted(_scan(DLQ_TOPIC, listing_id, since_ms), key=lambda r: (r.partition, r.offset))
+    """Every record about `listing_id` parked by the search indexer on `search-indexer.listing.events.dlq`."""
+    return sorted(_scan(SEARCH_INDEXER_DLQ_TOPIC, listing_id, since_ms), key=lambda r: (r.partition, r.offset))
 
 
 def wait_for_record(
