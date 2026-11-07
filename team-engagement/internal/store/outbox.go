@@ -21,3 +21,14 @@ func enqueueFact(ctx context.Context, ob *outbox.Store, tx pgx.Tx, aggregateType
 	}
 	return nil
 }
+
+func enqueuePrincipalessFact(ctx context.Context, ob *outbox.Store, tx pgx.Tx, aggregateType, key string, msg proto.Message) error {
+	row, err := events.PrincipalessFactRow(ctx, aggregateType, key, msg)
+	if err != nil {
+		return err
+	}
+	if err := ob.EnqueueTx(ctx, tx, row); err != nil {
+		return fmt.Errorf("enqueue fact: %w", err)
+	}
+	return nil
+}

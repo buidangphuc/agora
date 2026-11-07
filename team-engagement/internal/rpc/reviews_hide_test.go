@@ -513,3 +513,97 @@ func mustFactStore(t *testing.T, pool *pgxpool.Pool) *outbox.Store {
 	}
 	return st
 }
+
+func ratingEventCount(t *testing.T, pool *pgxpool.Pool) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM engagement_outbox_events WHERE event_type = 'platform.engagement.v1.ListingRatingChanged'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestRejectedCreateReviewWritesNoRatingEvent(t *testing.T) {
+	pool := pgSchemaPool(t)
+	repo := store.NewPostgresReviewRepository(pool, mustFactStore(t, pool))
+	verifier := &reviewVerifier{orders: map[string]string{"buyer-ok|order-ok|L1": "seller-1"}}
+	svc := engagement.NewReviewService(repo, verifier, permissiveGate(), nil)
+	h := newHandler(t, deps{reviews: svc})
+	before, err := repo.GetRatingSummary(context.Background(), "L1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := h.CreateReview(userCtx("buyer-ok"), createReviewReq("L1", "order-ok", 5)); err != nil {
+		t.Fatalf("control create: %v", err)
+	}
+	if n := ratingEventCount(t, pool); n != 1 {
+		t.Fatalf("control: ListingRatingChanged rows = %d, want 1", n)
+	}
+	after, _ := repo.GetRatingSummary(context.Background(), "L1")
+	if after.ReviewCount != before.ReviewCount+1 {
+		t.Fatalf("control: review count %d -> %d", before.ReviewCount, after.ReviewCount)
+	}
+
+	_, err = h.CreateReview(userCtx("buyer-none"), createReviewReq("L1", "order-none", 1))
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("want FailedPrecondition, got %v", err)
+	}
+	if n := ratingEventCount(t, pool); n != 1 {
+		t.Fatalf("ListingRatingChanged rows after rejected create = %d, want 1", n)
+	}
+	again, _ := repo.GetRatingSummary(context.Background(), "L1")
+	if again.ReviewCount != after.ReviewCount || again.AverageRating != after.AverageRating {
+		t.Fatalf("summary changed by a rejected create: %+v -> %+v", after, again)
+	}
+}
+
+func TestUnauthorisedHideReviewWritesNoRatingEvent(t *testing.T) {
+	pool := pgSchemaPool(t)
+	repo := store.NewPostgresReviewRepository(pool, mustFactStore(t, pool))
+	if _, err := repo.CreateReview(adminCtx(), store.Review{ID: "r1", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 1, VerifiedPurchase: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CreateReview(adminCtx(), store.Review{ID: "r2", ListingID: "L1", UserID: "u2", OrderID: "O2", Rating: 5, VerifiedPurchase: true}); err != nil {
+		t.Fatal(err)
+	}
+	if n := ratingEventCount(t, pool); n != 2 {
+		t.Fatalf("control: ListingRatingChanged rows after two creates = %d, want 2", n)
+	}
+	svc := engagement.NewReviewService(repo, &reviewVerifier{orders: map[string]string{}}, permissiveGate(), nil)
+	h := newHandler(t, deps{reviews: svc})
+	hide := func(ctx context.Context) error {
+		_, err := h.HideReview(ctx, &engagementv1.HideReviewRequest{ReviewId: "r1", Reason: "spam"})
+		return err
+	}
+
+	for name, c := range map[string]struct {
+		ctx  context.Context
+		want codes.Code
+	}{
+		"buyer":        {userCtx("buyer-1"), codes.PermissionDenied},
+		"anonymous":    {anonCtx(), codes.Unauthenticated},
+		"no principal": {context.Background(), codes.Unauthenticated},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := hide(c.ctx); status.Code(err) != c.want {
+				t.Fatalf("want %v, got %v", c.want, err)
+			}
+			if n := ratingEventCount(t, pool); n != 2 {
+				t.Fatalf("ListingRatingChanged rows = %d, want 2", n)
+			}
+			got, err := repo.GetReview(context.Background(), "r1")
+			if err != nil || got.HiddenAt != nil {
+				t.Fatalf("review must stay visible: %+v %v", got, err)
+			}
+		})
+	}
+
+	if err := hide(adminCtx()); err != nil {
+		t.Fatal(err)
+	}
+	if n := ratingEventCount(t, pool); n != 3 {
+		t.Fatalf("control: ListingRatingChanged rows after admin hide = %d, want 3", n)
+	}
+}

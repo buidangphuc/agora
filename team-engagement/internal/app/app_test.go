@@ -289,8 +289,8 @@ func TestMigrateUpAppliesEmbeddedMigrations(t *testing.T) {
 		}
 	}
 	v, dirty := schemaVersion(t, url)
-	if want := embeddedMigrationCount(t); dirty || v != want || v != 14 {
-		t.Fatalf("schema version = %d dirty=%v, want 14 clean (embedded files: %d)", v, dirty, want)
+	if want := embeddedMigrationCount(t); dirty || v != want || v != 15 {
+		t.Fatalf("schema version = %d dirty=%v, want 15 clean (embedded files: %d)", v, dirty, want)
 	}
 }
 
@@ -304,8 +304,8 @@ func TestMigrateUpTwiceIsNoOp(t *testing.T) {
 	if err := app.Migrate(context.Background(), ms); err != nil {
 		t.Fatalf("second Migrate: %v", err)
 	}
-	if v, dirty := schemaVersion(t, url); dirty || v != 14 {
-		t.Fatalf("version after rerun = %d dirty=%v, want 14 clean", v, dirty)
+	if v, dirty := schemaVersion(t, url); dirty || v != 15 {
+		t.Fatalf("version after rerun = %d dirty=%v, want 15 clean", v, dirty)
 	}
 }
 
