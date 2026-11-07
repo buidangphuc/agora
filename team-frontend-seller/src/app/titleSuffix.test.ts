@@ -48,8 +48,10 @@ describe("title suffix (seller)", () => {
   });
 
   it("scanner flags a suffixed title (SEO-41)", () => {
-    const block = metadataBlock('export const metadata = { title: "X | Kênh người bán" };');
-    expect(SUFFIXES.some((s) => block!.includes(s))).toBe(true);
+    const block = metadataBlock(
+      'export const metadata = { title: "X | Kênh người bán" };',
+    );
+    expect(SUFFIXES.some((s) => block?.includes(s))).toBe(true);
   });
 
   it("root layout denies indexing (SEO-41)", () => {

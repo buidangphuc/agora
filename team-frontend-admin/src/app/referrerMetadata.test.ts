@@ -74,7 +74,9 @@ describe("referrer metadata", () => {
   });
 
   it("admin root declares no-referrer (SEO-42)", () => {
-    const block = metadataBlock(readFileSync(join(APP_DIR, "layout.tsx"), "utf8"));
+    const block = metadataBlock(
+      readFileSync(join(APP_DIR, "layout.tsx"), "utf8"),
+    );
     expect(block).not.toBeNull();
     expect(block).toMatch(/\breferrer\s*:\s*["']no-referrer["']/);
     expect(block).toMatch(

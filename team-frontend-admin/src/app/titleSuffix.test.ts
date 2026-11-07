@@ -48,8 +48,10 @@ describe("title suffix (admin)", () => {
   });
 
   it("scanner flags a suffixed title (SEO-43)", () => {
-    const block = metadataBlock('export const metadata = { title: "X | Sàn Thương Mại Điện Tử" };');
-    expect(SUFFIXES.some((s) => block!.includes(s))).toBe(true);
+    const block = metadataBlock(
+      'export const metadata = { title: "X | Sàn Thương Mại Điện Tử" };',
+    );
+    expect(SUFFIXES.some((s) => block?.includes(s))).toBe(true);
   });
 
   it("root layout denies indexing (SEO-43)", () => {
