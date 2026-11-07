@@ -73,7 +73,7 @@ LISTINGS = pa.schema(
 
 
 def probe() -> dict:
-    out: dict = {"listings": {}, "columns": [], "users": {}}
+    out: dict = {"listings": {}, "columns": [], "users": {}, "statuses": {}}
     path = "/data/listing_sellers.parquet"
     if os.path.exists(path):
         rel = f"read_parquet('{path}')"
@@ -86,6 +86,12 @@ def probe() -> dict:
                 out["listings"][lid] = [
                     {"seller": r[0], "category": r[1], "price": r[2]} for r in rows
                 ]
+        if "status" in out["columns"]:
+            for lid in PLAN.get("listings", []):
+                rows = duckdb.execute(
+                    f"SELECT status FROM {rel} WHERE listing_id = ?", [lid]
+                ).fetchall()
+                out["statuses"][lid] = [r[0] for r in rows]
     resolved = "/data/tracking_events_resolved.parquet"
     if os.path.exists(resolved):
         for uk in PLAN.get("users", []):

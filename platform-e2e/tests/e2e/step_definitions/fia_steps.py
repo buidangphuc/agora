@@ -105,6 +105,49 @@ def _shared() -> Shared:
     return _SHARED
 
 
+_BANNED: dict | None = None
+
+
+def _status_batch() -> dict:
+    global _BANNED
+    if _BANNED is None:
+        s = _shared()
+        w = OicWorld()
+        seller = register(w, "seller", "seller")
+        admin = oic.login_admin(w)
+        tag = uuid.uuid4().hex[:8]
+        banned = _create(w, seller, "D", f"cat-fia-{tag}-d", 120_000)
+        oic.ok(
+            oic.post(
+                w,
+                admin,
+                oic.LISTING,
+                "ModerateListing",
+                {
+                    "listingId": banned,
+                    "decision": "MODERATION_DECISION_BAN",
+                    "reasonCode": "other",
+                },
+            )
+        )
+        _BANNED = {"shared": s, "banned": banned}
+    return _BANNED
+
+
+def _wait_statuses(listing_ids: list[str], expected: dict[str, str]) -> dict:
+    deadline = time.monotonic() + EXPORT_WAIT_S
+    while True:
+        last = flow.probe_export(listing_ids, [])
+        if all(last["statuses"].get(lid) == [want] for lid, want in expected.items()):
+            return last
+        if time.monotonic() >= deadline:
+            raise AssertionError(
+                f"the export did not hold the statuses {expected} in {EXPORT_WAIT_S}s: "
+                f"{last['statuses']}"
+            )
+        time.sleep(POLL_S)
+
+
 def _wait_export(s: Shared) -> dict:
     """Poll the analytics volume until the export holds the listings and the buyer's four views."""
     deadline = time.monotonic() + (0 if s.exported else EXPORT_WAIT_S)
@@ -183,6 +226,78 @@ def export_new_price(fia):
     s = fia.data["shared"]
     rows = fia.data["probe"]["listings"][s.c]
     assert [r["price"] for r in rows] == [s.price_c_new], rows
+
+
+@when("a seller publishes a listing and the next export cycle completes")
+def published_exported(fia):
+    s = _shared()
+    _wait_export(s)
+    fia.data["shared"] = s
+    fia.data["probe"] = _wait_statuses([s.a], {s.a: "LISTING_STATUS_PUBLISHED"})
+
+
+@then(
+    "listing_sellers.parquet has exactly one row for that listing whose status equals "
+    "LISTING_STATUS_PUBLISHED"
+)
+def published_status(fia):
+    s = fia.data["shared"]
+    assert fia.data["probe"]["statuses"][s.a] == ["LISTING_STATUS_PUBLISHED"]
+    assert len(fia.data["probe"]["listings"][s.a]) == 1
+
+
+@when("an admin bans a published listing and the next export cycle completes")
+def banned_exported(fia):
+    b = _status_batch()
+    fia.data["batch"] = b
+    fia.data["probe"] = _wait_statuses(
+        [b["banned"]], {b["banned"]: "LISTING_STATUS_BANNED"}
+    )
+
+
+@then(
+    "listing_sellers.parquet has exactly one row for that listing whose status equals "
+    "LISTING_STATUS_BANNED and not LISTING_STATUS_PUBLISHED"
+)
+def banned_status(fia):
+    lid = fia.data["batch"]["banned"]
+    assert fia.data["probe"]["statuses"][lid] == ["LISTING_STATUS_BANNED"]
+    assert len(fia.data["probe"]["listings"][lid]) == 1
+
+
+@when("the listing replay command runs over listing.events and the next export cycle completes")
+def replay_run(fia):
+    b = _status_batch()
+    s = b["shared"]
+    fia.data["batch"] = b
+    r = flow.run_replay()
+    fia.data["replay"] = r
+    assert r.exit_code == 0, f"listing-replay exited {r.exit_code}:\n{r.output[-3000:]}"
+    fia.data["probe"] = _wait_statuses(
+        [s.a, s.b, b["banned"]],
+        {
+            s.a: "LISTING_STATUS_PUBLISHED",
+            s.b: "LISTING_STATUS_PUBLISHED",
+            b["banned"]: "LISTING_STATUS_BANNED",
+        },
+    )
+
+
+@then(
+    "listing_sellers.parquet has exactly one row per listing and each status equals the enum name "
+    "of that listing's newest event"
+)
+def replay_statuses(fia):
+    b = fia.data["batch"]
+    s = b["shared"]
+    want = {
+        s.a: "LISTING_STATUS_PUBLISHED",
+        s.b: "LISTING_STATUS_PUBLISHED",
+        b["banned"]: "LISTING_STATUS_BANNED",
+    }
+    for lid, status in want.items():
+        assert fia.data["probe"]["statuses"][lid] == [status], (lid, fia.data["probe"])
+        assert len(fia.data["probe"]["listings"][lid]) == 1, lid
 
 
 # ── materialised features on the real export ────────────────────────────────
