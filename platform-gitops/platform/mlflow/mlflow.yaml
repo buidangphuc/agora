@@ -21,16 +21,17 @@ spec:
       serviceAccountName: mlflow
       containers:
         - name: mlflow
-          # built from platform-core/infra/mlflow/Dockerfile (mlflow 3.2.0 + psycopg2 + boto3)
           image: localhost:5001/platform-mlflow
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args:
             - >-
+              mlflow db upgrade "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-mlflow.marketplace.svc:5432/mlflow" &&
               exec mlflow server --host 0.0.0.0 --port 5050
               --backend-store-uri "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-mlflow.marketplace.svc:5432/mlflow"
               --artifacts-destination s3://mlflow-artifacts
               --serve-artifacts
+              --allowed-hosts 'localhost:*,127.0.0.1:*,mlflow:*,mlflow.marketplace.svc:*,mlflow.marketplace.svc.cluster.local:*'
           env:
             - name: MLFLOW_S3_ENDPOINT_URL
               value: "http://minio.marketplace.svc:9000"

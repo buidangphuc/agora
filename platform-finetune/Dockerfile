@@ -29,7 +29,7 @@ COPY --from=modelregistry / /tmp/modelregistry/
 RUN if [ -f /tmp/modelregistry/pyproject.toml ]; then uv pip install /tmp/modelregistry; fi; \
     rm -rf /tmp/modelregistry
 RUN uv pip install \
-      "mlflow>=3.2,<3.3" boto3 torch "transformers>=5.0" datasets accelerate peft scikit-learn \
+      "mlflow>=3.14,<3.15" boto3 torch "transformers>=5.0" datasets accelerate peft scikit-learn \
       "optimum[onnxruntime]" onnxruntime pandas pyYAML python-box ensure tqdm joblib matplotlib \
       fastapi uvicorn prometheus-client numpy loguru
 

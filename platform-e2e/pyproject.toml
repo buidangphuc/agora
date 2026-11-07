@@ -17,7 +17,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "confluent-kafka>=2.4",
     "duckdb>=1.1",
-    "mlflow-skinny==3.2.*",
+    "mlflow-skinny==3.14.*",
     "boto3>=1.35",
     "pyyaml>=6.0",
 ]

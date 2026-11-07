@@ -6,6 +6,10 @@ attributes; this fixture centralizes the common ones so individual tests
 stop repeating the boilerplate.
 """
 
+import os
+
+os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
+
 import json
 import socket
 from pathlib import Path
