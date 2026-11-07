@@ -51,7 +51,7 @@ export async function generateMetadata(props: {
 /**
  * Search List anatomy: header (breadcrumb, title, count), filter column and
  * results column. All state is in the URL (`q, category, seller,
- * minPrice, maxPrice, sort, page`). The search runs once (cached per request)
+ * minPrice, maxPrice, minRating, sort, page`). The search runs once (cached per request)
  * and the filter column, count and results each stream from their own boundary.
  */
 export default async function SearchPage(props: {

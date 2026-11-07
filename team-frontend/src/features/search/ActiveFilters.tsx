@@ -67,6 +67,13 @@ export function ActiveFilters({
       }),
     });
   }
+  if (state.minRating) {
+    tags.push({
+      key: "minRating",
+      label: `Từ ${state.minRating} sao`,
+      href: buildSearchHref(state, { minRating: undefined }),
+    });
+  }
   for (const [key, slugs] of Object.entries(state.attrs)) {
     for (const slug of slugs) {
       tags.push({

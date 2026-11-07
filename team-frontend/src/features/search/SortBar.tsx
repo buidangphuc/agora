@@ -5,6 +5,7 @@ import { type SearchState, type SortKey, buildSearchHref } from "./url";
 const TAB_SORTS: { id: SortKey; label: string }[] = [
   { id: "relevance", label: "Liên quan" },
   { id: "newest", label: "Mới nhất" },
+  { id: "best_selling", label: "Bán chạy" },
 ];
 
 const PRICE_SORTS: { id: SortKey; label: string }[] = [
@@ -13,9 +14,9 @@ const PRICE_SORTS: { id: SortKey; label: string }[] = [
 ];
 
 /**
- * Sort controls. Desktop: link `Tabs` (Liên quan, Mới nhất) plus a price
- * `Select`; mobile: one `Select` with all four. Only sorts the server honours
- * are offered ("Bán chạy" stays hidden until a backend SortBy exists).
+ * Sort controls. Desktop: link `Tabs` (Liên quan, Mới nhất, Bán chạy) plus a price
+ * `Select`; mobile: one `Select` with all five. Only sorts the server honours
+ * are offered.
  */
 export function SortBar({
   currentSort = "relevance",
