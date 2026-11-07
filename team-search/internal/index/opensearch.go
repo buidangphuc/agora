@@ -127,8 +127,6 @@ type FacetCounter interface {
 	FacetsForIDs(ctx context.Context, ids []string, filters map[string]string) (Facets, error)
 }
 
-// RatingFloorCounter is an optional Index capability: the ratings facet counted
-// without the min_rating filter, under every other filter.
 type RatingFloorCounter interface {
 	RatingFloors(ctx context.Context, filters map[string]string, categoryID string, minPrice, maxPrice int64) ([]FacetBucket, error)
 }
