@@ -603,8 +603,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, 'rất tốt')`,
 
 type ratingRow struct {
 	row     copied
-	env     eventsv1.EventEnvelope
-	payload engagementv1.ListingRatingChanged
+	env     *eventsv1.EventEnvelope
+	payload *engagementv1.ListingRatingChanged
 }
 
 func (e env) ratingRows(t *testing.T) map[string]ratingRow {
@@ -625,11 +625,11 @@ FROM `+newTable+` WHERE event_type = $1 ORDER BY seq`, ratingEventType)
 		if _, dup := out[c.aggregateID]; dup {
 			t.Errorf("listing %s has more than one rating row", c.aggregateID)
 		}
-		rr := ratingRow{row: c}
-		if err := proto.Unmarshal(c.payload, &rr.env); err != nil {
+		rr := ratingRow{row: c, env: &eventsv1.EventEnvelope{}, payload: &engagementv1.ListingRatingChanged{}}
+		if err := proto.Unmarshal(c.payload, rr.env); err != nil {
 			t.Fatalf("listing %s: outbox payload is not an EventEnvelope: %v", c.aggregateID, err)
 		}
-		if err := proto.Unmarshal(rr.env.GetPayload(), &rr.payload); err != nil {
+		if err := proto.Unmarshal(rr.env.GetPayload(), rr.payload); err != nil {
 			t.Fatalf("listing %s: envelope payload is not a ListingRatingChanged: %v", c.aggregateID, err)
 		}
 		out[c.aggregateID] = rr
