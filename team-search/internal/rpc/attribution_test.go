@@ -11,6 +11,7 @@ import (
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 	"github.com/buidangphuc/team-search/internal/config"
+	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/retrieval"
 	"github.com/buidangphuc/team-search/internal/rpc"
 )
@@ -35,6 +36,14 @@ func (attrEmbedDown) Embed(context.Context, string) ([]float32, error) {
 
 func (attrEmbedDown) EmbedBatch(context.Context, []string) ([][]float32, error) {
 	return nil, errors.New("embed down")
+}
+
+type attrAllLegsDown struct {
+	failingIndex
+}
+
+func (a attrAllLegsDown) SearchVector(context.Context, []float32, map[string]string, string, int64, int64, int32, searchv1.SortBy, int, int) (index.SearchResult, error) {
+	return index.SearchResult{}, a.err
 }
 
 func attrEngine(embed retrieval.EmbedClient, rr retrieval.RerankClient, rerank bool) *retrieval.Engine {
@@ -113,7 +122,7 @@ func TestSearchAttributionRequestIDIsUUIDv4(t *testing.T) {
 
 func TestSearchAttributionAnonymousCallerGetsBothFields(t *testing.T) {
 	h := attrHandler(t, nil)
-	res, err := h.SearchListings(context.Background(), &searchv1.SearchListingsRequest{Query: "laptop"})
+	res, err := h.SearchListings(principalCtx("anonymous", "anonymous", "search:read"), &searchv1.SearchListingsRequest{Query: "laptop"})
 	if err != nil {
 		t.Fatalf("SearchListings: %v", err)
 	}
@@ -126,7 +135,7 @@ func TestSearchAttributionAnonymousCallerGetsBothFields(t *testing.T) {
 }
 
 func TestSearchAttributionFailedSearchReturnsNoResponse(t *testing.T) {
-	idx := failingIndex{mockIndex: &mockIndex{}, err: errors.New("index unavailable")}
+	idx := attrAllLegsDown{failingIndex{mockIndex: &mockIndex{}, err: errors.New("index unavailable")}}
 	for name, eng := range map[string]*retrieval.Engine{
 		"without engine": nil,
 		"with engine":    retrieval.NewEngine(idx, &retrieval.MockEmbedClient{Dim: 4}, nil, config.Retrieval{EnableHybridSearch: true, HybridFusionWindow: 200}),
