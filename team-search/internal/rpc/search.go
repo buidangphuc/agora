@@ -184,6 +184,7 @@ func toWireHit(hit index.Hit) *searchv1.SearchHit {
 	out.SoldCount = hit.SoldCount
 	out.RatingAvg = hit.RatingAvg
 	out.ReviewCount = hit.ReviewCount
+	out.SellerId = hit.SellerID
 	return out
 }
 

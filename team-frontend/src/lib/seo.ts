@@ -30,8 +30,9 @@ export function pageMetadata(input: {
 }): Metadata {
   const description = clip(input.description);
   const url = absoluteUrl(input.path);
+  const product = input.type === "product";
   const openGraph = {
-    type: input.type ?? "website",
+    ...(product ? {} : { type: "website" as const }),
     siteName: SITE_NAME,
     title: input.title,
     description,
@@ -43,5 +44,6 @@ export function pageMetadata(input: {
     description,
     alternates: { canonical: url },
     openGraph,
+    ...(product ? { other: { "og:type": "product" } } : {}),
   };
 }

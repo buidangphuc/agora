@@ -1025,7 +1025,7 @@ func (o *OpenSearchIndex) Search(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText(), SoldCount: h.Source.SoldCount, RatingAvg: h.Source.RatingAvg, ReviewCount: h.Source.ReviewCount})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText(), SoldCount: h.Source.SoldCount, RatingAvg: h.Source.RatingAvg, ReviewCount: h.Source.ReviewCount, SellerID: h.Source.SellerID})
 	}
 	return SearchResult{
 		Hits:   hits,
@@ -1095,7 +1095,7 @@ func (o *OpenSearchIndex) SearchVector(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText(), SoldCount: h.Source.SoldCount, RatingAvg: h.Source.RatingAvg, ReviewCount: h.Source.ReviewCount})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText(), SoldCount: h.Source.SoldCount, RatingAvg: h.Source.RatingAvg, ReviewCount: h.Source.ReviewCount, SellerID: h.Source.SellerID})
 	}
 	return SearchResult{
 		Hits:   hits,

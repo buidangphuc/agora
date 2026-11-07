@@ -129,7 +129,7 @@ func RunIndexer(ctx context.Context, s config.IndexerSettings) (err error) {
 
 func newIndexerConsumer(client *kgo.Client, h consume.Handler, dlq consume.DLQProducer, topic string, fp *kafkax.Fingerprinter, logger *slog.Logger) (*consume.Consumer, error) {
 	return consume.NewConsumer(client, h, dlq, consume.Options{
-		DLQTopic: topic + ".dlq",
+		DLQTopic: "search-indexer." + topic + ".dlq",
 		KeyFP:    fp,
 		Logger:   logger,
 	})

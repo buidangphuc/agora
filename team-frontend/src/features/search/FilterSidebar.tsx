@@ -64,8 +64,8 @@ function normalizePriceKey(key: string): string {
 }
 
 function ratingFloor(key: string): 3 | 4 | undefined {
-  if (key === "rating_floor_4") return 4;
-  if (key === "rating_floor_3") return 3;
+  if (key === "4") return 4;
+  if (key === "3") return 3;
   return undefined;
 }
 

@@ -96,8 +96,8 @@ principal `service-team-search`, scope `ai.classify`, 2 s deadline; empty = no c
 | Consumes | `listing.events` (`KAFKA_LISTING_TOPIC`), group `team-search-indexer` | `platform.events.v1.EventEnvelope` wrapping `ListingChanged`, `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStockChanged`, `ListingStatusChanged`; other types are ignored | not used by the handler |
 | Consumes | `order.events` (`KAFKA_ORDER_TOPIC`), same group | `EventEnvelope` wrapping `platform.order.v1.ListingSalesChanged` (absolute `sold_count`, version = `changed_at` in ns); a malformed event is retried then parked on the DLQ | not used by the handler |
 | Consumes | `engagement.events` (`KAFKA_ENGAGEMENT_TOPIC`), same group | `EventEnvelope` wrapping `platform.engagement.v1.ListingRatingChanged` (absolute `average_rating` 0..5 and `review_count`, version = `changed_at` in ns); a malformed event is retried then parked on the DLQ | not used by the handler |
-| Produces | `order.events.dlq`, `engagement.events.dlq` | the original record, parked after retries are exhausted | original key |
-| Produces | `listing.events.dlq` (topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
+| Produces | `search-indexer.order.events.dlq`, `search-indexer.engagement.events.dlq` | the original record, parked after retries are exhausted | original key |
+| Produces | `search-indexer.listing.events.dlq` (`search-indexer.` + topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
 
 Handling (`internal/events/listing.go`):
 
