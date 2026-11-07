@@ -84,6 +84,7 @@ class AISettingsMixin(BaseModel):
     RAG_EMBED_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
     RAG_RETRIEVE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
     ASSISTANT_RAG_MIN_SCORE: float = Field(default=0.0, ge=0)
+    SEARCH_RANKER_VERSION: str = Field(default="v1", min_length=1)
 
     @model_validator(mode="after")
     def _rag_needs_its_backends(self) -> AISettingsMixin:
