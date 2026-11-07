@@ -18,7 +18,8 @@ The live serving data (Redis DB 0 and the default collections) is never touched.
 Live plans (recsys-generation-publish) skip the namespace: they publish to the stack's own serving
 data (DB 0, the default collections and their aliases), optionally forgetting every generation first
 ("reset"), and leave what they published in place. A run may name a dataset variant ("@fixture") and
-a subcommand ("@command", e.g. rollback). No run forces a promotion: the registry (MLflow, reached
+a subcommand ("@command", e.g. rollback), and an item_attributes@v2 snapshot ("@item_attributes":
+{listing_id: status or null}, written to ITEM_ATTRIBUTES_V2_DIR before the run). No run forces a promotion: the registry (MLflow, reached
 at MLFLOW_TRACKING_URI) is reset or seeded by the caller, and namespace plans start from an empty one.
 
 Only the image's own dependencies are used (pandas, redis, qdrant-client).
@@ -115,6 +116,31 @@ def _write_dataset(rows: list[dict], root: str = WORK) -> str | None:
     with open(path[: -len(".parquet")] + ".manifest.json", "w") as f:
         json.dump(manifest, f)
     return path
+
+
+def _write_item_attributes(statuses: dict, root: str) -> str:
+    """Write an item_attributes@v2 snapshot (one row per listing, null status kept) under `root`."""
+    directory = f"{root}/item_attributes/v2"
+    os.makedirs(directory, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    df = pd.DataFrame(
+        {
+            "listing_id": list(statuses),
+            "seller_id": [f"seller-{listing}" for listing in statuses],
+            "category_id": [f"category-{listing}" for listing in statuses],
+            "price": [1000.0] * len(statuses),
+            "status": [statuses[listing] for listing in statuses],
+            "as_of": [now] * len(statuses),
+        }
+    )
+    df["status"] = df["status"].astype("object")
+    df.to_parquet(
+        f"{directory}/as_of={now.strftime('%Y%m%dT%H%M%SZ')}.parquet",
+        index=False,
+        coerce_timestamps="ms",
+        allow_truncated_timestamps=True,
+    )
+    return directory
 
 
 # ── Fixture variants (recsys-generation-publish) ──────────────────────────
@@ -302,6 +328,10 @@ def main() -> int:
             command = run_env.pop("@command", None)
             # "@seed": "weak" | "strong" seeds a recsys-als champion before this run (after the
             # namespace reset); "@seed_protocol": "none" leaves it without `lineage.eval_protocol`.
+            attributes = run_env.pop("@item_attributes", None)
+            if attributes is not None:
+                env_dir = _write_item_attributes(attributes, f"{WORK}/attributes-{index}")
+                run_env["ITEM_ATTRIBUTES_V2_DIR"] = env_dir
             seed_kind = run_env.pop("@seed", None)
             seed_protocol = run_env.pop("@seed_protocol", None)
             if seed_kind:

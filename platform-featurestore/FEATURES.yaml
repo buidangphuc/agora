@@ -746,3 +746,115 @@ features:
     tags: [featurestore, unit, privacy]
     status: not-testable
     notes: "featurestore-hidden-review-exclusion: unit-verified by platform-featurestore/tests/test_hidden_review_exclusion.py (not written by this slice). A full admin-hide, export and materialize cycle needs engagement-review-hidden-event and the export loop and adds no coverage beyond the SQL."
+
+  - id: featurestore.ia2-status-reaches-the-v2-snapshot-and-online-key
+    title: "Status reaches the v2 snapshot and online key"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Status reaches the v2 snapshot and online key"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the materialisation job runs on a `listing_sellers.parquet` whose listing `L1` has `status=LISTING_STATUS_PUBLISHED`"
+      - "Then the `item_attributes@v2` row for `L1` has that `status` and the online key `fs:item_attributes:v2:L1` carries it"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-featurestore/tests/test_item_attributes.py test_v2_carries_status. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: featurestore.ia2-export-without-a-status-column-leaves-status-null
+    title: "Export without a status column leaves status null"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Export without a status column leaves status null"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs on a `listing_sellers.parquet` without a `status` column"
+      - "Then the job exits 0, every `item_attributes@v2` row has `status` null and the log has a warning naming `status`"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-featurestore/tests/test_item_attributes.py test_v2_without_status_column_is_null_not_an_error. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: featurestore.ia2-v1-is-unchanged
+    title: "v1 is unchanged"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: v1 is unchanged"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs and the registry drift check compares `item_attributes@v1` to `registry/features.lock`"
+      - "Then the hash of `item_attributes@v1` equals the locked value and the drift check exits 0"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-featurestore/tests/test_item_attributes.py test_v1_definition_is_unchanged. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: featurestore.ia2-a-changed-definition-without-a-version-bump-is-rejected
+    title: "A changed definition without a version bump is rejected"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: A changed definition without a version bump is rejected"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the SQL of `item_attributes@v2` is edited and `registry/features.lock` is not regenerated"
+      - "Then the job exits 4 (registry drift) naming `item_attributes@v2`"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-featurestore/tests/test_materialize.py test_v2_drift_is_refused. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: featurestore.ia2-a-listing-changed-after-as-of-is-excluded
+    title: "A listing changed after AS_OF is excluded"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: A listing changed after AS_OF is excluded"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a listing's latest change is after `AS_OF`"
+      - "Then it has no `item_attributes@v2` row"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-featurestore/tests/test_item_attributes.py test_v2_listing_after_as_of_excluded. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: featurestore.ia2-unspecified-or-unrecognised-status-is-unknown
+    title: "Unspecified or unrecognised status is unknown"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Unspecified or unrecognised status is unknown"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the export has a listing with `status=LISTING_STATUS_UNSPECIFIED` and another with `status=LISTING_STATUS_FOO`"
+      - "Then both `item_attributes@v2` rows have `status` null"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-featurestore/tests/test_item_attributes.py test_v2_unspecified_or_unknown_status_is_null. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: featurestore.ia2-registry-flips-to-v2-and-v1-stays-readable
+    title: "Registry flips to v2 and v1 stays readable"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Registry flips to v2 and v1 stays readable"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs after this change"
+      - "Then `fs:item_attributes:current` is `2` and both `fs:item_attributes:v1:<id>` and `fs:item_attributes:v2:<id>` exist for a listing"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-featurestore/tests/test_item_attributes.py test_current_is_2_and_both_versions_exist. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
