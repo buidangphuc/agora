@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 
 import re
@@ -18,6 +18,18 @@ from app.transport.grpc.server import build_grpc_server
 from app.transport.grpc.servicers.search import search_service_registration
 from app.core.config import get_settings
 from tests.factories import allow_all_limiter, build_test_settings
+
+
+@pytest.fixture(autouse=True)
+def _settings_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    monkeypatch.setenv("REDIS_HOST", "localhost")
+    monkeypatch.setenv("REDIS_PORT", "6379")
+    monkeypatch.setenv("REDIS_PASSWORD", "")
+    monkeypatch.setenv("REDIS_DATABASE", "0")
+    monkeypatch.delenv("SEARCH_RANKER_VERSION", raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def _md(*scopes: str):
