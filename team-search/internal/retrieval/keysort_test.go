@@ -21,9 +21,9 @@ func TestEngine_KeySortBypassesFusion(t *testing.T) {
 		for _, mode := range []searchv1.SearchMode{searchv1.SearchMode_SEARCH_MODE_HYBRID, searchv1.SearchMode_SEARCH_MODE_UNSPECIFIED} {
 			idx := &fakeIndex{lexHits: lex, vecHits: vec}
 			e := retrieval.NewEngine(idx, &retrieval.MockEmbedClient{Dim: 4}, nil, cfg)
-			res, degraded, err := e.Execute(context.Background(), retrieval.SearchParams{Query: "q", SortBy: sortBy, SearchMode: mode, From: 20, Size: 5})
-			if err != nil || degraded {
-				t.Fatalf("%v/%v: err=%v degraded=%v", sortBy, mode, err, degraded)
+			res, ran, _, err := e.Execute(context.Background(), retrieval.SearchParams{Query: "q", SortBy: sortBy, SearchMode: mode, From: 20, Size: 5})
+			if err != nil || string(ran) != "lexical" {
+				t.Fatalf("%v/%v: err=%v", sortBy, mode, err)
 			}
 			if idx.vecCalled {
 				t.Errorf("%v/%v: k-NN leg ran, so the result was fused", sortBy, mode)
@@ -43,7 +43,7 @@ func TestEngine_RelevanceSortStillFuses(t *testing.T) {
 	for _, sortBy := range []searchv1.SortBy{searchv1.SortBy_SORT_BY_UNSPECIFIED, searchv1.SortBy_SORT_BY_RELEVANCE} {
 		idx := &fakeIndex{lexHits: []index.Hit{{ListingID: "a"}}, vecHits: []index.Hit{{ListingID: "b", Score: 0.9}}}
 		e := retrieval.NewEngine(idx, &retrieval.MockEmbedClient{Dim: 4}, nil, cfg)
-		res, _, err := e.Execute(context.Background(), retrieval.SearchParams{Query: "q", SortBy: sortBy, Size: 10})
+		res, _, _, err := e.Execute(context.Background(), retrieval.SearchParams{Query: "q", SortBy: sortBy, Size: 10})
 		if err != nil {
 			t.Fatal(err)
 		}

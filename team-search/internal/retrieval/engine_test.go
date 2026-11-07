@@ -83,7 +83,7 @@ func TestEngine_HybridConcurrentRetrievalAndFusion(t *testing.T) {
 	}
 
 	engine := retrieval.NewEngine(idx, embed, nil, cfg)
-	res, isDegraded, err := engine.Execute(context.Background(), retrieval.SearchParams{
+	res, mode, _, err := engine.Execute(context.Background(), retrieval.SearchParams{
 		Query:      "shoes",
 		SearchMode: searchv1.SearchMode_SEARCH_MODE_HYBRID,
 		From:       0,
@@ -92,8 +92,8 @@ func TestEngine_HybridConcurrentRetrievalAndFusion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Engine execute failed: %v", err)
 	}
-	if isDegraded {
-		t.Errorf("expected isDegraded to be false")
+	if string(mode) == "lexical" {
+		t.Errorf("expected a non-lexical mode, got %q", mode)
 	}
 	if !idx.lexCalled || !idx.vecCalled {
 		t.Errorf("expected both lexical and vector strategies to be called: lex=%v, vec=%v", idx.lexCalled, idx.vecCalled)
@@ -120,7 +120,7 @@ func TestEngine_FailOpenWhenEmbeddingFails(t *testing.T) {
 	}
 
 	engine := retrieval.NewEngine(idx, embed, nil, cfg)
-	res, isDegraded, err := engine.Execute(context.Background(), retrieval.SearchParams{
+	res, mode, _, err := engine.Execute(context.Background(), retrieval.SearchParams{
 		Query:      "shoes",
 		SearchMode: searchv1.SearchMode_SEARCH_MODE_HYBRID,
 		From:       0,
@@ -129,8 +129,8 @@ func TestEngine_FailOpenWhenEmbeddingFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected fail-open success, got error: %v", err)
 	}
-	if !isDegraded {
-		t.Errorf("expected isDegraded = true")
+	if string(mode) != "lexical" {
+		t.Errorf("expected lexical mode, got %q", mode)
 	}
 	if len(res.Hits) != 1 || res.Hits[0].ListingID != "lex-item-1" {
 		t.Errorf("expected fallback to lexical results, got: %+v", res.Hits)
@@ -149,7 +149,7 @@ func TestEngine_DeepPaginationFallsBackToBM25(t *testing.T) {
 
 	engine := retrieval.NewEngine(idx, embed, nil, cfg)
 	// From = 250 > HybridFusionWindow (200)
-	res, _, err := engine.Execute(context.Background(), retrieval.SearchParams{
+	res, _, _, err := engine.Execute(context.Background(), retrieval.SearchParams{
 		Query:      "shoes",
 		SearchMode: searchv1.SearchMode_SEARCH_MODE_HYBRID,
 		From:       250,
@@ -177,7 +177,7 @@ func TestEngine_ExplicitLexicalMode(t *testing.T) {
 	cfg := config.Retrieval{EnableHybridSearch: true}
 
 	engine := retrieval.NewEngine(idx, embed, nil, cfg)
-	res, _, err := engine.Execute(context.Background(), retrieval.SearchParams{
+	res, _, _, err := engine.Execute(context.Background(), retrieval.SearchParams{
 		Query:      "shoes",
 		SearchMode: searchv1.SearchMode_SEARCH_MODE_LEXICAL,
 		From:       0,
