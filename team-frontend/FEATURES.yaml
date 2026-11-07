@@ -12196,3 +12196,101 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/app/sitemap.test.ts` `empty seller_id adds no shop url`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend.sa-impression-and-click-carry-the-identity
+    title: "Impression and click carry the identity"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: Impression and click carry the identity"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When a buyer opens `/search?q=laptop` and clicks the first result"
+      - "Then the impression beacons and the click beacon each carry `impression_id` equal to the page's response `request_id` and `model_version` equal to the response `model_version`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-re-sorting-gets-a-new-impression-id
+    title: "Re-sorting gets a new impression id"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: Re-sorting gets a new impression id"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When a buyer opens `/search?q=laptop` and then picks a different sort"
+      - "Then the second page's beacons carry an `impression_id` different from the first page's"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-paging-gets-a-new-impression-id
+    title: "Paging gets a new impression id"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: Paging gets a new impression id"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When a buyer moves from page 1 to page 2 of `/search?q=laptop`"
+      - "Then the page 2 beacons carry an `impression_id` different from page 1 and equal to the `request_id` of the response that returned page 2"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-a-fallback-is-labelled-with-the-mode-that-ran
+    title: "A fallback is labelled with the mode that ran"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: A fallback is labelled with the mode that ran"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When the semantic leg is unavailable and the lexical results are shown"
+      - "Then the beacons carry a `model_version` that starts with `lexical@`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-a-failed-search-sends-no-beacons
+    title: "A failed search sends no beacons"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: A failed search sends no beacons"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    acceptance:
+      - "When the search call fails and the page shows the error state"
+      - "Then no impression beacon is sent"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend `src/features/search/SearchBlocks.attribution.test.tsx` (task 1.8); the gateway search cannot be failed on demand. Not producible end to end."
+
+  - id: frontend.sa-an-empty-result-sends-no-impression
+    title: "An empty result sends no impression"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: An empty result sends no impression"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When a buyer searches for a term with no matches"
+      - "Then the page renders the empty state and sends no impression beacon"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-a-gateway-response-without-an-id-still-renders
+    title: "A gateway response without an id still renders"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: A gateway response without an id still renders"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    acceptance:
+      - "When the response carries an empty `request_id`"
+      - "Then the page renders the results and sends beacons without `impression_id`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend `src/features/search/SearchBlocks.attribution.test.tsx` (task 1.8); the gateway always returns a request_id. Not producible end to end."

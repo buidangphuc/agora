@@ -338,6 +338,16 @@ const FallbackModelVersion = "serving-fallback"
 // attributionHours. MatureClicks counts clicks whose attribution window had
 // closed at until; MaturePurchases the purchases credited to them.
 func (r *DuckDBRepository) RecommendationPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error) {
+	return r.placementPerformance(ctx, "", since, until, attributionHours)
+}
+
+const SearchResultsPlacement = "search_results"
+
+func (r *DuckDBRepository) SearchPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error) {
+	return r.placementPerformance(ctx, SearchResultsPlacement, since, until, attributionHours)
+}
+
+func (r *DuckDBRepository) placementPerformance(ctx context.Context, placement string, since, until time.Time, attributionHours int) ([]PerformanceRow, error) {
 	since, until = since.UTC(), until.UTC()
 	//nolint:gosec // only fixed identifiers are interpolated
 	q := fmt.Sprintf(`
@@ -347,6 +357,7 @@ WITH ie AS (
   FROM %[1]s
   WHERE event_type = 'impression' AND occurred_at >= ? AND occurred_at <= ?
     AND COALESCE(impression_id, '') <> '' AND COALESCE(placement_id, '') <> ''
+    AND (? = '' OR placement_id = ?)
 ),
 -- An impression is the triple (impression_id, placement_id, model_version): a reused id
 -- under another placement or model is another impression, not collapsed by min().
@@ -418,7 +429,7 @@ LEFT JOIN v USING (placement_id, model_version)
 LEFT JOIN p USING (placement_id, model_version)
 ORDER BY i.placement_id, i.model_version`, warehouse.ResolvedViewName, warehouse.OrderFactsTableName)
 	rows, err := r.db.QueryContext(ctx, q,
-		since, until, // ie
+		since, until, placement, placement,
 		attributionHours, until, since, until, // clk: mature flag, window
 		attributionHours, until, // atc
 		attributionHours, until) // pur

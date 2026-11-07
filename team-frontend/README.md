@@ -41,7 +41,7 @@ Session: login stores the JWT in cookie `session` (`httpOnly`, `sameSite=lax`, `
 
 ## 2. Events
 
-None produced or consumed over a broker. The browser sends a best-effort tracking beacon batch directly to the **gateway** `POST {NEXT_PUBLIC_GATEWAY_URL}/api/track` (`src/lib/analytics/queue.ts`: `sendBeacon`, else `fetch` with `keepalive` and `credentials: include`; batches of 20 or every 2 s). This is the one browser-to-gateway call. An optional GTM dataLayer destination loads only if `NEXT_PUBLIC_GTM_ID` is set at build time.
+None produced or consumed over a broker. The browser sends a best-effort tracking beacon batch directly to the **gateway** `POST {NEXT_PUBLIC_GATEWAY_URL}/api/track` (`src/lib/analytics/queue.ts`: `sendBeacon`, else `fetch` with `keepalive` and `credentials: include`; batches of 20 or every 2 s). On `/search` the result grid tags its impression and click beacons with `placementId` `search_results`, `impressionId` (the search response `request_id`, omitted when empty) and `modelVersion` (`src/features/search/SearchBlocks.tsx`). This is the one browser-to-gateway call. An optional GTM dataLayer destination loads only if `NEXT_PUBLIC_GTM_ID` is set at build time.
 
 ## 3. Data
 

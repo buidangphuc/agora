@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from functools import cached_property
+from urllib.parse import urlencode
 
 from playwright.sync_api import Locator
 
@@ -26,6 +27,12 @@ class SearchPage(BasePage):
 
     def navigate_query(self, query: str) -> None:
         self.goto(f"{self.url()}?q={query}")
+
+    def open_query(self, query: str, **params: str) -> None:
+        self.goto(f"{self.url()}?{urlencode({'q': query, **params})}")
+
+    def scroll_first_result_into_view(self) -> None:
+        self.results.cards.first.scroll_into_view_if_needed()
 
     def has_results(self) -> bool:
         return self.results.count() > 0

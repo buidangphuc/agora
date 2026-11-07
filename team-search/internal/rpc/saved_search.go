@@ -11,6 +11,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
+	"github.com/buidangphuc/team-search/internal/retrieval"
 	"github.com/buidangphuc/team-search/internal/store"
 )
 
@@ -102,10 +103,16 @@ func (h *Handler) RunSavedSearch(ctx context.Context, req *searchv1.RunSavedSear
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
+	requestID, err := newRequestID()
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
 	return &searchv1.RunSavedSearchResponse{
-		Hits:   toWireHits(res.Hits),
-		Page:   &commonv1.PageResponse{NextCursor: nextCursor(0, defaultPageSize, res.Total), Total: res.Total},
-		Facets: toFacets(res.Facets),
+		Hits:         toWireHits(res.Hits),
+		Page:         &commonv1.PageResponse{NextCursor: nextCursor(0, defaultPageSize, res.Total), Total: res.Total},
+		Facets:       toFacets(res.Facets),
+		RequestId:    requestID,
+		ModelVersion: string(retrieval.ModeLexical) + "@" + h.rankerVersion,
 	}, nil
 }
 

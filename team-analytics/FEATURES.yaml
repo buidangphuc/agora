@@ -3799,3 +3799,216 @@ features:
     tags: [analytics, unit]
     status: not-testable
     notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestBurstOf1000EventsIsWrittenAtOrAbove100PerSecond. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.sa-ctr-per-model-version
+    title: "CTR per model version"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: CTR per model version"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "Given 10 item impressions and 2 clicks with `impression_id` A, placement `search_results`, `model_version` `hybrid@v1`, and 10 item impressions and 1 click with `impression_id` B, `model_version` `lexical@v1`"
+      - "When an admin calls the search performance RPC over a window that contains them"
+      - "Then the response has a row for `hybrid@v1` with `ctr` 0.2 and a row for `lexical@v1` with `ctr` 0.1"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"
+
+  - id: analytics.sa-only-search-results-are-counted
+    title: "Only search results are counted"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: Only search results are counted"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "Given impressions under placement `similar_items` with a `model_version` of `als-v3`"
+      - "When an admin calls the search performance RPC"
+      - "Then no row for `als-v3` appears"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"
+
+  - id: analytics.sa-a-click-on-a-listing-the-search-did-not-show-is-not-credited
+    title: "A click on a listing the search did not show is not credited"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: A click on a listing the search did not show is not credited"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When a click carries an `impression_id` of a search impression but a `listing_id` that the impression did not show"
+      - "Then the click adds to no row"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"
+
+  - id: analytics.sa-a-click-before-its-impression-is-not-credited
+    title: "A click before its impression is not credited"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: A click before its impression is not credited"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When a click event has `occurred_at` earlier than the matching impression"
+      - "Then the click adds to no row"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-analytics `internal/query` DuckDB repository tests (task 1.11); beacon occurred_at is set by the server. Not producible end to end."
+
+  - id: analytics.sa-a-reused-impression-id-under-another-model-is-separate
+    title: "A reused impression id under another model is separate"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: A reused impression id under another model is separate"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When the same `impression_id` appears with two different `model_version` values"
+      - "Then the response has two rows, one per model version"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"
+
+  - id: analytics.sa-purchases-come-from-server-order-facts
+    title: "Purchases come from server order facts"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: Purchases come from server order facts"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When a purchase beacon claims a search click but no PAID order line of that user and listing exists in the attribution window"
+      - "Then the row's `purchases` stays 0"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"
+
+  - id: analytics.sa-row-fields-and-attribution-window
+    title: "Row fields and attribution window"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: Row fields and attribution window"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "Given 10 item impressions and 4 clicks of `hybrid@v1` whose attribution window has closed, and 2 PAID order lines of those clickers on the clicked listings"
+      - "When an admin calls `GetSearchPerformance`"
+      - "Then the `hybrid@v1` row has `placement_id` `search_results`, `clicks` 4, `purchases` 2, `ctr` 0.4, `conversion_rate` 0.5, and the response `attribution_window_hours` equals the value `GetRecommendationPerformance` returns"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-analytics `internal/query` DuckDB repository tests and `internal/rpc` tests (tasks 1.10, 1.11); needs a closed attribution window and PAID order facts of controlled age. Not producible end to end."
+
+  - id: analytics.sa-a-zero-window-resolves-to-24-hours
+    title: "A zero window resolves to 24 hours"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: A zero window resolves to 24 hours"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When an admin calls `GetSearchPerformance` with `window_hours` 0"
+      - "Then the response `window_hours` equals 24"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"
+
+  - id: analytics.sa-an-admin-through-the-gateway-receives-search-results-rows
+    title: "An admin through the gateway receives search_results rows"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: An admin through the gateway receives search_results rows"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When an admin calls `GetSearchPerformance` through the gateway after search impressions exist"
+      - "Then every returned row has `placement_id` equal to `search_results`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature. Also VERIFIED BY team-analytics `internal/rpc` TestGetSearchPerformanceRowsArePlacementSearchResults"
+
+  - id: analytics.sa-window-hours-169-is-rejected-by-team-analytics
+    title: "window_hours 169 is rejected by team-analytics"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: window_hours 169 is rejected by team-analytics"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When an admin calls `GetSearchPerformance` with `window_hours` 169"
+      - "Then team-analytics fails the call with `INVALID_ARGUMENT`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature. Also VERIFIED BY team-analytics `internal/rpc` TestGetSearchPerformanceRejectsWindowOver168"
+
+  - id: analytics.sa-an-empty-window-returns-no-rows
+    title: "An empty window returns no rows"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: An empty window returns no rows"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When an admin calls the RPC over a window with no search impressions"
+      - "Then the response has zero rows and no error"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-analytics `internal/query` DuckDB repository tests (task 1.11); the shared warehouse always holds other tests' rows. Not producible end to end."
+
+  - id: analytics.sa-window-hours-out-of-range-is-rejected
+    title: "window_hours out of range is rejected"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: window_hours out of range is rejected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When an admin calls the RPC with `window_hours` greater than 168"
+      - "Then the call fails with `INVALID_ARGUMENT`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"
+
+  - id: analytics.sa-the-window-boundary-is-inclusive
+    title: "The window boundary is inclusive"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: The window boundary is inclusive"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When an admin calls the RPC with `window_hours` 168 and an impression occurred exactly 168 hours earlier"
+      - "Then that impression counts"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-analytics `internal/query` DuckDB repository tests (task 1.11); needs an impression exactly 168 hours old. Not producible end to end."
+
+  - id: analytics.sa-a-non-admin-is-denied
+    title: "A non-admin is denied"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: A non-admin is denied"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When a seller or buyer principal calls the search performance RPC"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"
+
+  - id: analytics.sa-an-unauthenticated-caller-is-denied
+    title: "An unauthenticated caller is denied"
+    persona: admin
+    priority: P2
+    summary: "Scenario of change search-attribution: An unauthenticated caller is denied"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetSearchPerformance
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When a caller with no principal calls the search performance RPC"
+      - "Then the call fails with `UNAUTHENTICATED`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: analytics/search_performance.feature"

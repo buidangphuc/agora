@@ -30,7 +30,7 @@ Served by the platform-core contract (vendored in `proto/`), always started once
 | `platform.ai.v1.AIService` | `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews`, `ClassifyTags` and `ScreenListing` (internal: service principals with `ai.classify`) |
 | `platform.chat.v1.ChatService` | `StreamChat` (server stream) |
 | `platform.recommendation.v1.RecommendationService` | `Recommend` |
-| `platform.search.v1.SearchService` | `SearchListings` only (scope `search:read`, answers unavailable unless `RAG_ENABLED`); the other search RPCs return unimplemented |
+| `platform.search.v1.SearchService` | `SearchListings` only (scope `search:read`, answers unavailable unless `RAG_ENABLED`; each response carries a random 32-hex `request_id` and `model_version` `semantic@<SEARCH_RANKER_VERSION>`, default `v1`); the other search RPCs return unimplemented |
 
 Auth is the gateway's: the service reads forwarded `x-principal-*` metadata and enforces scopes. A call without that metadata is `UNAUTHENTICATED`; with `grpcurl`, send the `x-principal-*` headers yourself. `AI_USE_SCOPE_REQUIRED` adds the `ai:use` scope to the shopper LLM RPCs and chat. `ShoppingAssistant` and `StreamChat` are always throttled per principal on Redis (`RATE_LIMIT_PRINCIPAL_PER_MINUTE` per `RATE_LIMIT_WINDOW_SECONDS`), and reflection is always served.
 

@@ -1851,3 +1851,59 @@ features:
     status: not-testable
     notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_handler.py` `test_older_event_is_stale`"
 
+
+  - id: ai.sa-team-ai-returns-both-fields
+    title: "team-ai returns both fields"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: team-ai returns both fields"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-ai]
+    acceptance:
+      - "When a client with scope `search:read` calls team-ai `SearchListings` with a query that has matches"
+      - "Then the response `request_id` matches `^[0-9a-f]{32}$` and `model_version` equals `semantic@v1`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-ai `tests/unit/transport/test_search_servicer.py` (task 1.6); team-ai SearchListings has no edge path. Not producible end to end."
+
+  - id: ai.sa-two-team-ai-calls-differ
+    title: "Two team-ai calls differ"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Two team-ai calls differ"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-ai]
+    acceptance:
+      - "When a client calls team-ai `SearchListings` twice with the same query"
+      - "Then the two `request_id` values differ"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-ai `tests/unit/transport/test_search_servicer.py` (task 1.6); team-ai SearchListings has no edge path. Not producible end to end."
+
+  - id: ai.sa-team-ai-search-unavailable
+    title: "team-ai search unavailable"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: team-ai search unavailable"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-ai]
+    acceptance:
+      - "When the retrieval backend is not configured"
+      - "Then the call fails with `UNAVAILABLE` and the response carries no `request_id`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-ai `tests/unit/transport/test_search_servicer.py` (task 1.6); needs an unconfigured retrieval backend. Not producible end to end."
+
+  - id: ai.sa-team-ai-search-without-scope-is-denied
+    title: "team-ai search without scope is denied"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: team-ai search without scope is denied"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-ai]
+    acceptance:
+      - "When a caller without scope `search:read` calls team-ai `SearchListings`"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-ai `tests/unit/transport/test_search_servicer.py` (task 1.6); scope is checked on the internal gRPC call. Not producible end to end."

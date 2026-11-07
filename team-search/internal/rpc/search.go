@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"strconv"
@@ -25,6 +27,8 @@ const (
 	defaultSuggest  = 5
 	maxSuggest      = 20
 
+	defaultRankerVersion = "v1"
+
 	scopeSearchRead  = "search:read"
 	scopeSearchWrite = "search:write"
 )
@@ -43,9 +47,31 @@ type Handler struct {
 	saved  SavedSearches
 	logger *slog.Logger
 	errs   grpcx.ErrorTable
+
+	rankerVersion string
 }
 
-func NewHandler(idx index.Index, engine *retrieval.Engine, saved SavedSearches, logger *slog.Logger) (*Handler, error) {
+type Option func(*Handler)
+
+func WithRankerVersion(v string) Option {
+	return func(h *Handler) {
+		if v != "" {
+			h.rankerVersion = v
+		}
+	}
+}
+
+func newRequestID() (string, error) {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	b[6] = b[6]&0x0f | 0x40
+	b[8] = b[8]&0x3f | 0x80
+	return hex.EncodeToString(b[:]), nil
+}
+
+func NewHandler(idx index.Index, engine *retrieval.Engine, saved SavedSearches, logger *slog.Logger, opts ...Option) (*Handler, error) {
 	if idx == nil {
 		return nil, errors.New("rpc: index is required")
 	}
@@ -59,7 +85,11 @@ func NewHandler(idx index.Index, engine *retrieval.Engine, saved SavedSearches, 
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Handler{idx: idx, engine: engine, saved: saved, logger: logger, errs: errs}, nil
+	h := &Handler{idx: idx, engine: engine, saved: saved, logger: logger, errs: errs, rankerVersion: defaultRankerVersion}
+	for _, o := range opts {
+		o(h)
+	}
+	return h, nil
 }
 
 func (h *Handler) SearchListings(ctx context.Context, req *searchv1.SearchListingsRequest) (*searchv1.SearchListingsResponse, error) {
@@ -77,8 +107,11 @@ func (h *Handler) SearchListings(ctx context.Context, req *searchv1.SearchListin
 	from, size := decodePage(req.GetPage())
 
 	var res index.SearchResult
+	modelVersion := string(retrieval.ModeLexical)
 	if h.engine != nil {
-		res, _, err = h.engine.Execute(ctx, retrieval.SearchParams{
+		var mode retrieval.Mode
+		var reranked bool
+		res, mode, reranked, err = h.engine.Execute(ctx, retrieval.SearchParams{
 			Query:      req.GetQuery(),
 			Filters:    filters,
 			CategoryID: req.GetCategoryId(),
@@ -89,16 +122,26 @@ func (h *Handler) SearchListings(ctx context.Context, req *searchv1.SearchListin
 			From:       from,
 			Size:       size,
 		})
+		modelVersion = string(mode)
+		if reranked {
+			modelVersion += "+rerank"
+		}
 	} else {
 		res, err = h.idx.Search(ctx, req.GetQuery(), filters, req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), 0, req.GetSortBy(), from, size)
 	}
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
+	requestID, err := newRequestID()
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
 	return &searchv1.SearchListingsResponse{
-		Hits:   toWireHits(res.Hits),
-		Page:   &commonv1.PageResponse{NextCursor: nextCursor(from, size, res.Total), Total: res.Total},
-		Facets: toFacets(res.Facets),
+		Hits:         toWireHits(res.Hits),
+		Page:         &commonv1.PageResponse{NextCursor: nextCursor(from, size, res.Total), Total: res.Total},
+		Facets:       toFacets(res.Facets),
+		RequestId:    requestID,
+		ModelVersion: modelVersion + "@" + h.rankerVersion,
 	}, nil
 }
 

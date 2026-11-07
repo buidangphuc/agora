@@ -161,3 +161,41 @@ describe("searchListings dynamic facets", () => {
     expect(old.facets.skus).toEqual([]);
   });
 });
+
+describe("searchListings attribution", () => {
+  it("[Search page beacons carry the response identity] returns requestId and modelVersion of the response", async () => {
+    rpc.mockResolvedValueOnce({
+      ...pageOf(1, ""),
+      requestId: "a".repeat(32),
+      modelVersion: "hybrid@v1",
+    });
+    const res = await searchListings("ao");
+    expect(res.requestId).toBe("a".repeat(32));
+    expect(res.modelVersion).toBe("hybrid@v1");
+  });
+
+  it("[Search page beacons carry the response identity] on a deep page the identity is that of the final response", async () => {
+    rpc
+      .mockResolvedValueOnce({
+        ...pageOf(1, "c1"),
+        requestId: "1".repeat(32),
+        modelVersion: "hybrid@v1",
+      })
+      .mockResolvedValueOnce({
+        ...pageOf(2, ""),
+        requestId: "2".repeat(32),
+        modelVersion: "lexical@v1",
+      });
+    const res = await searchListings("ao", { page: 2 });
+    expect(res.requestId).toBe("2".repeat(32));
+    expect(res.modelVersion).toBe("lexical@v1");
+  });
+
+  it("[A gateway response without an id still renders] missing identity yields empty strings", async () => {
+    rpc.mockResolvedValueOnce(pageOf(1, ""));
+    const res = await searchListings("ao");
+    expect(res.requestId ?? "").toBe("");
+    expect(res.modelVersion ?? "").toBe("");
+    expect(res.items).toHaveLength(2);
+  });
+});

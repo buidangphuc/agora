@@ -2210,3 +2210,311 @@ features:
     tags: [ops, security]
     status: automated
     covered_by: "ops/boot_guard_search.feature::team-search refuses in-memory storage in production"
+
+  - id: search.sa-a-search-returns-a-request-id
+    title: "A search returns a request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A search returns a request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client calls `SearchListings` with query \"laptop\""
+      - "Then the response `request_id` matches `^[0-9a-f]{32}$`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-paging-gets-a-new-request-id
+    title: "Paging gets a new request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Paging gets a new request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client calls `SearchListings` twice with the same query, once for page 1 and once with the `next_cursor` of page 1"
+      - "Then the two responses carry different `request_id` values"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-repeating-one-search-gets-a-new-request-id
+    title: "Repeating one search gets a new request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Repeating one search gets a new request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client calls `SearchListings` 1000 times with identical parameters"
+      - "Then the responses carry 1000 distinct `request_id` values"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-saved-search-run-returns-a-request-id
+    title: "A saved search run returns a request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A saved search run returns a request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the owner of a saved search calls `RunSavedSearch`"
+      - "Then the response `request_id` matches `^[0-9a-f]{32}$` and differs from the `request_id` of the previous run of the same saved search"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-failed-search-returns-no-request-id
+    title: "A failed search returns no request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A failed search returns no request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the index is unavailable and `SearchListings` fails with an error status"
+      - "Then the call returns the error status and no response body"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-search `internal/rpc` handler spec tests (task 1.5): index failure returns the error status and no response body. Not producible end to end."
+
+  - id: search.sa-a-saved-search-of-another-user-is-rejected
+    title: "A saved search of another user is rejected"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A saved search of another user is rejected"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a user calls `RunSavedSearch` for a saved search owned by another user"
+      - "Then the call fails with `NOT_FOUND` and no `request_id` is returned"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-an-anonymous-caller-can-still-search
+    title: "An anonymous caller can still search"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: An anonymous caller can still search"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a caller with no principal calls `SearchListings`"
+      - "Then the response carries a valid `request_id` and `model_version`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-hybrid-search-reports-hybrid
+    title: "A hybrid search reports hybrid"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A hybrid search reports hybrid"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client searches with `search_mode` hybrid, a non-empty query, sort relevance and page 1, and both legs succeed"
+      - "Then `model_version` equals `hybrid@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-the-reranker-is-reported
+    title: "The reranker is reported"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: The reranker is reported"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When `ENABLE_RERANKER` is true and the reranker reorders the fused hits of a hybrid search"
+      - "Then `model_version` equals `hybrid+rerank@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-reranker-failure-is-not-reported-as-rerank
+    title: "A reranker failure is not reported as rerank"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A reranker failure is not reported as rerank"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the reranker call fails and the fused order is kept"
+      - "Then `model_version` equals `hybrid@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-fallback-page-never-carries-rerank
+    title: "A fallback page never carries rerank"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A fallback page never carries rerank"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When `ENABLE_RERANKER` is true and a hybrid search is served by the lexical leg because the semantic leg failed"
+      - "Then `model_version` equals `lexical@v1` and does not contain `+rerank`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-lexical-request-reports-lexical
+    title: "A lexical request reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A lexical request reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client searches with `search_mode` lexical"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-semantic-fallback-reports-lexical
+    title: "Semantic fallback reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Semantic fallback reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the embedding call fails during a semantic search and `Execute` falls back to the lexical index"
+      - "Then `model_version` equals `lexical@v1`, not `semantic@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-hybrid-with-a-failed-semantic-leg-reports-lexical
+    title: "Hybrid with a failed semantic leg reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Hybrid with a failed semantic leg reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the semantic leg of a hybrid search fails and the lexical results are returned"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-key-sort-in-hybrid-mode-reports-lexical
+    title: "A key sort in hybrid mode reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A key sort in hybrid mode reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client requests `search_mode` hybrid with `sort_by` price ascending"
+      - "Then `model_version` equals `lexical@v1`, because the lexical leg served the page"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-deep-paging-beyond-the-fusion-window-reports-lexical
+    title: "Deep paging beyond the fusion window reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Deep paging beyond the fusion window reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client requests hybrid mode with an offset of at least `HYBRID_FUSION_WINDOW`"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-an-empty-query-reports-lexical
+    title: "An empty query reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: An empty query reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client searches with an empty query and `search_mode` hybrid"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-the-unspecified-mode-resolves-to-the-mode-that-ran
+    title: "The unspecified mode resolves to the mode that ran"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: The unspecified mode resolves to the mode that ran"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client searches with `search_mode` unspecified, a non-empty query, hybrid enabled and the embedding client configured"
+      - "Then `model_version` equals `hybrid@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-the-ranker-version-comes-from-the-environment
+    title: "The ranker version comes from the environment"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: The ranker version comes from the environment"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When team-search starts with `SEARCH_RANKER_VERSION=v2` and a client runs a lexical search"
+      - "Then `model_version` equals `lexical@v2`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-search `internal/config` and `internal/rpc` tests (tasks 1.1, 1.5): SEARCH_RANKER_VERSION=v2 gives lexical@v2; the ranker version is read at process start, so no e2e can change it on the shared stack. Not producible end to end."
+
+  - id: search.sa-an-unset-ranker-version-defaults-to-v1
+    title: "An unset ranker version defaults to v1"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: An unset ranker version defaults to v1"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When team-search starts without `SEARCH_RANKER_VERSION`"
+      - "Then `model_version` ends with `@v1`"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-saved-search-run-reports-lexical
+    title: "A saved search run reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A saved search run reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the owner calls `RunSavedSearch`"
+      - "Then `model_version` equals `lexical@v1`, because the run uses the lexical index search"
+    tags: [search]
+    status: planned
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-the-engine-is-not-configured
+    title: "The engine is not configured"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: The engine is not configured"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the handler has no retrieval engine and falls back to the plain index search"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-search `internal/rpc` handler spec tests (task 1.5): a handler built without a retrieval engine reports lexical@v1; the stack always configures the engine. Not producible end to end."

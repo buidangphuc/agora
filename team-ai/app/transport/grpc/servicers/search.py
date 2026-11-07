@@ -6,10 +6,12 @@ UNIMPLEMENTED default. Embedding and vector search live in the RAG service.
 
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING, Final, Protocol
 
 import grpc
 
+from app.core.config import get_settings
 from app.core.errors import ServiceUnavailableError
 from app.transport.grpc._pb.platform.common.v1 import common_pb2
 from app.transport.grpc._pb.platform.search.v1 import search_pb2, search_pb2_grpc
@@ -73,7 +75,10 @@ class SearchServicer(search_pb2_grpc.SearchServiceServicer):
             for node in nodes
         ]
         return search_pb2.SearchListingsResponse(
-            hits=hits, page=common_pb2.PageResponse(next_cursor="", total=len(hits))
+            hits=hits,
+            page=common_pb2.PageResponse(next_cursor="", total=len(hits)),
+            request_id=uuid.uuid4().hex,
+            model_version=f"semantic@{get_settings().SEARCH_RANKER_VERSION}",
         )
 
 

@@ -267,8 +267,6 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
   `ResolveReport`, `QueryAuditLog`, `ModerateListing`, `ListModerationQueue`, `ForceFailSaga`,
   `AccountAdmin` `ListUsers` / `SetUserStatus`, four analytics reports, and promotion
   `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).
-  `GetSearchPerformance` is Contract only (discovery-seo-contract, not built): the gateway forwards and gates it, and team-analytics answers
-  `Unimplemented`, so no owning service enforces the rule again.
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at
