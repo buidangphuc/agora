@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
+from functools import cached_property
+
 from playwright.sync_api import Locator
 
 from src.constants import routes
 from src.core.base_page import BasePage
+from src.pages.components import RecommendationsRowComponent
+from src.pages.components.recommendations_row_component import CROSS_SELL_HEADING_TEXT
 
 
 class CartPage(BasePage):
     path = routes.CART
     name = "cart"
+
+    @cached_property
+    def cross_sell(self) -> RecommendationsRowComponent:
+        """The "Thường được mua cùng" row (placement cart_cross_sell)."""
+        return RecommendationsRowComponent(self.page, CROSS_SELL_HEADING_TEXT)
 
     @property
     def checkout_link(self) -> Locator:
