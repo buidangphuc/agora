@@ -760,3 +760,178 @@ func TestReviewHiddenDoesNotAffectCurrentViews(t *testing.T) {
 		t.Fatalf("follows_current = %v", fol)
 	}
 }
+
+func listingStatusRec(id, status string, at time.Time) *warehouse.ListingSellerRecord {
+	return &warehouse.ListingSellerRecord{ListingID: id, SellerID: "s-" + id, CategoryID: "cat", Price: 100, Status: status, UpdatedAt: at}
+}
+
+func listingStatusOf(t *testing.T, w *Writer, id string) (status sql.NullString, rows int) {
+	t.Helper()
+	if err := w.DB().QueryRow("SELECT count(*) FROM listing_sellers WHERE listing_id = ?", id).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows == 0 {
+		return status, 0
+	}
+	if err := w.DB().QueryRow("SELECT status FROM listing_sellers WHERE listing_id = ?", id).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	return status, rows
+}
+
+func openMem(t *testing.T) *Writer {
+	t.Helper()
+	w, err := Open(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	return w
+}
+
+func wantStatus(t *testing.T, w *Writer, id, want string) {
+	t.Helper()
+	got, rows := listingStatusOf(t, w, id)
+	if rows != 1 {
+		t.Fatalf("rows for %s = %d, want 1", id, rows)
+	}
+	if want == "" {
+		if got.Valid {
+			t.Errorf("status for %s = %q, want NULL", id, got.String)
+		}
+		return
+	}
+	if !got.Valid || got.String != want {
+		t.Errorf("status for %s = %v, want %q", id, got, want)
+	}
+}
+
+func TestUpsertListingSellers_StoresStatus(t *testing.T) {
+	ctx := context.Background()
+	w := openMem(t)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_PUBLISHED", at), listingStatusRec("L2", "", at)}); err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, w, "L1", "LISTING_STATUS_PUBLISHED")
+	wantStatus(t, w, "L2", "")
+}
+
+func TestUpsertListingSellers_EqualTimestampLaterWins(t *testing.T) {
+	ctx := context.Background()
+	w := openMem(t)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_PUBLISHED", at)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_HELD", at)}); err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, w, "L1", "LISTING_STATUS_HELD")
+}
+
+func TestUpsertListingSellers_NewerStatusWins(t *testing.T) {
+	ctx := context.Background()
+	w := openMem(t)
+	t1 := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	t2 := t1.Add(time.Hour)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_PUBLISHED", t1)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_BANNED", t2)}); err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, w, "L1", "LISTING_STATUS_BANNED")
+	var got time.Time
+	if err := w.DB().QueryRow("SELECT updated_at FROM listing_sellers WHERE listing_id = 'L1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if !got.UTC().Equal(t2) {
+		t.Errorf("updated_at = %v, want %v", got, t2)
+	}
+}
+
+func TestUpsertListingSellers_OlderStatusIgnored(t *testing.T) {
+	ctx := context.Background()
+	w := openMem(t)
+	t1 := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	t2 := t1.Add(time.Hour)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_BANNED", t2)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_PUBLISHED", t1)}); err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, w, "L1", "LISTING_STATUS_BANNED")
+}
+
+func TestUpsertListingSellers_DeletedKeepsRowNullStatus(t *testing.T) {
+	ctx := context.Background()
+	w := openMem(t)
+	t1 := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_PUBLISHED", t1)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "", t1.Add(time.Hour))}); err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, w, "L1", "")
+	var seller string
+	if err := w.DB().QueryRow("SELECT seller_id FROM listing_sellers WHERE listing_id = 'L1'").Scan(&seller); err != nil || seller != "s-L1" {
+		t.Errorf("seller_id = %q, err = %v; the row must be kept", seller, err)
+	}
+}
+
+func TestUpsertListingSellers_ReplayBackfillsStatus(t *testing.T) {
+	ctx := context.Background()
+	w := openMem(t)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	if _, err := w.DB().Exec("INSERT INTO listing_sellers (listing_id, seller_id, updated_at, category_id, price) VALUES ('L1', 's-L1', ?, 'cat', 100)", at); err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, w, "L1", "")
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_BANNED", at)}); err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, w, "L1", "LISTING_STATUS_BANNED")
+}
+
+func TestEnsureSchema_AddsListingStatusColumnIdempotently(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "wh.duckdb")
+	w, err := Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stmt := range []string{
+		"DROP TABLE listing_sellers",
+		"CREATE TABLE listing_sellers (listing_id VARCHAR PRIMARY KEY, seller_id VARCHAR NOT NULL, updated_at TIMESTAMP NOT NULL, category_id VARCHAR, price BIGINT)",
+		"INSERT INTO listing_sellers VALUES ('a', 's', TIMESTAMP '2026-10-01 09:00:00', 'c', 1), ('b', 's', TIMESTAMP '2026-10-01 09:00:00', 'c', 2), ('c', 's', TIMESTAMP '2026-10-01 09:00:00', 'c', 3)",
+	} {
+		if _, err := w.DB().Exec(stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for pass := 1; pass <= 2; pass++ {
+		w, err = Open(ctx, path)
+		if err != nil {
+			t.Fatalf("open pass %d: %v", pass, err)
+		}
+		var cols, rows, nonNull int
+		if err := w.DB().QueryRow("SELECT count(*) FROM information_schema.columns WHERE table_name = 'listing_sellers' AND column_name = 'status'").Scan(&cols); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.DB().QueryRow("SELECT count(*), count(status) FROM listing_sellers").Scan(&rows, &nonNull); err != nil {
+			t.Fatalf("pass %d: %v", pass, err)
+		}
+		if cols != 1 || rows != 3 || nonNull != 0 {
+			t.Errorf("pass %d: status columns=%d rows=%d non-null=%d, want 1, 3, 0", pass, cols, rows, nonNull)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

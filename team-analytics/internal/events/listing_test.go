@@ -55,3 +55,69 @@ func TestListingSellerFromEnvelope_Skips(t *testing.T) {
 	_, _, err = events.ListingSellerFromEnvelope([]byte{0xff, 0xff})
 	assert.Error(t, err, "malformed envelope")
 }
+
+func statusEnvelope(t *testing.T, status listingv1.ListingStatus, ct listingv1.ChangeType) []byte {
+	t.Helper()
+	return listingEnvelope(t, events.ListingChangedEventType,
+		&listingv1.ListingChanged{Listing: &listingv1.Listing{Id: "lst-1", SellerId: "seller-1", Status: status}, ChangeType: ct},
+		time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC))
+}
+
+func TestListingSellerFromEnvelope_StatusIsEnumName(t *testing.T) {
+	rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, listingv1.ListingStatus_LISTING_STATUS_PUBLISHED, listingv1.ChangeType_CHANGE_TYPE_UPDATED))
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, "LISTING_STATUS_PUBLISHED", rec.Status)
+}
+
+func TestListingSellerFromEnvelope_AllStatuses(t *testing.T) {
+	seen := 0
+	for num, name := range listingv1.ListingStatus_name {
+		if num == 0 {
+			continue
+		}
+		seen++
+		rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, listingv1.ListingStatus(num), listingv1.ChangeType_CHANGE_TYPE_UPDATED))
+		require.NoError(t, err, name)
+		require.True(t, ok, name)
+		assert.Equal(t, name, rec.Status)
+	}
+	assert.Positive(t, seen)
+}
+
+func TestListingSellerFromEnvelope_DeletedHasNullStatus(t *testing.T) {
+	rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, listingv1.ListingStatus_LISTING_STATUS_PUBLISHED, listingv1.ChangeType_CHANGE_TYPE_DELETED))
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, "lst-1", rec.ListingID)
+	assert.Equal(t, "seller-1", rec.SellerID)
+	assert.Empty(t, rec.Status)
+}
+
+func TestListingSellerFromEnvelope_UnspecifiedIsNull(t *testing.T) {
+	rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, listingv1.ListingStatus_LISTING_STATUS_UNSPECIFIED, listingv1.ChangeType_CHANGE_TYPE_UPDATED))
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Empty(t, rec.Status)
+}
+
+func TestListingSellerFromEnvelope_UnknownEnumIsNull(t *testing.T) {
+	rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, listingv1.ListingStatus(99), listingv1.ChangeType_CHANGE_TYPE_UPDATED))
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Empty(t, rec.Status)
+}
+
+func TestListingSellerFromEnvelope_MalformedEvent(t *testing.T) {
+	rec, ok, err := events.ListingSellerFromEnvelope([]byte{0xff, 0xff})
+	require.Error(t, err)
+	assert.False(t, ok)
+	assert.Nil(t, rec)
+
+	env, merr := proto.Marshal(&eventsv1.EventEnvelope{EventId: "evt-1", Type: events.ListingChangedEventType, OccurredAt: timestamppb.Now(), Payload: []byte{0xff, 0xff}})
+	require.NoError(t, merr)
+	rec, ok, err = events.ListingSellerFromEnvelope(env)
+	require.Error(t, err)
+	assert.False(t, ok)
+	assert.Nil(t, rec)
+}

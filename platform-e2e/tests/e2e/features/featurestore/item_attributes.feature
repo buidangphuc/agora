@@ -19,6 +19,18 @@ Feature: Listing attributes become item and user features
     When the seller changes that listing's price and the next export cycle completes
     Then listing_sellers.parquet holds the new price for that listing and exactly one row for it
 
+  Scenario: A published listing exports its status
+    When a seller publishes a listing and the next export cycle completes
+    Then listing_sellers.parquet has exactly one row for that listing whose status equals LISTING_STATUS_PUBLISHED
+
+  Scenario: A banned listing exports its status
+    When an admin bans a published listing and the next export cycle completes
+    Then listing_sellers.parquet has exactly one row for that listing whose status equals LISTING_STATUS_BANNED and not LISTING_STATUS_PUBLISHED
+
+  Scenario: Replay fills the status of existing listings
+    When the listing replay command runs over listing.events and the next export cycle completes
+    Then listing_sellers.parquet has exactly one row per listing and each status equals the enum name of that listing's newest event
+
   Scenario: A listing's attributes become item features
     When a seller creates a listing with a category and a price, the export cycle completes, and the materialisation job runs
     Then the online features of that listing under item_attributes@v1 carry that category and price and the seller

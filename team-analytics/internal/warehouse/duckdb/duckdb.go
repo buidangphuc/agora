@@ -122,7 +122,7 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	}
 	// Idempotent column migration (featurestore-item-attributes): rows stored before these
 	// columns existed keep NULL until the listing's events are replayed.
-	for _, col := range []struct{ name, typ string }{{"category_id", "VARCHAR"}, {"price", "BIGINT"}} {
+	for _, col := range []struct{ name, typ string }{{"category_id", "VARCHAR"}, {"price", "BIGINT"}, {"status", "VARCHAR"}} {
 		alterSQL := fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", warehouse.ListingSellersTableName, col.name, col.typ)
 		if _, err := w.db.ExecContext(ctx, alterSQL); err != nil {
 			return fmt.Errorf("migrate %s column %s: %w", warehouse.ListingSellersTableName, col.name, err)
@@ -520,9 +520,9 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 // upsertListingSellerSQL refreshes a mapping only when the incoming event is not
 // older than the stored one, so an out-of-order redelivery cannot regress it.
 var upsertListingSellerSQL = fmt.Sprintf(
-	`INSERT INTO %[1]s (listing_id, seller_id, updated_at, category_id, price) VALUES (?, ?, ?, ?, ?)
+	`INSERT INTO %[1]s (listing_id, seller_id, updated_at, category_id, price, status) VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT (listing_id) DO UPDATE SET seller_id = excluded.seller_id, updated_at = excluded.updated_at,
-  category_id = excluded.category_id, price = excluded.price
+  category_id = excluded.category_id, price = excluded.price, status = excluded.status
 WHERE excluded.updated_at >= %[1]s.updated_at`, warehouse.ListingSellersTableName)
 
 // UpsertListingSellers idempotently upserts listing -> seller mappings in one
@@ -550,7 +550,11 @@ func (w *Writer) UpsertListingSellers(ctx context.Context, batch []*warehouse.Li
 		if r.Price > 0 {
 			price = r.Price
 		}
-		if _, err := stmt.ExecContext(ctx, r.ListingID, r.SellerID, r.UpdatedAt.UTC(), category, price); err != nil {
+		var status any
+		if r.Status != "" {
+			status = r.Status
+		}
+		if _, err := stmt.ExecContext(ctx, r.ListingID, r.SellerID, r.UpdatedAt.UTC(), category, price, status); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("upsert listing_sellers %s: %w", r.ListingID, err)
 		}
