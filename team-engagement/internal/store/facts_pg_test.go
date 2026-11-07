@@ -189,8 +189,8 @@ func TestLegacyOutboxIsNotWritten(t *testing.T) {
 	if n := countRows(t, pool, legacyTable); n != 2 {
 		t.Fatalf("legacy outbox rows = %d, want the 2 seeded rows unchanged", n)
 	}
-	if n := countRows(t, pool, factsTable); n != 5 {
-		t.Fatalf("%s rows = %d, want 5 (favourite, follow, review, hide, dispute)", factsTable, n)
+	if n := countRows(t, pool, factsTable); n != 7 {
+		t.Fatalf("%s rows = %d, want 7 (favourite, follow, review, review rating, hide, hide rating, dispute)", factsTable, n)
 	}
 }
 
