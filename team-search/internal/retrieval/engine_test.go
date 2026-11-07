@@ -34,6 +34,10 @@ func (f *fakeIndex) PartialUpdate(_ context.Context, _ string, _ map[string]inte
 func (f *fakeIndex) Delete(_ context.Context, _ string, _ int64) error         { return nil }
 func (f *fakeIndex) PurgeTombstones(context.Context, time.Time) (int64, error) { return 0, nil }
 func (f *fakeIndex) UpdateStock(context.Context, string, int32, int64) error   { return nil }
+func (f *fakeIndex) UpdateSales(context.Context, string, int64, int64) error   { return nil }
+func (f *fakeIndex) UpdateRating(context.Context, string, float64, int64, int64) error {
+	return nil
+}
 func (f *fakeIndex) Suggest(_ context.Context, _ string, _ int) ([]string, error) {
 	return nil, nil
 }
