@@ -103,3 +103,20 @@ def test_owners_from_slices_skips_contract_owner(tmp_path):
 def test_k8s_value_maps_container_names_redis_and_public_urls():
     v = ae.k8s_value("http://team-identity-svc:50063/x,redis:6379,redpanda.marketplace.svc:9092,http://localhost:3000", SERVICES, "fe.local", "api.local")
     assert v == "http://team-identity:50063/x,valkey:6379,redpanda:9092,http://fe.local"
+
+
+def test_main_build_passes_frontend_build_args(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ae, "image_id", lambda ref: None)
+    monkeypatch.setattr(ae, "gen_stubs", lambda src, name: None)
+    monkeypatch.setattr(ae, "compose", lambda st, *args, **kw: calls.append(args))
+    services = {
+        "team-frontend": {"image": "team-frontend:local", "build": {"context": "/r/team-frontend"}},
+        "team-sharing": SERVICES["team-sharing"],
+    }
+    st = {"env": ae.MAIN, "src": "/r"}
+    ae.build(st, services, ["team-frontend", "team-sharing"])
+    fe = next(c for c in calls if c[-1] == "team-frontend")
+    assert "NEXT_PUBLIC_GTM_ID=GTM-E2E0001" in fe
+    assert "NEXT_PUBLIC_GATEWAY_URL=http://localhost:8080" in fe
+    assert next(c for c in calls if c[-1] == "team-sharing") == ("build", "team-sharing")
