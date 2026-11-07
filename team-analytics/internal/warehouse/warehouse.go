@@ -226,6 +226,7 @@ type ListingSellerRecord struct {
 	// ListingChanged snapshot; empty / zero are stored as NULL (unknown).
 	CategoryID string
 	Price      int64
+	Status     string
 	// UpdatedAt is the envelope occurred_at of the event that produced the row.
 	UpdatedAt time.Time
 }
@@ -237,8 +238,8 @@ const ListingSellersTableName = "listing_sellers"
 // mapping (the DuckDB adapter, which also serves the seller queries).
 type ListingSellerWriter interface {
 	// UpsertListingSellers idempotently inserts or refreshes the mappings in one
-	// transaction. Mappings are never deleted: a deleted listing keeps its row so
-	// historical tracking events stay attributable to the seller.
+	// transaction. Mappings are never deleted: a deleted listing keeps its row (with a
+	// null status) so historical tracking events stay attributable to the seller.
 	UpsertListingSellers(ctx context.Context, batch []*ListingSellerRecord) error
 }
 
