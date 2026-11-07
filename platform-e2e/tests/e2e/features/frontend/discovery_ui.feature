@@ -48,7 +48,7 @@ Feature: Discovery routes - cards, grid, search, vouchers and the search bar
     And the "vouchers" page is open
     Then no voucher card has a "Lưu mã" button
     When the buyer opens the search results page
-    Then the sort options exclude "Bán Chạy"
+    Then the sort options include "Bán chạy"
 
   Scenario: Token lint passes on discovery files
     When the token lint runs on the discovery files

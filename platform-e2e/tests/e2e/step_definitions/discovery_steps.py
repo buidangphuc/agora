@@ -176,11 +176,24 @@ def url_only_keyword(world: World) -> None:
     )
 
 
-@then("the sort controls offer no Bán Chạy option")
-def no_best_selling_sort(world: World) -> None:
+@then(
+    "the sort controls offer Liên quan, Mới nhất, Bán chạy, Giá thấp đến cao and Giá cao đến thấp"
+)
+def sort_controls_offer_best_selling(world: World) -> None:
     search = _search(world)
-    expect(search.sort_link("Mới nhất")).to_be_visible(timeout=timeouts.DEFAULT)
-    assert world.page.get_by_text("Bán Chạy", exact=False).count() == 0
+    for label in ("Liên quan", "Mới nhất", "Bán chạy", "Giá thấp đến cao", "Giá cao đến thấp"):
+        expect(search.sort_link(label)).to_be_visible(timeout=timeouts.DEFAULT)
+
+
+@then('selecting "Bán chạy" navigates to a URL with sort=best_selling and marks it active')
+def select_best_selling_marks_active(world: World) -> None:
+    search = _search(world)
+    search.wait_until_interactive(search.sort_link("Bán chạy"))
+    search.sort_link("Bán chạy").click()
+    expect(world.page).to_have_url(re.compile(r".*sort=best_selling"), timeout=timeouts.DEFAULT)
+    expect(search.sort_link("Bán chạy")).to_have_attribute(
+        "aria-current", "true", timeout=timeouts.DEFAULT
+    )
 
 
 @given("more than one page of listings is indexed")
