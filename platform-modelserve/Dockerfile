@@ -13,6 +13,9 @@ COPY modelserve/ modelserve/
 
 RUN pip install --no-cache-dir -e .
 
+RUN adduser -D -H -u 1001 app
+USER 1001
+
 EXPOSE 8100
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \

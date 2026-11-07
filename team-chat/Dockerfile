@@ -12,5 +12,6 @@ WORKDIR /app
 COPY --from=builder /server /server
 COPY --from=builder /app/migrations ./migrations
 
+USER 65532:65532
 EXPOSE 50057
 CMD ["/server"]
