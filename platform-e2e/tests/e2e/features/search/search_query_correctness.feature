@@ -19,11 +19,12 @@ Feature: Search query correctness
     When a ListingChanged UPDATED for that id with occurred_at T2 is published to listing.events, followed by its ListingChanged CREATED with occurred_at T1, where the real listing's creation is before T1 and T1 is before T2
     Then within 30 seconds a SORT_BY_NEWEST search for that keyword returns the out-of-order listing first, with the UPDATED event's title, and the real listing second
 
-  Scenario: A minimum-rating search is rejected
-    When a buyer calls SearchListings through the gateway with min_rating 4, then with min_rating 4 and SEARCH_MODE_SEMANTIC
-    Then both calls fail with invalid_argument
+  Scenario: A minimum-rating search is accepted
+    Given published listings matching one keyword with rating_avg 4.5, 3.5, 2 and no review
+    When a buyer calls SearchListings for the keyword with min_rating 4, then with min_rating 4 and SEARCH_MODE_SEMANTIC
+    Then both calls succeed and return only the listing with rating_avg 4.5
 
-  Scenario: The ratings facet is empty
-    Given published listings that match a query
-    When a buyer calls SearchListings for that query with min_rating 0, and runs a saved search with the same query
-    Then both responses return the matching listings and an empty ratings facet while the categories facet is not empty
+  Scenario: The ratings facet counts the floors
+    Given published listings matching one keyword with rating_avg 4.5, 3.5, 2 and no review
+    When a buyer calls SearchListings for the keyword with min_rating 0
+    Then the ratings facet is 4 with count 1 and 3 with count 2 while the categories facet is not empty

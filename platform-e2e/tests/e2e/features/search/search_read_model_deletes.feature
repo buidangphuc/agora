@@ -46,3 +46,10 @@ Feature: Search read-model deletes
     And a seller with two published listings that a seller_id search counts as total 2 and a sellers facet of 2
     When the seller deletes one of them through the gateway
     Then the read-model holds a tombstone right after the delete is consumed, no document once the TTL plus one purge interval has passed, and the other listing still appears in search
+
+  @destructive
+  Scenario: An expired pending document is purged
+    Given the search indexer runs with a short tombstone TTL and purge interval
+    And a pending document exists for a listing id "G" and a second pending document for "U"
+    When a ListingChanged CREATED for "U" is published before the TTL elapses
+    Then the read-model holds no pending document for "G" once the TTL plus one purge interval has passed, and "U" still has its sold_count 4
