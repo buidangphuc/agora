@@ -62,6 +62,8 @@ export interface FacetedSearchResult {
   /** The page actually returned (1-based); less than the requested page when it was out of range. */
   page: number;
   pageSize: number;
+  requestId?: string;
+  modelVersion?: string;
 }
 
 /** Results per page and the deepest page `searchListings` will walk to. */
@@ -195,6 +197,8 @@ export async function searchListings(
     facets: mapFacets(res.facets),
     page,
     pageSize: SEARCH_PAGE_SIZE,
+    requestId: res.requestId ?? "",
+    modelVersion: res.modelVersion ?? "",
   };
 }
 

@@ -150,6 +150,8 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
           <ListingGrid
             listings={result.items}
             placementId="search_results"
+            impressionId={result.requestId || undefined}
+            modelVersion={result.modelVersion}
             query={state.q}
           />
         )}
