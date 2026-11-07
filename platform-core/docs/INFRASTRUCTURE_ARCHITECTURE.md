@@ -61,7 +61,7 @@ Môi trường Local được đóng gói đầy đủ trong `platform-core/infr
 | **`prometheus`** | `prom/prometheus:v2.55.1` | `:9090` | Thu thập time-series metrics từ OTel Collector & Redpanda |
 | **`grafana`** | `grafana/grafana:11.0.0` | `:3001` | Dashboard trực quan hóa RPS, Latency p95/p99, Error rate, JVM/Go runtime |
 | **`otel-collector`** | `otel/opentelemetry-collector-contrib:0.104.0` | `:4317, :4318` | Ingestion collector tiếp nhận OTLP Traces & Metrics từ tất cả services |
-| **`redpanda`** | `redpandadata/redpanda:v24.2.7` | `:19092, :9644` | Kafka-compatible event streaming broker |
+| **`redpanda`** | `redpandadata/redpanda:v24.3.1` | `:19092, :9644` | Kafka-compatible event streaming broker |
 | **`rabbitmq`** | `rabbitmq:3-management` | `:5672, :15672` | Task queue broker (cho background jobs) |
 | **`opensearch`** | `opensearchproject/opensearch:2.19.5` | `:9200` | Search read-model engine |
 | **`minio`** | `cgr.dev/chainguard/minio` (digest) | `:9000, :9001` | S3-compatible Object Storage lưu ảnh sản phẩm |

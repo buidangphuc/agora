@@ -127,7 +127,7 @@ services:
   # Redpanda: Kafka-API compatible, no JVM/ZooKeeper. Code uses a normal Kafka
   # client; swappable for Apache Kafka in prod (same API).
   redpanda:
-    image: redpandadata/redpanda:v24.2.7
+    image: redpandadata/redpanda:v24.3.1
     command:
       - redpanda
       - start
