@@ -153,12 +153,14 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		store.WithPlacedOutbox(events.BuildPlacedOutboxRow),
 		store.WithReminderOutbox(events.BuildPaymentReminderOutboxRow),
 		store.WithCompletedOutbox(events.BuildCompletedOutboxRow),
+		store.WithListingSalesOutbox(events.BuildListingSalesChangedOutboxRow),
 		store.WithAutoCompleteAfter(s.AutoCompleteAfter()),
 		store.WithReturnWindow(s.ReturnWindow()),
 		store.WithShipByAfter(s.ShipByAfter()))
 	returnRepo := store.NewPostgresReturnRepository(pool, outStore,
 		store.WithReturnOutbox(events.BuildReturnRefundedOutboxRow),
 		store.WithReturnRequestedOutbox(events.BuildReturnRequestedOutboxRow),
+		store.WithReturnListingSalesOutbox(events.BuildListingSalesChangedOutboxRow),
 		store.WithReturnAutoApproveAfter(s.ReturnAutoApproveAfter()))
 	shipmentRepo := store.NewPostgresShipmentRepository(pool, outStore, store.WithShipmentOutbox(events.BuildShippedOutboxRow))
 
