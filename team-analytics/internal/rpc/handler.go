@@ -331,6 +331,7 @@ const (
 
 	defaultPerformanceWindowHours       = 168
 	defaultSearchPerformanceWindowHours = 24
+	maxSearchPerformanceWindowHours     = 168
 
 	statusOK       = "OK"
 	statusDegraded = "DEGRADED"
@@ -538,8 +539,8 @@ func (s *Handler) GetSearchPerformance(ctx context.Context, req *analyticsv1.Get
 	if hours == 0 {
 		hours = defaultSearchPerformanceWindowHours
 	}
-	if hours > maxQualityWindowHours {
-		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxQualityWindowHours)
+	if hours > maxSearchPerformanceWindowHours {
+		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxSearchPerformanceWindowHours)
 	}
 	pr, ok := s.repo.(query.PerformanceRepository)
 	if !ok {

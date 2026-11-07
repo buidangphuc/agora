@@ -429,7 +429,7 @@ LEFT JOIN v USING (placement_id, model_version)
 LEFT JOIN p USING (placement_id, model_version)
 ORDER BY i.placement_id, i.model_version`, warehouse.ResolvedViewName, warehouse.OrderFactsTableName)
 	rows, err := r.db.QueryContext(ctx, q,
-		since, until, placement, placement, // ie
+		since, until, placement, placement,
 		attributionHours, until, since, until, // clk: mature flag, window
 		attributionHours, until, // atc
 		attributionHours, until) // pur
