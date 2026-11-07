@@ -1048,8 +1048,8 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "When `/search?q=ao&category=c1&rating=4` is rendered"
-      - "Then three closable `Tag`s are shown, and activating the category tag navigates to `/search?q=ao&rating=4`"
+      - "When `/search?q=ao&category=c1&minRating=4` is rendered"
+      - "Then three closable `Tag`s are shown, and activating the category tag navigates to `/search?q=ao&minRating=4`"
     tags: [buyer]
     status: automated
     covered_by: "frontend/search_facets.feature::Active filters can be removed one by one"
@@ -1081,10 +1081,53 @@ features:
       login: buyer
     acceptance:
       - "When the `SortBar` is rendered"
-      - "Then it offers only Liên quan, Mới nhất, Giá thấp đến cao and Giá cao đến thấp (no \"Bán Chạy\"), and the active one has `aria-current=\"true\"`"
+      - "Then it offers Liên quan, Mới nhất, Bán chạy, Giá thấp đến cao and Giá cao đến thấp, selecting \"Bán chạy\" navigates to a URL with `sort=best_selling`, and the active one has `aria-current=\"true\"`"
     tags: [buyer]
-    status: automated
-    covered_by: "frontend/search_facets.feature::Sort options match what the server honours"
+    status: planned
+    notes: >-
+      Feature: frontend/search_facets.feature::Sort options match what the server honours. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.best-selling-sort-orders-results-by-sold-count
+    title: "Best-selling sort orders results by sold count"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given listings with `sold_count` 7, 3 and 0 match the keyword"
+      - "When a buyer selects \"Bán chạy\""
+      - "Then the results appear in the order 7, 3, 0 and opening `/search?q=<keyword>&sort=best_selling` in a new tab shows the same order"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_facets.feature::Best-selling sort orders results by sold count. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.an-unknown-sort-value-falls-back-to-relevance
+    title: "An unknown sort value falls back to relevance"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer opens `/search?q=<keyword>&sort=top_rated`"
+      - "Then the page renders the relevance order with \"Liên quan\" marked `aria-current=\"true\"` and no error"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_facets.feature::An unknown sort value falls back to relevance. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
 
   - id: discovery.out-of-range-page-redirects
     title: "Out-of-range page redirects"
@@ -1307,7 +1350,7 @@ features:
       login: buyer
     acceptance:
       - "When `/search` and `/vouchers` are rendered"
-      - "Then the sort options exclude \"Bán Chạy\" and no voucher card has a \"Lưu mã\" button"
+      - "Then the sort options include \"Bán chạy\" and no voucher card has a \"Lưu mã\" button"
     tags: [buyer]
     status: automated
     covered_by: "frontend/discovery_ui.feature::Unsupported features are hidden"
@@ -5492,10 +5535,10 @@ features:
       Scenario in frontend/oic_inv_checkout_idempotency.feature. GREEN on the pre-change stack (two orders); it guards the key renewal once the storefront sends keys.
 
   - id: discovery.search-rating-the-search-page-shows-no-rating-filter
-    title: "The search page shows no rating filter"
+    title: "The search page shows the rating filter"
     persona: buyer
     priority: P1
-    summary: "Change port-search-read-model-correctness, capability frontend-search-rating."
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
     entry_route: /search
     services: [team-frontend, team-search, team-gateway]
     preconditions:
@@ -5503,15 +5546,157 @@ features:
     api:
       exercised: [search.v1.SearchListings]
     acceptance:
-      - "Given published listings across categories and price ranges are indexed"
+      - "Given published listings, some with verified reviews, are indexed"
       - "When a buyer opens the search results for those listings"
-      - "Then the filter sidebar shows the category and price groups and no `facet-ratings` group or \"Đánh giá\" filter, and no sort or pagination link on the page contains `rating=`"
+      - "Then the filter sidebar shows a `facet-ratings` group with \"Từ 4 sao\" and \"Từ 3 sao\" and their counts, and no link on the page contains `rating=`"
     tags: [buyer, search]
-    status: automated
-    covered_by: "frontend/search_rating_removed.feature::The search page shows no rating filter"
+    status: planned
     notes: >-
-      Feature: frontend/search_rating_removed.feature::The search page shows no rating filter. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
-      the integrator flips this to automated once the code is merged and the scenario is green.
+      Feature: frontend/search_rating_removed.feature::The search page shows the rating filter. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-choosing-a-rating-filters-the-results-by-url
+    title: "Choosing a rating filters the results by URL"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given listings with `rating_avg` 4.5 and 2 match the keyword"
+      - "When a buyer selects \"Từ 4 sao\""
+      - "Then the URL contains `minRating=4`, the results list only the 4.5 listing, \"Từ 4 sao\" is marked selected, and opening the same URL in a new tab shows the same results and selection"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::Choosing a rating filters the results by URL. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-the-rating-group-keeps-both-options-while-one-is-selected
+    title: "The rating group keeps both options while one is selected"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given listings with `rating_avg` 4.5, 3.5 and 2 match the keyword"
+      - "When a buyer opens `/search?q=<keyword>&minRating=4`"
+      - "Then the `facet-ratings` group still shows both \"Từ 4 sao\" and \"Từ 3 sao\", with the \"Từ 3 sao\" count equal to 2"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::The rating group keeps both options while one is selected. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-the-rating-chip-removes-the-filter
+    title: "The rating chip removes the filter"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer on `/search?q=<keyword>&minRating=4` removes the rating chip"
+      - "Then the URL no longer carries `minRating`, the results include the listing with `rating_avg` 2, and the drawer trigger's active-filter count changes from 1 to 0"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::The rating chip removes the filter. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-the-rating-filter-is-offered-in-the-mobile-drawer
+    title: "The rating filter is offered in the mobile drawer"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer opens the filter drawer on a 375 px wide viewport and selects \"Từ 3 sao\""
+      - "Then the URL contains `minRating=3` and the results list only listings with `rating_avg` of at least 3"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::The rating filter is offered in the mobile drawer. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-an-unsupported-minrating-value-is-ignored
+    title: "An unsupported minRating value is ignored"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer opens `/search?q=<keyword>&minRating=9`, and separately `/search?q=<keyword>&minRating=abc`"
+      - "Then each page lists the same results as `/search?q=<keyword>`, shows no error and no rating chip, and no gateway request carries `min_rating`"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::An unsupported minRating value is ignored. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-a-repeated-minrating-uses-the-first-value
+    title: "A repeated minRating uses the first value"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer opens `/search?q=<keyword>&minRating=4&minRating=3`"
+      - "Then the page behaves as `minRating=4`: one rating chip for \"Từ 4 sao\", only listings with `rating_avg` of at least 4, and no error"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::A repeated minRating uses the first value. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-a-rating-filter-with-no-match-shows-the-empty-state
+    title: "A rating filter with no match shows the empty state"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given no listing matching the keyword has `rating_avg` of at least 4"
+      - "When a buyer opens `/search?q=<keyword>&minRating=4`"
+      - "Then the page shows the search empty state with the rating chip and zero results, and not an error"
+    tags: [buyer, search]
+    status: planned
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::A rating filter with no match shows the empty state. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
 
   - id: discovery.search-rating-an-old-rating-link-renders-the-results-without-error
     title: "An old rating link renders the results without error"

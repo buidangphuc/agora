@@ -162,5 +162,24 @@ class SearchPage(BasePage):
 
     @property
     def rating_chip(self) -> Locator:
-        """An active-filter tag for a rating ("Bỏ lọc Đánh giá: ...")."""
-        return self.active_filters.get_by_role("link", name=re.compile("Đánh giá"))
+        return self.active_filters.get_by_role("link", name=re.compile(r"Đánh giá|Từ [34] sao"))
+
+    def legacy_rating_hrefs(self) -> list[str]:
+        return [h for h in self.hrefs_containing("ating=") if re.search(r"[?&]rating=", h or "")]
+
+    def ordered_result_hrefs(self, page=None) -> list[str]:
+        return (page or self.page).eval_on_selector_all(
+            '[data-testid="search-results"] a[href^="/listing/"]',
+            "els => Array.from(new Set(els.map(e => e.getAttribute('href'))))",
+        )
+
+    def rating_group(self, scope: Locator | None = None) -> Locator:
+        return (scope or self.page).get_by_test_id("facet-ratings")
+
+    def rating_option(self, label: str, scope: Locator | None = None) -> Locator:
+        return self.rating_group(scope).get_by_test_id("facet-bucket").filter(has_text=label)
+
+    @property
+    def filter_count(self) -> int:
+        digits = re.findall(r"\d+", self.filter_button.inner_text())
+        return int(digits[-1]) if digits else 0

@@ -198,3 +198,87 @@ def facet_counts_update(world: World) -> None:
         low_after < low_before
     ), f"'{_LOW_BUCKET_KEY}' count did not update: before {low_before}, after {low_after}"
     world.logger.info(f"Facet counts updated: '{_LOW_BUCKET_KEY}' {low_before} -> {low_after}")
+
+
+_SOLD_SEEDED = (("phòng 5", 7), ("phòng 4", 3))
+
+
+def _facet_search(world: World) -> SearchPage:
+    return world.get_page(PageName.SEARCH)  # type: ignore[return-value]
+
+
+@given("two of the seeded listings have sold counts 7 and 3")
+def seeded_listings_with_sold_counts(world: World) -> None:
+    from tests.e2e.step_definitions.search_best_selling_rating_steps import at, send_sales, wait_hit
+    from tests.e2e.support import srm_support as s
+
+    keyword = world.state.extra["facet_keyword"]
+    c = s.ctx(world)
+    c.keyword = keyword
+    hits = s.ok_json(s.search(keyword)).get("hits", [])
+    by_title = {h["title"]: h["listingId"] for h in hits}
+    for suffix, sold in _SOLD_SEEDED:
+        title = f"{keyword} {suffix}"
+        assert title in by_title, (title, sorted(by_title))
+        c.listings[suffix] = s.Listed(by_title[title], title)
+        send_sales(world, by_title[title], sold, at(1))
+    for suffix, sold in _SOLD_SEEDED:
+        wait_hit(world, suffix, soldCount=sold)
+    world.state.extra["sold_order"] = [c.listings[suffix].id for suffix, _ in _SOLD_SEEDED]
+
+
+@when(parsers.parse('the buyer selects the "{label}" sort'))
+def buyer_selects_sort(world: World, label: str) -> None:
+    search = _facet_search(world)
+    search.wait_until_interactive(search.sort_link(label))
+    search.sort_link(label).click()
+    expect(world.page).to_have_url(re.compile(r".*sort=best_selling"), timeout=timeouts.DEFAULT)
+
+
+@then("the listing sold 7 comes first and the listing sold 3 second")
+def sold_order(world: World) -> None:
+    search = _facet_search(world)
+    expected = [f"/listing/{i}" for i in world.state.extra["sold_order"]]
+    expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
+    search.page.wait_for_function(
+        "n => document.querySelectorAll('[data-testid=\"search-results\"] a[href^=\"/listing/\"]').length >= n",
+        arg=2,
+        timeout=timeouts.NAVIGATION,
+    )
+    assert search.ordered_result_hrefs()[:2] == expected, search.ordered_result_hrefs()
+    world.state.extra["sold_order_hrefs"] = search.ordered_result_hrefs()
+
+
+@then("opening the same search URL in a new tab shows the same order")
+def same_order_in_new_tab(world: World) -> None:
+    other = world.context.new_page()
+    try:
+        other.goto(world.page.url, wait_until="domcontentloaded")
+        expect(other.get_by_test_id("search-results")).to_be_visible(timeout=timeouts.NAVIGATION)
+        assert "sort=best_selling" in other.url, other.url
+        order = _facet_search(world).ordered_result_hrefs(other)
+        assert order[:2] == world.state.extra["sold_order_hrefs"][:2], order
+    finally:
+        other.close()
+
+
+@when("the buyer opens the search results for the seeded listings with sort=top_rated")
+def open_unknown_sort(world: World) -> None:
+    keyword = world.state.extra["facet_keyword"]
+    search = _facet_search(world)
+    search.navigate_query(keyword)
+    expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
+    world.state.extra["plain_sorted_hrefs"] = search.result_hrefs()
+    world.page.goto(f"{search.url()}?q={keyword}&sort=top_rated", wait_until="domcontentloaded")
+    world.page.wait_for_load_state("networkidle")
+
+
+@then('the page lists the same results as without a sort, with "Liên quan" active and no error')
+def unknown_sort_is_relevance(world: World) -> None:
+    search = _facet_search(world)
+    expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
+    assert search.result_hrefs() == world.state.extra["plain_sorted_hrefs"]
+    expect(search.sort_link("Liên quan")).to_have_attribute(
+        "aria-current", "true", timeout=timeouts.DEFAULT
+    )
+    expect(search.error_alert).to_have_count(0)

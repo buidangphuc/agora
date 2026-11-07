@@ -63,6 +63,12 @@ function normalizePriceKey(key: string): string {
   return `${min}-${max ?? ""}`;
 }
 
+function ratingFloor(key: string): 3 | 4 | undefined {
+  if (key === "rating_floor_4") return 4;
+  if (key === "rating_floor_3") return 3;
+  return undefined;
+}
+
 function Bucket({
   href,
   dataKey,
@@ -134,6 +140,7 @@ export interface FilterSidebarProps {
   currentSeller?: string;
   currentMinPrice?: number;
   currentMaxPrice?: number;
+  currentMinRating?: 3 | 4;
   /** Selected dynamic facets: filter key (`tag.x` / `sku.x`) -> tag slugs. */
   currentAttrs?: Record<string, string[]>;
   /** Keyword and sort to carry through every filter link (additive). */
@@ -271,6 +278,28 @@ function FilterContent({
         </Group>
       )}
 
+      {facets.ratings.length > 0 && (
+        <Group title="Đánh giá" testId="facet-ratings">
+          <div className="space-y-1">
+            {facets.ratings.map((b) => {
+              const floor = ratingFloor(b.key);
+              if (!floor) return null;
+              const active = state.minRating === floor;
+              return (
+                <Bucket
+                  key={b.key}
+                  href={href({ minRating: active ? undefined : floor })}
+                  dataKey={b.key}
+                  label={`Từ ${floor} sao`}
+                  count={b.count}
+                  active={active}
+                />
+              );
+            })}
+          </div>
+        </Group>
+      )}
+
       <AttributeGroups facets={facets} state={state} />
 
       <Group title="Tự nhập giá">
@@ -318,6 +347,7 @@ export function FilterSidebar({
   currentSeller,
   currentMinPrice,
   currentMaxPrice,
+  currentMinRating,
   currentAttrs = {},
   currentQuery,
   currentSort,
@@ -332,11 +362,13 @@ export function FilterSidebar({
     }),
     minPrice: currentMinPrice,
     maxPrice: currentMaxPrice,
+    minRating: currentMinRating,
     attrs: currentAttrs,
   };
   const hasAnyFacet =
     facets.categories.length > 0 ||
     facets.priceRanges.length > 0 ||
+    facets.ratings.length > 0 ||
     facets.sellers.length > 0 ||
     facets.tags.length > 0 ||
     facets.skus.length > 0;

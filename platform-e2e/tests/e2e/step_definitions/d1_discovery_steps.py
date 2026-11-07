@@ -298,13 +298,12 @@ def open_search_page(world: World) -> None:
     expect(_search(world).results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
-@then(parsers.parse('the sort options exclude "{label}"'))
-def sort_excludes(world: World, label: str) -> None:
+@then(parsers.parse('the sort options include "{label}"'))
+def sort_includes(world: World, label: str) -> None:
     sort_bar = world.page.get_by_text("Sắp xếp theo", exact=True).locator("xpath=..")
     expect(sort_bar).to_be_visible(timeout=timeouts.NAVIGATION)
-    for option in ("Liên quan", "Mới nhất", "Giá thấp đến cao", "Giá cao đến thấp"):
+    for option in ("Liên quan", "Mới nhất", label, "Giá thấp đến cao", "Giá cao đến thấp"):
         expect(sort_bar.get_by_text(option, exact=True).first).to_be_attached()
-    assert world.page.get_by_text(label, exact=False).count() == 0
 
 
 @when("the token lint runs on the discovery files")

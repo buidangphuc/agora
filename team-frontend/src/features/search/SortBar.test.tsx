@@ -12,9 +12,8 @@ import { SortBar } from "./SortBar";
 import { parseSearchParams } from "./url";
 
 describe("SortBar", () => {
-  it("offers only the sorts the server honours", () => {
-    const { container } = render(<SortBar totalResults={5} />);
-    expect(container.textContent).not.toMatch(/bán chạy/i);
+  it("Sort options match what the server honours: Bán chạy is offered", () => {
+    render(<SortBar totalResults={5} />);
     const options = screen
       .getAllByRole("option")
       .map((o) => o.textContent)
@@ -23,12 +22,69 @@ describe("SortBar", () => {
       expect.arrayContaining([
         "Liên quan",
         "Mới nhất",
+        "Bán chạy",
         "Giá thấp đến cao",
         "Giá cao đến thấp",
       ]),
     );
     expect(screen.getByRole("link", { name: "Liên quan" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Mới nhất" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Bán chạy" })).toHaveAttribute(
+      "href",
+      "/search?sort=best_selling",
+    );
+  });
+
+  it("Sort options match what the server honours: Bán chạy link keeps the query, resets the page and keeps minRating", () => {
+    render(
+      <SortBar
+        totalResults={5}
+        state={parseSearchParams({ q: "ao", page: "3", minRating: "4" })}
+      />,
+    );
+    const href = screen
+      .getByRole("link", { name: "Bán chạy" })
+      .getAttribute("href");
+    const p = new URL(`http://x${href}`).searchParams;
+    expect(p.get("sort")).toBe("best_selling");
+    expect(p.get("q")).toBe("ao");
+    expect(p.get("minRating")).toBe("4");
+    expect(p.get("page")).toBeNull();
+    expect(href).not.toContain("rating=4&");
+  });
+
+  it("Sort options match what the server honours: the active Bán chạy is marked", () => {
+    render(
+      <SortBar
+        currentSort="best_selling"
+        state={parseSearchParams({ sort: "best_selling" })}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Bán chạy" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Liên quan" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    const mobile = screen.getByLabelText("Sắp xếp") as HTMLSelectElement;
+    expect(mobile.value).toBe("best_selling");
+  });
+
+  it("An unknown sort value falls back to relevance", () => {
+    render(
+      <SortBar
+        currentSort="top_rated"
+        state={parseSearchParams({ sort: "top_rated" })}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Liên quan" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Bán chạy" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 
   it("marks the active tab and links keep the query, resetting the page", () => {
@@ -61,7 +117,7 @@ describe("SortBar", () => {
     );
     const mobile = screen.getByLabelText("Sắp xếp") as HTMLSelectElement;
     expect(mobile.value).toBe("price_asc");
-    expect(within(mobile).getAllByRole("option")).toHaveLength(4);
+    expect(within(mobile).getAllByRole("option")).toHaveLength(5);
     expect(screen.queryByRole("link", { current: "page" })).toBeNull();
   });
 

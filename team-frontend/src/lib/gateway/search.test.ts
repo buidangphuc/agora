@@ -48,7 +48,7 @@ describe("searchListings paging", () => {
     expect(res.items.map((l) => l.id)).toEqual(["p1-a", "p1-b"]);
   });
 
-  it("never requests a minimum rating", async () => {
+  it("requests no minimum rating when none is chosen", async () => {
     rpc
       .mockResolvedValueOnce(pageOf(1, "c1"))
       .mockResolvedValueOnce(pageOf(2, "c2"))
@@ -57,6 +57,17 @@ describe("searchListings paging", () => {
     expect(rpc).toHaveBeenCalledTimes(3);
     for (const call of rpc.mock.calls) {
       expect(call[0]).toMatchObject({ minRating: 0 });
+    }
+  });
+
+  it("Choosing a rating filters the results by URL: sends min_rating on every page request", async () => {
+    rpc
+      .mockResolvedValueOnce(pageOf(1, "c1"))
+      .mockResolvedValueOnce(pageOf(2, ""));
+    await searchListings("ao", { page: 2, minRating: 4 });
+    expect(rpc).toHaveBeenCalledTimes(2);
+    for (const call of rpc.mock.calls) {
+      expect(call[0]).toMatchObject({ minRating: 4 });
     }
   });
 
