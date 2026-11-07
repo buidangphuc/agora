@@ -162,6 +162,7 @@ type PerformanceRow struct {
 // fall within attributionHours after a click from the same impression.
 type PerformanceRepository interface {
 	RecommendationPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error)
+	SearchPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error)
 }
 
 // ChannelFunnelRow is one (source, medium, campaign) line of the channel funnel.
