@@ -30,17 +30,18 @@ export function pageMetadata(input: {
 }): Metadata {
   const description = clip(input.description);
   const url = absoluteUrl(input.path);
+  const openGraph = {
+    type: input.type ?? "website",
+    siteName: SITE_NAME,
+    title: input.title,
+    description,
+    url,
+    ...(input.image ? { images: [input.image] } : {}),
+  };
   return {
     title: input.title,
     description,
     alternates: { canonical: url },
-    openGraph: {
-      type: (input.type ?? "website") as "website",
-      siteName: SITE_NAME,
-      title: input.title,
-      description,
-      url,
-      ...(input.image ? { images: [input.image] } : {}),
-    },
+    openGraph,
   };
 }
