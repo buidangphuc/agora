@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import NextLink from "next/link";
 import type { ReactNode } from "react";
 
@@ -5,6 +6,10 @@ import { Link } from "@/components/ui/Link";
 import { CheckoutPendingProvider } from "@/features/order/CheckoutPending";
 import { CheckoutStepper } from "@/features/order/CheckoutStepper";
 import { isCheckoutEnabled } from "@/lib/flags";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 /**
  * Distraction-free checkout shell (the (checkout) route group): minimal header
@@ -31,7 +36,7 @@ export default async function CheckoutLayout({
               href="/"
               className="inline-flex min-h-touch items-center rounded-lg text-xl font-semibold text-action-primary focus-visible:ring-2 focus-visible:ring-focus-ring"
             >
-              Marketplace
+              Agora
             </NextLink>
             <p className="rounded-xl bg-surface-muted px-3 py-1 text-xs font-semibold text-text-secondary">
               Thanh toán an toàn

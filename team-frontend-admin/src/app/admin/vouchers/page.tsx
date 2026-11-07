@@ -12,7 +12,7 @@ import { getPrincipal, getToken } from "@/lib/gateway/session";
 import { listPlatformVouchers } from "@/lib/gateway/vouchers";
 
 export const metadata: Metadata = {
-  title: "Voucher sàn | Sàn Thương Mại Điện Tử",
+  title: "Voucher sàn",
   description: "Danh sách voucher áp dụng cho toàn sàn.",
   referrer: "no-referrer",
 };

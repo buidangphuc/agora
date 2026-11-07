@@ -8,7 +8,7 @@ import { getPrincipal } from "@/lib/gateway/session";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Sổ địa chỉ | Marketplace",
+  title: "Sổ địa chỉ",
 };
 
 export default async function AccountAddressesPage() {

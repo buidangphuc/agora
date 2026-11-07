@@ -40,6 +40,7 @@ describe("admin isolation", () => {
   it("has no href or route string pointing at /admin", () => {
     const hits: string[] = [];
     for (const file of files(SRC)) {
+      if (relative(SRC, file) === "app/robots.ts") continue;
       readFileSync(file, "utf8")
         .split("\n")
         .forEach((line, i) => {

@@ -12,7 +12,7 @@ import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Gói đăng ký | Kênh người bán" };
+export const metadata = { title: "Gói đăng ký" };
 
 /** Plan Card grid; the current plan carries a "Gói hiện tại" Tag and a disabled button. */
 export default async function SellerPlansPage() {

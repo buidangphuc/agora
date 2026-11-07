@@ -7,7 +7,7 @@ import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Quảng cáo | Kênh người bán" };
+export const metadata = { title: "Quảng cáo" };
 
 export default async function SellerAdsPage() {
   if (!getPrincipal()) redirectGuestToLogin("/seller/ads");

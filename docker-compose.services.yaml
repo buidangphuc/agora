@@ -896,6 +896,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - NEXT_PUBLIC_GATEWAY_URL=http://localhost:8080
+      - NEXT_PUBLIC_SITE_URL=http://localhost:3000
       - GATEWAY_URL=http://team-gateway-svc:8080
       - FEATURE_FLAGS_ENABLED=true
       - FLIPT_ADDR=flipt:8080

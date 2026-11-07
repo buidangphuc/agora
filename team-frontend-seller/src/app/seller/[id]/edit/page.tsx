@@ -13,7 +13,7 @@ import { loadListing } from "./data";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Chỉnh sửa sản phẩm | Kênh người bán" };
+export const metadata = { title: "Chỉnh sửa sản phẩm" };
 
 export default async function SellerEditPage(props: {
   params: Promise<{ id: string }>;

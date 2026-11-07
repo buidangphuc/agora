@@ -106,7 +106,7 @@ export function StudentRentalView({
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-text-inverse shadow-xs">
-              🎓 BATDONGSAN SINH VIÊN
+              🎓 NHÀ Ở SINH VIÊN
             </span>
             <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-xs">
               ✓ 100% Phòng Đã Xác Thực Không Lừa Cọc

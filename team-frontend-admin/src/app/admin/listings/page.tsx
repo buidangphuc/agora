@@ -9,7 +9,7 @@ import { listModerationQueue } from "@/lib/gateway/moderation";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
-  title: "Hàng chờ kiểm duyệt | Sàn Thương Mại Điện Tử",
+  title: "Hàng chờ kiểm duyệt",
   description: "Duyệt, từ chối hoặc khóa các tin đăng đang chờ kiểm duyệt.",
   referrer: "no-referrer",
 };
