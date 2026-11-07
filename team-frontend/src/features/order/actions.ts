@@ -74,9 +74,6 @@ export async function checkoutAction(
         confirmedAddress: input.confirmedAddress,
       },
     );
-    revalidatePath("/cart");
-    revalidatePath("/checkout");
-    revalidatePath("/account/orders");
 
     const orderIds = orders.map((o) => o.id);
     const online =
