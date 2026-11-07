@@ -335,6 +335,14 @@ func (e *Engine) facetsFor(ctx context.Context, ids []string, params SearchParam
 		log.Printf("[retrieval] facets for fused candidates: %v, keeping leg facets", err)
 		return fallback
 	}
+	if rc, ok := e.idx.(index.RatingFloorCounter); ok && params.MinRating > 0 {
+		ratings, err := rc.RatingFloors(ctx, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice)
+		if err != nil {
+			log.Printf("[retrieval] rating floors: %v, keeping candidate ratings", err)
+		} else {
+			f.Ratings = ratings
+		}
+	}
 	return f
 }
 

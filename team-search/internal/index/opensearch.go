@@ -127,6 +127,12 @@ type FacetCounter interface {
 	FacetsForIDs(ctx context.Context, ids []string, filters map[string]string) (Facets, error)
 }
 
+// RatingFloorCounter is an optional Index capability: the ratings facet counted
+// without the min_rating filter, under every other filter.
+type RatingFloorCounter interface {
+	RatingFloors(ctx context.Context, filters map[string]string, categoryID string, minPrice, maxPrice int64) ([]FacetBucket, error)
+}
+
 // OpenSearchIndex implements Index against an OpenSearch cluster.
 type OpenSearchIndex struct {
 	client *opensearch.Client
@@ -1045,6 +1051,12 @@ func (o *OpenSearchIndex) SearchVector(
 	}
 
 	filterClauses := buildFilterClauses(filters, categoryID, minPrice, maxPrice, minRating)
+	var ratingScope map[string]any
+	if minRating > 0 {
+		ratingScope = map[string]any{"bool": map[string]any{
+			"filter": buildFilterClauses(filters, categoryID, minPrice, maxPrice, 0),
+		}}
+	}
 
 	k := from + size
 	if k <= 0 {
@@ -1071,7 +1083,7 @@ func (o *OpenSearchIndex) SearchVector(
 				"embedding": knnClause,
 			},
 		},
-		"aggs": facetAggs(filters),
+		"aggs": facetAggsScoped(filters, ratingScope),
 	}
 
 	if sort := sortClause(sortBy); sort != nil {
@@ -1114,6 +1126,21 @@ func (o *OpenSearchIndex) FacetsForIDs(ctx context.Context, ids []string, filter
 		return Facets{}, err
 	}
 	return parseFacets(parsed.Aggregations), nil
+}
+
+func (o *OpenSearchIndex) RatingFloors(ctx context.Context, filters map[string]string, categoryID string, minPrice, maxPrice int64) ([]FacetBucket, error) {
+	body := map[string]any{
+		"size": 0,
+		"query": map[string]any{
+			"bool": map[string]any{"filter": buildFilterClauses(filters, categoryID, minPrice, maxPrice, 0)},
+		},
+		"aggs": ratingFloorAggs(),
+	}
+	var parsed osSearchResponse
+	if err := o.doSearch(ctx, body, &parsed); err != nil {
+		return nil, err
+	}
+	return parseFacets(parsed.Aggregations).Ratings, nil
 }
 
 // Suggest returns type-ahead completions of listing titles for a prefix, using

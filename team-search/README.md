@@ -173,7 +173,7 @@ if `.env.example` and the config structs drift in either direction.
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
-| `KAFKA_ORDER_TOPIC` | `order.events` | indexer only; sales events; one consumer client per topic on `KAFKA_CONSUMER_GROUP`; a missing topic is auto-created and does not stop startup |
+| `KAFKA_ORDER_TOPIC` | `order.events` | indexer only; sales events; one consumer client per topic on `KAFKA_CONSUMER_GROUP`; a missing topic does not stop startup because the clients use `AllowAutoTopicCreation`, which only works when the broker allows auto-create |
 | `KAFKA_ENGAGEMENT_TOPIC` | `engagement.events` | indexer only; rating events; same as above |
 | `UPSTREAM_AI_ADDR` | `""` | required by the indexer; team-ai gRPC address for tag classification (`team-ai-svc:50060` in compose) |
 | `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; must be a positive duration; invalid values fail startup |

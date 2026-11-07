@@ -2,8 +2,10 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -88,8 +90,8 @@ func RunIndexer(ctx context.Context, s config.IndexerSettings) (err error) {
 	}
 	runners := make([]lifecycle.Component, 0, len(sources)+1)
 	for _, src := range sources {
-		if src.topic == "" {
-			continue
+		if strings.TrimSpace(src.topic) == "" {
+			return errors.New("kafka topic is empty: set KAFKA_LISTING_TOPIC, KAFKA_ORDER_TOPIC and KAFKA_ENGAGEMENT_TOPIC")
 		}
 		client, err := kafkax.NewConsumerClient(s.Kafka, s.Events.ConsumerGroup, []string{src.topic},
 			kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
