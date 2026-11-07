@@ -8276,7 +8276,6 @@ features:
     status: not-testable
     notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `platform-core/packages/proto/q7_consumer_copies_test.sh` (tasks 3.2)"
 
-  # discovery-seo-contract: pure contract, verified by Go compat tests, gateway policy tests and the consumer-copies shell test (no e2e).
 
   - id: discovery.contract-enum-value-present-with-stable-numbers
     title: "Enum value present with stable numbers"
