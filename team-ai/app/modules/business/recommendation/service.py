@@ -6,6 +6,7 @@ the floor. Dependencies fail open inside their adapters; any other failure takes
 path, the serving generation's popular list.
 """
 
+import asyncio
 import time
 from collections.abc import Callable
 
@@ -103,7 +104,7 @@ class RecommendationService:
         except Exception as exc:
             logger.warning("recs.recommend.failed err={}", exc)
             return await self._popular_result(
-                query, placement_id, limit, generation, SERVING_FALLBACK
+                query, placement_id, placement, limit, generation, SERVING_FALLBACK
             )
 
     @staticmethod
@@ -138,7 +139,7 @@ class RecommendationService:
                     items=items, model_version=model_version, placement_id=placement_id
                 )
         return await self._popular_result(
-            query, placement_id, limit, generation, model_version
+            query, placement_id, placement, limit, generation, model_version
         )
 
     async def _candidates(
@@ -159,10 +160,48 @@ class RecommendationService:
                 )
             case "global_popular":
                 return await self._cache.popular_candidates(generation)
-            case "category_popular" | "cart_cross_similarity":
-                # A query carries no category or cart (team-ai's servicer never set them),
-                # so these steps never had input to act on.
-                return []
+            case "category_popular":
+                return await self._category_popular(query, generation)
+            case "cart_cross_similarity":
+                return await self._cart_cross_similarity(query, generation)
+
+    async def _category_popular(
+        self, query: RecommendationQuery, generation: str | None
+    ) -> list[Candidate]:
+        categories: set[str] = set()
+        if query.seed_listing_id:
+            found = await self._source.categories(
+                [query.seed_listing_id], generation=generation
+            )
+            categories = set(found.values())
+        if not categories and query.context_listing_ids:
+            found = await self._source.categories(
+                list(query.context_listing_ids), generation=generation
+            )
+            categories = set(found.values())
+        if not categories:
+            return []
+        popular = await self._cache.popular_candidates(generation)
+        return [c for c in popular if c.category_id in categories]
+
+    async def _cart_cross_similarity(
+        self, query: RecommendationQuery, generation: str | None
+    ) -> list[Candidate]:
+        lists = await asyncio.gather(
+            *(
+                self._source.similar(
+                    listing_id, top_k=self._candidate_top_k, generation=generation
+                )
+                for listing_id in query.context_listing_ids
+            )
+        )
+        best: dict[str, Candidate] = {}
+        for candidates in lists:
+            for cand in candidates:
+                prior = best.get(cand.listing_id)
+                if prior is None or cand.score > prior.score:
+                    best[cand.listing_id] = cand
+        return list(best.values())
 
     async def _rank(
         self,
@@ -173,6 +212,7 @@ class RecommendationService:
         generation: str | None,
     ) -> list[RecommendedItem]:
         seed = query.seed_listing_id
+        cart = query.context_listing_ids
         ids = [c.listing_id for c in candidates if c.listing_id]
         features = {}
         if placement.ranking.use_featurestore and self._popularity_store is not None:
@@ -191,13 +231,32 @@ class RecommendationService:
                     else {}
                 )
                 return trained.rank_candidates(
-                    candidates, seed, features, attributes, nearline, limit
+                    candidates,
+                    seed,
+                    features,
+                    attributes,
+                    nearline,
+                    limit,
+                    filters=placement.filters,
+                    cart_listing_ids=cart,
                 )
             ranked = rank_by_fixed_weights(
-                candidates, seed, features, nearline, rank_limit
+                candidates,
+                seed,
+                features,
+                nearline,
+                rank_limit,
+                filters=placement.filters,
+                cart_listing_ids=cart,
             )
         else:
-            ranked = rank_by_similarity(candidates, seed, rank_limit)
+            ranked = rank_by_similarity(
+                candidates,
+                seed,
+                rank_limit,
+                filters=placement.filters,
+                cart_listing_ids=cart,
+            )
         return apply_online_features(ranked, features, limit)
 
     async def _nearline_ctrs(self, ids: list[str]) -> dict[str, float]:
@@ -209,6 +268,7 @@ class RecommendationService:
         self,
         query: RecommendationQuery,
         placement_id: str,
+        placement: Placement,
         limit: int,
         generation: str | None,
         model_version: str,
@@ -216,7 +276,13 @@ class RecommendationService:
         """The popular list in retrieval order: the floor of the ladder and the fallback."""
         popular = await self._cache.popular_candidates(generation)
         return RecommendationResult(
-            items=rank_by_similarity(popular, query.seed_listing_id, limit),
+            items=rank_by_similarity(
+                popular,
+                query.seed_listing_id,
+                limit,
+                filters=placement.filters,
+                cart_listing_ids=query.context_listing_ids,
+            ),
             model_version=model_version,
             placement_id=placement_id,
             fallback=True,
