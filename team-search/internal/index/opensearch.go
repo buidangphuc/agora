@@ -64,6 +64,7 @@ type Hit struct {
 	SoldCount   int64
 	RatingAvg   float64
 	ReviewCount int64
+	SellerID    string
 }
 
 // RerankText is the document a cross-encoder scores against the query.

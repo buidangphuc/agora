@@ -26,8 +26,8 @@ const facets = {
     { key: "1000000+", count: 1 },
   ],
   ratings: [
-    { key: "rating_floor_4", count: 4 },
-    { key: "rating_floor_3", count: 7 },
+    { key: "4", count: 4 },
+    { key: "3", count: 7 },
   ],
   sellers: [{ key: "s1", count: 1 }],
   tags: [],

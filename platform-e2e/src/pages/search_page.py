@@ -88,6 +88,10 @@ class SearchPage(BasePage):
         return self.page.get_by_role("link", name=label, exact=True)
 
     @property
+    def price_sort_select(self) -> Locator:
+        return self.page.get_by_role("combobox", name="Sắp xếp theo giá", exact=True)
+
+    @property
     def pagination(self) -> Locator:
         """The numbered pager (desktop). The compact 375px pager is a second, hidden nav."""
         return self.page.get_by_role("navigation", name="Phân trang").first

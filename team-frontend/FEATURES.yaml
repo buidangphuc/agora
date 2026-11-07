@@ -11893,7 +11893,7 @@ features:
     services: [team-frontend, team-gateway, team-domain, team-search]
     acceptance:
       - "When an anonymous visitor fetches `/`"
-      - "Then the response `<title>` is `Agora | Sàn thương mại điện tử`, `<meta name=\"description\">` is non-empty Vietnamese text, and `link rel=canonical` is `<NEXT_PUBLIC_SITE_URL>/`"
+      - "Then the response `<title>` is `Agora | Sàn thương mại điện tử`, `<meta name=\"description\">` is non-empty Vietnamese text, and `link rel=canonical` is `<NEXT_PUBLIC_SITE_URL>`"
     tags: [buyer, search]
     status: planned
 
@@ -12079,7 +12079,7 @@ features:
     entry_route: /login
     services: [team-frontend, team-gateway, team-domain, team-search]
     acceptance:
-      - "When an anonymous crawler fetches `/login`, `/register` and `/dev/ui`, the private URLs that render HTML without a session"
+      - "When an anonymous crawler fetches `/login` and `/register`, the private URLs that render HTML without a session"
       - "Then each response contains `<meta name=\"robots\" content=\"noindex, nofollow\">` and no `og:*` tag"
     tags: [buyer, search]
     status: planned

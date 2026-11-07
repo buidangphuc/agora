@@ -181,8 +181,12 @@ def url_only_keyword(world: World) -> None:
 )
 def sort_controls_offer_best_selling(world: World) -> None:
     search = _search(world)
-    for label in ("Liên quan", "Mới nhất", "Bán chạy", "Giá thấp đến cao", "Giá cao đến thấp"):
+    for label in ("Liên quan", "Mới nhất", "Bán chạy"):
         expect(search.sort_link(label)).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(search.price_sort_select).to_be_visible(timeout=timeouts.DEFAULT)
+    options = search.price_sort_select.locator("option").all_inner_texts()
+    for label in ("Giá thấp đến cao", "Giá cao đến thấp"):
+        assert label in options, options
 
 
 @then('selecting "Bán chạy" navigates to a URL with sort=best_selling and marks it active')
@@ -192,7 +196,7 @@ def select_best_selling_marks_active(world: World) -> None:
     search.sort_link("Bán chạy").click()
     expect(world.page).to_have_url(re.compile(r".*sort=best_selling"), timeout=timeouts.DEFAULT)
     expect(search.sort_link("Bán chạy")).to_have_attribute(
-        "aria-current", "true", timeout=timeouts.DEFAULT
+        "aria-current", "page", timeout=timeouts.DEFAULT
     )
 
 

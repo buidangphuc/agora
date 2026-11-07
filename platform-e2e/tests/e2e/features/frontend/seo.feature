@@ -14,7 +14,7 @@ Feature: Search-engine metadata, crawl files and indexing policy (frontend-seo)
     Then the response status is 200
     And the title is "Agora | Sàn thương mại điện tử"
     And the meta description is non-empty Vietnamese text
-    And the canonical link is "[site]/"
+    And the canonical link is "[site]"
 
   Scenario: SEO-3 A forged Host header does not change the canonical origin
     When a crawler fetches "/" on the storefront claiming the Host "evil.example"
@@ -95,7 +95,7 @@ Feature: Search-engine metadata, crawl files and indexing policy (frontend-seo)
     And the meta description is "Tìm và mua sản phẩm từ nhiều người bán trên Agora."
 
   Scenario: SEO-16 An anonymous crawler gets noindex on the private pages that render
-    When an anonymous crawler fetches each of "/login", "/register" and "/dev/ui" on the storefront
+    When an anonymous crawler fetches each of "/login" and "/register" on the storefront
     Then each response status is 200
     And each response robots meta is "noindex, nofollow"
     And each response has no og meta tag

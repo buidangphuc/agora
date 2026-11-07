@@ -71,8 +71,9 @@ def seed_faceted_listings(world: World) -> None:
     seller_name = fake.unique_username("facet_seller")
     seller_token = sf.auth.register(seller_name, SETTINGS.seed_password, "seller")
     sf.set_token(seller_token)
+    listing_ids: dict[str, str] = {}
     for i, (price, category_id) in enumerate(_FACET_SEED):
-        sf.listing.create_listing(
+        listing_ids[f"phòng {i}"] = sf.listing.create_listing(
             Listing(
                 title=f"{keyword} phòng {i}",
                 category_id=category_id,
@@ -86,6 +87,7 @@ def seed_faceted_listings(world: World) -> None:
         username=seller_name, password=SETTINGS.seed_password, role="seller", token=seller_token
     )
     world.state.extra["facet_keyword"] = keyword
+    world.state.extra["facet_listing_ids"] = listing_ids
 
     # Poll the public read-model until every seeded listing is indexed (bounded).
     read_model = BaseService(token=None)
@@ -216,12 +218,13 @@ def seeded_listings_with_sold_counts(world: World) -> None:
     c = s.ctx(world)
     c.keyword = keyword
     hits = s.ok_json(s.search(keyword)).get("hits", [])
-    by_title = {h["title"]: h["listingId"] for h in hits}
+    indexed = {h["listingId"] for h in hits}
+    seeded = world.state.extra["facet_listing_ids"]
     for suffix, sold in _SOLD_SEEDED:
-        title = f"{keyword} {suffix}"
-        assert title in by_title, (title, sorted(by_title))
-        c.listings[suffix] = s.Listed(by_title[title], title)
-        send_sales(world, by_title[title], sold, at(1))
+        listing_id = seeded[suffix]
+        assert listing_id in indexed, (listing_id, sorted(indexed))
+        c.listings[suffix] = s.Listed(listing_id, f"{keyword} {suffix}")
+        send_sales(world, listing_id, sold, at(1))
     for suffix, sold in _SOLD_SEEDED:
         wait_hit(world, suffix, soldCount=sold)
     world.state.extra["sold_order"] = [c.listings[suffix].id for suffix, _ in _SOLD_SEEDED]
@@ -279,6 +282,6 @@ def unknown_sort_is_relevance(world: World) -> None:
     expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
     assert search.result_hrefs() == world.state.extra["plain_sorted_hrefs"]
     expect(search.sort_link("Liên quan")).to_have_attribute(
-        "aria-current", "true", timeout=timeouts.DEFAULT
+        "aria-current", "page", timeout=timeouts.DEFAULT
     )
     expect(search.error_alert).to_have_count(0)

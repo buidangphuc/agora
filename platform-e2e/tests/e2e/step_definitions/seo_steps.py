@@ -68,10 +68,13 @@ class Doc(HTMLParser):
         self.metas: list[dict[str, str]] = []
         self.links: list[dict[str, str]] = []
         self._in_title = False
+        self._svg_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list) -> None:
         a = {k: (v or "") for k, v in attrs}
-        if tag == "title":
+        if tag == "svg":
+            self._svg_depth += 1
+        elif tag == "title" and self._svg_depth == 0:
             self._in_title = True
             self.titles.append("")
         elif tag == "meta":
@@ -80,7 +83,9 @@ class Doc(HTMLParser):
             self.links.append(a)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag == "title":
+        if tag == "svg" and self._svg_depth:
+            self._svg_depth -= 1
+        elif tag == "title":
             self._in_title = False
 
     def handle_data(self, data: str) -> None:
@@ -216,13 +221,13 @@ def _make_unpublished(world: World, status: str) -> tuple[str, str]:
                 {
                     "listingId": listing_id,
                     "decision": "MODERATION_DECISION_BAN",
-                    "reasonCode": "e2e_seo",
+                    "reasonCode": "other",
                 },
                 aud.admin_token(world),
             )
             assert resp.status_code == 200, f"ModerateListing {resp.status_code}: {resp.text}"
         elif status == "held":
-            resp = ues.set_user_status(world, seller_id, "suspended")
+            resp = ues.set_user_status(world, seller_id, "suspended", until=ues.in_future(3600))
             assert resp.status_code == 200, f"SetUserStatus {resp.status_code}: {resp.text}"
         else:
             raise AssertionError(f"unknown status {status}")
@@ -414,11 +419,19 @@ def sitemap_published(world: World) -> None:
 @when('the crawler fetches "/sitemap.xml" once 5000 listing URLs appear')
 def sitemap_bulk(world: World) -> None:
     want = min(BULK_COUNT, SITEMAP_CAP)
-    _fetch_sitemap_until(
-        world,
-        lambda locs: len([u for u in locs if u.startswith(f"{SITE}/listing/")]) >= want,
-        600,
-    )
+    seen: list[int] = []
+
+    def stable(locs: list[str]) -> bool:
+        listings = [u for u in locs if u.startswith(f"{SITE}/listing/")]
+        seen.append(len(listings))
+        return (
+            len(listings) >= want
+            and len(seen) >= 2
+            and seen[-1] == seen[-2]
+            and len(set(listings)) == len(listings)
+        )
+
+    _fetch_sitemap_until(world, stable, 600)
 
 
 @when(parsers.parse('a visitor opens "{a}" and "{b}" in the browser'))
@@ -605,7 +618,8 @@ def robots_disallows(world: World) -> None:
     lines = _robots_lines(world)
     missing = [p for p in PRIVATE_PREFIXES if f"Disallow: {p}" not in lines]
     assert not missing, f"missing Disallow for {missing}"
-    assert "User-agent: *" in lines and "Allow: /" in lines, lines
+    lowered = [ln.lower() for ln in lines]
+    assert "user-agent: *" in lowered and "allow: /" in lowered, lines
 
 
 @then(parsers.parse('the last line of robots.txt is "{expected}"'))

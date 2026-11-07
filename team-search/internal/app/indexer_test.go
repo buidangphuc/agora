@@ -36,7 +36,7 @@ import (
 
 const (
 	idxTopic    = "listing.events"
-	idxDLQTopic = "listing.events.dlq"
+	idxDLQTopic = "search-indexer.listing.events.dlq"
 	idxWait     = 60 * time.Second
 	fpSecret    = "indexer-test-fp-secret"
 )

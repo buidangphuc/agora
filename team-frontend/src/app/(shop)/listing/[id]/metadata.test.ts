@@ -96,7 +96,8 @@ describe("listing generateMetadata", () => {
       `http://localhost:3000/listing/${id}`,
     );
     const og = md.openGraph as unknown as Record<string, unknown>;
-    expect(og.type).toBe("product");
+    expect(og.type).toBeUndefined();
+    expect(md.other?.["og:type"]).toBe("product");
     expect(og.siteName).toBe("Agora");
     expect(String(og.url)).toBe(`http://localhost:3000/listing/${id}`);
     expect(String(og.title)).toMatch(/^Điện thoại Demo( \| Agora)?$/);
@@ -147,7 +148,8 @@ describe("listing generateMetadata", () => {
     const md = await metaFor(id);
     const og = md.openGraph as unknown as Record<string, unknown>;
     expect(og.images ?? []).toEqual([]);
-    expect(og.type).toBe("product");
+    expect(og.type).toBeUndefined();
+    expect(md.other?.["og:type"]).toBe("product");
     expect(og.siteName).toBe("Agora");
     expect(og.title).toBeTruthy();
   });

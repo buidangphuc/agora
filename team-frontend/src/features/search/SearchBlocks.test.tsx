@@ -329,8 +329,8 @@ describe("ResultCount / FilterPanel", () => {
     categories: [],
     priceRanges: [],
     ratings: [
-      { key: "rating_floor_4", count: 3 },
-      { key: "rating_floor_3", count: 5 },
+      { key: "4", count: 3 },
+      { key: "3", count: 5 },
     ],
     sellers: [],
     tags: [],
