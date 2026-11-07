@@ -237,7 +237,6 @@ func (m *mdb) ledgerState(orderID, listing string) string {
 	return s
 }
 
-// Scenario: Existing paid orders are counted
 func TestMigration0023_ExistingPaidOrdersAreCounted(t *testing.T) {
 	m := newMigDB(t)
 	m.order("o-paid", stPaid, mMomo, true)
@@ -259,7 +258,6 @@ func TestMigration0023_ExistingPaidOrdersAreCounted(t *testing.T) {
 	}
 }
 
-// Scenario: Orders paid before paid_at was recorded are counted
 func TestMigration0023_OrdersPaidBeforePaidAtAreCounted(t *testing.T) {
 	m := newMigDB(t)
 	m.order("o-shipped", stShipped, mMomo, false)
@@ -282,7 +280,6 @@ func TestMigration0023_OrdersPaidBeforePaidAtAreCounted(t *testing.T) {
 	}
 }
 
-// Scenario: Cancelled and refunded orders are excluded
 func TestMigration0023_CancelledAndRefundedOrdersAreExcluded(t *testing.T) {
 	m := newMigDB(t)
 	m.order("o-cancelled", stCancelled, mMomo, true)
@@ -317,7 +314,6 @@ func TestMigration0023_CancelledAndRefundedOrdersAreExcluded(t *testing.T) {
 	m.wantEventValue("L2", 5)
 }
 
-// Scenario: One event per listing
 func TestMigration0023_OneEventPerListing(t *testing.T) {
 	m := newMigDB(t)
 	for _, id := range []string{"a1", "a2", "a3", "a4", "a5"} {
@@ -346,7 +342,6 @@ func TestMigration0023_OneEventPerListing(t *testing.T) {
 	}
 }
 
-// Scenario: Running the migration body twice does not duplicate
 func TestMigration0023_BackfillTwiceDoesNotDuplicate(t *testing.T) {
 	m := newMigDB(t)
 	m.order("o1", stPaid, mMomo, true)
@@ -381,7 +376,6 @@ func TestMigration0023_BackfillTwiceDoesNotDuplicate(t *testing.T) {
 	}
 }
 
-// Scenario: An empty database migrates cleanly
 func TestMigration0023_EmptyDatabase(t *testing.T) {
 	m := newMigDB(t)
 
@@ -398,7 +392,6 @@ func TestMigration0023_EmptyDatabase(t *testing.T) {
 	}
 }
 
-// Scenario: Backfill events use a stable id and the commit time
 func TestMigration0023_BackfillEventIDIsStableAndUsesCommitTime(t *testing.T) {
 	seed := func(m *mdb, qty int) {
 		m.order("o1", stPaid, mMomo, true)
@@ -435,7 +428,6 @@ func TestMigration0023_BackfillEventIDIsStableAndUsesCommitTime(t *testing.T) {
 	}
 }
 
-// Scenario: A backfilled order cancelled later is subtracted once
 func TestMigration0023_BackfilledOrderCancelledLaterIsSubtractedOnce(t *testing.T) {
 	m := newMigDB(t)
 	m.order("o1", stPaid, mMomo, true)

@@ -37,7 +37,6 @@ func soldCountReachable(md protoreflect.MessageDescriptor, seen map[protoreflect
 	return found
 }
 
-// Scenario: A client cannot set the sold count
 func TestListingSales_NoRequestMessageCarriesSoldCount(t *testing.T) {
 	msgs := orderv1.File_platform_order_v1_order_proto.Messages()
 	requests := 0
@@ -95,7 +94,6 @@ func noopListingSalesRow(c store.ListingSalesChange) (outbox.Row, error) {
 	}, nil
 }
 
-// Scenario: A client cannot set the sold count
 func TestListingSales_UnchangedAfterOrderRPCsWithArbitraryInput(t *testing.T) {
 	ctx := context.Background()
 	pg := newPGOutbox(ctx, t)

@@ -233,7 +233,6 @@ func (r *salesRig) wantSold(listing string, want int64, wantEvents ...int64) {
 	}
 }
 
-// Scenario: Payment adds the order quantity
 func TestListingSales_PaymentAddsOrderQuantity(t *testing.T) {
 	r := newSalesRig(t)
 	o := r.paidOrder(line{"L", 2})
@@ -243,7 +242,6 @@ func TestListingSales_PaymentAddsOrderQuantity(t *testing.T) {
 	}
 }
 
-// Scenario: A payment emits the new absolute value
 func TestListingSales_PaymentEmitsAbsoluteValue(t *testing.T) {
 	r := newSalesRig(t)
 	r.paidOrder(line{"L", 3})
@@ -251,7 +249,6 @@ func TestListingSales_PaymentEmitsAbsoluteValue(t *testing.T) {
 	r.wantSold("L", 5, 3, 5)
 }
 
-// Scenario: Cancel from PAID subtracts the order quantity
 func TestListingSales_CancelFromPaidSubtractsOrderQuantity(t *testing.T) {
 	r := newSalesRig(t)
 	r.paidOrder(line{"L", 3})
@@ -263,7 +260,6 @@ func TestListingSales_CancelFromPaidSubtractsOrderQuantity(t *testing.T) {
 	}
 }
 
-// Scenario: Cancel before PAID changes nothing
 func TestListingSales_CancelFromPendingChangesNothing(t *testing.T) {
 	r := newSalesRig(t)
 	r.paidOrder(line{"L", 5})
@@ -275,7 +271,6 @@ func TestListingSales_CancelFromPendingChangesNothing(t *testing.T) {
 	}
 }
 
-// Scenario: Refunded return subtracts the order quantity
 func TestListingSales_RefundedReturnSubtractsOrderQuantity(t *testing.T) {
 	r := newSalesRig(t)
 	r.paidOrder(line{"L", 3})
@@ -289,7 +284,6 @@ func TestListingSales_RefundedReturnSubtractsOrderQuantity(t *testing.T) {
 	}
 }
 
-// Scenario: A repeated or redelivered transition changes nothing
 func TestListingSales_RepeatedTransitionsChangeNothing(t *testing.T) {
 	r := newSalesRig(t)
 	r.paidOrder(line{"L", 3})
@@ -310,7 +304,6 @@ func TestListingSales_RepeatedTransitionsChangeNothing(t *testing.T) {
 	r.wantSold("M", 4, 4)
 }
 
-// Scenario: A cancel and a refund of the same order subtract once
 func TestListingSales_CancelThenRefundSubtractsOnce(t *testing.T) {
 	r := newSalesRig(t)
 	r.paidOrder(line{"L", 3})
@@ -322,7 +315,6 @@ func TestListingSales_CancelThenRefundSubtractsOnce(t *testing.T) {
 	r.wantSold("L", 3, 3, 5, 3)
 }
 
-// Scenario: The count never goes below 0
 func TestListingSales_FloorsAtZeroWithSeededCount(t *testing.T) {
 	r := newSalesRig(t)
 	o := r.paidOrder(line{"L", 2})
@@ -341,7 +333,6 @@ func TestListingSales_FloorsAtZeroWithSeededCount(t *testing.T) {
 	}
 }
 
-// Scenario: A refund or cancel with no counted ledger rows changes nothing
 func TestListingSales_NoCountedRowsChangesNothing(t *testing.T) {
 	r := newSalesRig(t)
 	cancelled := r.paidOrder(line{"L", 2})
@@ -359,7 +350,6 @@ func TestListingSales_NoCountedRowsChangesNothing(t *testing.T) {
 	r.wantSold("L", 5, before...)
 }
 
-// Scenario: An order with several lines of the same listing is summed
 func TestListingSales_SeveralLinesOfOneListingAreSummed(t *testing.T) {
 	r := newSalesRig(t)
 	o := r.paidOrder(line{"L", 1}, line{"L", 3})
@@ -371,7 +361,6 @@ func TestListingSales_SeveralLinesOfOneListingAreSummed(t *testing.T) {
 	r.wantSold("L", 0, 4, 0)
 }
 
-// Scenario: A multi-listing order emits one event per listing
 func TestListingSales_MultiListingOrderEmitsOneEventPerListing(t *testing.T) {
 	r := newSalesRig(t)
 	r.paidOrder(line{"L2", 1})
@@ -383,7 +372,6 @@ func TestListingSales_MultiListingOrderEmitsOneEventPerListing(t *testing.T) {
 	r.wantSold("L2", 1, 1, 4, 1)
 }
 
-// Scenario: The event commits or rolls back with the state
 func TestListingSales_PaidRollbackLeavesNoRows(t *testing.T) {
 	r := newSalesRig(t)
 	ob := newOutbox(t, r.pool)

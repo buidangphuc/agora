@@ -36,7 +36,6 @@ func decodeListingSales(t *testing.T, value []byte) (*eventsv1.EventEnvelope, *o
 	return &env, &ev
 }
 
-// Scenario: The payload carries no personal identifier
 func TestListingSalesChanged_PayloadHoldsOnlyListingCountAndTime(t *testing.T) {
 	change := sampleSalesChange()
 	row, err := events.BuildListingSalesChangedOutboxRow(change)
@@ -66,7 +65,6 @@ func TestListingSalesChanged_PayloadHoldsOnlyListingCountAndTime(t *testing.T) {
 	}
 }
 
-// Scenario: A redelivered relay does not change the meaning
 func TestListingSalesChanged_EventIDIsDeterministic(t *testing.T) {
 	change := sampleSalesChange()
 	a, err := events.BuildListingSalesChangedOutboxRow(change)
@@ -90,7 +88,6 @@ func TestListingSalesChanged_EventIDIsDeterministic(t *testing.T) {
 	assert.NotEqual(t, a.EventID, d.EventID)
 }
 
-// Scenario: A redelivered relay does not change the meaning
 func TestListingSalesChanged_RelayedTwiceKeepsValueAndID(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
