@@ -76,7 +76,7 @@ def header_before_summary(world: World) -> None:
 
 @then("the AI review summary card is shown in place of the skeleton")
 def summary_shown(world: World) -> None:
-    expect(world.page.get_by_test_id("ai-review-summary")).to_be_visible(
+    expect(world.page.locator('[data-testid="ai-review-summary"]:visible')).to_be_visible(
         timeout=timeouts.NAVIGATION
     )
     expect(_reviews_section(world).locator('[aria-busy="true"]')).to_have_count(0)

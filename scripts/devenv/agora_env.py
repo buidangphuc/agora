@@ -307,7 +307,8 @@ def build(st, services, owners):
         old[o] = image_id(ref)
         gen_stubs(st["src"], build_dir(st["src"], services[o]))
         t0 = time.time()
-        compose(st, "build", o)
+        args = [x for k, v in frontend_args(o, {}).items() for x in ("--build-arg", f"{k}={v}")] if st["env"] == MAIN else []
+        compose(st, "build", *args, o)
         print(f"built {ref} in {int(time.time() - t0)}s")
     return [i for o, i in old.items() if i and i != image_id(f"{base_image(services[o])}:{tag}")]
 
