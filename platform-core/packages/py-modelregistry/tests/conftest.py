@@ -37,6 +37,7 @@ class Env:
     def __init__(self, root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         self.root = root
         self._mp = monkeypatch
+        monkeypatch.setenv("MLFLOW_ALLOW_FILE_STORE", "true")
         self.policies_path = root / "policies.yaml"
         self._counter = 0
         self.use_store("store")
