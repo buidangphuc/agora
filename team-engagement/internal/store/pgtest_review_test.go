@@ -71,7 +71,7 @@ type reviewRepo interface {
 func poolBefore0011(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	pool := emptyPool(t)
-	applyUp(t, pool, func(name string) bool { return len(name) >= 4 && name[:4] < "0011" })
+	applyUp(t, pool, upTo(10))
 	return pool
 }
 
