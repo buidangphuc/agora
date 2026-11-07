@@ -7,7 +7,7 @@
 - [ ] 1.5 `generateMetadata` for `/listing/[id]` (product, image omission, 404 path untouched) — SEO-4, SEO-5, SEO-6, SEO-7, SEO-8, SEO-31, SEO-44
 - [ ] 1.6 `shop/[id]/data.ts` `loadStorefront = requestCache(getStorefront)`, page and `generateMetadata` use it — SEO-9, SEO-10, SEO-11, SEO-32
 - [ ] 1.7 `generateMetadata` for `/search` (category title, plain-search title and description, canonical, trimmed `q` noindex,follow, `q` over category); keep the edit to the metadata export only, the page body is shared with search-bestseller-rating and search-attribution — SEO-12, SEO-13, SEO-14, SEO-15, SEO-33, SEO-34, SEO-35
-- [ ] 1.8 Home `generateMetadata` (canonical `/`, `og:*`) — SEO-2
+- [ ] 1.8 Home `generateMetadata` (canonical `<site>` without trailing slash, `og:*`) — SEO-2
 - [ ] 1.9 Private segment layouts (`account`, `cart`, `chat`, `notifications`, `favorites`, `dev`, `login`, `register`) and `(checkout)/layout.tsx` robots export; run `referrerMetadata.test.ts` — SEO-16, SEO-17, SEO-18, SEO-19, SEO-20
 - [ ] 1.10 Remove hand-written title suffixes on the ten pages listed in the proposal — SEO-1
 - [ ] 1.11 `src/app/robots.ts`, `src/app/sitemap.ts` with `src/lib/gateway/sitemap.ts` reader (`page_size` 50, `SearchHit.seller_id`, no `getListing`), `revalidate = 3600`; depends on the regenerated stubs from discovery-seo-contract — SEO-21, SEO-22, SEO-30, SEO-23, SEO-24, SEO-25, SEO-26, SEO-36, SEO-45
