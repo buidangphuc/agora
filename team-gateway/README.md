@@ -263,10 +263,12 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 - The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
   or `/api/admin/metrics`, which read only the `Authorization` header.
 - Revocation is fail-open and per replica. Edge-side admin gating is the `adminProcedures` map
-  in `policy.go` (20 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
+  in `policy.go` (21 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
   `ResolveReport`, `QueryAuditLog`, `ModerateListing`, `ListModerationQueue`, `ForceFailSaga`,
-  `AccountAdmin` `ListUsers` / `SetUserStatus`, three analytics reports, and promotion
+  `AccountAdmin` `ListUsers` / `SetUserStatus`, four analytics reports, and promotion
   `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).
+  `GetSearchPerformance` is Contract only (discovery-seo-contract, not built): the gateway forwards and gates it, and team-analytics answers
+  `Unimplemented`, so no owning service enforces the rule again.
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at
