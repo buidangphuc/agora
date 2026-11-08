@@ -18,6 +18,7 @@ Feature: A listing's sold count is published as an absolute value
     And "b1" has paid an order "O1" of 3 of "L"
     When "b2" pays an order "O2" of 2 of "L"
     Then the ListingSalesChanged values for "L" are exactly 3, 5
+    And the last ListingSalesChanged for "L" arrived within 5 seconds of the payment of "O2"
 
   Scenario: Cancel from PAID subtracts the order quantity
     Given a seller with a listing "L"

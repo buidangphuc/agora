@@ -24,6 +24,7 @@ from tests.e2e.support.oic_order_support import OicWorld, ok, post
 SALES_TYPE = "platform.order.v1.ListingSalesChanged"
 WAIT_S = 30.0
 SETTLE_S = 4.0
+EVENT_LATENCY_S = 5.0
 SOLD_COUNT_PROBE = 999
 
 
@@ -36,8 +37,9 @@ def _text(v: Any) -> str:
     return bytes(v).decode("utf-8", errors="replace") if isinstance(v, (bytes, bytearray)) else ""
 
 
-def _decode(raw: bytes, key: bytes | None) -> dict[str, Any]:
+def _decode(raw: bytes, key: bytes | None, ts_ms: int = 0) -> dict[str, Any]:
     out: dict[str, Any] = {
+        "ts_ms": ts_ms,
         "raw": raw,
         "key": (key or b"").decode("utf-8", errors="replace"),
         "sold_count": 0,
@@ -88,7 +90,7 @@ def sales_events(listing_id: str, expected: int, wait_s: float = WAIT_S) -> list
             raw = msg.value() or b""
             if listing_id.encode() not in raw:
                 continue
-            d = _decode(raw, msg.key())
+            d = _decode(raw, msg.key(), msg.timestamp()[1])
             if d.get("type") == SALES_TYPE and d.get("listing_id") == listing_id:
                 found.append(d)
                 if len(found) >= expected and not reached:
@@ -143,6 +145,7 @@ def _pay_new(w: OicWorld, buyer: str, label: str, qty: int, listing: str) -> Non
     order_id, _ = p.place_and_pay(w, w.actors[buyer], listing, qty)
     w.orders[label] = order_id
     w.data.setdefault("order_buyer", {})[label] = buyer
+    w.data.setdefault("paid_at", {})[label] = time.time()
 
 
 @given(parsers.parse('"{buyer}" has paid an order "{label}" of {qty:d} of "{listing}"'))
@@ -237,6 +240,22 @@ def exact_values(ols, listing, values):
     ols.data[f"events:{listing}"] = got
     assert [e["sold_count"] for e in got] == want, (
         f"ListingSalesChanged for {listing}: got {[e.get('sold_count') for e in got]}, want {want}"
+    )
+
+
+@then(
+    parsers.parse(
+        'the last ListingSalesChanged for "{listing}" arrived within 5 seconds of the payment of "{label}"'
+    )
+)
+def arrived_within_latency(ols, listing, label):
+    got = ols.data.get(f"events:{listing}") or sales_events(_lid(ols, listing), 1)
+    assert got, f"no ListingSalesChanged for {listing} within {WAIT_S:.0f} s"
+    paid_at = ols.data["paid_at"][label]
+    lag = got[-1]["ts_ms"] / 1000.0 - paid_at
+    assert lag <= EVENT_LATENCY_S, (
+        f"ListingSalesChanged for {listing} landed on order.events {lag:.1f} s after the payment "
+        f"of {label} completed, want <= {EVENT_LATENCY_S:.0f} s"
     )
 
 

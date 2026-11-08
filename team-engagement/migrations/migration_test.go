@@ -700,6 +700,34 @@ func TestMigration0015BackfillsRatingPerReviewedListing(t *testing.T) {
 	}
 }
 
+func TestMigration0015AverageIsSumOverCountExactly(t *testing.T) {
+	e := setup14(t)
+	ratings := []int{1, 1, 1, 1, 1, 1, 1, 1, 3}
+	rows := make([]review, 0, len(ratings))
+	sum := 0
+	for i, r := range ratings {
+		rows = append(rows, review{id: "x" + strconv.Itoa(i), listing: "LX", rating: r, verified: true})
+		sum += r
+	}
+	e.seedReviews(t, rows...)
+	e.runFile(t, up15File)
+
+	got, ok := e.ratingRows(t)["LX"]
+	if !ok {
+		t.Fatal("listing LX has no backfill event")
+	}
+	want := float64(sum) / float64(len(ratings))
+	if want != 1.2222222222222223 {
+		t.Fatalf("test premise: float64(%d)/%d = %v", sum, len(ratings), want)
+	}
+	if got.payload.GetReviewCount() != int64(len(ratings)) {
+		t.Errorf("review count = %d, want %d", got.payload.GetReviewCount(), len(ratings))
+	}
+	if got.payload.GetAverageRating() != want {
+		t.Errorf("backfilled average = %v, want exactly %v (sum/count in float64, as the store computes it)", got.payload.GetAverageRating(), want)
+	}
+}
+
 func TestMigration0015PayloadDecodesAsContractType(t *testing.T) {
 	e := setup14(t)
 	e.seedReviews(t,
