@@ -257,8 +257,13 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 			for i := rerankLimit; i < len(fused); i++ {
 				reranked = append(reranked, fused[i])
 			}
+			for i := 0; i < rerankLimit; i++ {
+				if reorderedIDs[i] != docs[i].ID {
+					didRerank = true
+					break
+				}
+			}
 			fused = reranked
-			didRerank = true
 		}
 	}
 
@@ -266,7 +271,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 	pagedCandidates := paginateCandidates(fused, params.From, params.Size)
 	hits := make([]index.Hit, 0, len(pagedCandidates))
 	for _, c := range pagedCandidates {
-		hits = append(hits, index.Hit{ListingID: c.ListingID, Score: c.Score, Stock: c.Stock})
+		hits = append(hits, index.Hit{ListingID: c.ListingID, Score: c.Score, Stock: c.Stock, SoldCount: c.SoldCount, RatingAvg: c.RatingAvg, ReviewCount: c.ReviewCount, SellerID: c.SellerID})
 	}
 
 	// Total and facets describe the fused candidate set the hits come from: the
@@ -398,6 +403,11 @@ func toCandidates(hits []index.Hit, strategy string) []Candidate {
 			Strategy:  strategy,
 			Stock:     h.Stock,
 			Text:      h.Text,
+
+			SoldCount:   h.SoldCount,
+			RatingAvg:   h.RatingAvg,
+			ReviewCount: h.ReviewCount,
+			SellerID:    h.SellerID,
 		})
 	}
 	return cands
