@@ -68,3 +68,7 @@ Listing ids are public catalogue identifiers. Logs carry counts only (`context_c
   or hidden listings leaking into results (candidates come from the serving index, filtered by the fail-closed `visible` payload flag (recsys-candidate-attributes));
   enumerating private cart data (the request carries only ids the caller supplies; nothing is read from another user's cart).
 - Authz rule: `Recommend` stays a public read (same as `home_feed`); no per-user resource is accessed, so no permission scenario applies.
+
+## Clarifications
+
+- `RecommendRequest` has no `placement_id` field. The caller selects the cart placement with `context = RECOMMENDATION_CONTEXT_CART`, and team-ai maps that context to placement `cart_cross_sell` (`team-ai/app/transport/grpc/servicers/recommendation.py`). Scenario text saying the request carries `context=RECOMMENDATION_CONTEXT_CART` means exactly this; the response's placement is `cart_cross_sell`.

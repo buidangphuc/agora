@@ -8,13 +8,13 @@ context lines and results SHALL be in descending score.
 
 #### Scenario: Similar listings for cart lines
 
-- **WHEN** `Recommend` is called with `placement_id=cart_cross_sell` and `context_listing_ids=[A,B]` where A and B have similar-item neighbours
+- **WHEN** `Recommend` is called with `context=RECOMMENDATION_CONTEXT_CART` (the response placement is `cart_cross_sell`) and `context_listing_ids=[A,B]` where A and B have similar-item neighbours
 - **THEN** the response contains at most 8 items in descending score, each item is a neighbour of A or B and its score is the maximum of its similarities to A and B
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `Similar listings for cart lines`
 
 #### Scenario: Empty context ends at global popular
 
-- **WHEN** `Recommend` is called with `placement_id=cart_cross_sell`, an empty `context_listing_ids` and no seed
+- **WHEN** `Recommend` is called with `context=RECOMMENDATION_CONTEXT_CART` (the response placement is `cart_cross_sell`), an empty `context_listing_ids` and no seed
 - **THEN** the response is not an error and its items are the `global_popular` listings
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `Empty context ends at global popular`
 
@@ -54,7 +54,7 @@ The gateway `RecommendationForwarder.Recommend` SHALL forward `context_listing_i
 
 #### Scenario: Gateway forwards context ids
 
-- **WHEN** a client calls the gateway with `placement_id=cart_cross_sell` and `context_listing_ids=[A,B]`
+- **WHEN** a client calls the gateway with `context=RECOMMENDATION_CONTEXT_CART` (the response placement is `cart_cross_sell`) and `context_listing_ids=[A,B]`
 - **THEN** the items are neighbours of A or B and contain neither A nor B
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `Gateway forwards context ids`
 
@@ -76,7 +76,7 @@ The `category_popular` strategy SHALL return popular listings from the category 
 
 #### Scenario: Cart categories
 
-- **WHEN** `Recommend` is called with `placement_id=cart_cross_sell`, no seed, context listings in categories C1 and C2, and `cart_cross_similarity` empty
+- **WHEN** `Recommend` is called with `context=RECOMMENDATION_CONTEXT_CART` (the response placement is `cart_cross_sell`), no seed, context listings in categories C1 and C2, and `cart_cross_similarity` empty
 - **THEN** every returned listing belongs to C1 or C2
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `Cart categories`
 
