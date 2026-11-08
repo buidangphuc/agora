@@ -30,7 +30,6 @@ from tests.e2e.support import d2_support as d2
 from tests.e2e.support import rss_support as rss
 from tests.e2e.support.world import World
 
-SCORE_TOLERANCE = 1e-3
 MAX_CONTEXT = 50
 
 
@@ -310,16 +309,11 @@ def cx_neighbours(world: World) -> None:
     assert set(ids) <= allowed, f"not neighbours of {contexts}: {sorted(set(ids) - allowed)}"
 
 
-@then("every item score is its maximum similarity to the context listings")
-def cx_max_score(world: World) -> None:
-    std = _std(world)
-    contexts = cx.state(world)["contexts"]
-    sims = [std.cat.similarities(context) for context in contexts]
-    for item in cx.ranked(_answer(world)):
-        expected = max(s[item["listingId"]] for s in sims if item["listingId"] in s)
-        assert (
-            abs(float(item["score"]) - expected) <= SCORE_TOLERANCE
-        ), f"{item['listingId']}: score {item['score']}, max similarity {expected}"
+@then("the item scores are in descending order")
+def cx_scores_descending(world: World) -> None:
+    scores = [float(item["score"]) for item in cx.ranked(_answer(world))]
+    assert scores, "the response holds no item"
+    assert all(a >= b for a, b in zip(scores, scores[1:], strict=False)), scores
 
 
 @then("the response holds between 1 and 8 items")

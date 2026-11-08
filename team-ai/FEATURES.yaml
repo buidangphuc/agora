@@ -1919,7 +1919,7 @@ features:
       login: buyer
     acceptance:
       - "When `Recommend` is called with `placement_id=cart_cross_sell` and `context_listing_ids=[A,B]` where A and B have similar-item neighbours"
-      - "Then the response contains at most 8 items in descending score, each item is a neighbour of A or B and its score is the maximum of its similarities to A and B"
+      - "Then the response contains at most 8 items in descending score, each item is a neighbour of A or B; each candidate's score before ranking is the maximum of its similarities to A and B"
     tags: [recsys, recommendations]
     status: planned
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."

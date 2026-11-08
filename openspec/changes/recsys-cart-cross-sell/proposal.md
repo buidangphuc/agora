@@ -72,3 +72,4 @@ Listing ids are public catalogue identifiers. Logs carry counts only (`context_c
 ## Clarifications
 
 - `RecommendRequest` has no `placement_id` field. The caller selects the cart placement with `context = RECOMMENDATION_CONTEXT_CART`, and team-ai maps that context to placement `cart_cross_sell` (`team-ai/app/transport/grpc/servicers/recommendation.py`). Scenario text saying the request carries `context=RECOMMENDATION_CONTEXT_CART` means exactly this; the response's placement is `cart_cross_sell`.
+- C22: `cart_cross_sell` keeps `gbdt` ranking. The maximum similarity across cart lines is the candidate score fed to the ranker; the response score is the ranker's, so the scenario asserts descending order and membership, not that the response score equals the max similarity.

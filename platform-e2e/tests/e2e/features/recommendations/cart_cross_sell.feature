@@ -11,7 +11,7 @@ Feature: Cart cross-sell recommendations (recsys-cart-cross-sell)
     When Recommend for cart_cross_sell is called through the gateway with the context listings A and B
     Then the response holds at most 8 items in descending score
     And every item is a neighbour of the context listings
-    And every item score is its maximum similarity to the context listings
+    And the item scores are in descending order
 
   Scenario: Empty context ends at global popular
     Given a buyer is logged in

@@ -3,14 +3,14 @@
 ### Requirement: Cart cross-sell uses the cart lines as context
 
 The `Recommend` RPC SHALL accept `context_listing_ids` (at most 50) and the `cart_cross_similarity` strategy SHALL
-return listings similar to those context listings. Each listing's score SHALL be its maximum similarity across the
-context lines and results SHALL be in descending score.
+return listings similar to those context listings. Each candidate's score fed to the ranker SHALL be its maximum similarity across the
+context lines; the response score is the ranker's and results SHALL be in descending score.
 
 #### Scenario: Similar listings for cart lines
 
 - **WHEN** `Recommend` is called with `context=RECOMMENDATION_CONTEXT_CART` (the response placement is `cart_cross_sell`) and `context_listing_ids=[A,B]` where A and B have similar-item neighbours
-- **THEN** the response contains at most 8 items in descending score, each item is a neighbour of A or B and its score is the maximum of its similarities to A and B
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `Similar listings for cart lines`
+- **THEN** the response contains at most 8 items in descending score, each item is a neighbour of A or B; each candidate's score before ranking is the maximum of its similarities to A and B
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `Similar listings for cart lines`; `team-ai/tests/unit/test_cart_cross_similarity.py` (max-across-lines candidate score)
 
 #### Scenario: Empty context ends at global popular
 
