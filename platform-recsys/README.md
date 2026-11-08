@@ -194,6 +194,7 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 | Outputs | `TOP_N` (50), `QDRANT_URL` (http://localhost:6333), `QDRANT_ITEM_COLLECTION`, `QDRANT_USER_COLLECTION`, `REDIS_HOST` (localhost), `REDIS_PORT` (6379), `REDIS_PASSWORD` (empty), `REDIS_DATABASE` (0), `RECS_CACHE_PREFIX` (recs), `RECS_SCHEMA_VERSION` (v1), `RECS_CACHE_TTL_SECONDS` (172800) |
 | Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32), `ITEM_FEATURES_DIR` (/features/item_popularity/v1), `ITEM_FEATURES_PATH`, `USER_FEATURES_DIR` (/features/user_activity/v2), `USER_FEATURES_PATH`, `ITEM_ATTRIBUTES_DIR` (/features/item_attributes/v1), `ITEM_ATTRIBUTES_PATH`, `USER_PREFERENCES_DIR` (/features/user_preferences/v1), `USER_PREFERENCES_PATH`, `TWO_TOWER_REQUIRE_ATTRIBUTES` (false), `TWO_TOWER_MAX_CATEGORIES` (64), `TWO_TOWER_EPOCHS` (5), `TWO_TOWER_LR` (0.05), `TWO_TOWER_BATCH_SIZE` (256), `TWO_TOWER_TEMPERATURE` (0.1), `TWO_TOWER_MAX_PAIRS` (200000), `TWO_TOWER_HOLDOUT_FRACTION` (0.1; latest share of pairs the gate evaluates on) |
 | GBDT ranker | `ENABLE_GBDT` (false), `RANK_DATASET_DIR` (/features/datasets/rank_training/v1), `RANK_DATASET_PATH`, `GBDT_TREES` (40), `GBDT_MAX_DEPTH` (3), `GBDT_LEARNING_RATE` (0.1), `GBDT_MIN_LEAF` (10), `GBDT_HOLDOUT_FRACTION` (0.2), `GBDT_MAX_LIST` (30), `GBDT_MAX_LISTS` (50000), `GBDT_CTR_MIN_IMPRESSIONS` (3), `GBDT_ROWS_PATH` (empty). Features: every `as_of` snapshot under `ITEM_FEATURES_DIR` and `ITEM_ATTRIBUTES_DIR` |
+| Candidate attributes | `ITEM_ATTRIBUTES_V2_DIR` (/features/item_attributes/v2), `ITEM_ATTRIBUTES_V2_PATH` (empty; an explicit file, overrides the dir) |
 | Nearline | `KAFKA_BROKERS` (localhost:19092), `KAFKA_ANALYTICS_TOPIC` (analytics.events), `NEARLINE_CONSUMER_GROUP` (platform-recsys-nearline), `NEARLINE_START_OFFSET` (latest), `NEARLINE_TTL_SECONDS` (86400), `NEARLINE_IDLE_EXIT_SECONDS` (0 = run until stopped) |
 | Drift | `DRIFT_ALERT_THRESHOLD` (0.25), `DRIFT_METRICS_PATH` (empty: no Prometheus file) |
 | Gate | `MODEL_VERSION` (empty). Promotion thresholds are not env vars: they live in py-modelregistry `policies.yaml` |
@@ -255,7 +256,7 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 
 ## 8. Spec and verification
 
-- `FEATURES.yaml` has 143 entries: 56 `automated` (each with a `covered_by` e2e scenario) and 87 `not-testable`.
+- `FEATURES.yaml` has 172 entries: 58 `automated` (each with a `covered_by` e2e scenario) and 114 `not-testable`.
 - Coverage is verified from the workspace root with `make -C platform-e2e features-check` and, for a
   change, `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec in the root `openspec/changes/<id>` (this repo has no `openspec/` of its

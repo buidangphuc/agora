@@ -36,6 +36,8 @@ Tài liệu thiết kế luồng dữ liệu, tính toàn vẹn (Data Consistenc
                                               └─────────────────┘
 ```
 
+The team-search indexer (group `team-search-indexer`) also consumes `order.events` (`platform.order.v1.ListingSalesChanged`, key `listing_id`, from team-order) and `engagement.events` (`platform.engagement.v1.ListingRatingChanged`, key `listing_id`, from team-engagement) to project `sold_count`, `rating_avg` and `review_count` into OpenSearch.
+
 ### Topic sự kiện hành vi (Analytics stream)
 
 Tách hoàn toàn khỏi các DB giao dịch (Postgres) và khỏi topic `listing.events`:
@@ -101,6 +103,7 @@ Nếu service vừa ghi vào PostgreSQL vừa gọi Kafka:
 
 1. **Retry với Exponential Backoff & Jitter**: Tự động thử lại tối đa 3 lần với khoảng cách $1s \pm 20\%$, $2s \pm 20\%$, $4s \pm 20\%$.
 2. **Poison Pill Handling**: Nếu sau 3 lần vẫn lỗi (do parse lỗi hoặc payload hỏng), message sẽ được chuyển vào topic Dead Letter Queue `listing.events.dlq` kèm header chứa `x-error-reason`, `x-original-topic`, `x-retry-count`.
+   The team-search indexer parks on `search-indexer.<topic>.dlq` instead: `search-indexer.listing.events.dlq`, `search-indexer.order.events.dlq`, `search-indexer.engagement.events.dlq` (created by `redpanda-init` in `docker-compose.services.yaml`).
 3. **Consumer không bị Block**: Luồng xử lý chính tiếp tục vận hành mà không bị dừng lại bởi 1 message lỗi.
 
 ---

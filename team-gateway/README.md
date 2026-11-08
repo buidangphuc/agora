@@ -228,7 +228,7 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (201 features: 69 `automated`, 132 `not-testable`). Session
+- Feature manifest: `FEATURES.yaml` (206 features: 74 `automated`, 132 `not-testable`). Session
   revocation and client-IP behaviour are covered by `platform-e2e` (`auth/session_revocation.feature`).
 - E2E coverage is verified in `platform-e2e`: `make -C platform-e2e features-check` and
   `make -C platform-e2e spec-check CHANGE=<id>`.

@@ -232,7 +232,7 @@ Docker build uses `golang:1.26`.
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` in this repo (69 features: 63 `automated`, 6 `not-testable`), with
+- Feature manifest: `FEATURES.yaml` in this repo (177 features: 105 `automated`, 72 `not-testable`), with
   `automated` entries mapped to feature files in `platform-e2e/tests/e2e/features/` (for example
   `buyer/search_and_discovery.feature`, `search/hybrid_retrieval.feature`).
 - Verify coverage: `make -C platform-e2e features-check`; for an OpenSpec change,
@@ -268,7 +268,8 @@ Docker build uses `golang:1.26`.
 - `EMBEDDING_DIM` is inert (the mapping and `.env.example` agree on 384 only by convention).
 - `RunSavedSearch` ignores `search_mode`, the engine and the reranker: it calls the lexical index search directly.
 - Root compose runs a `modelserve-router` but does not set `MODEL_SERVER_URL` for team-search (see Run locally).
-- Facets come from the lexical result only, and in hybrid mode `Total` is the larger of the two strategies' totals (an estimate).
+- In hybrid mode `Total` is the larger of the lexical total and the fused count (an estimate; `internal/retrieval/engine.go:282`).
+- `platform-gitops/platform/infra/redpanda.yaml:108` does not create `search-indexer.listing.events.dlq`, `search-indexer.order.events.dlq` or `search-indexer.engagement.events.dlq`; only compose `redpanda-init` does (`docker-compose.services.yaml:26`).
 
 ## References
 
