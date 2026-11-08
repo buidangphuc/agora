@@ -164,3 +164,83 @@ async def test_not_ready_when_qdrant_is_unreachable() -> None:
             raise ConnectionError("qdrant down")
 
     assert not await _source(Down()).ready("g1")
+
+
+class _BatchClient:
+    def __init__(self, responses: list[Any] | None = None, fail: bool = False) -> None:
+        self.responses = responses or []
+        self.fail = fail
+        self.batch_kwargs: list[dict[str, Any]] = []
+        self.single_calls = 0
+
+    async def query_batch_points(self, **kwargs: Any) -> Any:
+        self.batch_kwargs.append(kwargs)
+        if self.fail:
+            raise ConnectionError("qdrant down")
+        return self.responses
+
+    async def query_points(self, **kwargs: Any) -> Any:
+        self.single_calls += 1
+        raise AssertionError("per-id query")
+
+
+async def test_c21_similar_batch_issues_one_query_batch_points_call() -> None:
+    client = _BatchClient(
+        [
+            SimpleNamespace(
+                points=[SimpleNamespace(id="u", score=0.9, payload={"listing_id": "X"})]
+            ),
+            SimpleNamespace(points=[]),
+            SimpleNamespace(
+                points=[SimpleNamespace(id="v", score=0.4, payload={"listing_id": "Y"})]
+            ),
+        ]
+    )
+    got = await _source(client).similar_batch(["a", "b", "c"], top_k=7, generation="g1")
+    assert len(client.batch_kwargs) == 1
+    assert client.single_calls == 0
+    kwargs = client.batch_kwargs[0]
+    assert kwargs["collection_name"] == "item_als_vectors__g1"
+    requests = kwargs["requests"]
+    assert [r.query.recommend.positive for r in requests] == [
+        [point_id("a")],
+        [point_id("b")],
+        [point_id("c")],
+    ]
+    assert all(r.limit == 7 for r in requests)
+    assert {k: [c.listing_id for c in v] for k, v in got.items() if v} == {
+        "a": ["X"],
+        "c": ["Y"],
+    }
+
+
+async def test_c21_similar_batch_failure_yields_no_candidates() -> None:
+    got = await _source(_BatchClient(fail=True)).similar_batch(
+        ["a", "b"], top_k=5, generation="g1"
+    )
+    assert not any(got.values())
+
+
+async def test_c21_similar_batch_slow_call_is_cancelled_within_one_budget() -> None:
+    class _Slow:
+        cancelled = False
+
+        async def query_batch_points(self, **kwargs: Any) -> Any:
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                self.cancelled = True
+                raise
+
+    client = _Slow()
+    got = await _source(client, timeout_s=0.02).similar_batch(
+        ["a", "b"], top_k=5, generation="g1"
+    )
+    assert not any(got.values())
+    assert client.cancelled
+
+
+async def test_c21_similar_batch_of_no_ids_makes_no_request() -> None:
+    client = _BatchClient()
+    assert await _source(client).similar_batch([], top_k=5, generation="g1") == {}
+    assert client.batch_kwargs == []

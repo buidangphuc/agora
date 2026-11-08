@@ -28,6 +28,7 @@ class Source(MemoryCandidateSource):
         super().__init__(similar or {})
         self.category_of = dict(categories or {})
         self.similar_calls: list[str] = []
+        self.batch_calls: list[list[str]] = []
 
     async def similar(
         self, seed_listing_id: str, *, top_k: int, generation: str | None
@@ -36,6 +37,17 @@ class Source(MemoryCandidateSource):
         return await super().similar(
             seed_listing_id, top_k=top_k, generation=generation
         )
+
+    async def similar_batch(
+        self, listing_ids: Sequence[str], *, top_k: int, generation: str | None
+    ) -> dict[str, list[Candidate]]:
+        self.batch_calls.append(list(listing_ids))
+        return {
+            lid: await MemoryCandidateSource.similar(
+                self, lid, top_k=top_k, generation=generation
+            )
+            for lid in listing_ids
+        }
 
     async def categories(
         self, listing_ids: Sequence[str], *, generation: str | None

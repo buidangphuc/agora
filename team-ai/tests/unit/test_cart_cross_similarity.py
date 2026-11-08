@@ -41,7 +41,8 @@ async def test_similar_listings_for_cart_lines_score_is_max_across_lines(tmp_pat
         ("y", pytest.approx(0.8)),
         ("z", pytest.approx(0.7)),
     ]
-    assert sorted(source.similar_calls) == ["A", "B"]
+    assert source.similar_calls == []
+    assert [sorted(c) for c in source.batch_calls] == [["A", "B"]]
 
 
 async def test_results_are_at_most_the_placement_limit_in_descending_score(
@@ -74,7 +75,22 @@ async def test_exactly_50_context_ids_are_served(tmp_path):
         RecommendationQuery(placement_id="cross", context_listing_ids=ids)
     )
     assert _ids(result) == ["x"]
-    assert len(source.similar_calls) == 50
+    assert source.similar_calls == []
+    assert len(source.batch_calls) == 1
+    assert sorted(source.batch_calls[0]) == sorted(ids)
+
+
+async def test_c21_cart_neighbours_are_fetched_in_one_batch_not_per_line(tmp_path):
+    source = Source({"A": [cand("x", 0.9)], "B": [cand("y", 0.8)]})
+    service = build_service(source, placements=write_placements(tmp_path, _CROSS))
+    await service.recommend(
+        RecommendationQuery(
+            placement_id="cross", context_listing_ids=["A", "B", "unknown"]
+        )
+    )
+    assert len(source.batch_calls) == 1
+    assert sorted(source.batch_calls[0]) == ["A", "B", "unknown"]
+    assert source.similar_calls == []
 
 
 async def test_empty_context_ends_at_global_popular():

@@ -29,7 +29,7 @@ PLACEMENT = "search_results"
 HEX32 = re.compile(r"^[0-9a-f]{32}$")
 MODEL = re.compile(r"^(lexical|semantic|hybrid)(\+rerank)?@\S+$")
 POLL_S = 60.0
-BEACON_SETTLE_MS = 500
+BEACON_SETTLE_MS = 2600
 HOLD_S = 8.0
 BASE = get_settings().base_url.rstrip("/")
 

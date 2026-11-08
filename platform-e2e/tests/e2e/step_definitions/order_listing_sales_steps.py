@@ -37,7 +37,11 @@ def _text(v: Any) -> str:
 
 
 def _decode(raw: bytes, key: bytes | None) -> dict[str, Any]:
-    out: dict[str, Any] = {"raw": raw, "key": (key or b"").decode("utf-8", errors="replace")}
+    out: dict[str, Any] = {
+        "raw": raw,
+        "key": (key or b"").decode("utf-8", errors="replace"),
+        "sold_count": 0,
+    }
     payload = b""
     for n, wire, v in _fields(raw):
         if n == 1 and wire == 2:

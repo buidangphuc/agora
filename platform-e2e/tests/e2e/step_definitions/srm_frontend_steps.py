@@ -222,7 +222,7 @@ def url_without_rating(world: World, label: str) -> None:
     search = _search(world)
     expect(world.page).not_to_have_url(re.compile(r".*minRating="), timeout=timeouts.NAVIGATION)
     expect(search.rating_chip).to_have_count(0, timeout=timeouts.DEFAULT)
-    search.wait_for_result_count(3, timeout=timeouts.NAVIGATION)
+    search.wait_for_result_count(4, timeout=timeouts.NAVIGATION)
     assert _ids(world, [label]) <= set(search.result_hrefs()), search.result_hrefs()
 
 
