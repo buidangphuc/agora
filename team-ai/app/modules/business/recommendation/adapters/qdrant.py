@@ -75,18 +75,29 @@ class QdrantCandidateSource:
         if not ids:
             return {}
         collection = generation_collection(self._collection, generation)
-        requests = [
-            models.QueryRequest(
-                query=models.RecommendQuery(
-                    recommend=models.RecommendInput(positive=[point_id(lid)])
-                ),
-                limit=top_k,
-                with_payload=True,
-            )
-            for lid in ids
-        ]
+        out: dict[str, list[Candidate]] = {lid: [] for lid in ids}
         try:
             async with asyncio.timeout(self._timeout_s):
+                existing = await self._client.retrieve(
+                    collection_name=collection,
+                    ids=[point_id(lid) for lid in ids],
+                    with_payload=False,
+                    with_vectors=False,
+                )
+                present = {str(p.id) for p in existing}
+                known = [lid for lid in ids if str(point_id(lid)) in present]
+                if not known:
+                    return out
+                requests = [
+                    models.QueryRequest(
+                        query=models.RecommendQuery(
+                            recommend=models.RecommendInput(positive=[point_id(lid)])
+                        ),
+                        limit=top_k,
+                        with_payload=True,
+                    )
+                    for lid in known
+                ]
                 responses = await self._client.query_batch_points(
                     collection_name=collection, requests=requests
                 )
@@ -100,8 +111,7 @@ class QdrantCandidateSource:
         except Exception as exc:
             logger.warning("recs.retrieve_batch.failed n={} err={}", len(ids), exc)
             return {lid: [] for lid in ids}
-        out: dict[str, list[Candidate]] = {lid: [] for lid in ids}
-        for lid, response in zip(ids, responses, strict=False):
+        for lid, response in zip(known, responses, strict=False):
             out[lid] = [c for hit in response.points if (c := _candidate(hit))]
         return out
 
