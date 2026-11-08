@@ -54,7 +54,7 @@ def _ask(
 
 
 def _cart_payload(context: list[str], **extra: Any) -> dict[str, Any]:
-    return {"context": CONTEXT_CART, "contextListingIds": context, "limit": 20, **extra}
+    return {"context": CONTEXT_CART, "contextListingIds": context, **extra}
 
 
 def _unknown(count: int) -> list[str]:

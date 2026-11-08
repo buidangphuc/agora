@@ -35,7 +35,7 @@ class RecommendationsRowComponent(BaseComponent):
     @property
     def section(self) -> Locator:
         """The `<section>` wrapper enclosing the heading and the card grid."""
-        return self.root.locator("section", has_text=self.heading_text)
+        return self.root.locator("section[data-recs-request-id]", has_text=self.heading_text)
 
     @property
     def cards(self) -> Locator:
