@@ -6,7 +6,6 @@ the floor. Dependencies fail open inside their adapters; any other failure takes
 path, the serving generation's popular list.
 """
 
-import asyncio
 import time
 from collections.abc import Callable
 
@@ -187,14 +186,12 @@ class RecommendationService:
     async def _cart_cross_similarity(
         self, query: RecommendationQuery, generation: str | None
     ) -> list[Candidate]:
-        lists = await asyncio.gather(
-            *(
-                self._source.similar(
-                    listing_id, top_k=self._candidate_top_k, generation=generation
-                )
-                for listing_id in query.context_listing_ids
-            )
+        batch = await self._source.similar_batch(
+            list(query.context_listing_ids),
+            top_k=self._candidate_top_k,
+            generation=generation,
         )
+        lists = batch.values()
         best: dict[str, Candidate] = {}
         for candidates in lists:
             for cand in candidates:

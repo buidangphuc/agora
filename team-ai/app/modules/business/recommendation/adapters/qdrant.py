@@ -68,6 +68,43 @@ class QdrantCandidateSource:
             return []
         return [c for hit in response.points if (c := _candidate(hit))]
 
+    async def similar_batch(
+        self, listing_ids: Sequence[str], *, top_k: int, generation: str | None
+    ) -> dict[str, list[Candidate]]:
+        ids = list(dict.fromkeys(listing_ids))
+        if not ids:
+            return {}
+        collection = generation_collection(self._collection, generation)
+        requests = [
+            models.QueryRequest(
+                query=models.RecommendQuery(
+                    recommend=models.RecommendInput(positive=[point_id(lid)])
+                ),
+                limit=top_k,
+                with_payload=True,
+            )
+            for lid in ids
+        ]
+        try:
+            async with asyncio.timeout(self._timeout_s):
+                responses = await self._client.query_batch_points(
+                    collection_name=collection, requests=requests
+                )
+        except TimeoutError:
+            logger.warning(
+                "recs.retrieve_batch.timeout n={} budget_s={}",
+                len(ids),
+                self._timeout_s,
+            )
+            return {lid: [] for lid in ids}
+        except Exception as exc:
+            logger.warning("recs.retrieve_batch.failed n={} err={}", len(ids), exc)
+            return {lid: [] for lid in ids}
+        out: dict[str, list[Candidate]] = {lid: [] for lid in ids}
+        for lid, response in zip(ids, responses, strict=False):
+            out[lid] = [c for hit in response.points if (c := _candidate(hit))]
+        return out
+
     async def categories(
         self, listing_ids: Sequence[str], *, generation: str | None
     ) -> dict[str, str]:

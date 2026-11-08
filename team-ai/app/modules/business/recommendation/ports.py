@@ -14,6 +14,15 @@ class CandidateSource(Protocol):
         """
         ...
 
+    async def similar_batch(
+        self, listing_ids: Sequence[str], *, top_k: int, generation: str | None
+    ) -> dict[str, list[Candidate]]:
+        """Neighbours of each listing, one entry per requested id, in one round trip.
+
+        An unknown id, a failure or a spent budget yields an empty list for that id.
+        Never raises."""
+        ...
+
     async def categories(
         self, listing_ids: Sequence[str], *, generation: str | None
     ) -> dict[str, str]:
