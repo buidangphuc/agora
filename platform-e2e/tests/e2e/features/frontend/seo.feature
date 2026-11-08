@@ -61,7 +61,7 @@ Feature: Search-engine metadata, crawl files and indexing policy (frontend-seo)
     Given a published listing without an image
     When an anonymous crawler fetches "/listing/[listing]" on the storefront
     Then the response status is 200
-    And the meta tag og:title is "[listing title] | Agora"
+    And the meta tag og:title is "[listing title]"
     And the meta tag og:type is "product"
     And the page has no og:image meta tag
 

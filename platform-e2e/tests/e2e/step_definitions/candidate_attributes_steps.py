@@ -12,6 +12,9 @@ from typing import Any
 
 from pytest_bdd import then, when
 
+from src.api.mlflow_registry import MlflowRegistry
+from src.api.recsys_job import MLFLOW_IN_STACK
+from src.api.services.recommendation_service import CONTEXT_CART
 from src.constants import gateway_endpoints as ep
 from tests.e2e.flows.recsys_job_flow import run_recsys_job
 from tests.e2e.support.world import World
@@ -20,6 +23,7 @@ CONTEXT_LISTING = "rgp-item-0-0"
 PUBLISHED = "rgp-item-0-1"
 BANNED = "rgp-item-0-2"
 NO_STATUS = "rgp-item-0-3"
+_MLFLOW_ENV = {"MLFLOW_TRACKING_URI": MLFLOW_IN_STACK}
 _STATUS = {
     "published": "LISTING_STATUS_PUBLISHED",
     "banned": "LISTING_STATUS_BANNED",
@@ -34,9 +38,10 @@ def _ctx(world: World) -> dict[str, Any]:
 def _publish(world: World, snapshot: dict[str, str | None]) -> None:
     user = world.state.current_user
     assert user is not None and user.user_id, "no logged-in buyer to put in the dataset fixtures"
+    MlflowRegistry().reset_registry()
     (run,) = run_recsys_job(
         [],
-        [{"@fixture": "good_a", "@item_attributes": snapshot}],
+        [{**_MLFLOW_ENV, "@fixture": "good_a", "@item_attributes": snapshot}],
         live=True,
         reset=True,
         buyer_id=user.user_id,
@@ -82,7 +87,7 @@ def cattr_recommend(world: World) -> None:
     data = world.service_factory.recommendation.post(
         ep.RECOMMENDATION_RECOMMEND,
         {
-            "placementId": "cart_cross_sell",
+            "context": CONTEXT_CART,
             "contextListingIds": [CONTEXT_LISTING],
             "limit": 20,
         },

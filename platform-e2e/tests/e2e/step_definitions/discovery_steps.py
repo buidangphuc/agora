@@ -138,7 +138,9 @@ def same_url_same_state(world: World) -> None:
     other = world.context.new_page()
     try:
         other.goto(world.page.url, wait_until="domcontentloaded")
-        selected = other.locator(f'[data-testid="facet-bucket"][data-key="{key}"]')
+        selected = other.get_by_role("main").locator(
+            f'[data-testid="facet-bucket"][data-key="{key}"]'
+        )
         expect(selected).to_have_attribute("data-active", "true", timeout=timeouts.NAVIGATION)
     finally:
         other.close()

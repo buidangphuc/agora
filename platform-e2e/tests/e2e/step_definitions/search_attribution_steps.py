@@ -29,6 +29,7 @@ PLACEMENT = "search_results"
 HEX32 = re.compile(r"^[0-9a-f]{32}$")
 MODEL = re.compile(r"^(lexical|semantic|hybrid)(\+rerank)?@\S+$")
 POLL_S = 60.0
+BEACON_SETTLE_MS = 500
 HOLD_S = 8.0
 BASE = get_settings().base_url.rstrip("/")
 
@@ -543,8 +544,11 @@ def pick_sort(world: World, label: str) -> None:
 @when("the buyer moves to page 2 of the results")
 def go_page_two(world: World) -> None:
     bag = _bag(world)
+    pager = _page(world).page_link(2)
+    pager.scroll_into_view_if_needed()
+    world.page.wait_for_timeout(BEACON_SETTLE_MS)
     bag["mark"] = len(world.state.extra["beacons"])
-    _page(world).page_link(2).click()
+    pager.click()
     world.page.wait_for_url(re.compile(r"page=2"), timeout=timeouts.NAVIGATION)
     _page(world).scroll_first_result_into_view()
     bag["second"] = _wait_beacon(world, "impression", bag["mark"])

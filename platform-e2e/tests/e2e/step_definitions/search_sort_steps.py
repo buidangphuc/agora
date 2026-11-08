@@ -257,7 +257,9 @@ def same_order_in_new_tab(world: World) -> None:
     other = world.context.new_page()
     try:
         other.goto(world.page.url, wait_until="domcontentloaded")
-        expect(other.get_by_test_id("search-results")).to_be_visible(timeout=timeouts.NAVIGATION)
+        expect(other.get_by_role("main").get_by_test_id("search-results")).to_be_visible(
+            timeout=timeouts.NAVIGATION
+        )
         assert "sort=best_selling" in other.url, other.url
         order = _facet_search(world).ordered_result_hrefs(other)
         assert order[:2] == world.state.extra["sold_order_hrefs"][:2], order

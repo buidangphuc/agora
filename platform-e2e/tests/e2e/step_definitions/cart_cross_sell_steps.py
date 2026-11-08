@@ -17,6 +17,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.api.services import GatewayError
 from src.api.services.recommendation_service import (
+    CONTEXT_CART,
     CONTEXT_HOMEPAGE,
     CONTEXT_SIMILAR_ITEMS,
 )
@@ -53,7 +54,7 @@ def _ask(
 
 
 def _cart_payload(context: list[str], **extra: Any) -> dict[str, Any]:
-    return {"placementId": cx.PLACEMENT, "contextListingIds": context, "limit": 20, **extra}
+    return {"context": CONTEXT_CART, "contextListingIds": context, "limit": 20, **extra}
 
 
 def _unknown(count: int) -> list[str]:
@@ -210,7 +211,7 @@ def cx_ask_seed_category(world: World) -> None:
     std = _std(world)
     _ask(
         world,
-        {"placementId": cx.PLACEMENT, "seedListingId": std.a, "limit": 20},
+        {"context": CONTEXT_CART, "seedListingId": std.a, "limit": 20},
         cx.accepts(std.popular_ids(std.category_c)),
         "cart_cross_sell with a seed listing",
     )
@@ -223,7 +224,7 @@ def cx_ask_empty(world: World) -> None:
     visible = cx.state(world)["visible_popular"]
     _ask(
         world,
-        {"placementId": cx.PLACEMENT, "limit": 20},
+        {"context": CONTEXT_CART, "limit": 20},
         cx.accepts(visible),
         "cart_cross_sell with an empty context",
     )
@@ -239,7 +240,7 @@ def cx_ask_similar_items(world: World) -> None:
             "placementId": "similar_items",
             "context": CONTEXT_SIMILAR_ITEMS,
             "seedListingId": std.a,
-            "limit": 20,
+            "limit": 10,
         },
         cx.accepts(std.similar_allowed(contexts)),
         "similar_items with a seed",

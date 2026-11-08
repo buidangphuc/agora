@@ -37,6 +37,7 @@ APPS = {
 }
 CRAWLER_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 LISTING_RPC = "/platform.listing.v1.ListingService/"
+SEARCH_RPC = "/platform.search.v1.SearchService/"
 PRIVATE_PREFIXES = (
     "/account",
     "/cart",
@@ -209,6 +210,23 @@ def _wait_hidden(listing_id: str) -> None:
     raise AssertionError(f"listing {listing_id} is still readable anonymously")
 
 
+def _wait_unsearchable(listing_id: str, title: str) -> None:
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        resp = _gateway(
+            f"{SEARCH_RPC}SearchListings",
+            {"query": title, "filters": {"status": "published"}},
+        )
+        if resp.status_code == 200 and listing_id not in [
+            h.get("listingId") for h in resp.json().get("hits", [])
+        ]:
+            return
+        time.sleep(1)
+    raise AssertionError(
+        f"listing {listing_id} is still returned by SearchListings status=published"
+    )
+
+
 def _make_unpublished(world: World, status: str) -> tuple[str, str]:
     token, seller_id = _new_seller()
     if status == "draft":
@@ -232,6 +250,7 @@ def _make_unpublished(world: World, status: str) -> tuple[str, str]:
         else:
             raise AssertionError(f"unknown status {status}")
     _wait_hidden(listing_id)
+    _wait_unsearchable(listing_id, title)
     _remember_listing(world, listing_id, title, seller_id)
     return listing_id, title
 
