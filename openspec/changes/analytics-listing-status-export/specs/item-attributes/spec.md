@@ -29,13 +29,13 @@ of its consumption.
 
 - **WHEN** a `ListingChanged` event for listing `L1` with `Listing.status = LISTING_STATUS_PUBLISHED` is consumed and the next export cycle completes
 - **THEN** `listing_sellers.parquet` has exactly one row for `L1` whose `status` equals the string `LISTING_STATUS_PUBLISHED`
-- **VERIFIED BY**: `team-analytics/internal/events/listing_test.go` `TestListingSellerFromEnvelope_StatusIsEnumName`, `team-analytics/internal/warehouse/duckdb/duckdb_test.go` `TestUpsertListingSellers_StoresStatus`, `platform-e2e/tests/e2e/features/featurestore/item_attributes.feature` "A published listing exports its status"
+- **VERIFIED BY**: `team-analytics/internal/events/listing_test.go` `TestListingSellerFromEnvelope_StatusIsEnumName`, `team-analytics/internal/warehouse/duckdb/duckdb_test.go` `TestUpsertListingSellers_StoresStatus`, `platform-e2e/tests/e2e/features/featurestore/item_attributes.feature` "Published status reaches the export"
 
 #### Scenario: Every non-published status is exported by name
 
 - **WHEN** events for listings with each of `LISTING_STATUS_DRAFT`, `_REJECTED`, `_PENDING_REVIEW`, `_BANNED` and `_HELD` are consumed and the export completes
 - **THEN** each listing's `status` in `listing_sellers.parquet` equals its own enum name and none equals `LISTING_STATUS_PUBLISHED`
-- **VERIFIED BY**: `team-analytics/internal/events/listing_test.go` `TestListingSellerFromEnvelope_AllStatuses`, `platform-e2e/tests/e2e/features/featurestore/item_attributes.feature` "A banned listing exports its status"
+- **VERIFIED BY**: `team-analytics/internal/events/listing_test.go` `TestListingSellerFromEnvelope_AllStatuses`, `platform-e2e/tests/e2e/features/featurestore/item_attributes.feature` "Every non-published status is exported by name"
 
 #### Scenario: A newer status replaces the older one
 
@@ -117,7 +117,7 @@ the offsets of the live group. It SHALL be safe to run more than once.
 
 - **WHEN** a warehouse holds rows for listings `L1..L3` with null `status`, `listing.events` holds a status-bearing `ListingChanged` for each, `listing-replay` runs to completion and the next export cycle completes
 - **THEN** `listing_sellers.parquet` has exactly one row per listing and each `status` equals the enum name of that listing's newest event
-- **VERIFIED BY**: `team-analytics/internal/app/listing_replay_test.go` `TestListingReplay_FillsStatusForAllListings`, `platform-e2e/tests/e2e/features/featurestore/item_attributes.feature` "Replay fills the status of existing listings"
+- **VERIFIED BY**: `team-analytics/internal/app/listing_replay_test.go` `TestListingReplay_FillsStatusForAllListings`, `platform-e2e/tests/e2e/features/featurestore/item_attributes.feature` "After replay every listing with a status event has its status in the export"
 
 #### Scenario: Replay does not touch the live consumer group
 

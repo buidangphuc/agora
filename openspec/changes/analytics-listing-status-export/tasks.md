@@ -12,8 +12,8 @@
 
 ## 2. E2E track
 
-- [ ] 2.1 `platform-e2e/tests/e2e/features/featurestore/item_attributes.feature`: add scenarios "A published listing exports its status" and "A banned listing exports its status" reading `listing_sellers.parquet` after an export cycle (Published status reaches the export, Every non-published status is exported by name, A newer status replaces the older one); keep the two existing scenarios (A listing's category and price reach the listing export, An edited listing's attributes replace the old ones)
-- [ ] 2.1a e2e: "Replay fills the status of existing listings" (After replay every listing with a status event has its status in the export)
+- [ ] 2.1 `platform-e2e/tests/e2e/features/featurestore/item_attributes.feature`: add scenarios "Published status reaches the export" and "Every non-published status is exported by name" reading `listing_sellers.parquet` after an export cycle (Published status reaches the export, Every non-published status is exported by name, A newer status replaces the older one); keep the two existing scenarios (A listing's category and price reach the listing export, An edited listing's attributes replace the old ones)
+- [ ] 2.1a e2e: "After replay every listing with a status event has its status in the export"
 - [ ] 2.2 Deleted-listing behaviour is covered by the DuckDB and decoder unit tests only (seller delete path not verified); no e2e scenario (A deleted listing keeps its row with a null status)
 - [ ] 2.2a Non-gating measures: export of 100,000 rows under 60 s; replay of 100,000 events under 5 minutes
 - [ ] 2.3 FEATURES.yaml entries for team-analytics via the e2e-author (not written by this slice)

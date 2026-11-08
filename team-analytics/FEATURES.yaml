@@ -4024,10 +4024,10 @@ features:
     covered_by: analytics/search_performance.feature::An unauthenticated caller is denied
     notes: "search-attribution: analytics/search_performance.feature"
   - id: analytics.listing-status-published
-    title: "A published listing exports its status"
+    title: "Published status reaches the export"
     persona: seller
     priority: P1
-    summary: "A published listing exports its status"
+    summary: "Published status reaches the export"
     entry_route: "/"
     services: [team-analytics, listing]
     preconditions:
@@ -4037,14 +4037,14 @@ features:
       - "Then listing_sellers.parquet has exactly one row for that listing whose status equals LISTING_STATUS_PUBLISHED"
     tags: [analytics, batch, integration]
     status: automated
-    covered_by: featurestore/item_attributes.feature::A published listing exports its status
-    notes: "analytics-listing-status-export: featurestore/item_attributes.feature::A published listing exports its status"
+    covered_by: featurestore/item_attributes.feature::Published status reaches the export
+    notes: "analytics-listing-status-export: featurestore/item_attributes.feature::Published status reaches the export"
 
   - id: analytics.listing-status-banned
-    title: "A banned listing exports its status"
+    title: "Every non-published status is exported by name"
     persona: seller
     priority: P1
-    summary: "A banned listing exports its status"
+    summary: "Every non-published status is exported by name"
     entry_route: "/"
     services: [team-analytics, listing]
     preconditions:
@@ -4054,14 +4054,14 @@ features:
       - "Then listing_sellers.parquet has exactly one row for that listing whose status equals LISTING_STATUS_BANNED and not LISTING_STATUS_PUBLISHED"
     tags: [analytics, batch, integration]
     status: automated
-    covered_by: featurestore/item_attributes.feature::A banned listing exports its status
-    notes: "analytics-listing-status-export: featurestore/item_attributes.feature::A banned listing exports its status"
+    covered_by: featurestore/item_attributes.feature::Every non-published status is exported by name
+    notes: "analytics-listing-status-export: featurestore/item_attributes.feature::Every non-published status is exported by name"
 
   - id: analytics.listing-status-replay
-    title: "Replay fills the status of existing listings"
+    title: "After replay every listing with a status event has its status in the export"
     persona: seller
     priority: P1
-    summary: "Replay fills the status of existing listings"
+    summary: "After replay every listing with a status event has its status in the export"
     entry_route: "/"
     services: [team-analytics, listing]
     preconditions:
@@ -4071,8 +4071,8 @@ features:
       - "Then listing_sellers.parquet has exactly one row per listing and each status equals the enum name of that listing's newest event"
     tags: [analytics, batch, integration]
     status: automated
-    covered_by: featurestore/item_attributes.feature::Replay fills the status of existing listings
-    notes: "analytics-listing-status-export: featurestore/item_attributes.feature::Replay fills the status of existing listings"
+    covered_by: featurestore/item_attributes.feature::After replay every listing with a status event has its status in the export
+    notes: "analytics-listing-status-export: featurestore/item_attributes.feature::After replay every listing with a status event has its status in the export"
 
   - id: analytics.listing-status-newer-wins
     title: "A newer status replaces the older one"

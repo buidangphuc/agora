@@ -23,6 +23,7 @@
 #### Scenario: A failed search returns no request id
 - **WHEN** the index is unavailable and `SearchListings` fails with an error status
 - **THEN** the call returns the error status and no response body
+- **VERIFIED BY**: team-search `internal/rpc` `TestSearchAttributionFailedSearchReturnsNoResponse`
 
 #### Scenario: A saved search of another user is rejected
 - **WHEN** a user calls `RunSavedSearch` for a saved search owned by another user
@@ -83,6 +84,7 @@
 #### Scenario: The ranker version comes from the environment
 - **WHEN** team-search starts with `SEARCH_RANKER_VERSION=v2` and a client runs a lexical search
 - **THEN** `model_version` equals `lexical@v2`
+- **VERIFIED BY**: team-search `internal/config` `TestSearchRankerVersionComesFromEnvironment`
 
 #### Scenario: An unset ranker version defaults to v1
 - **WHEN** team-search starts without `SEARCH_RANKER_VERSION`
@@ -95,6 +97,7 @@
 #### Scenario: The engine is not configured
 - **WHEN** the handler has no retrieval engine and falls back to the plain index search
 - **THEN** `model_version` equals `lexical@v1`
+- **VERIFIED BY**: team-search `internal/rpc` `TestSearchAttributionModelVersionPerPath`
 
 ### Requirement: team-ai search fills the same attribution fields
 
@@ -103,18 +106,22 @@ The `SearchListings` servicer of `team-ai` SHALL set `request_id` to a fresh UUI
 #### Scenario: team-ai returns both fields
 - **WHEN** a client with scope `search:read` calls team-ai `SearchListings` with a query that has matches
 - **THEN** the response `request_id` matches `^[0-9a-f]{32}$` and `model_version` equals `semantic@v1`
+- **VERIFIED BY**: team-ai `tests/unit/transport/test_search_servicer.py` `test_sa_team_ai_search_sets_request_id_as_uuid4_hex`
 
 #### Scenario: Two team-ai calls differ
 - **WHEN** a client calls team-ai `SearchListings` twice with the same query
 - **THEN** the two `request_id` values differ
+- **VERIFIED BY**: team-ai `tests/unit/transport/test_search_servicer.py` `test_sa_two_team_ai_calls_differ`
 
 #### Scenario: team-ai search unavailable
 - **WHEN** the retrieval backend is not configured
 - **THEN** the call fails with `UNAVAILABLE` and the response carries no `request_id`
+- **VERIFIED BY**: team-ai `tests/unit/transport/test_search_servicer.py` `test_sa_store_failure_returns_no_attribution_fields`
 
 #### Scenario: team-ai search without scope is denied
 - **WHEN** a caller without scope `search:read` calls team-ai `SearchListings`
 - **THEN** the call fails with `PERMISSION_DENIED`
+- **VERIFIED BY**: team-ai `tests/unit/transport/test_search_servicer.py` `test_sa_denied_scope_returns_no_attribution_fields`
 
 ### Requirement: Search page beacons carry the response identity
 
@@ -139,6 +146,7 @@ The `/search` page SHALL pass `SearchListingsResponse.request_id` of the respons
 #### Scenario: A failed search sends no beacons
 - **WHEN** the search call fails and the page shows the error state
 - **THEN** no impression beacon is sent
+- **VERIFIED BY**: team-frontend `src/features/search/SearchBlocks.attribution.test.tsx` `[Search page beacons carry the response identity] a failed search sends no beacons`
 
 #### Scenario: An empty result sends no impression
 - **WHEN** a buyer searches for a term with no matches
@@ -147,6 +155,7 @@ The `/search` page SHALL pass `SearchListingsResponse.request_id` of the respons
 #### Scenario: A gateway response without an id still renders
 - **WHEN** the response carries an empty `request_id`
 - **THEN** the page renders the results and sends beacons without `impression_id`
+- **VERIFIED BY**: team-frontend `src/features/search/SearchBlocks.attribution.test.tsx` `[A gateway response without an id still renders] a response with no attribution fields renders the listings and beacons without impressionId`
 
 ### Requirement: Analytics reports search performance per model version
 
@@ -169,6 +178,7 @@ The `/search` page SHALL pass `SearchListingsResponse.request_id` of the respons
 #### Scenario: A click before its impression is not credited
 - **WHEN** a click event has `occurred_at` earlier than the matching impression
 - **THEN** the click adds to no row
+- **VERIFIED BY**: team-analytics `internal/query` `TestSearchPerformance_ClickBeforeImpressionIsNotCredited`
 
 #### Scenario: A reused impression id under another model is separate
 - **WHEN** the same `impression_id` appears with two different `model_version` values
@@ -182,6 +192,7 @@ The `/search` page SHALL pass `SearchListingsResponse.request_id` of the respons
 - **GIVEN** 10 item impressions and 4 clicks of `hybrid@v1` whose attribution window has closed, and 2 PAID order lines of those clickers on the clicked listings
 - **WHEN** an admin calls `GetSearchPerformance`
 - **THEN** the `hybrid@v1` row has `placement_id` `search_results`, `clicks` 4, `purchases` 2, `ctr` 0.4, `conversion_rate` 0.5, and the response `attribution_window_hours` equals the value `GetRecommendationPerformance` returns
+- **VERIFIED BY**: team-analytics `internal/query` `TestSearchPerformance_RowFieldsAndAttributionWindow`
 
 #### Scenario: A zero window resolves to 24 hours
 - **WHEN** an admin calls `GetSearchPerformance` with `window_hours` 0
@@ -200,6 +211,7 @@ The `/search` page SHALL pass `SearchListingsResponse.request_id` of the respons
 #### Scenario: An empty window returns no rows
 - **WHEN** an admin calls the RPC over a window with no search impressions
 - **THEN** the response has zero rows and no error
+- **VERIFIED BY**: team-analytics `internal/query` `TestSearchPerformance_EmptyWindowReturnsNoRows`
 
 #### Scenario: window_hours out of range is rejected
 - **WHEN** an admin calls the RPC with `window_hours` greater than 168
@@ -208,6 +220,7 @@ The `/search` page SHALL pass `SearchListingsResponse.request_id` of the respons
 #### Scenario: The window boundary is inclusive
 - **WHEN** an admin calls the RPC with `window_hours` 168 and an impression occurred exactly 168 hours earlier
 - **THEN** that impression counts
+- **VERIFIED BY**: team-analytics `internal/query` `TestSearchPerformance_WindowBoundaryIsInclusive`
 
 #### Scenario: A non-admin is denied
 - **WHEN** a seller or buyer principal calls the search performance RPC
