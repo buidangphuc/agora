@@ -168,10 +168,13 @@ def same_rating_in_new_tab(world: World) -> None:
     other = world.context.new_page()
     try:
         other.goto(world.page.url, wait_until="domcontentloaded")
-        expect(other.get_by_test_id("search-results")).to_be_visible(timeout=timeouts.NAVIGATION)
+        expect(other.get_by_role("main").get_by_test_id("search-results")).to_be_visible(
+            timeout=timeouts.NAVIGATION
+        )
         assert sorted(search.ordered_result_hrefs(other)) == expected
         selected = (
-            other.get_by_test_id("facet-ratings")
+            other.get_by_role("main")
+            .get_by_test_id("facet-ratings")
             .get_by_test_id("facet-bucket")
             .filter(has_text="Từ 4 sao")
         )
