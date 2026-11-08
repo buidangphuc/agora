@@ -2660,7 +2660,8 @@ features:
       - "When a generation is published with a published listing `P` and a banned listing `B`, both similar to the cart context listing, and `Recommend` for `cart_cross_sell` is called through the gateway"
       - "Then the response contains `P` and does not contain `B`"
     tags: [recsys, recommendations, integration]
-    status: planned
+    status: automated
+    covered_by: recommendations/candidate_attributes.feature::Contract is visible end to end
     notes: "recsys-candidate-attributes: recommendations/candidate_attributes.feature. BLOCKED: gateway-entry assertions need recsys-cart-cross-sell merged (placement cart_cross_sell and context_listing_ids)."
 
   - id: recsys.cattr-payload-without-visible-is-not-eligible
@@ -2676,7 +2677,8 @@ features:
       - "When a generation holds a point or entry for a listing with no `visible` key and `Recommend` is called"
       - "Then that listing is not in the response"
     tags: [recsys, recommendations, integration]
-    status: planned
+    status: automated
+    covered_by: recommendations/candidate_attributes.feature::Payload without visible is not eligible
     notes: "recsys-candidate-attributes: recommendations/candidate_attributes.feature. BLOCKED: gateway-entry assertions need recsys-cart-cross-sell merged (placement cart_cross_sell and context_listing_ids)."
 
   - id: recsys.cattr-backfill-patches-the-serving-generation

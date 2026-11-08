@@ -2063,7 +2063,8 @@ features:
       - "When a logged-in seller fetches `/seller/wallet` on `team-frontend-seller`"
       - "Then `<title>` is `Ví người bán | Agora` (source title `Ví người bán`, `team-frontend-seller/src/app/seller/wallet/page.tsx:28`) and the robots meta is `noindex, nofollow`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-37 A seller page is noindex and titled with one Agora suffix
 
   - id: frontend-seo.seo-38-the-seller-login-page-is-noindex-for-an-anonymous-crawler
     title: "SEO-38 The seller login page is noindex for an anonymous crawler"
@@ -2076,7 +2077,8 @@ features:
       - "When an anonymous crawler fetches `/login` on `team-frontend-seller`"
       - "Then the robots meta is `noindex, nofollow` and `<title>` ends with exactly one ` | Agora`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-38 The seller login page is noindex for an anonymous crawler
 
   - id: frontend-seo.seo-41-a-hand-written-suffix-in-a-seller-page-fails-the-build
     title: "SEO-41 A hand-written suffix in a seller page fails the build"

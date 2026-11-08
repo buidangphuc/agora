@@ -3812,7 +3812,8 @@ features:
       - "When an admin calls the search performance RPC over a window that contains them"
       - "Then the response has a row for `hybrid@v1` with `ctr` 0.2 and a row for `lexical@v1` with `ctr` 0.1"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::CTR per model version
     notes: "search-attribution: analytics/search_performance.feature"
 
   - id: analytics.sa-only-search-results-are-counted
@@ -3827,7 +3828,8 @@ features:
       - "When an admin calls the search performance RPC"
       - "Then no row for `als-v3` appears"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::Only search results are counted
     notes: "search-attribution: analytics/search_performance.feature"
 
   - id: analytics.sa-a-click-on-a-listing-the-search-did-not-show-is-not-credited
@@ -3841,7 +3843,8 @@ features:
       - "When a click carries an `impression_id` of a search impression but a `listing_id` that the impression did not show"
       - "Then the click adds to no row"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::A click on a listing the search did not show is not credited
     notes: "search-attribution: analytics/search_performance.feature"
 
   - id: analytics.sa-a-click-before-its-impression-is-not-credited
@@ -3869,7 +3872,8 @@ features:
       - "When the same `impression_id` appears with two different `model_version` values"
       - "Then the response has two rows, one per model version"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::A reused impression id under another model is separate
     notes: "search-attribution: analytics/search_performance.feature"
 
   - id: analytics.sa-purchases-come-from-server-order-facts
@@ -3883,7 +3887,8 @@ features:
       - "When a purchase beacon claims a search click but no PAID order line of that user and listing exists in the attribution window"
       - "Then the row's `purchases` stays 0"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::Purchases come from server order facts
     notes: "search-attribution: analytics/search_performance.feature"
 
   - id: analytics.sa-row-fields-and-attribution-window
@@ -3912,7 +3917,8 @@ features:
       - "When an admin calls `GetSearchPerformance` with `window_hours` 0"
       - "Then the response `window_hours` equals 24"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::A zero window resolves to 24 hours
     notes: "search-attribution: analytics/search_performance.feature"
 
   - id: analytics.sa-an-admin-through-the-gateway-receives-search-results-rows
@@ -3926,7 +3932,8 @@ features:
       - "When an admin calls `GetSearchPerformance` through the gateway after search impressions exist"
       - "Then every returned row has `placement_id` equal to `search_results`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::An admin through the gateway receives search_results rows
     notes: "search-attribution: search/search_attribution.feature. Also VERIFIED BY team-analytics `internal/rpc` TestGetSearchPerformanceRowsArePlacementSearchResults"
 
   - id: analytics.sa-window-hours-169-is-rejected-by-team-analytics
@@ -3940,7 +3947,8 @@ features:
       - "When an admin calls `GetSearchPerformance` with `window_hours` 169"
       - "Then team-analytics fails the call with `INVALID_ARGUMENT`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::window_hours 169 is rejected by team-analytics
     notes: "search-attribution: search/search_attribution.feature. Also VERIFIED BY team-analytics `internal/rpc` TestGetSearchPerformanceRejectsWindowOver168"
 
   - id: analytics.sa-an-empty-window-returns-no-rows
@@ -3968,7 +3976,8 @@ features:
       - "When an admin calls the RPC with `window_hours` greater than 168"
       - "Then the call fails with `INVALID_ARGUMENT`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::window_hours out of range is rejected
     notes: "search-attribution: analytics/search_performance.feature"
 
   - id: analytics.sa-the-window-boundary-is-inclusive
@@ -3996,7 +4005,8 @@ features:
       - "When a seller or buyer principal calls the search performance RPC"
       - "Then the call fails with `PERMISSION_DENIED`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::A non-admin is denied
     notes: "search-attribution: analytics/search_performance.feature"
 
   - id: analytics.sa-an-unauthenticated-caller-is-denied
@@ -4010,7 +4020,8 @@ features:
       - "When a caller with no principal calls the search performance RPC"
       - "Then the call fails with `UNAUTHENTICATED`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: analytics/search_performance.feature::An unauthenticated caller is denied
     notes: "search-attribution: analytics/search_performance.feature"
   - id: analytics.listing-status-published
     title: "A published listing exports its status"
@@ -4025,7 +4036,8 @@ features:
       - "When a seller publishes a listing and the next export cycle completes"
       - "Then listing_sellers.parquet has exactly one row for that listing whose status equals LISTING_STATUS_PUBLISHED"
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: featurestore/item_attributes.feature::A published listing exports its status
     notes: "analytics-listing-status-export: featurestore/item_attributes.feature::A published listing exports its status"
 
   - id: analytics.listing-status-banned
@@ -4041,7 +4053,8 @@ features:
       - "When an admin bans a published listing and the next export cycle completes"
       - "Then listing_sellers.parquet has exactly one row for that listing whose status equals LISTING_STATUS_BANNED and not LISTING_STATUS_PUBLISHED"
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: featurestore/item_attributes.feature::A banned listing exports its status
     notes: "analytics-listing-status-export: featurestore/item_attributes.feature::A banned listing exports its status"
 
   - id: analytics.listing-status-replay
@@ -4057,7 +4070,8 @@ features:
       - "When the listing replay command runs over listing.events and the next export cycle completes"
       - "Then listing_sellers.parquet has exactly one row per listing and each status equals the enum name of that listing's newest event"
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: featurestore/item_attributes.feature::Replay fills the status of existing listings
     notes: "analytics-listing-status-export: featurestore/item_attributes.feature::Replay fills the status of existing listings"
 
   - id: analytics.listing-status-newer-wins

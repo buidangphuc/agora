@@ -6866,7 +6866,8 @@ features:
     acceptance:
       - "Payment adds the order quantity"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::Payment adds the order quantity
 
   - id: order.ols-a-payment-emits-the-new-absolute-value
     title: "A payment emits the new absolute value"
@@ -6880,7 +6881,8 @@ features:
     acceptance:
       - "A payment emits the new absolute value"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::A payment emits the new absolute value
 
   - id: order.ols-cancel-from-paid-subtracts-the-order-quantity
     title: "Cancel from PAID subtracts the order quantity"
@@ -6894,7 +6896,8 @@ features:
     acceptance:
       - "Cancel from PAID subtracts the order quantity"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::Cancel from PAID subtracts the order quantity
 
   - id: order.ols-refunded-return-subtracts-the-order-quantity
     title: "Refunded return subtracts the order quantity"
@@ -6908,7 +6911,8 @@ features:
     acceptance:
       - "Refunded return subtracts the order quantity"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::Refunded return subtracts the order quantity
 
   - id: order.ols-cancel-before-paid-changes-nothing
     title: "Cancel before PAID changes nothing"
@@ -6922,7 +6926,8 @@ features:
     acceptance:
       - "Cancel before PAID changes nothing"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::Cancel before PAID changes nothing
 
   - id: order.ols-a-repeated-or-redelivered-transition-changes-nothing
     title: "A repeated or redelivered transition changes nothing"
@@ -6936,7 +6941,8 @@ features:
     acceptance:
       - "A repeated or redelivered transition changes nothing"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::A repeated or redelivered transition changes nothing
 
   - id: order.ols-a-cancel-and-a-refund-of-the-same-order-subtract-once
     title: "A cancel and a refund of the same order subtract once"
@@ -6950,7 +6956,8 @@ features:
     acceptance:
       - "A cancel and a refund of the same order subtract once"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::A cancel and a refund of the same order subtract once
 
   - id: order.ols-a-multi-listing-order-emits-one-event-per-listing
     title: "A multi-listing order emits one event per listing"
@@ -6964,7 +6971,8 @@ features:
     acceptance:
       - "A multi-listing order emits one event per listing"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::A multi-listing order emits one event per listing
 
   - id: order.ols-the-payload-carries-no-personal-identifier
     title: "The payload carries no personal identifier"
@@ -6978,7 +6986,8 @@ features:
     acceptance:
       - "The payload carries no personal identifier"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::The payload carries no personal identifier
 
   - id: order.ols-a-client-cannot-set-the-sold-count
     title: "A client cannot set the sold count"
@@ -6992,7 +7001,8 @@ features:
     acceptance:
       - "A client cannot set the sold count"
     tags: [order, discovery-seo]
-    status: planned
+    status: automated
+    covered_by: order/listing_sales.feature::A client cannot set the sold count
 
   - id: order.ols-the-count-never-goes-below-0
     title: "The count never goes below 0"

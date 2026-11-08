@@ -1921,7 +1921,8 @@ features:
       - "When `Recommend` is called with `placement_id=cart_cross_sell` and `context_listing_ids=[A,B]` where A and B have similar-item neighbours"
       - "Then the response contains at most 8 items in descending score, each item is a neighbour of A or B; each candidate's score before ranking is the maximum of its similarities to A and B"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Similar listings for cart lines
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-empty-context-ends-at-global-popular
@@ -1937,7 +1938,8 @@ features:
       - "When `Recommend` is called with `placement_id=cart_cross_sell`, an empty `context_listing_ids` and no seed"
       - "Then the response is not an error and its items are the `global_popular` listings"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Empty context ends at global popular
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-context-over-the-limit-is-rejected-by-team-ai
@@ -1967,7 +1969,8 @@ features:
       - "When `Recommend` is called through the gateway with exactly 50 `context_listing_ids`"
       - "Then the response status is OK with at most 8 items"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Exactly 50 context ids are served
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-unknown-context-listing-is-skipped
@@ -1983,7 +1986,8 @@ features:
       - "When `Recommend` is called with `context_listing_ids=[A,unknown]` and `unknown` has no vector"
       - "Then the response is OK and every item is a neighbour of A"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Unknown context listing is skipped
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-logs-carry-the-context-count-and-no-ids
@@ -2013,7 +2017,8 @@ features:
       - "When `Recommend` reaches `category_popular` with a `seed_listing_id` in category C and earlier steps empty"
       - "Then every returned listing belongs to category C"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Seed category
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-seed-category-wins-over-context-categories
@@ -2043,7 +2048,8 @@ features:
       - "When `Recommend` is called with `placement_id=cart_cross_sell`, no seed, context listings in categories C1 and C2, and `cart_cross_similarity` empty"
       - "Then every returned listing belongs to C1 or C2"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Cart categories
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-context-listing-without-category-contributes-nothing
@@ -2087,7 +2093,8 @@ features:
       - "When `Recommend` is called on `cart_cross_sell` with context listings A,B and one candidate is seeded with `in_stock=false` directly in the test fixture (no producer involved)"
       - "Then neither A, B nor the out-of-stock listing appears in the response"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Cart items and out-of-stock excluded
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-one-listing-per-seller
@@ -2103,7 +2110,8 @@ features:
       - "When `Recommend` is called on `cart_cross_sell` and three candidates share seller S"
       - "Then exactly one of them, the highest scored, appears in the response"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::One listing per seller
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-toggling-a-filter-off-changes-the-output
@@ -2133,7 +2141,8 @@ features:
       - "When `Recommend` is called on `similar_items` with `exclude_seed: true` and the seed is its own nearest neighbour"
       - "Then the seed is absent from the response"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Seed excluded when enabled
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
 
   - id: ai.ccs-seed-eligible-when-exclude-seed-is-off
@@ -2275,5 +2284,6 @@ features:
       - "When `Recommend` is called with `home_feed`, `similar_items` and an undefined placement id"
       - "Then the first two use their own ladders and the third falls back to `home_feed` with status OK"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Existing placements still resolve
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."

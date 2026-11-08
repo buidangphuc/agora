@@ -1083,7 +1083,8 @@ features:
       - "When the `SortBar` is rendered"
       - "Then it offers Liên quan, Mới nhất, Bán chạy, Giá thấp đến cao and Giá cao đến thấp, selecting \"Bán chạy\" navigates to a URL with `sort=best_selling`, and the active one has `aria-current=\"true\"`"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: frontend/search_facets.feature::Sort options match what the server honours
     notes: >-
       Feature: frontend/search_facets.feature::Sort options match what the server honours. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -1104,7 +1105,8 @@ features:
       - "When a buyer selects \"Bán chạy\""
       - "Then the results appear in the order 7, 3, 0 and opening `/search?q=<keyword>&sort=best_selling` in a new tab shows the same order"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_facets.feature::Best-selling sort orders results by sold count
     notes: >-
       Feature: frontend/search_facets.feature::Best-selling sort orders results by sold count. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -1124,7 +1126,8 @@ features:
       - "When a buyer opens `/search?q=<keyword>&sort=top_rated`"
       - "Then the page renders the relevance order with \"Liên quan\" marked `aria-current=\"true\"` and no error"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_facets.feature::An unknown sort value falls back to relevance
     notes: >-
       Feature: frontend/search_facets.feature::An unknown sort value falls back to relevance. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -5550,7 +5553,8 @@ features:
       - "When a buyer opens the search results for those listings"
       - "Then the filter sidebar shows a `facet-ratings` group with \"Từ 4 sao\" and \"Từ 3 sao\" and their counts, and no link on the page contains `rating=`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::The search page shows the rating filter
     notes: >-
       Feature: frontend/search_rating_removed.feature::The search page shows the rating filter. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -5571,7 +5575,8 @@ features:
       - "When a buyer selects \"Từ 4 sao\""
       - "Then the URL contains `minRating=4`, the results list only the 4.5 listing, \"Từ 4 sao\" is marked selected, and opening the same URL in a new tab shows the same results and selection"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::Choosing a rating filters the results by URL
     notes: >-
       Feature: frontend/search_rating_removed.feature::Choosing a rating filters the results by URL. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -5592,7 +5597,8 @@ features:
       - "When a buyer opens `/search?q=<keyword>&minRating=4`"
       - "Then the `facet-ratings` group still shows both \"Từ 4 sao\" and \"Từ 3 sao\", with the \"Từ 3 sao\" count equal to 2"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::The rating group keeps both options while one is selected
     notes: >-
       Feature: frontend/search_rating_removed.feature::The rating group keeps both options while one is selected. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -5612,7 +5618,8 @@ features:
       - "When a buyer on `/search?q=<keyword>&minRating=4` removes the rating chip"
       - "Then the URL no longer carries `minRating`, the results include the listing with `rating_avg` 2, and the drawer trigger's active-filter count changes from 1 to 0"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::The rating chip removes the filter
     notes: >-
       Feature: frontend/search_rating_removed.feature::The rating chip removes the filter. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -5632,7 +5639,8 @@ features:
       - "When a buyer opens the filter drawer on a 375 px wide viewport and selects \"Từ 3 sao\""
       - "Then the URL contains `minRating=3` and the results list only listings with `rating_avg` of at least 3"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::The rating filter is offered in the mobile drawer
     notes: >-
       Feature: frontend/search_rating_removed.feature::The rating filter is offered in the mobile drawer. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -5652,7 +5660,8 @@ features:
       - "When a buyer opens `/search?q=<keyword>&minRating=9`, and separately `/search?q=<keyword>&minRating=abc`"
       - "Then each page lists the same results as `/search?q=<keyword>`, shows no error and no rating chip, and no gateway request carries `min_rating`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::An unsupported minRating value is ignored
     notes: >-
       Feature: frontend/search_rating_removed.feature::An unsupported minRating value is ignored. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -5672,7 +5681,8 @@ features:
       - "When a buyer opens `/search?q=<keyword>&minRating=4&minRating=3`"
       - "Then the page behaves as `minRating=4`: one rating chip for \"Từ 4 sao\", only listings with `rating_avg` of at least 4, and no error"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::A repeated minRating uses the first value
     notes: >-
       Feature: frontend/search_rating_removed.feature::A repeated minRating uses the first value. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -5693,7 +5703,8 @@ features:
       - "When a buyer opens `/search?q=<keyword>&minRating=4`"
       - "Then the page shows the search empty state with the rating chip and zero results, and not an error"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::A rating filter with no match shows the empty state
     notes: >-
       Feature: frontend/search_rating_removed.feature::A rating filter with no match shows the empty state. Written from the spec before the code landed (red-first);
       the integrator flips this to automated and sets covered_by once the scenario is green.
@@ -11882,7 +11893,8 @@ features:
       - "When an anonymous visitor fetches `/assistant`, whose page title was once hand-written with the suffix `| Sàn Thương Mại Điện Tử`"
       - "Then the response `<title>` is `Trợ Lý Mua Sắm AI Thông Minh | Agora`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-1 A page title ends with one Agora suffix
 
   - id: frontend-seo.seo-2-the-home-page-uses-the-default-title-and-description
     title: "SEO-2 The home page uses the default title and description"
@@ -11895,7 +11907,8 @@ features:
       - "When an anonymous visitor fetches `/`"
       - "Then the response `<title>` is `Agora | Sàn thương mại điện tử`, `<meta name=\"description\">` is non-empty Vietnamese text, and `link rel=canonical` is `<NEXT_PUBLIC_SITE_URL>`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-2 The home page uses the default title and description
 
   - id: frontend-seo.seo-3-a-forged-host-header-does-not-change-the-canonical-origin
     title: "SEO-3 A forged Host header does not change the canonical origin"
@@ -11908,7 +11921,8 @@ features:
       - "When a visitor fetches `/` with the request header `Host: evil.example`"
       - "Then the canonical and `og:url` values start with `NEXT_PUBLIC_SITE_URL` and none contains `evil.example`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-3 A forged Host header does not change the canonical origin
 
   - id: frontend-seo.seo-4-a-listing-page-has-title-description-canonical-and-open-graph-tags
     title: "SEO-4 A listing page has title, description, canonical and Open Graph tags"
@@ -11921,7 +11935,8 @@ features:
       - "When an anonymous crawler fetches `/listing/<id>` of a published listing with an image"
       - "Then `<title>` is `<listing title> | Agora`, `og:type` is `product`, `og:site_name` is `Agora`, `og:url` equals the canonical `<NEXT_PUBLIC_SITE_URL>/listing/<id>`, and `og:image` is an absolute URL of the first image"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-4 A listing page has title, description, canonical and Open Graph tags
 
   - id: frontend-seo.seo-5-a-missing-listing-answers-404-without-open-graph-tags
     title: "SEO-5 A missing listing answers 404 without Open Graph tags"
@@ -11934,7 +11949,8 @@ features:
       - "When a crawler fetches `/listing/does-not-exist`"
       - "Then the response status is 404 and the HTML contains no `og:*` meta tag and no `link rel=canonical`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-5 A missing listing answers 404 without Open Graph tags
 
   - id: frontend-seo.seo-6-a-long-description-is-cut-at-160-characters
     title: "SEO-6 A long description is cut at 160 characters"
@@ -11947,7 +11963,8 @@ features:
       - "When a crawler fetches the page of a listing whose description is 400 characters with line breaks"
       - "Then `<meta name=\"description\">` and `og:description` hold at most 160 characters and no line break"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-6 A long description is cut at 160 characters
 
   - id: frontend-seo.seo-7-a-listing-without-an-image-omits-og-image
     title: "SEO-7 A listing without an image omits og:image"
@@ -11960,7 +11977,8 @@ features:
       - "When a crawler fetches the page of a published listing that has no image"
       - "Then the HTML contains no `og:image` tag and the other `og:*` tags are present"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-7 A listing without an image omits og:image
 
   - id: frontend-seo.seo-8-a-listing-metadata-build-makes-no-extra-gateway-call
     title: "SEO-8 A listing metadata build makes no extra gateway call"
@@ -11987,7 +12005,8 @@ features:
       - "When an anonymous crawler fetches `/shop/<sellerId>` for a seller with display name \"Cửa hàng Mai\" and a banner"
       - "Then `<title>` is `Cửa hàng Mai | Agora`, `og:image` is the absolute banner URL, and the canonical is `<NEXT_PUBLIC_SITE_URL>/shop/<sellerId>`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-9 A shop page uses the shop name and banner
 
   - id: frontend-seo.seo-10-a-shop-whose-storefront-read-fails-still-renders
     title: "SEO-10 A shop whose storefront read fails still renders"
@@ -12028,7 +12047,8 @@ features:
       - "When a crawler fetches `/search?category=<id>&sort=price_asc&page=2`"
       - "Then `<title>` is `<category name> | Agora`, the canonical is `<NEXT_PUBLIC_SITE_URL>/search?category=<id>`, and no `noindex` robots tag is present"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-12 A category page is indexable with a clean canonical
 
   - id: frontend-seo.seo-13-a-free-text-search-is-noindex-and-follow
     title: "SEO-13 A free-text search is noindex and follow"
@@ -12041,7 +12061,8 @@ features:
       - "When a crawler fetches `/search?q=<script>x</script>`"
       - "Then the robots meta is `noindex, follow`, there is no `link rel=canonical`, and the query text appears in no `<title>` or `og:*` tag"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-13 A free-text search is noindex and follow
 
   - id: frontend-seo.seo-14-an-unknown-category-falls-back-to-plain-search-metadata
     title: "SEO-14 An unknown category falls back to plain search metadata"
@@ -12082,7 +12103,8 @@ features:
       - "When an anonymous crawler fetches `/login` and `/register`, the private URLs that render HTML without a session"
       - "Then each response contains `<meta name=\"robots\" content=\"noindex, nofollow\">` and no `og:*` tag"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-16 An anonymous crawler gets noindex on the private pages that render
 
   - id: frontend-seo.seo-17-a-logged-in-buyer-gets-noindex-on-the-guest-redirected-pages
     title: "SEO-17 A logged-in buyer gets noindex on the guest-redirected pages"
@@ -12095,7 +12117,8 @@ features:
       - "When a logged-in buyer fetches `/cart`, `/favorites`, `/notifications`, `/chat`, `/account/orders` and `/account/addresses`, which redirect a guest to `/login`"
       - "Then each response contains `<meta name=\"robots\" content=\"noindex, nofollow\">` and no `og:*` tag"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-17 A logged-in buyer gets noindex on the guest-redirected pages
 
   - id: frontend-seo.seo-18-the-checkout-group-layout-exports-noindex
     title: "SEO-18 The checkout group layout exports noindex"
@@ -12151,6 +12174,7 @@ features:
       - "Then the response is 200, contains a `Disallow` for each of the twelve prefixes, and ends with `Sitemap: <NEXT_PUBLIC_SITE_URL>/sitemap.xml`"
     tags: [buyer, search]
     status: planned
+    notes: 'Stays planned: robots.txt sitemap line uses the build-time NEXT_PUBLIC_SITE_URL; the Dockerfile build arg is missing (separate tooling PR).'
 
   - id: frontend-seo.seo-22-robots-txt-does-not-depend-on-the-gateway
     title: "SEO-22 robots.txt does not depend on the gateway"
@@ -12177,7 +12201,8 @@ features:
       - "When a crawler fetches `/sitemap.xml` on a stack with 3 categories, 4 published listings of 2 sellers"
       - "Then the document holds the home URL, 3 category URLs, 4 `/listing/<id>` URLs newest first, and 2 `/shop/<sellerId>` URLs, all absolute"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-23 The sitemap lists home, categories, listings and shops
 
   - id: frontend-seo.seo-24-the-sitemap-omits-unpublished-listings
     title: "SEO-24 The sitemap omits unpublished listings"
@@ -12190,7 +12215,8 @@ features:
       - "When a seller's listing is held or banned and a crawler fetches `/sitemap.xml`"
       - "Then that listing's URL is absent"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-24 The sitemap omits unpublished listings
 
   - id: frontend-seo.seo-25-the-sitemap-keeps-the-5000-newest-listings
     title: "SEO-25 The sitemap keeps the 5000 newest listings"
@@ -12231,7 +12257,8 @@ features:
       - "When a visitor opens `/`, `/search` and the student rental page and reads the page text and `<title>`"
       - "Then none contains \"Marketplace Showcase\", \"Polyrepo\" or \"BATDONGSAN SINH VIÊN\""
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-27 No public page shows a demo brand string
 
   - id: frontend-seo.seo-28-a-source-scan-rejects-a-demo-brand-string
     title: "SEO-28 A source scan rejects a demo brand string"
@@ -12258,7 +12285,8 @@ features:
       - "When a browser follows the `<link rel=\"icon\">` href found on `/`"
       - "Then the response is 200 with a content type starting `image/`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-29 The favicon is served
 
   - id: frontend-seo.seo-30-an-anonymous-crawler-is-told-to-stay-out-of-seller-and-admin-prefixes
     title: "SEO-30 An anonymous crawler is told to stay out of seller and admin prefixes"
@@ -12271,7 +12299,8 @@ features:
       - "When an anonymous crawler reads `/robots.txt`"
       - "Then the lines `Disallow: /seller` and `Disallow: /admin` are present, although those routes are served by other apps"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-30 An anonymous crawler is told to stay out of seller and admin prefixes
 
   - id: frontend-seo.seo-31-a-listing-read-outage-does-not-break-the-metadata-build
     title: "SEO-31 A listing read outage does not break the metadata build"
@@ -12340,7 +12369,8 @@ features:
       - "When a crawler fetches `/search`"
       - "Then `<title>` is `Tất cả sản phẩm | Agora` and `<meta name=\"description\">` is `Tìm và mua sản phẩm từ nhiều người bán trên Agora.`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-35 Plain search is indexable with its own title and description
 
   - id: frontend-seo.seo-36-a-cold-sitemap-with-5000-listings-is-measured
     title: "SEO-36 A cold sitemap with 5000 listings is measured"
@@ -12353,7 +12383,8 @@ features:
       - "When a crawler fetches `/sitemap.xml` on a cold cache after 5,000 published listings are seeded"
       - "Then the response is 200 with 5,000 listing URLs, produced by 100 `SearchListings` requests of `page_size` 50 with no `getListing` call, and the cold-render time is recorded in the run output"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-36 A cold sitemap with 5000 listings is measured
 
   - id: frontend-seo.seo-44-a-held-banned-or-draft-listing-answers-404-without-metadata
     title: "SEO-44 A held, banned or draft listing answers 404 without metadata"
@@ -12366,7 +12397,8 @@ features:
       - "When an anonymous crawler fetches `/listing/<id>` of a listing whose status is held, banned or draft"
       - "Then the response status is 404, the HTML contains no `og:*` meta tag and no `link rel=canonical`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: frontend/seo.feature::SEO-44 A held, banned or draft listing answers 404 without metadata
 
   - id: frontend-seo.seo-45-a-hit-without-seller-id-adds-no-shop-url
     title: "SEO-45 A hit without seller_id adds no shop URL"
@@ -12393,7 +12425,8 @@ features:
       - "When a buyer opens `/search?q=laptop` and clicks the first result"
       - "Then the impression beacons and the click beacon each carry `impression_id` equal to the page's response `request_id` and `model_version` equal to the response `model_version`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::Impression and click carry the identity
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: frontend.sa-re-sorting-gets-a-new-impression-id
@@ -12407,7 +12440,8 @@ features:
       - "When a buyer opens `/search?q=laptop` and then picks a different sort"
       - "Then the second page's beacons carry an `impression_id` different from the first page's"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::Re-sorting gets a new impression id
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: frontend.sa-paging-gets-a-new-impression-id
@@ -12421,7 +12455,8 @@ features:
       - "When a buyer moves from page 1 to page 2 of `/search?q=laptop`"
       - "Then the page 2 beacons carry an `impression_id` different from page 1 and equal to the `request_id` of the response that returned page 2"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::Paging gets a new impression id
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: frontend.sa-a-fallback-is-labelled-with-the-mode-that-ran
@@ -12435,7 +12470,8 @@ features:
       - "When the semantic leg is unavailable and the lexical results are shown"
       - "Then the beacons carry a `model_version` that starts with `lexical@`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A fallback is labelled with the mode that ran
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: frontend.sa-a-failed-search-sends-no-beacons
@@ -12463,7 +12499,8 @@ features:
       - "When a buyer searches for a term with no matches"
       - "Then the page renders the empty state and sends no impression beacon"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::An empty result sends no impression
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: frontend.sa-a-gateway-response-without-an-id-still-renders
@@ -12493,7 +12530,8 @@ features:
       - "When a buyer with items in the cart opens `/cart`"
       - "Then the page shows the \"Thường được mua cùng\" row with 1 to 8 listings, none of them a cart line"
     tags: [buyer, recommendations]
-    status: planned
+    status: automated
+    covered_by: frontend/cart_cross_sell_ui.feature::Row shows for a cart with items
     notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
 
   - id: frontend.ccs-row-is-hidden-for-an-empty-cart
@@ -12509,7 +12547,8 @@ features:
       - "When a buyer with an empty cart opens `/cart`"
       - "Then no \"Thường được mua cùng\" row is rendered and no Recommend call is made"
     tags: [buyer, recommendations]
-    status: planned
+    status: automated
+    covered_by: frontend/cart_cross_sell_ui.feature::Row is hidden for an empty cart
     notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
 
   - id: frontend.ccs-cart-renders-when-recommendations-fail
@@ -12567,5 +12606,6 @@ features:
       - "When the row is visible and the buyer clicks an item"
       - "Then the impression and click beacons carry `impressionId` equal to the response `request_id` and the response `model_version`"
     tags: [buyer, recommendations]
-    status: planned
+    status: automated
+    covered_by: frontend/cart_cross_sell_ui.feature::Beacons carry the recommendation identity
     notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."

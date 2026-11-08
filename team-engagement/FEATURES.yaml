@@ -4864,8 +4864,8 @@ features:
     acceptance:
       - "A new review publishes the new average and count"
     tags: [buyer, listing-rating-events]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::A new review publishes the new average and count
     notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::A new review publishes the new average and count"
 
   - id: engagement-listing-rating-events.hiding-a-review-lowers-the-published-values
@@ -4881,8 +4881,8 @@ features:
     acceptance:
       - "Hiding a review lowers the published values"
     tags: [admin, listing-rating-events]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::Hiding a review lowers the published values
     notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::Hiding a review lowers the published values"
 
   - id: engagement-listing-rating-events.a-rejected-review-publishes-no-rating-event
@@ -4898,8 +4898,8 @@ features:
     acceptance:
       - "A rejected review publishes no rating event"
     tags: [buyer, listing-rating-events]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::A rejected review publishes no rating event
     notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::A rejected review publishes no rating event"
 
   - id: engagement-listing-rating-events.an-unauthorised-hide-publishes-no-rating-event
@@ -4915,8 +4915,8 @@ features:
     acceptance:
       - "An unauthorised hide publishes no rating event"
     tags: [buyer, listing-rating-events]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::An unauthorised hide publishes no rating event
     notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::An unauthorised hide publishes no rating event"
 
   - id: engagement-listing-rating-events.a-rating-event-written-while-kafka-is-down-is-published-later
@@ -4932,8 +4932,8 @@ features:
     acceptance:
       - "A rating event written while Kafka is down is published later"
     tags: [buyer, listing-rating-events, kafka, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::A rating event written while Kafka is down is published later
     notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::A rating event written while Kafka is down is published later"
 
   - id: engagement-listing-rating-events.backfill-reaches-the-topic
@@ -4949,8 +4949,8 @@ features:
     acceptance:
       - "Backfill reaches the topic"
     tags: [admin, listing-rating-events]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::Backfill reaches the topic
     notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::Backfill reaches the topic"
 
   - id: engagement-listing-rating-events.hiding-the-last-review-publishes-zero

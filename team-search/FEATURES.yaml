@@ -711,7 +711,8 @@ features:
       - "When a buyer calls `SearchListings` for the keyword with `min_rating` 4, then with `min_rating` 4 and `SEARCH_MODE_SEMANTIC`"
       - "Then both calls succeed and return only the listing with `rating_avg` 4.5"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_query_correctness.feature::A minimum-rating search is accepted
     notes: "search-bestseller-rating: search/search_query_correctness.feature::A minimum-rating search is accepted. Rewrites the earlier scenario that asserted the rejection."
 
   - id: search.srm-the-ratings-facet-is-empty
@@ -730,7 +731,8 @@ features:
       - "When a buyer calls `SearchListings` for the keyword with `min_rating` 0"
       - "Then `facets.ratings` is `[{key \"4\", count 1}, {key \"3\", count 2}]` and `facets.categories` is not empty"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_query_correctness.feature::The ratings facet counts the floors
     notes: "search-bestseller-rating: search/search_query_correctness.feature::The ratings facet counts the floors. Rewrites the earlier scenario that asserted an empty ratings facet."
 
   - id: search.mls-tag-spu-tags-indexed
@@ -2217,7 +2219,8 @@ features:
       - "When a client calls `SearchListings` with query \"laptop\""
       - "Then the response `request_id` matches `^[0-9a-f]{32}$`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A search returns a request id
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-paging-gets-a-new-request-id
@@ -2231,7 +2234,8 @@ features:
       - "When a client calls `SearchListings` twice with the same query, once for page 1 and once with the `next_cursor` of page 1"
       - "Then the two responses carry different `request_id` values"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::Paging gets a new request id
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-repeating-one-search-gets-a-new-request-id
@@ -2245,7 +2249,8 @@ features:
       - "When a client calls `SearchListings` 1000 times with identical parameters"
       - "Then the responses carry 1000 distinct `request_id` values"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::Repeating one search gets a new request id
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-a-saved-search-run-returns-a-request-id
@@ -2259,7 +2264,8 @@ features:
       - "When the owner of a saved search calls `RunSavedSearch`"
       - "Then the response `request_id` matches `^[0-9a-f]{32}$` and differs from the `request_id` of the previous run of the same saved search"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A saved search run returns a request id
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-a-failed-search-returns-no-request-id
@@ -2287,7 +2293,8 @@ features:
       - "When a user calls `RunSavedSearch` for a saved search owned by another user"
       - "Then the call fails with `NOT_FOUND` and no `request_id` is returned"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A saved search of another user is rejected
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-an-anonymous-caller-can-still-search
@@ -2301,7 +2308,8 @@ features:
       - "When a caller with no principal calls `SearchListings`"
       - "Then the response carries a valid `request_id` and `model_version`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::An anonymous caller can still search
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-a-hybrid-search-reports-hybrid
@@ -2315,7 +2323,8 @@ features:
       - "When a client searches with `search_mode` hybrid, a non-empty query, sort relevance and page 1, and both legs succeed"
       - "Then `model_version` equals `hybrid@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A hybrid search reports hybrid
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-the-reranker-is-reported
@@ -2329,7 +2338,8 @@ features:
       - "When `ENABLE_RERANKER` is true and the reranker reorders the fused hits of a hybrid search"
       - "Then `model_version` equals `hybrid+rerank@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::The reranker is reported
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-a-reranker-failure-is-not-reported-as-rerank
@@ -2343,7 +2353,8 @@ features:
       - "When the reranker call fails and the fused order is kept"
       - "Then `model_version` equals `hybrid@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A reranker failure is not reported as rerank
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-a-fallback-page-never-carries-rerank
@@ -2357,7 +2368,8 @@ features:
       - "When `ENABLE_RERANKER` is true and a hybrid search is served by the lexical leg because the semantic leg failed"
       - "Then `model_version` equals `lexical@v1` and does not contain `+rerank`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A fallback page never carries rerank
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-a-lexical-request-reports-lexical
@@ -2371,7 +2383,8 @@ features:
       - "When a client searches with `search_mode` lexical"
       - "Then `model_version` equals `lexical@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A lexical request reports lexical
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-semantic-fallback-reports-lexical
@@ -2385,7 +2398,8 @@ features:
       - "When the embedding call fails during a semantic search and `Execute` falls back to the lexical index"
       - "Then `model_version` equals `lexical@v1`, not `semantic@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::Semantic fallback reports lexical
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-hybrid-with-a-failed-semantic-leg-reports-lexical
@@ -2399,7 +2413,8 @@ features:
       - "When the semantic leg of a hybrid search fails and the lexical results are returned"
       - "Then `model_version` equals `lexical@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::Hybrid with a failed semantic leg reports lexical
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-a-key-sort-in-hybrid-mode-reports-lexical
@@ -2413,7 +2428,8 @@ features:
       - "When a client requests `search_mode` hybrid with `sort_by` price ascending"
       - "Then `model_version` equals `lexical@v1`, because the lexical leg served the page"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A key sort in hybrid mode reports lexical
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-deep-paging-beyond-the-fusion-window-reports-lexical
@@ -2427,7 +2443,8 @@ features:
       - "When a client requests hybrid mode with an offset of at least `HYBRID_FUSION_WINDOW`"
       - "Then `model_version` equals `lexical@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::Deep paging beyond the fusion window reports lexical
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-an-empty-query-reports-lexical
@@ -2441,7 +2458,8 @@ features:
       - "When a client searches with an empty query and `search_mode` hybrid"
       - "Then `model_version` equals `lexical@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::An empty query reports lexical
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-the-unspecified-mode-resolves-to-the-mode-that-ran
@@ -2455,7 +2473,8 @@ features:
       - "When a client searches with `search_mode` unspecified, a non-empty query, hybrid enabled and the embedding client configured"
       - "Then `model_version` equals `hybrid@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::The unspecified mode resolves to the mode that ran
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-the-ranker-version-comes-from-the-environment
@@ -2483,7 +2502,8 @@ features:
       - "When team-search starts without `SEARCH_RANKER_VERSION`"
       - "Then `model_version` ends with `@v1`"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::An unset ranker version defaults to v1
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-a-saved-search-run-reports-lexical
@@ -2497,7 +2517,8 @@ features:
       - "When the owner calls `RunSavedSearch`"
       - "Then `model_version` equals `lexical@v1`, because the run uses the lexical index search"
     tags: [search]
-    status: planned
+    status: automated
+    covered_by: search/search_attribution.feature::A saved search run reports lexical
     notes: "search-attribution: search/search_attribution.feature"
 
   - id: search.sa-the-engine-is-not-configured
@@ -2532,7 +2553,8 @@ features:
       - "When `ListingSalesChanged{listing_id: L, sold_count: 5}` is published to `order.events`"
       - "Then within 30 seconds a `SearchListings` call that returns L carries `sold_count` 5 on the hit of L"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A sales event sets the sold count within 30 seconds
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A sales event sets the sold count within 30 seconds"
 
   - id: search.sbr-a-rating-event-sets-the-average-and-the-review-count
@@ -2551,7 +2573,8 @@ features:
       - "When `ListingRatingChanged{listing_id: L, average_rating: 4.5, review_count: 2}` is published to `engagement.events`"
       - "Then within 30 seconds the hit of L carries `rating_avg` 4.5 and `review_count` 2"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A rating event sets the average and the review count
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A rating event sets the average and the review count"
 
   - id: search.sbr-a-later-lower-sold-count-replaces-the-earlier-value
@@ -2570,7 +2593,8 @@ features:
       - "When `ListingSalesChanged{sold_count: 3}` with `changed_at` T2 later than T1 is published"
       - "Then within 30 seconds the hit of L carries `sold_count` 3"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A later lower sold count replaces the earlier value
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A later lower sold count replaces the earlier value"
 
   - id: search.sbr-a-redelivered-or-older-event-changes-nothing
@@ -2589,7 +2613,8 @@ features:
       - "When `ListingSalesChanged{sold_count: 9}` with `changed_at` T1 earlier than T2 is published, and the T2 event is delivered again"
       - "Then the hit of L still carries `sold_count` 5 after the indexer has consumed both"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A redelivered or older event changes nothing
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A redelivered or older event changes nothing"
 
   - id: search.sbr-values-for-a-not-yet-indexed-listing-are-merged-on-creation
@@ -2608,7 +2633,8 @@ features:
       - "When `ListingSalesChanged{sold_count: 4}` and `ListingRatingChanged{average_rating: 4, review_count: 1}` for L are published, and then a `ListingChanged` CREATED for L (published) is published"
       - "Then between the events and the creation a search for the keyword of L's future title returns no hit and the total does not count L, and within 30 seconds the hit of L carries `sold_count` 4, `rating_avg` 4 and `review_count` 1"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Values for a not-yet-indexed listing are merged on creation
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Values for a not-yet-indexed listing are merged on creation"
 
   - id: search.sbr-a-listing-update-does-not-reset-the-projected-values
@@ -2627,7 +2653,8 @@ features:
       - "When a `ListingChanged` UPDATED for L with a new title is published"
       - "Then within 30 seconds the hit of L carries the new title and still `sold_count` 5 and `rating_avg` 4.5"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A listing update does not reset the projected values
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A listing update does not reset the projected values"
 
   - id: search.sbr-a-malformed-event-is-parked-and-not-applied
@@ -2645,7 +2672,8 @@ features:
       - "When a `ListingSalesChanged` with `sold_count` -1 is published to `order.events` and a `ListingRatingChanged` with `average_rating` 7 is published to `engagement.events`, for a published listing L"
       - "Then within 60 seconds the first record is on `search-indexer.order.events.dlq` and the second on `search-indexer.engagement.events.dlq`, and L's `sold_count` and `rating_avg` are unchanged"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A malformed event is parked and not applied
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A malformed event is parked and not applied"
 
   - id: search.sbr-an-event-with-an-empty-listing-id-or-no-changed-at-is-parked
@@ -2663,7 +2691,8 @@ features:
       - "When a `ListingSalesChanged` with an empty `listing_id` and a `ListingRatingChanged` for a published listing L with no `changed_at` are published"
       - "Then within 60 seconds both reach their `.dlq` topic and L's `rating_avg` is unchanged"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::An event with an empty listing id or no changed_at is parked
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::An event with an empty listing id or no changed_at is parked"
 
   - id: search.sbr-an-event-not-later-than-the-delete-is-ignored
@@ -2682,7 +2711,8 @@ features:
       - "When `ListingSalesChanged{sold_count: 2}` and `ListingRatingChanged{average_rating: 4, review_count: 1}` for L with `changed_at` earlier than T are published"
       - "Then L stays absent from search results, totals and facets, and a later `ListingChanged` CREATED for L with `occurred_at` after T shows `sold_count` 0 and `review_count` 0"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::An event not later than the delete is ignored
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::An event not later than the delete is ignored"
 
   - id: search.sbr-best-selling-lists-the-highest-sold-count-first
@@ -2701,7 +2731,8 @@ features:
       - "When a buyer calls `SearchListings` for the keyword with `SORT_BY_BEST_SELLING`"
       - "Then the hits are returned in the order A, C, B"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Best-selling lists the highest sold count first
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Best-selling lists the highest sold count first"
 
   - id: search.sbr-ties-are-broken-by-creation-time-then-id
@@ -2720,7 +2751,8 @@ features:
       - "When a buyer calls `SearchListings` with `SORT_BY_BEST_SELLING`"
       - "Then the order is E, F, D"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Ties are broken by creation time then id
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Ties are broken by creation time then id"
 
   - id: search.sbr-best-selling-holds-in-semantic-and-hybrid-mode
@@ -2739,7 +2771,8 @@ features:
       - "When a buyer calls `SearchListings` with `SORT_BY_BEST_SELLING` and `SEARCH_MODE_SEMANTIC`, then with `SEARCH_MODE_HYBRID`"
       - "Then both calls return exactly the matching listings A, C, B, in that order, and no non-matching listing"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Best-selling holds in semantic and hybrid mode
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Best-selling holds in semantic and hybrid mode"
 
   - id: search.sbr-best-selling-does-not-show-a-draft-to-a-stranger
@@ -2758,7 +2791,8 @@ features:
       - "When a buyer who is not S calls `SearchListings` with `SORT_BY_BEST_SELLING`"
       - "Then the draft is not among the hits"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Best-selling does not show a draft to a stranger
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Best-selling does not show a draft to a stranger"
 
   - id: search.sbr-a-minimum-rating-search-returns-only-listings-at-or-above-it
@@ -2777,7 +2811,8 @@ features:
       - "When a buyer calls `SearchListings` for the keyword with `min_rating` 4, then with `min_rating` 3"
       - "Then the first call returns only the 4.5 listing and the second returns the 4.5 and 3.5 listings"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A minimum-rating search returns only listings at or above it
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A minimum-rating search returns only listings at or above it"
 
   - id: search.sbr-a-rating-at-the-boundary-is-included
@@ -2796,7 +2831,8 @@ features:
       - "When a buyer calls `SearchListings` with `min_rating` 4"
       - "Then the listing is among the hits"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A rating at the boundary is included
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A rating at the boundary is included"
 
   - id: search.sbr-unreviewed-listings-are-excluded-by-any-rating-filter
@@ -2815,7 +2851,8 @@ features:
       - "When a buyer calls `SearchListings` with `min_rating` 3"
       - "Then the listing is not among the hits and is not counted in `total`"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Unreviewed listings are excluded by any rating filter
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Unreviewed listings are excluded by any rating filter"
 
   - id: search.sbr-the-rating-filter-works-in-semantic-and-hybrid-mode-and-in-a-saved-search
@@ -2834,7 +2871,8 @@ features:
       - "When a buyer calls `SearchListings` with `min_rating` 4 and `SEARCH_MODE_SEMANTIC`, then `SEARCH_MODE_HYBRID`, and runs the saved search"
       - "Then each of the three responses returns only the 4.5 listing"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::The rating filter works in semantic and hybrid mode and in a saved search
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::The rating filter works in semantic and hybrid mode and in a saved search"
 
   - id: search.sbr-an-out-of-range-minimum-rating-is-rejected
@@ -2852,7 +2890,8 @@ features:
       - "When a buyer calls `SearchListings` through the gateway with `min_rating` 6, then with `min_rating` -1"
       - "Then both calls fail with `invalid_argument`, while `min_rating` 5 and `min_rating` 0 are accepted"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::An out-of-range minimum rating is rejected
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::An out-of-range minimum rating is rejected"
 
   - id: search.sbr-the-ratings-facet-ignores-its-own-filter
@@ -2871,7 +2910,8 @@ features:
       - "When a buyer calls `SearchListings` for the keyword with `min_rating` 4"
       - "Then `hits` holds only the 4.5 listing and `facets.ratings` is still `[{key \"4\", count 1}, {key \"3\", count 2}]`, while `facets.categories` counts only the 4.5 listing"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::The ratings facet ignores its own filter
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::The ratings facet ignores its own filter"
 
   - id: search.sbr-a-hit-shows-the-indexed-values
@@ -2890,7 +2930,8 @@ features:
       - "When a buyer calls `SearchListings` for L's title"
       - "Then the hit of L has `sold_count` 5, `rating_avg` 4.5 and `review_count` 2"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A hit shows the indexed values
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A hit shows the indexed values"
 
   - id: search.sbr-a-listing-without-sales-or-reviews-shows-zeros
@@ -2909,7 +2950,8 @@ features:
       - "When a buyer calls `SearchListings` for its title"
       - "Then its hit has `sold_count` 0, `rating_avg` 0 and `review_count` 0, the other hit has `sold_count` 1, and the call does not fail"
     tags: [buyer, search]
-    status: planned
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A listing without sales or reviews shows zeros
     notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A listing without sales or reviews shows zeros"
 
   - id: search.sbr-an-expired-pending-document-is-purged
@@ -2928,7 +2970,8 @@ features:
       - "When the TTL plus one purge interval has passed without a listing event for L"
       - "Then the index holds no pending document for L, and a listing upserted before the TTL elapsed still has its `sold_count`"
     tags: [buyer, search, destructive]
-    status: planned
+    status: automated
+    covered_by: search/search_read_model_deletes.feature::An expired pending document is purged
     notes: "search-bestseller-rating: search/search_read_model_deletes.feature::An expired pending document is purged. Needs the platform-e2e/compose/search-tombstones.override.yaml overlay (serial lane)."
 
   - id: search.sbr-an-event-with-the-same-changed-at-as-the-stored-one-changes-nothing
