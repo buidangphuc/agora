@@ -67,7 +67,7 @@ FROM (
     SELECT md5('listing-rating-backfill:' || r.listing_id)::uuid::text AS event_id,
            r.listing_id,
            count(*) FILTER (WHERE r.verified_purchase AND r.hidden_at IS NULL) AS review_count,
-           COALESCE(avg(r.rating) FILTER (WHERE r.verified_purchase AND r.hidden_at IS NULL)::float8, 0) AS avg_rating,
+           COALESCE((sum(r.rating) FILTER (WHERE r.verified_purchase AND r.hidden_at IS NULL))::float8 / NULLIF(count(*) FILTER (WHERE r.verified_purchase AND r.hidden_at IS NULL), 0), 0) AS avg_rating,
            t.ts,
            floor(extract(epoch FROM t.ts))::bigint AS secs,
            (extract(microseconds FROM t.ts)::bigint % 1000000) * 1000 AS nanos
