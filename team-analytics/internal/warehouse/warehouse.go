@@ -226,6 +226,7 @@ type ListingSellerRecord struct {
 	// ListingChanged snapshot; empty / zero are stored as NULL (unknown).
 	CategoryID string
 	Price      int64
+	Status     string
 	// UpdatedAt is the envelope occurred_at of the event that produced the row.
 	UpdatedAt time.Time
 }

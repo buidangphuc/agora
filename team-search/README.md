@@ -24,7 +24,7 @@ missing scope gives `PermissionDenied`.
 
 | RPC | Required scope | Notes |
 |---|---|---|
-| `SearchListings` | `search:read` | `search_mode` HYBRID / LEXICAL / SEMANTIC; filters (incl. `in_stock="true"`), category, price range, sort; `min_rating` other than 0 is `InvalidArgument`; returns hits (with `stock` when projected) and facets |
+| `SearchListings` | `search:read` | `search_mode` HYBRID / LEXICAL / SEMANTIC; filters (incl. `in_stock="true"`), category, price range, sort; `min_rating` 0..5 keeps listings with `rating_avg >= min_rating` (outside 0..5 is `InvalidArgument`); returns hits (with `stock`, `sold_count`, `rating_avg`, `review_count`) and facets |
 | `Suggest` | `search:read` | Prefix completion over titles; default limit 5, max 20 |
 | `SaveSearch` | `search:write` | Needs a non-empty `query` or at least one filter; `filters_json` must be a JSON object of string values |
 | `ListSavedSearches` | `search:read` | Caller's own searches, newest first |
@@ -41,6 +41,14 @@ Behaviour of `SearchListings`:
 - Sort: `SORT_BY_NEWEST` is `created_at` desc (unknown last), ties by `id`. A HYBRID (or
   defaulted) request with `NEWEST` / `PRICE_ASC` / `PRICE_DESC` is served by the lexical leg with
   that sort and page; RRF only runs for relevance order.
+- `SORT_BY_BEST_SELLING` is `sold_count` desc (missing counts as 0), then `created_at` desc (unknown last), then `id` asc;
+  it runs only the lexical leg in every search mode. `SearchHit` carries `sold_count`, `rating_avg` and `review_count`
+  (0 when nothing is projected). `RunSavedSearch` reads `filters_json` key `min_rating` (a string, 0..5; outside is
+  `InvalidArgument`, absent is 0).
+- Attribution: every `SearchListingsResponse` and `RunSavedSearchResponse` carries a fresh random 32-hex `request_id` and a
+  `model_version` of `<mode>@<SEARCH_RANKER_VERSION>`, where mode is the leg that answered (`lexical`, `semantic`, `hybrid`, or
+  `hybrid+rerank` when the reranker reordered the fused list; a fail-open answer reports the leg that served it). `RunSavedSearch`
+  always reports `lexical`.
 - Semantic: embeds the query through modelserve `POST /embed`, then runs a `knn` query on `embedding`.
 - Hybrid: runs lexical and semantic concurrently (pool = `from + size`, at least 50, capped at
   `HYBRID_FUSION_WINDOW`), then fuses by RRF: `sum(w_s / (k + rank_s))`, with `k = HYBRID_RRF_K`
@@ -65,8 +73,10 @@ Behaviour of `SearchListings`:
 - Facets (`categories`, `sellers`, `price_ranges`) are computed over the filtered lexical set (in hybrid,
   over the fused candidate set when it differs from the lexical set, via `FacetsForIDs`; the hybrid
   total is the fused count, not the k-NN leg's k);
-  see `facetAggs` in `internal/index/opensearch.go` for buckets. `ratings` is always an empty
-  list: no listing event carries a rating.
+  see `facetAggs` in `internal/index/opensearch.go` for buckets. `ratings` holds the cumulative buckets `4` and `3`
+  (listings with `rating_avg` >= 4 and >= 3, zero counts included); it ignores `min_rating` but applies the other filters.
+  It is an empty list when the index returns no aggregation.
+  In semantic and hybrid modes the ratings buckets count the filtered corpus without the text query, because k-NN legs carry no text predicate; lexical applies the query.
 
 - Dynamic facets (change `add-tag-classifier-filter-enrichment`): the filters `tag.<group>` (SPU tags,
   `facet_tags`) and `sku.<group>` (variants, nested `skus`) take tag slugs, comma-separated (OR inside a
@@ -84,13 +94,22 @@ principal `service-team-search`, scope `ai.classify`, 2 s deadline; empty = no c
 | Direction | Topic | Type | Key |
 |---|---|---|---|
 | Consumes | `listing.events` (`KAFKA_LISTING_TOPIC`), group `team-search-indexer` | `platform.events.v1.EventEnvelope` wrapping `ListingChanged`, `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStockChanged`, `ListingStatusChanged`; other types are ignored | not used by the handler |
-| Produces | `listing.events.dlq` (topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
+| Consumes | `order.events` (`KAFKA_ORDER_TOPIC`), same group | `EventEnvelope` wrapping `platform.order.v1.ListingSalesChanged` (absolute `sold_count`, version = `changed_at` in ns); a malformed event is retried then parked on the DLQ | not used by the handler |
+| Consumes | `engagement.events` (`KAFKA_ENGAGEMENT_TOPIC`), same group | `EventEnvelope` wrapping `platform.engagement.v1.ListingRatingChanged` (absolute `average_rating` 0..5 and `review_count`, version = `changed_at` in ns); a malformed event is retried then parked on the DLQ | not used by the handler |
+| Produces | `search-indexer.order.events.dlq`, `search-indexer.engagement.events.dlq` | the original record, parked after retries are exhausted | original key |
+| Produces | `search-indexer.listing.events.dlq` (`search-indexer.` + topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
 
 Handling (`internal/events/listing.go`):
 
 - Version guard: the document version is the envelope `occurred_at` in nanoseconds. Every
   whole-document write (upsert and delete) is one `scripted_upsert` guarded on `_source.version`
   (`writeScript`), so stale or redelivered events are no-ops.
+- Sales and rating projection: each field group (`sold_count` + `sales_version`, `rating_avg` + `review_count` +
+  `rating_version`) is applied only when its event version is strictly newer than the stored one, independent of the
+  listing `version`. An event for an unknown listing creates a pending document (no `status`, `pending_at` set) that
+  search never returns; the listing upsert merges its values and clears `pending_at`. An event not newer than a
+  tombstone is ignored; a newer one is kept on the tombstone as pending. The sweep also deletes documents with no
+  `status` and a `pending_at` older than `TOMBSTONE_TTL`, never a document that has a `status`.
 - Deletes (`ListingChanged` / `ListingBaseInfoChanged` DELETED, `ListingStatusChanged` REJECTED)
   write a tombstone `{id, status: deleted, version, tombstoned_at}`. A `ListingChanged` at or
   before the tombstone's version (or with no `occurred_at`) is ignored; a newer one replaces it.
@@ -151,9 +170,12 @@ if `.env.example` and the config structs drift in either direction.
 | `HYBRID_LEXICAL_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_MIN_SCORE` | `0.65` | minimum cosine similarity (-1..1) of a semantic candidate; <= -1 disables the floor |
+| `SEARCH_RANKER_VERSION` | `v1` | suffix of the `model_version` on search responses; an empty value keeps `v1` |
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
+| `KAFKA_ORDER_TOPIC` | `order.events` | indexer only; sales events; one consumer client per topic on `KAFKA_CONSUMER_GROUP`; a missing topic does not stop startup because the clients use `AllowAutoTopicCreation`, which only works when the broker allows auto-create |
+| `KAFKA_ENGAGEMENT_TOPIC` | `engagement.events` | indexer only; rating events; same as above |
 | `UPSTREAM_AI_ADDR` | `""` | required by the indexer; team-ai gRPC address for tag classification (`team-ai-svc:50060` in compose) |
 | `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; must be a positive duration; invalid values fail startup |
 | `TOMBSTONE_PURGE_INTERVAL` | `1h` | indexer only; how often expired tombstones are purged; must be a positive duration; invalid values fail startup |
@@ -210,7 +232,7 @@ Docker build uses `golang:1.26`.
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` in this repo (69 features: 63 `automated`, 6 `not-testable`), with
+- Feature manifest: `FEATURES.yaml` in this repo (177 features: 105 `automated`, 72 `not-testable`), with
   `automated` entries mapped to feature files in `platform-e2e/tests/e2e/features/` (for example
   `buyer/search_and_discovery.feature`, `search/hybrid_retrieval.feature`).
 - Verify coverage: `make -C platform-e2e features-check`; for an OpenSpec change,
@@ -246,7 +268,8 @@ Docker build uses `golang:1.26`.
 - `EMBEDDING_DIM` is inert (the mapping and `.env.example` agree on 384 only by convention).
 - `RunSavedSearch` ignores `search_mode`, the engine and the reranker: it calls the lexical index search directly.
 - Root compose runs a `modelserve-router` but does not set `MODEL_SERVER_URL` for team-search (see Run locally).
-- Facets come from the lexical result only, and in hybrid mode `Total` is the larger of the two strategies' totals (an estimate).
+- In hybrid mode `Total` is the larger of the lexical total and the fused count (an estimate; `internal/retrieval/engine.go:282`).
+- `platform-gitops/platform/infra/redpanda.yaml:108` does not create `search-indexer.listing.events.dlq`, `search-indexer.order.events.dlq` or `search-indexer.engagement.events.dlq`; only compose `redpanda-init` does (`docker-compose.services.yaml:26`).
 
 ## References
 

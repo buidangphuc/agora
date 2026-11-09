@@ -34,6 +34,8 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 | analytics `AnalyticsQueryService` | team-analytics (`UPSTREAM_ANALYTICS_ADDR`) |
 | referral / verification / sharing / audit | team-referral / team-verification / team-sharing / team-audit (`UPSTREAM_*_ADDR`) |
 
+`RecommendationService.Recommend` rejects more than 50 `context_listing_ids` with `INVALID_ARGUMENT` before any upstream call (no truncation).
+
 Upstream calls get a deadline (`CALL_TIMEOUT_SECONDS`). Idempotent reads (`callRead`) retry up to
 `RETRY_MAX` times on `Unavailable`; writes (`callWrite`) never retry. Upstream gRPC statuses map to
 the matching Connect codes. An upstream `Unavailable` keeps its first `ErrorInfo` detail (domain, reason)
@@ -226,7 +228,7 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (201 features: 69 `automated`, 132 `not-testable`). Session
+- Feature manifest: `FEATURES.yaml` (206 features: 74 `automated`, 132 `not-testable`). Session
   revocation and client-IP behaviour are covered by `platform-e2e` (`auth/session_revocation.feature`).
 - E2E coverage is verified in `platform-e2e`: `make -C platform-e2e features-check` and
   `make -C platform-e2e spec-check CHANGE=<id>`.
@@ -263,9 +265,9 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 - The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
   or `/api/admin/metrics`, which read only the `Authorization` header.
 - Revocation is fail-open and per replica. Edge-side admin gating is the `adminProcedures` map
-  in `policy.go` (20 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
+  in `policy.go` (21 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
   `ResolveReport`, `QueryAuditLog`, `ModerateListing`, `ListModerationQueue`, `ForceFailSaga`,
-  `AccountAdmin` `ListUsers` / `SetUserStatus`, three analytics reports, and promotion
+  `AccountAdmin` `ListUsers` / `SetUserStatus`, four analytics reports, and promotion
   `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.

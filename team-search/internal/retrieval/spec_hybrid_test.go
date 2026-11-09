@@ -46,15 +46,15 @@ func TestEngine_StrategiesRunConcurrently(t *testing.T) {
 	})
 
 	started := time.Now()
-	res, degraded, err := engine.Execute(context.Background(), retrieval.SearchParams{
+	res, mode, _, err := engine.Execute(context.Background(), retrieval.SearchParams{
 		Query:      "shoes",
 		SearchMode: searchv1.SearchMode_SEARCH_MODE_HYBRID,
 		Size:       10,
 	})
 	elapsed := time.Since(started)
 
-	if err != nil || degraded {
-		t.Fatalf("execute: err=%v degraded=%v", err, degraded)
+	if err != nil || string(mode) == "lexical" {
+		t.Fatalf("execute: err=%v mode=%q", err, mode)
 	}
 	if len(res.Hits) != 2 {
 		t.Fatalf("expected both legs to contribute a hit, got %d", len(res.Hits))

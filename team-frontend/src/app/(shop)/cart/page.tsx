@@ -7,6 +7,7 @@ import { CartGroups } from "@/features/cart/CartGroups";
 import { CartSelection } from "@/features/cart/CartSelection";
 import { ClearCartButton } from "@/features/cart/ClearCartButton";
 import { groupByShop } from "@/features/cart/groupByShop";
+import { CartCrossSellRow } from "@/features/recommendations/CartCrossSellRow";
 import { VoucherModal } from "@/features/voucher/VoucherModal";
 import { isCheckoutEnabled } from "@/lib/flags";
 import { getCartWithShopNames } from "@/lib/gateway/cart";
@@ -95,6 +96,7 @@ export default async function CartPage(props: {
           appliedDiscount={discount}
         />
       </CartSelection>
+      <CartCrossSellRow lines={cart.items} />
     </section>
   );
 }

@@ -15,7 +15,7 @@ import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
-  title: "Chiến dịch flash sale | Sàn Thương Mại Điện Tử",
+  title: "Chiến dịch flash sale",
   description: "Xem, lọc, sửa và huỷ chiến dịch flash sale.",
   referrer: "no-referrer",
 };

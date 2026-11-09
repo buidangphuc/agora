@@ -44,6 +44,10 @@ service AnalyticsQueryService {
   // seller. Admin-only (scope "admin"): enforced by the serving service, even
   // when seller_id is set.
   rpc GetChannelFunnel(GetChannelFunnelRequest) returns (GetChannelFunnelResponse);
+  // Online search performance over a trailing window, per (placement, model_version), with
+  // placement_id = search_results: impressions, clicks, and add-to-carts / purchases attributed
+  // to a click within the attribution window. Admin-only (scope "admin"); carries no per-user data.
+  rpc GetSearchPerformance(GetSearchPerformanceRequest) returns (GetSearchPerformanceResponse);
 }
 
 message GetChannelFunnelRequest {
@@ -194,6 +198,19 @@ message GetTrackingQualityReportResponse {
 
 message GetRecommendationPerformanceRequest {
   uint32 window_hours = 1;  // trailing window in hours, 1..168; 0 = 24
+}
+
+message GetSearchPerformanceRequest {
+  // Trailing window in hours: 0 = 24, otherwise 1..168; values above 168 are rejected with INVALID_ARGUMENT.
+  uint32 window_hours = 1;
+}
+
+message GetSearchPerformanceResponse {
+  // rows is empty when the window has no search impressions.
+  repeated RecommendationPerformanceRow rows = 1;
+  uint32 window_hours = 2;
+  // attribution_window_hours is the attribution window used for purchases.
+  uint32 attribution_window_hours = 3;
 }
 
 message RecommendationPerformanceRow {

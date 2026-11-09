@@ -1,12 +1,14 @@
 import "./globals.css";
 
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { ToastProvider } from "@/components/ui/ToastProvider";
 
-export const metadata = {
-  title: "Kênh Người Bán | Marketplace",
+export const metadata: Metadata = {
+  title: { default: "Kênh Người Bán | Agora", template: "%s | Agora" },
   description: "Quản lý sản phẩm, đơn hàng và gian hàng của người bán.",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

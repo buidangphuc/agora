@@ -62,6 +62,8 @@ export interface FacetedSearchResult {
   /** The page actually returned (1-based); less than the requested page when it was out of range. */
   page: number;
   pageSize: number;
+  requestId?: string;
+  modelVersion?: string;
 }
 
 /** Results per page and the deepest page `searchListings` will walk to. */
@@ -107,6 +109,7 @@ export interface SearchOptions {
   sellerId?: string;
   minPrice?: number;
   maxPrice?: number;
+  minRating?: number;
   sortBy?: SortBy;
   /** Dynamic facet selections: filter key (`tag.x` / `sku.x`) -> tag slugs. */
   attrs?: Record<string, string[]>;
@@ -148,8 +151,7 @@ export async function searchListings(
     maxPrice: opts.maxPrice
       ? BigInt(Math.max(0, Math.round(opts.maxPrice)))
       : 0n,
-    // Search indexes no rating: a minimum rating is never requested.
-    minRating: 0,
+    minRating: opts.minRating ?? 0,
     sortBy: opts.sortBy ?? SortBy.UNSPECIFIED,
   };
 
@@ -195,6 +197,8 @@ export async function searchListings(
     facets: mapFacets(res.facets),
     page,
     pageSize: SEARCH_PAGE_SIZE,
+    requestId: res.requestId ?? "",
+    modelVersion: res.modelVersion ?? "",
   };
 }
 

@@ -2,12 +2,15 @@ package edge
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 
 	recommendationv1 "github.com/buidangphuc/team-gateway/generated/platform/recommendation/v1"
 	"github.com/buidangphuc/team-gateway/generated/platform/recommendation/v1/recommendationv1connect"
 )
+
+const maxContextListingIDs = 50
 
 // RecommendationForwarder implements the Connect RecommendationServiceHandler by
 // forwarding to the upstream team-ai gRPC service. Recommend is read-shaped (no
@@ -29,6 +32,9 @@ func (f *RecommendationForwarder) Recommend(
 	ctx context.Context,
 	req *connect.Request[recommendationv1.RecommendRequest],
 ) (*connect.Response[recommendationv1.RecommendResponse], error) {
+	if len(req.Msg.GetContextListingIds()) > maxContextListingIDs {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("too many context_listing_ids"))
+	}
 	var out *recommendationv1.RecommendResponse
 	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
 		var e error

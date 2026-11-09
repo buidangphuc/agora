@@ -229,10 +229,10 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             </div>
             <div className="flex flex-col">
               <span className="font-black text-2xl tracking-tight leading-none">
-                Marketplace
+                Agora
               </span>
               <span className="text-xs font-bold tracking-wider text-text-inverse/80 uppercase mt-0.5">
-                AI Polyrepo Platform
+                Sàn thương mại điện tử
               </span>
             </div>
           </NextLink>
@@ -279,8 +279,8 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
               Toàn bộ giao diện và các luồng trải nghiệm này được xây dựng hoàn
               toàn vì mục đích{" "}
               <em>
-                học tập, nghiên cứu kiến trúc Polyrepo, Microservices gRPC,
-                Event-Driven Kafka, CQRS & Saga Pattern
+                học tập, nghiên cứu kiến trúc Microservices gRPC, Event-Driven
+                Kafka, CQRS & Saga Pattern
               </em>{" "}
               (tham khảo từ các mô hình TMĐT phổ biến),{" "}
               <strong>
@@ -291,7 +291,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             </span>
           </div>
           <span className="inline-block self-start sm:self-auto text-xs bg-surface-warning border border-border-warning-subtle text-text-warning font-bold px-2 py-0.5 rounded uppercase tracking-wider shrink-0">
-            Polyrepo Showcase
+            Agora
           </span>
         </div>
       </div>
@@ -417,9 +417,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
               KIẾN TRÚC HỆ THỐNG
             </h4>
             <div className="space-y-1.5 text-text-secondary text-xs">
-              <p className="font-bold text-text-primary">
-                Polyrepo Microservices
-              </p>
+              <p className="font-bold text-text-primary">Microservices</p>
               <p>• Next.js 14 App Router SSR</p>
               <p>• Envoy / Connect Edge Gateway</p>
               <p>• 8 Go gRPC Services</p>
@@ -430,8 +428,8 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
 
         <div className="border-t bg-surface-page py-6 text-center text-text-secondary text-xs space-y-1">
           <p>
-            © 2026 Marketplace Showcase Polyrepo. Xây dựng phục vụ mục đích học
-            tập & nghiên cứu kiến trúc hệ thống.
+            © 2026 Agora. Xây dựng phục vụ mục đích học tập & nghiên cứu kiến
+            trúc hệ thống.
           </p>
           <p>
             <CookieSettingsLink />

@@ -1048,8 +1048,8 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "When `/search?q=ao&category=c1&rating=4` is rendered"
-      - "Then three closable `Tag`s are shown, and activating the category tag navigates to `/search?q=ao&rating=4`"
+      - "When `/search?q=ao&category=c1&minRating=4` is rendered"
+      - "Then three closable `Tag`s are shown, and activating the category tag navigates to `/search?q=ao&minRating=4`"
     tags: [buyer]
     status: automated
     covered_by: "frontend/search_facets.feature::Active filters can be removed one by one"
@@ -1081,10 +1081,56 @@ features:
       login: buyer
     acceptance:
       - "When the `SortBar` is rendered"
-      - "Then it offers only Liên quan, Mới nhất, Giá thấp đến cao and Giá cao đến thấp (no \"Bán Chạy\"), and the active one has `aria-current=\"true\"`"
+      - "Then it offers Liên quan, Mới nhất, Bán chạy, Giá thấp đến cao and Giá cao đến thấp, selecting \"Bán chạy\" navigates to a URL with `sort=best_selling`, and the active one has `aria-current=\"true\"`"
     tags: [buyer]
     status: automated
-    covered_by: "frontend/search_facets.feature::Sort options match what the server honours"
+    covered_by: frontend/search_facets.feature::Sort options match what the server honours
+    notes: >-
+      Feature: frontend/search_facets.feature::Sort options match what the server honours. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.best-selling-sort-orders-results-by-sold-count
+    title: "Best-selling sort orders results by sold count"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given listings with `sold_count` 7, 3 and 0 match the keyword"
+      - "When a buyer selects \"Bán chạy\""
+      - "Then the results appear in the order 7, 3, 0 and opening `/search?q=<keyword>&sort=best_selling` in a new tab shows the same order"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_facets.feature::Best-selling sort orders results by sold count
+    notes: >-
+      Feature: frontend/search_facets.feature::Best-selling sort orders results by sold count. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.an-unknown-sort-value-falls-back-to-relevance
+    title: "An unknown sort value falls back to relevance"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer opens `/search?q=<keyword>&sort=top_rated`"
+      - "Then the page renders the relevance order with \"Liên quan\" marked `aria-current=\"true\"` and no error"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_facets.feature::An unknown sort value falls back to relevance
+    notes: >-
+      Feature: frontend/search_facets.feature::An unknown sort value falls back to relevance. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
 
   - id: discovery.out-of-range-page-redirects
     title: "Out-of-range page redirects"
@@ -1307,7 +1353,7 @@ features:
       login: buyer
     acceptance:
       - "When `/search` and `/vouchers` are rendered"
-      - "Then the sort options exclude \"Bán Chạy\" and no voucher card has a \"Lưu mã\" button"
+      - "Then the sort options include \"Bán chạy\" and no voucher card has a \"Lưu mã\" button"
     tags: [buyer]
     status: automated
     covered_by: "frontend/discovery_ui.feature::Unsupported features are hidden"
@@ -2934,7 +2980,7 @@ features:
       - Given a listing costs more than 5,000,000 or its title contains a brand keyword
       - Then its card shows no MALL badge and exactly one price
       - Given /search and /vouchers are rendered
-      - Then the sort options exclude "Bán Chạy" and no voucher card has a "Lưu mã" button
+      - Then no voucher card has a "Lưu mã" button
       - Given the gateway provides no flash-sale campaign
       - Then no flash-sale heading, countdown, "% sold" bar or discount badge is present
     tags: [buyer]
@@ -5492,10 +5538,10 @@ features:
       Scenario in frontend/oic_inv_checkout_idempotency.feature. GREEN on the pre-change stack (two orders); it guards the key renewal once the storefront sends keys.
 
   - id: discovery.search-rating-the-search-page-shows-no-rating-filter
-    title: "The search page shows no rating filter"
+    title: "The search page shows the rating filter"
     persona: buyer
     priority: P1
-    summary: "Change port-search-read-model-correctness, capability frontend-search-rating."
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
     entry_route: /search
     services: [team-frontend, team-search, team-gateway]
     preconditions:
@@ -5503,15 +5549,165 @@ features:
     api:
       exercised: [search.v1.SearchListings]
     acceptance:
-      - "Given published listings across categories and price ranges are indexed"
+      - "Given published listings, some with verified reviews, are indexed"
       - "When a buyer opens the search results for those listings"
-      - "Then the filter sidebar shows the category and price groups and no `facet-ratings` group or \"Đánh giá\" filter, and no sort or pagination link on the page contains `rating=`"
+      - "Then the filter sidebar shows a `facet-ratings` group with \"Từ 4 sao\" and \"Từ 3 sao\" and their counts, and no link on the page contains `rating=`"
     tags: [buyer, search]
     status: automated
-    covered_by: "frontend/search_rating_removed.feature::The search page shows no rating filter"
+    covered_by: frontend/search_rating_removed.feature::The search page shows the rating filter
     notes: >-
-      Feature: frontend/search_rating_removed.feature::The search page shows no rating filter. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
-      the integrator flips this to automated once the code is merged and the scenario is green.
+      Feature: frontend/search_rating_removed.feature::The search page shows the rating filter. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-choosing-a-rating-filters-the-results-by-url
+    title: "Choosing a rating filters the results by URL"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given listings with `rating_avg` 4.5 and 2 match the keyword"
+      - "When a buyer selects \"Từ 4 sao\""
+      - "Then the URL contains `minRating=4`, the results list only the 4.5 listing, \"Từ 4 sao\" is marked selected, and opening the same URL in a new tab shows the same results and selection"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::Choosing a rating filters the results by URL
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::Choosing a rating filters the results by URL. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-the-rating-group-keeps-both-options-while-one-is-selected
+    title: "The rating group keeps both options while one is selected"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given listings with `rating_avg` 4.5, 3.5 and 2 match the keyword"
+      - "When a buyer opens `/search?q=<keyword>&minRating=4`"
+      - "Then the `facet-ratings` group still shows both \"Từ 4 sao\" and \"Từ 3 sao\", with the \"Từ 3 sao\" count equal to 2"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::The rating group keeps both options while one is selected
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::The rating group keeps both options while one is selected. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-the-rating-chip-removes-the-filter
+    title: "The rating chip removes the filter"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer on `/search?q=<keyword>&minRating=4` removes the rating chip"
+      - "Then the URL no longer carries `minRating`, the results include the listing with `rating_avg` 2, and the drawer trigger's active-filter count changes from 1 to 0"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::The rating chip removes the filter
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::The rating chip removes the filter. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-the-rating-filter-is-offered-in-the-mobile-drawer
+    title: "The rating filter is offered in the mobile drawer"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer opens the filter drawer on a 375 px wide viewport and selects \"Từ 3 sao\""
+      - "Then the URL contains `minRating=3` and the results list only listings with `rating_avg` of at least 3"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::The rating filter is offered in the mobile drawer
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::The rating filter is offered in the mobile drawer. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-an-unsupported-minrating-value-is-ignored
+    title: "An unsupported minRating value is ignored"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer opens `/search?q=<keyword>&minRating=9`, and separately `/search?q=<keyword>&minRating=abc`"
+      - "Then each page lists the same results as `/search?q=<keyword>`, shows no error and no rating chip, and no gateway request carries `min_rating`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::An unsupported minRating value is ignored
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::An unsupported minRating value is ignored. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-a-repeated-minrating-uses-the-first-value
+    title: "A repeated minRating uses the first value"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer opens `/search?q=<keyword>&minRating=4&minRating=3`"
+      - "Then the page behaves as `minRating=4`: one rating chip for \"Từ 4 sao\", only listings with `rating_avg` of at least 4, and no error"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::A repeated minRating uses the first value
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::A repeated minRating uses the first value. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
+
+  - id: discovery.search-rating-a-rating-filter-with-no-match-shows-the-empty-state
+    title: "A rating filter with no match shows the empty state"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-discovery-sort-rating, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given no listing matching the keyword has `rating_avg` of at least 4"
+      - "When a buyer opens `/search?q=<keyword>&minRating=4`"
+      - "Then the page shows the search empty state with the rating chip and zero results, and not an error"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/search_rating_removed.feature::A rating filter with no match shows the empty state
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::A rating filter with no match shows the empty state. Written from the spec before the code landed (red-first);
+      the integrator flips this to automated and sets covered_by once the scenario is green.
 
   - id: discovery.search-rating-an-old-rating-link-renders-the-results-without-error
     title: "An old rating link renders the results without error"
@@ -11685,3 +11881,732 @@ features:
     tags: [buyer, welcome]
     status: automated
     covered_by: "frontend/welcome_checklist.feature::W23 Anonymous visitor on an account page (permission)"
+
+  - id: frontend-seo.seo-1-a-page-title-ends-with-one-agora-suffix
+    title: "SEO-1 A page title ends with one Agora suffix"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-1 of change frontend-seo."
+    entry_route: /assistant
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous visitor fetches `/assistant`, whose page title was once hand-written with the suffix `| Sàn Thương Mại Điện Tử`"
+      - "Then the response `<title>` is `Trợ Lý Mua Sắm AI Thông Minh | Agora`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-1 A page title ends with one Agora suffix
+
+  - id: frontend-seo.seo-2-the-home-page-uses-the-default-title-and-description
+    title: "SEO-2 The home page uses the default title and description"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-2 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous visitor fetches `/`"
+      - "Then the response `<title>` is `Agora | Sàn thương mại điện tử`, `<meta name=\"description\">` is non-empty Vietnamese text, and `link rel=canonical` is `<NEXT_PUBLIC_SITE_URL>`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-2 The home page uses the default title and description
+
+  - id: frontend-seo.seo-3-a-forged-host-header-does-not-change-the-canonical-origin
+    title: "SEO-3 A forged Host header does not change the canonical origin"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-3 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a visitor fetches `/` with the request header `Host: evil.example`"
+      - "Then the canonical and `og:url` values start with `NEXT_PUBLIC_SITE_URL` and none contains `evil.example`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-3 A forged Host header does not change the canonical origin
+
+  - id: frontend-seo.seo-4-a-listing-page-has-title-description-canonical-and-open-graph-tags
+    title: "SEO-4 A listing page has title, description, canonical and Open Graph tags"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-4 of change frontend-seo."
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler fetches `/listing/<id>` of a published listing with an image"
+      - "Then `<title>` is `<listing title> | Agora`, `og:type` is `product`, `og:site_name` is `Agora`, `og:url` equals the canonical `<NEXT_PUBLIC_SITE_URL>/listing/<id>`, and `og:image` is an absolute URL of the first image"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-4 A listing page has title, description, canonical and Open Graph tags
+
+  - id: frontend-seo.seo-5-a-missing-listing-answers-404-without-open-graph-tags
+    title: "SEO-5 A missing listing answers 404 without Open Graph tags"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-5 of change frontend-seo."
+    entry_route: /listing/does-not-exist
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/listing/does-not-exist`"
+      - "Then the response status is 404 and the HTML contains no `og:*` meta tag and no `link rel=canonical`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-5 A missing listing answers 404 without Open Graph tags
+
+  - id: frontend-seo.seo-6-a-long-description-is-cut-at-160-characters
+    title: "SEO-6 A long description is cut at 160 characters"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-6 of change frontend-seo."
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches the page of a listing whose description is 400 characters with line breaks"
+      - "Then `<meta name=\"description\">` and `og:description` hold at most 160 characters and no line break"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-6 A long description is cut at 160 characters
+
+  - id: frontend-seo.seo-7-a-listing-without-an-image-omits-og-image
+    title: "SEO-7 A listing without an image omits og:image"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-7 of change frontend-seo."
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches the page of a published listing that has no image"
+      - "Then the HTML contains no `og:image` tag and the other `og:*` tags are present"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-7 A listing without an image omits og:image
+
+  - id: frontend-seo.seo-8-a-listing-metadata-build-makes-no-extra-gateway-call
+    title: "SEO-8 A listing metadata build makes no extra gateway call"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-8 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the listing layout, page and `generateMetadata` run for one request"
+      - "Then `getListing` is called exactly once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/listing/[id]/metadata.test.ts` `getListing is called once per request`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-9-a-shop-page-uses-the-shop-name-and-banner
+    title: "SEO-9 A shop page uses the shop name and banner"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-9 of change frontend-seo."
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler fetches `/shop/<sellerId>` for a seller with display name \"Cửa hàng Mai\" and a banner"
+      - "Then `<title>` is `Cửa hàng Mai | Agora`, `og:image` is the absolute banner URL, and the canonical is `<NEXT_PUBLIC_SITE_URL>/shop/<sellerId>`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-9 A shop page uses the shop name and banner
+
+  - id: frontend-seo.seo-10-a-shop-whose-storefront-read-fails-still-renders
+    title: "SEO-10 A shop whose storefront read fails still renders"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-10 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the gateway answers an error to `getStorefront` for `/shop/<id>`"
+      - "Then `generateMetadata` resolves to the fallback shop name followed by ` | Agora` with no `og:image` and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/shop/[id]/metadata.test.ts` `storefront failure falls back`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-11-a-shop-metadata-build-makes-no-extra-gateway-call
+    title: "SEO-11 A shop metadata build makes no extra gateway call"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-11 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `generateMetadata` and the shop page run for one request"
+      - "Then `getStorefront` is called exactly once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/shop/[id]/metadata.test.ts` `getStorefront is called once per request`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-12-a-category-page-is-indexable-with-a-clean-canonical
+    title: "SEO-12 A category page is indexable with a clean canonical"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-12 of change frontend-seo."
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?category=<id>&sort=price_asc&page=2`"
+      - "Then `<title>` is `<category name> | Agora`, the canonical is `<NEXT_PUBLIC_SITE_URL>/search?category=<id>`, and no `noindex` robots tag is present"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-12 A category page is indexable with a clean canonical
+
+  - id: frontend-seo.seo-13-a-free-text-search-is-noindex-and-follow
+    title: "SEO-13 A free-text search is noindex and follow"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-13 of change frontend-seo."
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?q=<script>x</script>`"
+      - "Then the robots meta is `noindex, follow`, there is no `link rel=canonical`, and the query text appears in no `<title>` or `og:*` tag"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-13 A free-text search is noindex and follow
+
+  - id: frontend-seo.seo-14-an-unknown-category-falls-back-to-plain-search-metadata
+    title: "SEO-14 An unknown category falls back to plain search metadata"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-14 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?category=no-such-category`"
+      - "Then `<title>` is `Tất cả sản phẩm | Agora` and the canonical is `<NEXT_PUBLIC_SITE_URL>/search`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/search/metadata.test.ts` `unknown category uses plain search metadata`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-15-a-categories-outage-keeps-the-page-rendering
+    title: "SEO-15 A categories outage keeps the page rendering"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-15 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `listCategories` fails during `generateMetadata` for `/search?category=<id>`"
+      - "Then `generateMetadata` resolves to title `Tất cả sản phẩm` and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/search/metadata.test.ts` `categories failure falls back`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-16-an-anonymous-crawler-gets-noindex-on-the-private-pages-that-render
+    title: "SEO-16 An anonymous crawler gets noindex on the private pages that render"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-16 of change frontend-seo."
+    entry_route: /login
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler fetches `/login` and `/register`, the private URLs that render HTML without a session"
+      - "Then each response contains `<meta name=\"robots\" content=\"noindex, nofollow\">` and no `og:*` tag"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-16 An anonymous crawler gets noindex on the private pages that render
+
+  - id: frontend-seo.seo-17-a-logged-in-buyer-gets-noindex-on-the-guest-redirected-pages
+    title: "SEO-17 A logged-in buyer gets noindex on the guest-redirected pages"
+    persona: buyer
+    priority: P2
+    summary: "Scenario SEO-17 of change frontend-seo."
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a logged-in buyer fetches `/cart`, `/favorites`, `/notifications`, `/chat`, `/account/orders` and `/account/addresses`, which redirect a guest to `/login`"
+      - "Then each response contains `<meta name=\"robots\" content=\"noindex, nofollow\">` and no `og:*` tag"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-17 A logged-in buyer gets noindex on the guest-redirected pages
+
+  - id: frontend-seo.seo-18-the-checkout-group-layout-exports-noindex
+    title: "SEO-18 The checkout group layout exports noindex"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-18 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the `(checkout)` layout is scanned by `seoPrivateRoutes.test.ts`"
+      - "Then its `metadata` export contains `robots` with `index: false` and `follow: false`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/seoPrivateRoutes.test.ts` `every private segment layout exports noindex`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-19-the-login-page-keeps-its-no-referrer-declaration-beside-the-robots-layout
+    title: "SEO-19 The login page keeps its no-referrer declaration beside the robots layout"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-19 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `referrerMetadata.test.ts` and `seoPrivateRoutes.test.ts` scan `login/page.tsx` and `login/layout.tsx`"
+      - "Then the page's `metadata` block still declares `referrer: \"no-referrer\"` and the layout's `metadata` block declares `robots` with `index: false`, so Next merges both keys"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/referrerMetadata.test.ts` `login sets no-referrer (Referrer hygiene: login declares no-referrer)` ; `team-frontend/src/app/seoPrivateRoutes.test.ts` `every private segment layout exports noindex`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-20-a-new-private-segment-without-the-policy-fails-the-build
+    title: "SEO-20 A new private segment without the policy fails the build"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-20 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a segment layout under one of the private prefixes lacks `robots` with `index: false`"
+      - "Then `seoPrivateRoutes.test.ts` fails, naming the segment"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/seoPrivateRoutes.test.ts` `scanner rejects a private layout without robots`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-21-robots-txt-disallows-private-prefixes-and-lists-the-sitemap
+    title: "SEO-21 robots.txt disallows private prefixes and lists the sitemap"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-21 of change frontend-seo."
+    entry_route: /robots.txt
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/robots.txt`"
+      - "Then the response is 200, contains a `Disallow` for each of the twelve prefixes, and ends with `Sitemap: <NEXT_PUBLIC_SITE_URL>/sitemap.xml`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: "frontend/seo.feature::SEO-21 robots.txt disallows private prefixes and lists the sitemap"
+    notes: "Runs on a feature env with agora_env.py exports (ADMIN_BASE_URL, NEXT_PUBLIC_SITE_URL build arg)."
+
+  - id: frontend-seo.seo-22-robots-txt-does-not-depend-on-the-gateway
+    title: "SEO-22 robots.txt does not depend on the gateway"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-22 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the `robots` function is called with every gateway client mocked to throw"
+      - "Then no gateway call is made and the rules and sitemap line are returned unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/robots.test.ts` `robots makes no gateway call`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-23-the-sitemap-lists-home-categories-listings-and-shops
+    title: "SEO-23 The sitemap lists home, categories, listings and shops"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-23 of change frontend-seo."
+    entry_route: /sitemap.xml
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/sitemap.xml` on a stack with 3 categories, 4 published listings of 2 sellers"
+      - "Then the document holds the home URL, 3 category URLs, 4 `/listing/<id>` URLs newest first, and 2 `/shop/<sellerId>` URLs, all absolute"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-23 The sitemap lists home, categories, listings and shops
+
+  - id: frontend-seo.seo-24-the-sitemap-omits-unpublished-listings
+    title: "SEO-24 The sitemap omits unpublished listings"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-24 of change frontend-seo."
+    entry_route: /sitemap.xml
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a seller's listing is held or banned and a crawler fetches `/sitemap.xml`"
+      - "Then that listing's URL is absent"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-24 The sitemap omits unpublished listings
+
+  - id: frontend-seo.seo-25-the-sitemap-keeps-the-5000-newest-listings
+    title: "SEO-25 The sitemap keeps the 5000 newest listings"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-25 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the sitemap function reads a search index that holds 5,200 published listings"
+      - "Then exactly 5,000 `/listing/<id>` entries are returned in newest-first order and the 200 oldest are absent"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/sitemap.test.ts` `caps at 5000 newest listings`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-26-a-gateway-failure-leaves-home-in-the-sitemap
+    title: "SEO-26 A gateway failure leaves home in the sitemap"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-26 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the search call fails while a crawler fetches `/sitemap.xml`"
+      - "Then the response is 200 and contains at least the home URL"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/sitemap.test.ts` `gateway failure returns home`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-27-no-public-page-shows-a-demo-brand-string
+    title: "SEO-27 No public page shows a demo brand string"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-27 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a visitor opens `/`, `/search` and the student rental page and reads the page text and `<title>`"
+      - "Then none contains \"Marketplace Showcase\", \"Polyrepo\" or \"BATDONGSAN SINH VIÊN\""
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-27 No public page shows a demo brand string
+
+  - id: frontend-seo.seo-28-a-source-scan-rejects-a-demo-brand-string
+    title: "SEO-28 A source scan rejects a demo brand string"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-28 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `brandStrings.test.ts` scans every non-test `.ts` and `.tsx` file under `team-frontend/src` and one contains a demo brand string"
+      - "Then the test fails, naming the file"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/brandStrings.test.ts` `no demo brand string in source`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-29-the-favicon-is-served
+    title: "SEO-29 The favicon is served"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-29 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a browser follows the `<link rel=\"icon\">` href found on `/`"
+      - "Then the response is 200 with a content type starting `image/`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-29 The favicon is served
+
+  - id: frontend-seo.seo-30-an-anonymous-crawler-is-told-to-stay-out-of-seller-and-admin-prefixes
+    title: "SEO-30 An anonymous crawler is told to stay out of seller and admin prefixes"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-30 of change frontend-seo."
+    entry_route: /robots.txt
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler reads `/robots.txt`"
+      - "Then the lines `Disallow: /seller` and `Disallow: /admin` are present, although those routes are served by other apps"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-30 An anonymous crawler is told to stay out of seller and admin prefixes
+
+  - id: frontend-seo.seo-31-a-listing-read-outage-does-not-break-the-metadata-build
+    title: "SEO-31 A listing read outage does not break the metadata build"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-31 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When `getListing` rejects with an Unavailable error while `generateMetadata` runs for `/listing/<id>`"
+      - "Then `generateMetadata` resolves to the root default title and description and does not throw"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/listing/[id]/metadata.test.ts` `listing outage returns default metadata`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-32-an-unknown-shop-id-renders-with-the-fallback-name
+    title: "SEO-32 An unknown shop id renders with the fallback name"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-32 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/shop/unknown-seller` and `getStorefront` returns null"
+      - "Then `generateMetadata` resolves to the fallback shop label followed by ` | Agora` with no `og:image` and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/shop/[id]/metadata.test.ts` `unknown shop id falls back`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-33-a-whitespace-only-q-counts-as-empty
+    title: "SEO-33 A whitespace-only q counts as empty"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-33 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?q=%20%20%20`"
+      - "Then `generateMetadata` resolves to title `Tất cả sản phẩm`, canonical `<NEXT_PUBLIC_SITE_URL>/search` and no `noindex` robots, and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/search/metadata.test.ts` `whitespace q is empty`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-34-q-wins-over-category
+    title: "SEO-34 q wins over category"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-34 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search?category=<id>&q=ao`"
+      - "Then `generateMetadata` resolves to robots `noindex, follow`, no canonical and a title that is not the category name, and does not throw. The 200 status is asserted in e2e where practical."
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/search/metadata.test.ts` `q wins over category`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend-seo.seo-35-plain-search-is-indexable-with-its-own-title-and-description
+    title: "SEO-35 Plain search is indexable with its own title and description"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-35 of change frontend-seo."
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/search`"
+      - "Then `<title>` is `Tất cả sản phẩm | Agora` and `<meta name=\"description\">` is `Tìm và mua sản phẩm từ nhiều người bán trên Agora.`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-35 Plain search is indexable with its own title and description
+
+  - id: frontend-seo.seo-36-a-cold-sitemap-with-5000-listings-is-measured
+    title: "SEO-36 A cold sitemap with 5000 listings is measured"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-36 of change frontend-seo."
+    entry_route: /sitemap.xml
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When a crawler fetches `/sitemap.xml` on a cold cache after 5,000 published listings are seeded"
+      - "Then the response is 200 with 5,000 listing URLs, produced by 100 `SearchListings` requests of `page_size` 50 with no `getListing` call, and the cold-render time is recorded in the run output"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-36 A cold sitemap with 5000 listings is measured
+
+  - id: frontend-seo.seo-44-a-held-banned-or-draft-listing-answers-404-without-metadata
+    title: "SEO-44 A held, banned or draft listing answers 404 without metadata"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-44 of change frontend-seo."
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When an anonymous crawler fetches `/listing/<id>` of a listing whose status is held, banned or draft"
+      - "Then the response status is 404, the HTML contains no `og:*` meta tag and no `link rel=canonical`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: frontend/seo.feature::SEO-44 A held, banned or draft listing answers 404 without metadata
+
+  - id: frontend-seo.seo-45-a-hit-without-seller-id-adds-no-shop-url
+    title: "SEO-45 A hit without seller_id adds no shop URL"
+    persona: guest
+    priority: P2
+    summary: "Scenario SEO-45 of change frontend-seo."
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain, team-search]
+    acceptance:
+      - "When the sitemap function reads a hit with an empty `seller_id` and a hit with `seller_id` `s1`"
+      - "Then both listing URLs are present and exactly one shop URL, `/shop/s1`, is present"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/sitemap.test.ts` `empty seller_id adds no shop url`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: frontend.sa-impression-and-click-carry-the-identity
+    title: "Impression and click carry the identity"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: Impression and click carry the identity"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When a buyer opens `/search?q=laptop` and clicks the first result"
+      - "Then the impression beacons and the click beacon each carry `impression_id` equal to the page's response `request_id` and `model_version` equal to the response `model_version`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::Impression and click carry the identity
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-re-sorting-gets-a-new-impression-id
+    title: "Re-sorting gets a new impression id"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: Re-sorting gets a new impression id"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When a buyer opens `/search?q=laptop` and then picks a different sort"
+      - "Then the second page's beacons carry an `impression_id` different from the first page's"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::Re-sorting gets a new impression id
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-paging-gets-a-new-impression-id
+    title: "Paging gets a new impression id"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: Paging gets a new impression id"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When a buyer moves from page 1 to page 2 of `/search?q=laptop`"
+      - "Then the page 2 beacons carry an `impression_id` different from page 1 and equal to the `request_id` of the response that returned page 2"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::Paging gets a new impression id
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-a-fallback-is-labelled-with-the-mode-that-ran
+    title: "A fallback is labelled with the mode that ran"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: A fallback is labelled with the mode that ran"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When the semantic leg is unavailable and the lexical results are shown"
+      - "Then the beacons carry a `model_version` that starts with `lexical@`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A fallback is labelled with the mode that ran
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-a-failed-search-sends-no-beacons
+    title: "A failed search sends no beacons"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: A failed search sends no beacons"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    acceptance:
+      - "When the search call fails and the page shows the error state"
+      - "Then no impression beacon is sent"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend `src/features/search/SearchBlocks.attribution.test.tsx` (task 1.8); the gateway search cannot be failed on demand. Not producible end to end."
+
+  - id: frontend.sa-an-empty-result-sends-no-impression
+    title: "An empty result sends no impression"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: An empty result sends no impression"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    acceptance:
+      - "When a buyer searches for a term with no matches"
+      - "Then the page renders the empty state and sends no impression beacon"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::An empty result sends no impression
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: frontend.sa-a-gateway-response-without-an-id-still-renders
+    title: "A gateway response without an id still renders"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change search-attribution: A gateway response without an id still renders"
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    acceptance:
+      - "When the response carries an empty `request_id`"
+      - "Then the page renders the results and sends beacons without `impression_id`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend `src/features/search/SearchBlocks.attribution.test.tsx` (task 1.8); the gateway always returns a request_id. Not producible end to end."
+
+  - id: frontend.ccs-row-shows-for-a-cart-with-items
+    title: "Row shows for a cart with items"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Row shows for a cart with items"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-ai, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer with items in the cart opens `/cart`"
+      - "Then the page shows the \"Thường được mua cùng\" row with 1 to 8 listings, none of them a cart line"
+    tags: [buyer, recommendations]
+    status: automated
+    covered_by: frontend/cart_cross_sell_ui.feature::Row shows for a cart with items
+    notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
+
+  - id: frontend.ccs-row-is-hidden-for-an-empty-cart
+    title: "Row is hidden for an empty cart"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Row is hidden for an empty cart"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-ai, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer with an empty cart opens `/cart`"
+      - "Then no \"Thường được mua cùng\" row is rendered and no Recommend call is made"
+    tags: [buyer, recommendations]
+    status: automated
+    covered_by: frontend/cart_cross_sell_ui.feature::Row is hidden for an empty cart
+    notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
+
+  - id: frontend.ccs-cart-renders-when-recommendations-fail
+    title: "Cart renders when recommendations fail"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Cart renders when recommendations fail"
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "When a buyer opens `/cart` while the Recommend call returns an error"
+      - "Then the cart lines and totals render and the row is absent"
+    tags: [buyer, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-frontend/src/app/(shop)/cart/crossSell.test.tsx` `cart renders when recommendations fail`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: frontend.ccs-row-is-hidden-for-an-empty-result
+    title: "Row is hidden for an empty result"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Row is hidden for an empty result"
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "When Recommend returns zero items for a non-empty cart"
+      - "Then the row is absent and the cart renders"
+    tags: [buyer, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-frontend/src/app/(shop)/cart/crossSell.test.tsx` `row is hidden for an empty result`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: frontend.ccs-at-most-50-lines-are-sent
+    title: "At most 50 lines are sent"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: At most 50 lines are sent"
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "When the cart holds 60 lines and `/cart` renders"
+      - "Then the Recommend request carries exactly the last 50 line listing ids in the order the cart returned them"
+    tags: [buyer, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-frontend/src/app/(shop)/cart/crossSell.test.tsx` `at most 50 lines are sent`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: frontend.ccs-beacons-carry-the-recommendation-identity
+    title: "Beacons carry the recommendation identity"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Beacons carry the recommendation identity"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-ai, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the row is visible and the buyer clicks an item"
+      - "Then the impression and click beacons carry `impressionId` equal to the response `request_id` and the response `model_version`"
+    tags: [buyer, recommendations]
+    status: automated
+    covered_by: frontend/cart_cross_sell_ui.feature::Beacons carry the recommendation identity
+    notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."

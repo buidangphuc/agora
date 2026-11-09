@@ -11,7 +11,7 @@ import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
-  title: "Tạo voucher sàn | Sàn Thương Mại Điện Tử",
+  title: "Tạo voucher sàn",
   description: "Tạo voucher áp dụng cho toàn sàn.",
   referrer: "no-referrer",
 };

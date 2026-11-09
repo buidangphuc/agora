@@ -4848,3 +4848,239 @@ features:
     tags: [engagement, go-sdk]
     status: automated
     covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: fingerprint is exactly 12 hex and stable"
+
+  # ---- engagement-listing-rating-events (initiative discovery-seo; e2e planned, red until implemented)
+
+  - id: engagement-listing-rating-events.a-new-review-publishes-the-new-average-and-count
+    title: "A new review publishes the new average and count"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "A new review publishes the new average and count"
+    tags: [buyer, listing-rating-events]
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::A new review publishes the new average and count
+    notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::A new review publishes the new average and count"
+
+  - id: engagement-listing-rating-events.hiding-a-review-lowers-the-published-values
+    title: "Hiding a review lowers the published values"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.HideReview, engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "Hiding a review lowers the published values"
+    tags: [admin, listing-rating-events]
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::Hiding a review lowers the published values
+    notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::Hiding a review lowers the published values"
+
+  - id: engagement-listing-rating-events.a-rejected-review-publishes-no-rating-event
+    title: "A rejected review publishes no rating event"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview]
+    acceptance:
+      - "A rejected review publishes no rating event"
+    tags: [buyer, listing-rating-events]
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::A rejected review publishes no rating event
+    notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::A rejected review publishes no rating event"
+
+  - id: engagement-listing-rating-events.an-unauthorised-hide-publishes-no-rating-event
+    title: "An unauthorised hide publishes no rating event"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.HideReview]
+    acceptance:
+      - "An unauthorised hide publishes no rating event"
+    tags: [buyer, listing-rating-events]
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::An unauthorised hide publishes no rating event
+    notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::An unauthorised hide publishes no rating event"
+
+  - id: engagement-listing-rating-events.a-rating-event-written-while-kafka-is-down-is-published-later
+    title: "A rating event written while Kafka is down is published later"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview]
+    acceptance:
+      - "A rating event written while Kafka is down is published later"
+    tags: [buyer, listing-rating-events, kafka, destructive]
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::A rating event written while Kafka is down is published later
+    notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::A rating event written while Kafka is down is published later"
+
+  - id: engagement-listing-rating-events.backfill-reaches-the-topic
+    title: "Backfill reaches the topic"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "Backfill reaches the topic"
+    tags: [admin, listing-rating-events]
+    status: automated
+    covered_by: engagement/listing_rating_events.feature::Backfill reaches the topic
+    notes: "engagement-listing-rating-events: API-level journey through the gateway; engagement/listing_rating_events.feature::Backfill reaches the topic"
+
+  - id: engagement-listing-rating-events.hiding-the-last-review-publishes-zero
+    title: "Hiding the last review publishes zero"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Hiding the last review publishes zero"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `internal/store` `TestHideLastReviewPublishesZero`"
+
+  - id: engagement-listing-rating-events.a-call-that-changes-nothing-publishes-no-rating-event
+    title: "A call that changes nothing publishes no rating event"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "A call that changes nothing publishes no rating event"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `internal/store` `TestNoOpWritesPublishNoRatingEvent`"
+
+  - id: engagement-listing-rating-events.concurrent-reviews-converge-on-the-final-summary
+    title: "Concurrent reviews converge on the final summary"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Concurrent reviews converge on the final summary"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `internal/store` `TestConcurrentReviewsConvergeOnFinalRating`"
+
+  - id: engagement-listing-rating-events.concurrent-hides-converge-on-the-final-summary
+    title: "Concurrent hides converge on the final summary"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Concurrent hides converge on the final summary"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `internal/store` `TestConcurrentHidesConvergeOnFinalRating`"
+
+  - id: engagement-listing-rating-events.a-concurrent-create-and-hide-converge-on-the-final-summary
+    title: "A concurrent create and hide converge on the final summary"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "A concurrent create and hide converge on the final summary"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `internal/store` `TestConcurrentCreateAndHideConvergeOnFinalRating`"
+
+  - id: engagement-listing-rating-events.the-rating-event-carries-no-personal-data
+    title: "The rating event carries no personal data"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "The rating event carries no personal data"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `internal/events` `TestListingRatingChangedEnvelopeCarriesNoPersonalData`"
+
+  - id: engagement-listing-rating-events.each-reviewed-listing-gets-one-backfill-event
+    title: "Each reviewed listing gets one backfill event"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Each reviewed listing gets one backfill event"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `migrations` `TestMigration0015BackfillsRatingPerReviewedListing`"
+
+  - id: engagement-listing-rating-events.backfill-payload-decodes-with-the-contract-type
+    title: "Backfill payload decodes with the contract type"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Backfill payload decodes with the contract type"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `migrations` `TestMigration0015PayloadDecodesAsContractType`"
+
+  - id: engagement-listing-rating-events.backfill-is-idempotent
+    title: "Backfill is idempotent"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Backfill is idempotent"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `migrations` `TestMigration0015IsIdempotent`"
+
+  - id: engagement-listing-rating-events.empty-database-backfills-nothing
+    title: "Empty database backfills nothing"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Empty database backfills nothing"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `migrations` `TestMigration0015EmptyReviews`"
+
+  - id: engagement-listing-rating-events.down-migration-removes-only-pending-backfill-rows
+    title: "Down migration removes only pending backfill rows"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Down migration removes only pending backfill rows"
+    tags: [listing-rating-events, unit]
+    status: not-testable
+    notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `migrations` `TestMigration0015DownRemovesOnlyPendingBackfill`"

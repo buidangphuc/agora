@@ -1221,6 +1221,80 @@ export class PreviewCheckoutResponse extends Message<PreviewCheckoutResponse> {
 }
 
 /**
+ * @generated from message platform.order.v1.HasCompletedOrderRequest
+ */
+export class HasCompletedOrderRequest extends Message<HasCompletedOrderRequest> {
+  /**
+   * @generated from field: string buyer_id = 1;
+   */
+  buyerId = "";
+
+  constructor(data?: PartialMessage<HasCompletedOrderRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.order.v1.HasCompletedOrderRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "buyer_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HasCompletedOrderRequest {
+    return new HasCompletedOrderRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): HasCompletedOrderRequest {
+    return new HasCompletedOrderRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): HasCompletedOrderRequest {
+    return new HasCompletedOrderRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: HasCompletedOrderRequest | PlainMessage<HasCompletedOrderRequest> | undefined, b: HasCompletedOrderRequest | PlainMessage<HasCompletedOrderRequest> | undefined): boolean {
+    return proto3.util.equals(HasCompletedOrderRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.order.v1.HasCompletedOrderResponse
+ */
+export class HasCompletedOrderResponse extends Message<HasCompletedOrderResponse> {
+  /**
+   * @generated from field: bool has_completed = 1;
+   */
+  hasCompleted = false;
+
+  constructor(data?: PartialMessage<HasCompletedOrderResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.order.v1.HasCompletedOrderResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "has_completed", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HasCompletedOrderResponse {
+    return new HasCompletedOrderResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): HasCompletedOrderResponse {
+    return new HasCompletedOrderResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): HasCompletedOrderResponse {
+    return new HasCompletedOrderResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: HasCompletedOrderResponse | PlainMessage<HasCompletedOrderResponse> | undefined, b: HasCompletedOrderResponse | PlainMessage<HasCompletedOrderResponse> | undefined): boolean {
+    return proto3.util.equals(HasCompletedOrderResponse, a, b);
+  }
+}
+
+/**
  * @generated from message platform.order.v1.ConfirmReceiptRequest
  */
 export class ConfirmReceiptRequest extends Message<ConfirmReceiptRequest> {
@@ -3916,6 +3990,61 @@ export class ReturnRequested extends Message<ReturnRequested> {
 
   static equals(a: ReturnRequested | PlainMessage<ReturnRequested> | undefined, b: ReturnRequested | PlainMessage<ReturnRequested> | undefined): boolean {
     return proto3.util.equals(ReturnRequested, a, b);
+  }
+}
+
+/**
+ * A listing's sold count changed. Published on `order.events` (key = listing_id) as the
+ * payload of an EventEnvelope with type "platform.order.v1.ListingSalesChanged".
+ * By design this carries no buyer, seller or order ids.
+ *
+ * @generated from message platform.order.v1.ListingSalesChanged
+ */
+export class ListingSalesChanged extends Message<ListingSalesChanged> {
+  /**
+   * @generated from field: string listing_id = 1;
+   */
+  listingId = "";
+
+  /**
+   * Units sold as an absolute value, not a delta; never below 0.
+   *
+   * @generated from field: int64 sold_count = 2;
+   */
+  soldCount = protoInt64.zero;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp changed_at = 3;
+   */
+  changedAt?: Timestamp;
+
+  constructor(data?: PartialMessage<ListingSalesChanged>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.order.v1.ListingSalesChanged";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "listing_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "sold_count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "changed_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListingSalesChanged {
+    return new ListingSalesChanged().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListingSalesChanged {
+    return new ListingSalesChanged().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListingSalesChanged {
+    return new ListingSalesChanged().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListingSalesChanged | PlainMessage<ListingSalesChanged> | undefined, b: ListingSalesChanged | PlainMessage<ListingSalesChanged> | undefined): boolean {
+    return proto3.util.equals(ListingSalesChanged, a, b);
   }
 }
 

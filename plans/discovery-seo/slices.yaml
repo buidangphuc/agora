@@ -1,0 +1,40 @@
+initiative: discovery-seo
+slices:
+  - id: discovery-seo-contract
+    owner: platform-core
+    depends_on: []
+    provides: [order.events/ListingSalesChanged, engagement.events/ListingRatingChanged, AnalyticsQueryService.GetSearchPerformance]
+  - id: order-listing-sales
+    owner: team-order
+    depends_on: [discovery-seo-contract]
+    uses: [order.events/ListingSalesChanged, order.events/OrderPaidEvent, order.events/OrderCancelled, order.events/ReturnRefunded]
+  - id: engagement-listing-rating-events
+    owner: team-engagement
+    depends_on: [discovery-seo-contract]
+    uses: [engagement.events/ListingRatingChanged]
+  - id: search-bestseller-rating
+    owner: team-search
+    depends_on: [order-listing-sales, engagement-listing-rating-events]
+    uses: [order.events/ListingSalesChanged, engagement.events/ListingRatingChanged, SearchService.SearchListings]
+  - id: frontend-discovery-sort-rating
+    owner: team-frontend
+    depends_on: [search-bestseller-rating]
+    uses: [SearchService.SearchListings]
+  - id: search-attribution
+    owner: team-search
+    depends_on: [discovery-seo-contract]
+    uses: [SearchService.SearchListings]
+  - id: analytics-listing-status-export
+    owner: team-analytics
+    depends_on: []
+  - id: recsys-candidate-attributes
+    owner: platform-recsys
+    depends_on: [analytics-listing-status-export]
+  - id: recsys-cart-cross-sell
+    owner: team-ai
+    depends_on: [discovery-seo-contract, recsys-candidate-attributes]
+    uses: [RecommendationService.Recommend]
+  - id: frontend-seo
+    owner: team-frontend
+    depends_on: [discovery-seo-contract]
+    uses: [SearchService.SearchListings]

@@ -96,6 +96,8 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     # TWO_TOWER_REQUIRE_ATTRIBUTES makes a missing item_attributes snapshot a configuration error (exit 2).
     ("item_attributes_dir", "ITEM_ATTRIBUTES_DIR", "/features/item_attributes/v1", _as_str),
     ("item_attributes_path", "ITEM_ATTRIBUTES_PATH", "", _as_str),
+    ("item_attributes_v2_dir", "ITEM_ATTRIBUTES_V2_DIR", "/features/item_attributes/v2", _as_str),
+    ("item_attributes_v2_path", "ITEM_ATTRIBUTES_V2_PATH", "", _as_str),
     ("user_preferences_dir", "USER_PREFERENCES_DIR", "/features/user_preferences/v1", _as_str),
     ("user_preferences_path", "USER_PREFERENCES_PATH", "", _as_str),
     ("two_tower_require_attributes", "TWO_TOWER_REQUIRE_ATTRIBUTES", "false", _as_bool),
@@ -190,6 +192,8 @@ class Settings:
     user_features_path: str = ""
     item_attributes_dir: str = "/features/item_attributes/v1"
     item_attributes_path: str = ""
+    item_attributes_v2_dir: str = "/features/item_attributes/v2"
+    item_attributes_v2_path: str = ""
     user_preferences_dir: str = "/features/user_preferences/v1"
     user_preferences_path: str = ""
     two_tower_require_attributes: bool = False

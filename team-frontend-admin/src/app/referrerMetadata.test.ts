@@ -72,4 +72,15 @@ describe("referrer metadata", () => {
     ).not.toMatch(/referrer/);
     expect(metadataBlock("export default function P() {}")).toBeNull();
   });
+
+  it("admin root declares no-referrer (SEO-42)", () => {
+    const block = metadataBlock(
+      readFileSync(join(APP_DIR, "layout.tsx"), "utf8"),
+    );
+    expect(block).not.toBeNull();
+    expect(block).toMatch(/\breferrer\s*:\s*["']no-referrer["']/);
+    expect(block).toMatch(
+      /robots\s*:\s*\{(?=[^}]*\bindex\s*:\s*false)(?=[^}]*\bfollow\s*:\s*false)[^}]*\}/,
+    );
+  });
 });

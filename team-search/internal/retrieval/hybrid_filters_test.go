@@ -57,7 +57,7 @@ func TestEngine_FiltersReachBothLegs(t *testing.T) {
 	idx := &osLikeIndex{fakeIndex: fakeIndex{
 		lexHits: []index.Hit{{ListingID: "a", Score: 3}}, vecHits: []index.Hit{{ListingID: "b", Score: cosScore(0.9)}},
 	}}
-	if _, _, err := hybridEngine(idx).Execute(context.Background(), hybridQ); err != nil {
+	if _, _, _, err := hybridEngine(idx).Execute(context.Background(), hybridQ); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(idx.lexFilters, hybridQ.Filters) || !reflect.DeepEqual(idx.vecFilters, hybridQ.Filters) {
@@ -71,7 +71,7 @@ func TestEngine_TotalAndFacetsFollowFusedSet(t *testing.T) {
 		lexHits: []index.Hit{{ListingID: "a", Score: 3}},
 		vecHits: []index.Hit{{ListingID: "a", Score: cosScore(0.95)}, {ListingID: "b", Score: cosScore(0.8)}},
 	}}
-	res, _, err := hybridEngine(idx).Execute(context.Background(), hybridQ)
+	res, _, _, err := hybridEngine(idx).Execute(context.Background(), hybridQ)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestEngine_FusedEqualsLexicalReusesLexicalFacets(t *testing.T) {
 	idx := &osLikeIndex{fakeIndex: fakeIndex{
 		lexHits: []index.Hit{{ListingID: "a", Score: 3}}, vecHits: []index.Hit{{ListingID: "a", Score: cosScore(0.95)}},
 	}}
-	res, _, err := hybridEngine(idx).Execute(context.Background(), hybridQ)
+	res, _, _, err := hybridEngine(idx).Execute(context.Background(), hybridQ)
 	if err != nil {
 		t.Fatal(err)
 	}

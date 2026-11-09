@@ -1,12 +1,31 @@
+import type { Metadata } from "next";
+
 import { parseSort } from "@/features/listing/pdp";
 import { ShopStorefrontView } from "@/features/shop/ShopStorefrontView";
 import { isFollowing } from "@/lib/gateway/engagement";
-import { getStorefront, listBundlesBySeller } from "@/lib/gateway/listings";
+import { listBundlesBySeller } from "@/lib/gateway/listings";
 import { getShopRatingSummary } from "@/lib/gateway/reviews";
 import { searchListings } from "@/lib/gateway/search";
 import { getPrincipal } from "@/lib/gateway/session";
+import { pageMetadata } from "@/lib/seo";
+
+import { loadStorefront } from "./data";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(props: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await props.params;
+  const storefront = await loadStorefront(id).catch(() => null);
+  const name = storefront?.displayName?.trim() || `Shop #${id.slice(0, 6)}`;
+  return pageMetadata({
+    title: name,
+    description: storefront?.tagline?.trim() || `Cửa hàng ${name} trên Agora`,
+    path: `/shop/${id}`,
+    image: storefront?.bannerUrl || undefined,
+  });
+}
 
 export default async function ShopPage(props: {
   params: Promise<{ id: string }>;
@@ -20,7 +39,7 @@ export default async function ShopPage(props: {
     // (ListListings has no seller filter, and its first page holds other shops' items).
     searchListings("", { sellerId: params.id }).catch(() => ({ items: [] })),
     me ? isFollowing(params.id) : Promise.resolve(false),
-    getStorefront(params.id),
+    loadStorefront(params.id),
     listBundlesBySeller(params.id),
     getShopRatingSummary(params.id),
   ]);

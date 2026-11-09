@@ -12,7 +12,7 @@ import { getVerificationStatus } from "@/lib/gateway/verification";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Xác minh tài khoản | Marketplace",
+  title: "Xác minh tài khoản",
 };
 
 export default async function VerificationPage() {

@@ -30,6 +30,7 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 	want := []string{
 		analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure,
 		analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure,
+		analyticsv1connect.AnalyticsQueryServiceGetSearchPerformanceProcedure,
 		analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure, // Only admins can read the channel funnel
 		auditv1connect.AuditServiceQueryAuditLogProcedure,
 		engagementv1connect.EngagementServiceResolveDisputeProcedure,
@@ -62,6 +63,25 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("adminProcedures = %v, want %v", got, want)
 		}
+	}
+}
+
+func TestPolicy_GetSearchPerformanceAdminOnly(t *testing.T) {
+	proc := analyticsv1connect.AnalyticsQueryServiceGetSearchPerformanceProcedure
+	if got := adminProcedures[proc]; got != adminScope {
+		t.Fatalf("GetSearchPerformance scope = %q, want %q", got, adminScope)
+	}
+	anon := resolvedPrincipal{id: "anonymous", ptype: "anonymous"}
+	buyer := resolvedPrincipal{id: "u-1", ptype: "user", scopes: []string{"listing.read"}}
+	admin := resolvedPrincipal{id: "u-2", ptype: "user", scopes: []string{"admin"}}
+	if c := connect.CodeOf(requireProcedureScope(proc, anon)); c != connect.CodeUnauthenticated {
+		t.Errorf("anonymous = %v, want unauthenticated", c)
+	}
+	if c := connect.CodeOf(requireProcedureScope(proc, buyer)); c != connect.CodePermissionDenied {
+		t.Errorf("buyer = %v, want permission_denied", c)
+	}
+	if err := requireProcedureScope(proc, admin); err != nil {
+		t.Errorf("admin: %v", err)
 	}
 }
 

@@ -28,6 +28,38 @@ type mockIndex struct {
 	lastDeleteVer  int64
 	deletes        int
 	stockCalls     []stockCall
+	salesCalls     []salesCall
+	ratingCalls    []ratingCall
+	updateErr      error
+}
+
+type salesCall struct {
+	id      string
+	sold    int64
+	version int64
+}
+
+type ratingCall struct {
+	id      string
+	avg     float64
+	reviews int64
+	version int64
+}
+
+func (m *mockIndex) UpdateSales(_ context.Context, id string, sold int64, version int64) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+	m.salesCalls = append(m.salesCalls, salesCall{id, sold, version})
+	return nil
+}
+
+func (m *mockIndex) UpdateRating(_ context.Context, id string, avg float64, reviews int64, version int64) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+	m.ratingCalls = append(m.ratingCalls, ratingCall{id, avg, reviews, version})
+	return nil
 }
 
 type stockCall struct {

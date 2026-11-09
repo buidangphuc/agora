@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
@@ -15,13 +16,42 @@ import {
 import { loadCategories, loadSearch, searchKey } from "@/features/search/data";
 import { type RawSearchParams, parseSearchParams } from "@/features/search/url";
 import { listSavedSearches } from "@/lib/gateway/search";
+import { pageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(props: {
+  searchParams: Promise<RawSearchParams>;
+}): Promise<Metadata> {
+  const state = parseSearchParams(await props.searchParams);
+  if (state.q.trim()) {
+    return {
+      title: "Tìm kiếm",
+      robots: { index: false, follow: true },
+    };
+  }
+  const categories = state.category
+    ? await loadCategories().catch(() => [])
+    : [];
+  const category = categories.find((c) => c.id === state.category);
+  if (category) {
+    return pageMetadata({
+      title: category.name,
+      description: `Mua ${category.name} chính hãng, giá tốt trên Agora.`,
+      path: `/search?category=${encodeURIComponent(category.id)}`,
+    });
+  }
+  return pageMetadata({
+    title: "Tất cả sản phẩm",
+    description: "Tìm và mua sản phẩm từ nhiều người bán trên Agora.",
+    path: "/search",
+  });
+}
 
 /**
  * Search List anatomy: header (breadcrumb, title, count), filter column and
  * results column. All state is in the URL (`q, category, seller,
- * minPrice, maxPrice, sort, page`). The search runs once (cached per request)
+ * minPrice, maxPrice, minRating, sort, page`). The search runs once (cached per request)
  * and the filter column, count and results each stream from their own boundary.
  */
 export default async function SearchPage(props: {

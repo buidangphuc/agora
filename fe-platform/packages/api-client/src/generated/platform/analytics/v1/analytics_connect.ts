@@ -11,7 +11,7 @@
 // the payload. Authenticated user identity travels in EventEnvelope.principal —
 // this payload carries only anonymous_id/session_id (no PII by design).
 
-import { GetChannelFunnelRequest, GetChannelFunnelResponse, GetDemandForecastRequest, GetDemandForecastResponse, GetPlatformOrderSummaryRequest, GetPlatformOrderSummaryResponse, GetRecommendationPerformanceRequest, GetRecommendationPerformanceResponse, GetRevenueBreakdownRequest, GetRevenueBreakdownResponse, GetSellerFunnelRequest, GetSellerFunnelResponse, GetTrackingQualityReportRequest, GetTrackingQualityReportResponse, ListRecentOrdersRequest, ListRecentOrdersResponse } from "./analytics_pb.js";
+import { GetChannelFunnelRequest, GetChannelFunnelResponse, GetDemandForecastRequest, GetDemandForecastResponse, GetPlatformOrderSummaryRequest, GetPlatformOrderSummaryResponse, GetRecommendationPerformanceRequest, GetRecommendationPerformanceResponse, GetRevenueBreakdownRequest, GetRevenueBreakdownResponse, GetSearchPerformanceRequest, GetSearchPerformanceResponse, GetSellerFunnelRequest, GetSellerFunnelResponse, GetTrackingQualityReportRequest, GetTrackingQualityReportResponse, ListRecentOrdersRequest, ListRecentOrdersResponse } from "./analytics_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -122,6 +122,19 @@ export const AnalyticsQueryService = {
       name: "GetChannelFunnel",
       I: GetChannelFunnelRequest,
       O: GetChannelFunnelResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Online search performance over a trailing window, per (placement, model_version), with
+     * placement_id = search_results: impressions, clicks, and add-to-carts / purchases attributed
+     * to a click within the attribution window. Admin-only (scope "admin"); carries no per-user data.
+     *
+     * @generated from rpc platform.analytics.v1.AnalyticsQueryService.GetSearchPerformance
+     */
+    getSearchPerformance: {
+      name: "GetSearchPerformance",
+      I: GetSearchPerformanceRequest,
+      O: GetSearchPerformanceResponse,
       kind: MethodKind.Unary,
     },
   }

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
@@ -46,10 +47,29 @@ import {
 } from "@/lib/gateway/reviews";
 import { getPrincipal } from "@/lib/gateway/session";
 import { getImageUrl } from "@/lib/media";
+import { pageMetadata } from "@/lib/seo";
 
 import { loadListing } from "./data";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(props: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await props.params;
+  const listing = await loadListing(id).catch(() => null);
+  if (!listing) return {};
+  const price = `${listing.price.toLocaleString("vi-VN")} ₫`;
+  return pageMetadata({
+    title: listing.title,
+    description:
+      listing.description.trim() ||
+      `Mua ${listing.title} giá ${price} trên Agora.`,
+    path: `/listing/${id}`,
+    type: "product",
+    image: listing.imageUrl,
+  });
+}
 
 export default async function ProductDetailPage(props: {
   params: Promise<{ id: string }>;

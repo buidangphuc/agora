@@ -9,7 +9,7 @@ import { isPromotionAdmin } from "@/lib/gateway/scopes";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
-  title: "Tạo flash sale | Sàn Thương Mại Điện Tử",
+  title: "Tạo flash sale",
   description: "Tạo chiến dịch flash sale cho một tin đăng.",
   referrer: "no-referrer",
 };

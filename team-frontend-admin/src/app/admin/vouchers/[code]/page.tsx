@@ -18,7 +18,7 @@ import { getPrincipal, getToken } from "@/lib/gateway/session";
 import { getVoucher } from "@/lib/gateway/vouchers";
 
 export const metadata: Metadata = {
-  title: "Chi tiết voucher sàn | Sàn Thương Mại Điện Tử",
+  title: "Chi tiết voucher sàn",
   description: "Thông tin một voucher áp dụng cho toàn sàn.",
   referrer: "no-referrer",
 };

@@ -22,7 +22,7 @@ import { getPrincipal } from "@/lib/gateway/session";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Sản phẩm yêu thích | Marketplace",
+  title: "Sản phẩm yêu thích",
 };
 
 // The gateway returns 24 ids per call, behind an opaque cursor.

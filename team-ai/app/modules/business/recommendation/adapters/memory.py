@@ -19,6 +19,21 @@ class MemoryCandidateSource:
     ) -> list[Candidate]:
         return list(self._similar.get(seed_listing_id, [])[:top_k])
 
+    async def similar_batch(
+        self, listing_ids: Sequence[str], *, top_k: int, generation: str | None
+    ) -> dict[str, list[Candidate]]:
+        return {
+            lid: await MemoryCandidateSource.similar(
+                self, lid, top_k=top_k, generation=generation
+            )
+            for lid in listing_ids
+        }
+
+    async def categories(
+        self, listing_ids: Sequence[str], *, generation: str | None
+    ) -> dict[str, str]:
+        return {}
+
     async def ready(self, generation: str | None) -> bool:
         return True
 

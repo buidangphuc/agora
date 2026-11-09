@@ -32,6 +32,14 @@ func BuildEnvelope(eventID, typ string, occurredAt time.Time, p *commonv1.Princi
 }
 
 func FactRow(ctx context.Context, aggregateType, key string, msg proto.Message) (outbox.Row, error) {
+	return factRow(ctx, aggregateType, key, msg, principalFrom(ctx))
+}
+
+func PrincipalessFactRow(ctx context.Context, aggregateType, key string, msg proto.Message) (outbox.Row, error) {
+	return factRow(ctx, aggregateType, key, msg, nil)
+}
+
+func factRow(ctx context.Context, aggregateType, key string, msg proto.Message, p *commonv1.Principal) (outbox.Row, error) {
 	payload, err := proto.Marshal(msg)
 	if err != nil {
 		return outbox.Row{}, fmt.Errorf("marshal fact: %w", err)
@@ -39,7 +47,7 @@ func FactRow(ctx context.Context, aggregateType, key string, msg proto.Message) 
 	typ := string(msg.ProtoReflect().Descriptor().FullName())
 	id := uuid.NewString()
 	reqID := reqctx.RequestID(ctx)
-	envelope, err := BuildEnvelope(id, typ, time.Now(), principalFrom(ctx), reqID, payload)
+	envelope, err := BuildEnvelope(id, typ, time.Now(), p, reqID, payload)
 	if err != nil {
 		return outbox.Row{}, err
 	}

@@ -17,6 +17,7 @@ export type SearchLoad =
 const SORT_BY: Record<SortKey, SortBy> = {
   relevance: SortBy.RELEVANCE,
   newest: SortBy.NEWEST,
+  best_selling: SortBy.BEST_SELLING,
   price_asc: SortBy.PRICE_ASC,
   price_desc: SortBy.PRICE_DESC,
 };
@@ -34,6 +35,7 @@ export const loadSearch = cache(async (key: string): Promise<SearchLoad> => {
       sellerId: s.seller,
       minPrice: s.minPrice,
       maxPrice: s.maxPrice,
+      minRating: s.minRating,
       sortBy: SORT_BY[s.sort],
       attrs: s.attrs,
       status: "published",

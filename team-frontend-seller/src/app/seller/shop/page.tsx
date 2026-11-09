@@ -9,7 +9,7 @@ import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Hồ sơ gian hàng | Kênh người bán" };
+export const metadata = { title: "Hồ sơ gian hàng" };
 
 /** Form > Basic Form: the shop display name (UpsertStorefront.display_name). */
 export default async function SellerShopPage() {

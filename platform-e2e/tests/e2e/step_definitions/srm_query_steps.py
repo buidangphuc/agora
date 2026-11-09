@@ -7,7 +7,7 @@ import uuid
 from pytest_bdd import given, then, when
 
 from tests.e2e.flows import srm_events_flow as ev
-from tests.e2e.flows.oic_inv_flow import register
+from tests.e2e.step_definitions import search_best_selling_rating_steps as bs
 from tests.e2e.support import srm_support as s
 from tests.e2e.support.world import World
 
@@ -66,12 +66,9 @@ def real_and_unknown(world: World) -> None:
     s.ctx(world).extra["ghost"] = ghost
 
 
-@given("published listings that match a query")
-def published_matching(world: World) -> None:
-    s.create_listing(world, "A", stock=5)
-    s.create_listing(world, "B", stock=5)
-    s.wait_indexed(world, "A")
-    s.wait_indexed(world, "B")
+@given("published listings matching one keyword with rating_avg 4.5, 3.5, 2 and no review")
+def rated_listings(world: World) -> None:
+    bs.rated_listings(world)
 
 
 # ── whens ────────────────────────────────────────────────────────────────
@@ -116,29 +113,22 @@ def late_create(world: World) -> None:
 
 
 @when(
-    "a buyer calls SearchListings through the gateway with min_rating 4, then with min_rating 4 "
-    "and SEARCH_MODE_SEMANTIC"
+    "a buyer calls SearchListings for the keyword with min_rating 4, then with min_rating 4 and "
+    "SEARCH_MODE_SEMANTIC"
 )
 def min_rating_calls(world: World) -> None:
     c = s.ctx(world)
+    token = bs.buyer_token(world)
     c.resps = [
-        s.search(c.keyword, min_rating=4),
-        s.search(c.keyword, min_rating=4, mode="SEARCH_MODE_SEMANTIC"),
+        s.search(c.keyword, token=token, min_rating=4),
+        s.search(c.keyword, token=token, min_rating=4, mode="SEARCH_MODE_SEMANTIC"),
     ]
 
 
-@when(
-    "a buyer calls SearchListings for that query with min_rating 0, and runs a saved search "
-    "with the same query"
-)
-def search_and_saved(world: World) -> None:
+@when("a buyer calls SearchListings for the keyword with min_rating 0")
+def min_rating_zero(world: World) -> None:
     c = s.ctx(world)
-    buyer = register(world, "buyer")
-    saved = s.ok_json(s.save_search(buyer.token, c.keyword))
-    c.resps = [
-        s.search(c.keyword, token=buyer.token, min_rating=0),
-        s.run_saved(buyer.token, saved["savedSearch"]["id"]),
-    ]
+    c.resps = [s.search(c.keyword, token=bs.buyer_token(world), min_rating=0)]
 
 
 # ── thens ────────────────────────────────────────────────────────────────
@@ -173,24 +163,19 @@ def ghost_first(world: World) -> None:
     assert (ev.os_doc(ghost) or {}).get("title") == c.extra["ghost_title"], ev.os_doc(ghost)
 
 
-@then("both calls fail with invalid_argument")
-def both_invalid(world: World) -> None:
+@then("both calls succeed and return only the listing with rating_avg 4.5")
+def accepted_only_top_rated(world: World) -> None:
+    top = s.listing(world, "A").id
     for resp in s.ctx(world).resps:
-        assert resp.status_code == 400 and resp.json().get("code") == "invalid_argument", (
-            resp.status_code,
-            resp.text,
-        )
+        assert resp.status_code == 200, (resp.status_code, resp.text)
+        assert s.hit_ids(resp) == [top], resp.text
 
 
 @then(
-    "both responses return the matching listings and an empty ratings facet while the "
-    "categories facet is not empty"
+    "the ratings facet is 4 with count 1 and 3 with count 2 while the categories facet is "
+    "not empty"
 )
-def empty_ratings(world: World) -> None:
-    ids = {s.listing(world, "A").id, s.listing(world, "B").id}
-    for resp in s.ctx(world).resps:
-        body = s.ok_json(resp)
-        assert ids <= set(s.hit_ids(resp)), resp.text
-        facets = body.get("facets", {})
-        assert facets.get("ratings", []) == [], f"ratings facet not empty: {facets.get('ratings')}"
-        assert facets.get("categories"), f"categories facet empty: {facets}"
+def ratings_facet_filled(world: World) -> None:
+    resp = s.ctx(world).resps[0]
+    assert bs.facet_pairs(resp, "ratings") == [("4", 1), ("3", 2)], resp.text
+    assert bs.facet_pairs(resp, "categories"), resp.text

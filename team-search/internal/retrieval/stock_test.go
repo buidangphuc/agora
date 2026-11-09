@@ -59,7 +59,7 @@ func TestEngine_HitsKeepStockOnEveryPath(t *testing.T) {
 
 	t.Run("fused", func(t *testing.T) {
 		e := retrieval.NewEngine(&fakeIndex{lexHits: lex, vecHits: vec}, &retrieval.MockEmbedClient{Dim: 4}, nil, cfg)
-		res, _, err := e.Execute(context.Background(), hybrid)
+		res, _, _, err := e.Execute(context.Background(), hybrid)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -69,7 +69,7 @@ func TestEngine_HitsKeepStockOnEveryPath(t *testing.T) {
 		rc := cfg
 		rc.EnableReranker = true
 		e := retrieval.NewEngine(&fakeIndex{lexHits: lex, vecHits: vec}, &retrieval.MockEmbedClient{Dim: 4}, reverseRerank{}, rc)
-		res, _, err := e.Execute(context.Background(), hybrid)
+		res, _, _, err := e.Execute(context.Background(), hybrid)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,17 +77,17 @@ func TestEngine_HitsKeepStockOnEveryPath(t *testing.T) {
 	})
 	t.Run("lexical fallback", func(t *testing.T) {
 		e := retrieval.NewEngine(&fakeIndex{lexHits: lex, vecErr: errors.New("down")}, &retrieval.MockEmbedClient{Dim: 4}, nil, cfg)
-		res, degraded, err := e.Execute(context.Background(), hybrid)
-		if err != nil || !degraded {
-			t.Fatalf("err=%v degraded=%v", err, degraded)
+		res, mode, _, err := e.Execute(context.Background(), hybrid)
+		if err != nil || string(mode) != "lexical" {
+			t.Fatalf("err=%v mode=%q", err, mode)
 		}
 		wantStocks(t, "lexical fallback", res.Hits, map[string]*int32{"a": i32(3), "b": i32(0)})
 	})
 	t.Run("semantic fallback", func(t *testing.T) {
 		e := retrieval.NewEngine(&fakeIndex{lexErr: errors.New("down"), vecHits: vec}, &retrieval.MockEmbedClient{Dim: 4}, nil, cfg)
-		res, degraded, err := e.Execute(context.Background(), hybrid)
-		if err != nil || !degraded {
-			t.Fatalf("err=%v degraded=%v", err, degraded)
+		res, mode, _, err := e.Execute(context.Background(), hybrid)
+		if err != nil || string(mode) != "semantic" {
+			t.Fatalf("err=%v mode=%q", err, mode)
 		}
 		wantStocks(t, "semantic fallback", res.Hits, map[string]*int32{"b": i32(0), "c": nil})
 	})

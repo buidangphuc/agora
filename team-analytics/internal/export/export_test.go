@@ -424,3 +424,49 @@ func TestExport_NeverReadsGA4AsInteractionSource(t *testing.T) {
 		t.Errorf("exported rows = %d (err=%v), want 0 when only ga4_sessions rows exist", n, err)
 	}
 }
+
+func TestListingSellersParquetHasStatusColumn(t *testing.T) {
+	ctx := context.Background()
+	w := openWriter(t)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{
+		{ListingID: "L1", SellerID: "s1", CategoryID: "cat", Price: 100, Status: "LISTING_STATUS_PUBLISHED", UpdatedAt: at},
+		{ListingID: "L2", SellerID: "s2", CategoryID: "cat", Price: 200, UpdatedAt: at},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "listing_sellers.parquet")
+	if err := export.Once(ctx, w, warehouse.ListingSellersTableName, path); err != nil {
+		t.Fatalf("Once: %v", err)
+	}
+	rows, err := w.DB().QueryContext(ctx, "SELECT name FROM parquet_schema('"+path+"') WHERE name <> 'duckdb_schema'")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var cols []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		cols = append(cols, n)
+	}
+	want := []string{"listing_id", "seller_id", "updated_at", "category_id", "price", "status"}
+	if len(cols) != len(want) {
+		t.Fatalf("columns = %v, want %v", cols, want)
+	}
+	for i := range want {
+		if cols[i] != want[i] {
+			t.Fatalf("columns = %v, want %v", cols, want)
+		}
+	}
+	var s1 string
+	var n2 int
+	if err := w.DB().QueryRowContext(ctx, "SELECT status FROM read_parquet('"+path+"') WHERE listing_id = 'L1'").Scan(&s1); err != nil || s1 != "LISTING_STATUS_PUBLISHED" {
+		t.Errorf("L1 status = %q, err = %v", s1, err)
+	}
+	if err := w.DB().QueryRowContext(ctx, "SELECT count(*) FROM read_parquet('"+path+"') WHERE listing_id = 'L2' AND status IS NULL").Scan(&n2); err != nil || n2 != 1 {
+		t.Errorf("L2 status null rows = %d, err = %v", n2, err)
+	}
+}

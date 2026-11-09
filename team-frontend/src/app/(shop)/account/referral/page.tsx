@@ -17,7 +17,7 @@ import { getPrincipal } from "@/lib/gateway/session";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Mời bạn bè | Marketplace",
+  title: "Mời bạn bè",
 };
 
 const STATUS = {

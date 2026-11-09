@@ -8,7 +8,7 @@ import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Combo sản phẩm | Kênh người bán" };
+export const metadata = { title: "Combo sản phẩm" };
 
 export default async function SellerBundlesPage() {
   const principal = getPrincipal();

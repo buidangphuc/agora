@@ -21,7 +21,7 @@ import { shopLabel } from "@/lib/gateway/shops";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Shop đang theo dõi | Marketplace",
+  title: "Shop đang theo dõi",
 };
 
 type FollowingTab = "shops" | "items";

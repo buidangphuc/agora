@@ -95,7 +95,7 @@ const cats = [
   },
 ];
 
-function state(raw: Record<string, string>): SearchState {
+function state(raw: Record<string, string | string[]>): SearchState {
   return parseSearchParams(raw);
 }
 
@@ -198,12 +198,101 @@ describe("SearchResultsBlock", () => {
     expect(listEntries()).toHaveLength(0);
   });
 
-  it("does not offer the unwired 'Bán chạy' sort", async () => {
+  it("Sort options match what the server honours: offers Bán chạy linking to sort=best_selling", async () => {
+    loadSearch.mockResolvedValue(ok());
+    render(await SearchResultsBlock({ state: state({ q: "ao" }) }));
+    expect(screen.getByRole("link", { name: "Bán chạy" })).toHaveAttribute(
+      "href",
+      "/search?q=ao&sort=best_selling",
+    );
+  });
+
+  it("Best-selling sort: marks Bán chạy active for sort=best_selling", async () => {
+    loadSearch.mockResolvedValue(ok());
+    render(
+      await SearchResultsBlock({
+        state: state({ q: "ao", sort: "best_selling" }),
+      }),
+    );
+    expect(screen.getByRole("link", { name: "Bán chạy" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("An unknown sort value falls back to relevance", async () => {
+    loadSearch.mockResolvedValue(ok());
+    render(
+      await SearchResultsBlock({
+        state: state({ q: "ao", sort: "top_rated" }),
+      }),
+    );
+    expect(screen.getByRole("link", { name: "Liên quan" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("The rating chip removes the filter: shows one chip that links to the URL without minRating", async () => {
+    loadSearch.mockResolvedValue(ok());
+    render(
+      await SearchResultsBlock({
+        state: state({ q: "ao", minRating: "4", page: "2" }),
+      }),
+    );
+    const tags = screen.getByTestId("active-filters");
+    const chips = within(tags).getAllByRole("link", { name: /Từ [34] sao/ });
+    expect(chips).toHaveLength(1);
+    expect(chips[0]).toHaveAccessibleName(/Từ 4 sao/);
+    expect(chips[0]).toHaveAttribute("href", "/search?q=ao");
+  });
+
+  it("A repeated minRating uses the first value: one chip for Từ 4 sao", async () => {
+    loadSearch.mockResolvedValue(ok());
+    render(
+      await SearchResultsBlock({
+        state: parseSearchParams({ q: "ao", minRating: ["4", "3"] }),
+      }),
+    );
+    const chips = within(screen.getByTestId("active-filters")).getAllByRole(
+      "link",
+      { name: /Từ [34] sao/ },
+    );
+    expect(chips).toHaveLength(1);
+    expect(chips[0]).toHaveAccessibleName(/Từ 4 sao/);
+  });
+
+  it("An unsupported minRating value is ignored: no rating chip", async () => {
+    loadSearch.mockResolvedValue(ok());
+    render(
+      await SearchResultsBlock({
+        state: parseSearchParams({ q: "ao", minRating: "9" }),
+      }),
+    );
+    expect(screen.queryByRole("link", { name: /Từ [34] sao/ })).toBeNull();
+  });
+
+  it("An old rating link renders the results without error: no chip, no rating= link", async () => {
     loadSearch.mockResolvedValue(ok());
     const { container } = render(
-      await SearchResultsBlock({ state: state({ q: "ao" }) }),
+      await SearchResultsBlock({
+        state: parseSearchParams({ q: "ao", rating: "4" }),
+      }),
     );
-    expect(container.textContent).not.toMatch(/bán chạy/i);
+    expect(screen.getByTestId("search-results")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Từ [34] sao/ })).toBeNull();
+    expect(container.innerHTML).not.toMatch(/[?&]rating=/);
+  });
+
+  it("A rating filter with no match shows the empty state with the rating chip", async () => {
+    loadSearch.mockResolvedValue(ok({ items: [], total: 0 }));
+    render(
+      await SearchResultsBlock({ state: state({ q: "ao", minRating: "4" }) }),
+    );
+    expect(screen.getByText("Không tìm thấy sản phẩm")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("link", { name: /Từ 4 sao/ })).toBeInTheDocument();
   });
 
   it("lists active filters as removable tags and clears them all", async () => {
@@ -236,22 +325,59 @@ describe("ResultCount / FilterPanel", () => {
     expect(await ResultCount({ state: state({}) })).toBeNull();
   });
 
-  it("renders no rating group even when facets.ratings is non-empty", async () => {
-    loadSearch.mockResolvedValue(
-      ok({
-        facets: {
-          categories: [],
-          priceRanges: [],
-          ratings: [{ key: "4", count: 3 }],
-          sellers: [],
-          tags: [],
-          skus: [],
-        },
-      }),
+  const ratingFacets = {
+    categories: [],
+    priceRanges: [],
+    ratings: [
+      { key: "4", count: 3 },
+      { key: "3", count: 5 },
+    ],
+    sellers: [],
+    tags: [],
+    skus: [],
+  };
+
+  it("The search page shows the rating filter: facet-ratings with both options and counts from the response", async () => {
+    loadSearch.mockResolvedValue(ok({ facets: ratingFacets }));
+    const { container } = render(
+      await FilterPanel({ state: state({ q: "ao" }) }),
     );
-    const { container } = render(await FilterPanel({ state: state({}) }));
+    const groups = screen.getAllByTestId("facet-ratings");
+    expect(groups.length).toBeGreaterThan(0);
+    const group = groups[0] as HTMLElement;
+    expect(
+      within(group)
+        .getByText(/Từ 4 sao/)
+        .closest("a")?.textContent,
+    ).toContain("(3)");
+    expect(
+      within(group)
+        .getByText(/Từ 3 sao/)
+        .closest("a")?.textContent,
+    ).toContain("(5)");
+    expect(container.innerHTML).not.toMatch(/[?&]rating=/);
+  });
+
+  it("The rating group keeps both options while one is selected", async () => {
+    loadSearch.mockResolvedValue(ok({ facets: ratingFacets }));
+    render(await FilterPanel({ state: state({ q: "ao", minRating: "4" }) }));
+    const group = screen.getAllByTestId("facet-ratings")[0] as HTMLElement;
+    expect(
+      within(group)
+        .getByText(/Từ 4 sao/)
+        .closest("a"),
+    ).toHaveAttribute("data-active", "true");
+    const three = within(group)
+      .getByText(/Từ 3 sao/)
+      .closest("a");
+    expect(three).toHaveAttribute("data-active", "false");
+    expect(three?.textContent).toContain("(5)");
+  });
+
+  it("shows no rating group when the response has no rating facets", async () => {
+    loadSearch.mockResolvedValue(ok());
+    render(await FilterPanel({ state: state({}) }));
     expect(screen.queryByTestId("facet-ratings")).toBeNull();
-    expect(container.textContent).not.toContain("Đánh giá");
   });
 
   it("keeps the filter column when the search fails", async () => {

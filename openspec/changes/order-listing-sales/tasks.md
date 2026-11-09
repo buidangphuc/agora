@@ -1,0 +1,17 @@
+## 1. Code track (team-order)
+
+- [x] 1.1 Tests first: store tests against Postgres for the ledger (pay, cancel-from-PAID, cancel-from-PENDING, refund, repeat, cancel then refund, floor, multi-line, multi-listing) (scenarios: all scenarios of Sold count is paid minus cancelled-from-PAID or refunded, including A refund or cancel with no counted ledger rows changes nothing and The count never goes below 0 with the count seeded directly)
+- [x] 1.2 Migration `0023_listing_sales.{up,down}.sql` (deploys together with the new writer binary): `listing_sales`, `listing_sales_orders`, CHECK, backfill and one outbox row per listing; embed test updated (scenarios: The migration backfills existing orders, all)
+- [x] 1.3 Migration test seeding paid, completed, pending, cancelled and refunded orders, running the backfill twice, and an empty database (scenarios: Existing paid orders are counted, Cancelled and refunded orders are excluded, One event per listing, Running the migration body twice does not duplicate, An empty database migrates cleanly, A backfilled order cancelled later is subtracted once, Orders paid before paid_at was recorded are counted, Backfill events use a stable id and the commit time)
+- [x] 1.4 Projection update inside the PAID, cancel-from-PAID and ReturnRefunded transactions in `internal/store`, with the `ListingSalesChanged` outbox builder in `internal/events` using a deterministic event id and key `listing_id` (scenarios: Payment adds the order quantity, Cancel from PAID subtracts the order quantity, Refunded return subtracts the order quantity, Cancel before PAID changes nothing, A repeated or redelivered transition changes nothing, A payment emits the new absolute value, A multi-listing order emits one event per listing, The event commits or rolls back with the state)
+- [x] 1.5 Unit test that the decoded payload holds no personal identifier and that a re-relayed row keeps the same value and id (scenarios: The payload carries no personal identifier, A redelivered relay does not change the meaning)
+- [x] 1.6 Test that no RPC request message in `platform/order/v1` carries a `sold_count` field and that `listing_sales` is unchanged after calling the order RPCs with arbitrary input (scenarios: A client cannot set the sold count)
+- [ ] 1.7 Non-gating benchmark recording the 100,000-line backfill time and p95 of Paid, CancelOrder and refund before and after (NFR in proposal.md)
+- [x] 1.8 Rebuild stubs from the merged contract change; `go build`, lint and coverage gates green
+
+## 2. e2e track (platform-e2e)
+
+- [x] 2.1 Feature `platform-e2e/tests/e2e/features/order/listing_sales.feature`: pay, cancel from PAID and refunded return observed as `ListingSalesChanged` on `order.events` with the expected absolute values (scenarios: Payment adds the order quantity, Cancel from PAID subtracts the order quantity, Refunded return subtracts the order quantity, A payment emits the new absolute value)
+- [x] 2.2 e2e: cancel from PENDING produces no event; repeated cancel produces none (scenarios: Cancel before PAID changes nothing, A repeated or redelivered transition changes nothing, A cancel and a refund of the same order subtract once)
+- [ ] 2.3 e2e: after migration on a seeded database, one event per listing is on the topic (scenarios: One event per listing, Existing paid orders are counted)
+- [x] 2.4 FEATURES.yaml entry for the e2e-author, VERIFIED BY lines for every scenario above

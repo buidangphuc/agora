@@ -14,6 +14,9 @@ class Candidate:
     listing_id: str
     score: float
     in_stock: bool = True
+    seller_id: str = ""
+    category_id: str = ""
+    visible: bool = True
 
 
 class RecommendationQuery(BaseModel):
@@ -22,6 +25,7 @@ class RecommendationQuery(BaseModel):
     seed_listing_id: str = ""
     placement_id: str = ""
     limit: int = 0
+    context_listing_ids: tuple[str, ...] = ()
 
 
 class RecommendedItem(BaseModel):

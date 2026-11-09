@@ -18,7 +18,7 @@ import { listReports } from "@/lib/gateway/reports";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
-  title: "Hồ sơ cần xử lý | Sàn Thương Mại Điện Tử",
+  title: "Hồ sơ cần xử lý",
   description: "Báo cáo vi phạm và hàng chờ kiểm duyệt tin đăng.",
   referrer: "no-referrer",
 };

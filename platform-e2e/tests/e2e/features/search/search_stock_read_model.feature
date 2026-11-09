@@ -31,7 +31,7 @@ Feature: Search read-model stock
   Scenario: A malformed stock event is parked, not applied
     Given a published listing whose search stock is 10
     When a ListingStockChanged for that listing with stock -1 is published to listing.events
-    Then within 60 seconds that record appears on listing.events.dlq and search still returns the listing with stock 10
+    Then within 60 seconds that record appears on search-indexer.listing.events.dlq and search still returns the listing with stock 10
 
   Scenario: A late listing update does not overwrite newer stock
     Given a published listing with stock 10 whose search stock is 8 after a real checkout of quantity 2

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from config.settings import get_settings
 from tests.e2e.flows import fsm_job_flow as fsm
+from tests.e2e.support import tii_support as tii
 
 _DRIVER = Path(__file__).with_name("fia_job_driver.py")
 _TIMEOUT_S = 600
@@ -43,6 +44,25 @@ def probe_export(listings: list[str], users: list[str]) -> dict:
     """The listing export on the analytics volume for these listings, and the resolved events of these users."""
     mounts = ["-v", f"{fsm.analytics_volume()}:/data:ro"]
     return _driver({"op": "probe", "listings": listings, "users": users}, mounts)
+
+
+def run_replay() -> fsm.JobResult:
+    """Stop the live analytics consumer (DuckDB lock), run `/listing-replay` from its image on its
+    volume and network, and start the consumer again."""
+    name = tii.analytics_container()
+    insp = json.loads(subprocess.check_output(["docker", "inspect", name], text=True))[0]
+    image, env = insp["Config"]["Image"], insp["Config"]["Env"]
+    subprocess.run(["docker", "stop", name], capture_output=True, text=True, check=True)
+    try:
+        args = ["docker", "run", "--rm", "--network", get_settings().stack_network]
+        args += ["-v", f"{fsm.analytics_volume()}:/data"]
+        for e in env:
+            args += ["-e", e]
+        args += ["--entrypoint", "/listing-replay", image]
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=_TIMEOUT_S, check=False)
+    finally:
+        subprocess.run(["docker", "start", name], capture_output=True, text=True, check=True)
+    return fsm.JobResult(proc.returncode, proc.stdout + proc.stderr)
 
 
 def make_inputs(

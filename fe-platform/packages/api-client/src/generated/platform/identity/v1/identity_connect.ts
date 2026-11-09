@@ -8,7 +8,7 @@
 // the edge and turns into a platform.common.v1.Principal (ADR-0003). Downstream
 // services never see credentials — only the resolved Principal.
 
-import { BecomeSellerRequest, BecomeSellerResponse, ChangePasswordRequest, ChangePasswordResponse, CreateAddressRequest, CreateAddressResponse, CreateHandoffCodeRequest, CreateHandoffCodeResponse, DeleteAddressRequest, DeleteAddressResponse, GetPublicProfilesRequest, GetPublicProfilesResponse, ListAddressesRequest, ListAddressesResponse, ListLoginHistoryRequest, ListLoginHistoryResponse, ListSessionsRequest, ListSessionsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, PeekHandoffCodeRequest, PeekHandoffCodeResponse, RedeemHandoffCodeRequest, RedeemHandoffCodeResponse, RefreshSessionRequest, RefreshSessionResponse, RegisterRequest, RegisterResponse, RequestPasswordResetRequest, RequestPasswordResetResponse, ResetPasswordRequest, ResetPasswordResponse, RevokeSessionRequest, RevokeSessionResponse, SetDefaultAddressRequest, SetDefaultAddressResponse, SetUserStatusRequest, SetUserStatusResponse, UpdateAddressRequest, UpdateAddressResponse } from "./identity_pb.js";
+import { BecomeSellerRequest, BecomeSellerResponse, ChangePasswordRequest, ChangePasswordResponse, CreateAddressRequest, CreateAddressResponse, CreateHandoffCodeRequest, CreateHandoffCodeResponse, DeleteAddressRequest, DeleteAddressResponse, GetMyAccountRequest, GetMyAccountResponse, GetPublicProfilesRequest, GetPublicProfilesResponse, ListAddressesRequest, ListAddressesResponse, ListLoginHistoryRequest, ListLoginHistoryResponse, ListSessionsRequest, ListSessionsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, PeekHandoffCodeRequest, PeekHandoffCodeResponse, RedeemHandoffCodeRequest, RedeemHandoffCodeResponse, RefreshSessionRequest, RefreshSessionResponse, RegisterRequest, RegisterResponse, RequestPasswordResetRequest, RequestPasswordResetResponse, ResetPasswordRequest, ResetPasswordResponse, RevokeSessionRequest, RevokeSessionResponse, SetDefaultAddressRequest, SetDefaultAddressResponse, SetUserStatusRequest, SetUserStatusResponse, UpdateAddressRequest, UpdateAddressResponse } from "./identity_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -150,6 +150,21 @@ export const AuthService = {
       name: "BecomeSeller",
       I: BecomeSellerRequest,
       O: BecomeSellerResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * GetMyAccount is principal-scoped: the caller sees only their own account and
+     * no request field selects another user. Routed at the gateway for any
+     * signed-in user (the frontend uses created_at for the 14-day welcome rule).
+     * An anonymous caller gets UNAUTHENTICATED; a service principal gets
+     * PERMISSION_DENIED. The response carries only user_id and created_at.
+     *
+     * @generated from rpc platform.identity.v1.AuthService.GetMyAccount
+     */
+    getMyAccount: {
+      name: "GetMyAccount",
+      I: GetMyAccountRequest,
+      O: GetMyAccountResponse,
       kind: MethodKind.Unary,
     },
   }

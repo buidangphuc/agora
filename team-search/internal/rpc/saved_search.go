@@ -3,6 +3,8 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"strconv"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -11,6 +13,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
+	"github.com/buidangphuc/team-search/internal/retrieval"
 	"github.com/buidangphuc/team-search/internal/store"
 )
 
@@ -98,15 +101,41 @@ func (h *Handler) RunSavedSearch(ctx context.Context, req *searchv1.RunSavedSear
 	if err != nil {
 		return nil, err
 	}
-	res, err := h.idx.Search(ctx, saved.Query, filters, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, defaultPageSize)
+	minRating, err := storedMinRating(filters)
+	if err != nil {
+		return nil, err
+	}
+	delete(filters, filterMinRating)
+	res, err := h.idx.Search(ctx, saved.Query, filters, "", 0, 0, minRating, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, defaultPageSize)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	requestID, err := newRequestID()
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
 	return &searchv1.RunSavedSearchResponse{
-		Hits:   toWireHits(res.Hits),
-		Page:   &commonv1.PageResponse{NextCursor: nextCursor(0, defaultPageSize, res.Total), Total: res.Total},
-		Facets: toFacets(res.Facets),
+		Hits:         toWireHits(res.Hits),
+		Page:         &commonv1.PageResponse{NextCursor: nextCursor(0, defaultPageSize, res.Total), Total: res.Total},
+		Facets:       toFacets(res.Facets),
+		RequestId:    requestID,
+		ModelVersion: string(retrieval.ModeLexical) + "@" + h.rankerVersion,
 	}, nil
+}
+
+func storedMinRating(filters map[string]string) (int32, error) {
+	raw, has := filters[filterMinRating]
+	if !has {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0, status.Error(codes.InvalidArgument, "filters_json min_rating must be an integer between 0 and 5")
+	}
+	if n < 0 || n > maxMinRating {
+		return 0, status.Error(codes.InvalidArgument, "min_rating must be between 0 and 5")
+	}
+	return int32(n), nil
 }
 
 func hasFilters(filtersJSON string) bool {

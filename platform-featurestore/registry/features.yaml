@@ -52,6 +52,15 @@ views:
       seller_id: string
       category_id: string
       price: int
+  - name: item_attributes
+    version: 2
+    entity: listing_id
+    sql: sql/item_attributes_v2.sql
+    features:
+      seller_id: string
+      category_id: string
+      price: int
+      status: string
   - name: user_preferences
     version: 1
     entity: user_key
