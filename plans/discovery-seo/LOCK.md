@@ -1,22 +1,22 @@
 # LOCK — discovery-seo
 status: approved
 approved-by: Bùi Đăng Phúc
-date: 2026-11-07
-spec: plans/discovery-seo/00-spec.md (Locked 2026-11-07, Clarifications C1–C16)
+date: 2026-11-09 (re-signed; first signed 2026-11-07)
+spec: plans/discovery-seo/00-spec.md (Locked 2026-11-07, Clarifications C1–C22)
 
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| discovery-seo-contract | platform-core | – | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | da9c31f4af4a | [x] |
-| analytics-listing-status-export | team-analytics | – | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | b7731c6eabdb | [x] |
-| engagement-listing-rating-events | team-engagement | discovery-seo-contract | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c950a3d3c728 | [x] |
-| order-listing-sales | team-order | discovery-seo-contract | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d3201de26ba4 | [x] |
-| frontend-seo | team-frontend | discovery-seo-contract | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 2ca035ccd7be | [x] |
-| recsys-candidate-attributes | platform-recsys | analytics-listing-status-export | 2 | pass | pass (4 PERM warnings, batch job, no authz path) | pass | ENGINE_DOWN (LLM fallback) | e7e53580a7e2 | [x] |
-| recsys-cart-cross-sell | team-ai | discovery-seo-contract, recsys-candidate-attributes | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | fc3ceb86251e | [x] |
-| search-attribution | team-search | discovery-seo-contract | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a8fc5c95080f | [x] |
-| search-bestseller-rating | team-search | order-listing-sales, engagement-listing-rating-events | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 46f53a5c8591 | [x] |
-| frontend-discovery-sort-rating | team-frontend | search-bestseller-rating | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 26c440807576 | [x] |
+| discovery-seo-contract | platform-core | – | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9f65dc582f61 | [x] |
+| analytics-listing-status-export | team-analytics | – | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a66d42b437fa | [x] |
+| engagement-listing-rating-events | team-engagement | discovery-seo-contract | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 5fc38b87d6b5 | [x] |
+| order-listing-sales | team-order | discovery-seo-contract | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 488d6cd49d1f | [x] |
+| frontend-seo | team-frontend | discovery-seo-contract | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | e5f948c14b9e | [x] |
+| recsys-candidate-attributes | platform-recsys | analytics-listing-status-export | 2 | pass | pass (4 PERM warnings, batch job, no authz path) | pass | ENGINE_DOWN (LLM fallback) | bb20ce78ec87 | [x] |
+| recsys-cart-cross-sell | team-ai | discovery-seo-contract, recsys-candidate-attributes | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 7a57e954530c | [x] |
+| search-attribution | team-search | discovery-seo-contract | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0615f0696345 | [x] |
+| search-bestseller-rating | team-search | order-listing-sales, engagement-listing-rating-events | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | b2312c956a0d | [x] |
+| frontend-discovery-sort-rating | team-frontend | search-bestseller-rating | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 415c53ce963e | [x] |
 
 decide.py was not run: it needs a `--units` file, and none was built. The spec-quality-reviewer checklist is the verdict.
 
@@ -48,3 +48,6 @@ pass (`cross_change_check: OK`). Round 1 had an ownership violation (search-best
   - `auth`: the admin-only route for `GetSearchPerformance`.
   - No payment or pii routing. New fields carry no personal data. `ListingRatingChanged` envelopes carry no principal (C3).
 - **Migration numbers.** team-order 0023 and team-engagement 0015 assume the current base. Renumber them if main moves before the build.
+
+## Re-lock 2026-11-09
+Re-signed by Bùi Đăng Phúc after converge. The digests changed because of ticked tasks.md, the converge clarifications C17–C22 and aligned `VERIFIED BY` lines.
