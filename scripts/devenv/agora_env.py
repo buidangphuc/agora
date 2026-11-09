@@ -25,7 +25,7 @@ NOT_DEPS = {"TRUSTED_PROXIES", "CORS_ORIGINS", "JAEGER_UI_URL"}
 OPTIONAL_HOSTS = {"otel-collector", "jaeger", "prometheus", "grafana", "kafka-ui"}
 GATEWAY_FANOUT = re.compile(r"^UPSTREAM_")
 FRONTEND_ARGS = {
-    "team-frontend": {"NEXT_PUBLIC_GTM_ID": "GTM-E2E0001", "NEXT_PUBLIC_GATEWAY_URL": "gw", "NEXT_PUBLIC_MEDIA_BASE_URL": "media", "NEXT_PUBLIC_SELLER_APP_URL": "seller"},
+    "team-frontend": {"NEXT_PUBLIC_GTM_ID": "GTM-E2E0001", "NEXT_PUBLIC_GATEWAY_URL": "gw", "NEXT_PUBLIC_MEDIA_BASE_URL": "media", "NEXT_PUBLIC_SELLER_APP_URL": "seller", "NEXT_PUBLIC_SITE_URL": "buyer"},
     "team-frontend-seller": {"NEXT_PUBLIC_GATEWAY_URL": "gw", "NEXT_PUBLIC_MEDIA_BASE_URL": "media", "NEXT_PUBLIC_BUYER_APP_URL": "buyer"},
     "team-frontend-admin": {"NEXT_PUBLIC_GATEWAY_URL": "gw"},
 }
@@ -244,7 +244,7 @@ def make_override(env, services, owners, pm):
         if changed:
             o["environment"] = changed
         if name == "redpanda" and s.get("command"):
-            o["command"] = [rewrite_local(c, pm) for c in s["command"]]
+            o["command"] = [rewrite_local(c, pm).replace("external://localhost:", "external://127.0.0.1:") for c in s["command"]]
         if base_image(s) in built:
             o["image"] = f"{base_image(s)}:{env}"
             if s.get("build") and name in FRONTEND_ARGS:
@@ -413,7 +413,8 @@ def e2e_exports(st):
     P = st["project"]
     e = {
         "HEADLESS": "true", "BASE_URL": f"http://localhost:{port(3000)}", "GATEWAY_URL": f"http://localhost:{port(8080)}",
-        "KAFKA_BROKERS": f"localhost:{port(19092)}", "FLIPT_URL": f"http://localhost:{port(8083)}",
+        "KAFKA_BROKERS": f"127.0.0.1:{port(19092)}",
+        "SELLER_BASE_URL": f"http://localhost:{port(3001)}", "ADMIN_BASE_URL": f"http://localhost:{port(3002)}", "FLIPT_URL": f"http://localhost:{port(8083)}",
         "TEAM_AI_URL": f"http://localhost:{port(8001)}", "PROMETHEUS_URL": f"http://localhost:{port(9090)}",
         "MLFLOW_URL": f"http://localhost:{port(5050)}", "MINIO_URL": f"http://localhost:{port(9000)}",
         "SRM_OPENSEARCH_URL": f"http://localhost:{port(9200)}", "QDRANT_URL": f"http://localhost:{port(6333)}",
@@ -422,6 +423,8 @@ def e2e_exports(st):
         "ANALYTICS_VOLUME": f"{P}_analytics_data", "FSM_ANALYTICS_VOLUME": f"{P}_analytics_data",
         "FEATURESTORE_VOLUME": f"{P}_featurestore_data",
     }
+    if st["env"] != MAIN:
+        e["FSM_REDIS_PORT"] = str(port(6379))
     c = lambda n: container(st, services, n)
     for k in ("POSTGRES", "PLP_POSTGRES", "OIC_INV_POSTGRES", "AUDIT_POSTGRES"):
         e[f"{k}_CONTAINER"] = c("postgres")
