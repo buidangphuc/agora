@@ -231,11 +231,12 @@ func stampAfter(t time.Time, d time.Duration) *time.Time {
 }
 
 type orderRepoConfig struct {
-	paidOutbox      PaidOutboxBuilder
-	cancelledOutbox CancelledOutboxBuilder
-	placedOutbox    PlacedOutboxBuilder
-	reminderOutbox  ReminderOutboxBuilder
-	completedOutbox CompletedOutboxBuilder
+	paidOutbox         PaidOutboxBuilder
+	cancelledOutbox    CancelledOutboxBuilder
+	placedOutbox       PlacedOutboxBuilder
+	reminderOutbox     ReminderOutboxBuilder
+	completedOutbox    CompletedOutboxBuilder
+	listingSalesOutbox ListingSalesOutboxBuilder
 
 	autoCompleteAfter, returnWindow, shipByAfter time.Duration
 }
@@ -263,13 +264,14 @@ func newOrderRepoConfig(opts []OrderRepoOption) orderRepoConfig {
 }
 
 type PostgresOrderRepository struct {
-	pool            *pgxpool.Pool
-	outbox          *outbox.Store
-	paidOutbox      PaidOutboxBuilder
-	cancelledOutbox CancelledOutboxBuilder
-	placedOutbox    PlacedOutboxBuilder
-	reminderOutbox  ReminderOutboxBuilder
-	completedOutbox CompletedOutboxBuilder
+	pool               *pgxpool.Pool
+	outbox             *outbox.Store
+	paidOutbox         PaidOutboxBuilder
+	cancelledOutbox    CancelledOutboxBuilder
+	placedOutbox       PlacedOutboxBuilder
+	reminderOutbox     ReminderOutboxBuilder
+	completedOutbox    CompletedOutboxBuilder
+	listingSalesOutbox ListingSalesOutboxBuilder
 
 	autoCompleteAfter, returnWindow, shipByAfter time.Duration
 }
@@ -278,7 +280,7 @@ func NewPostgresOrderRepository(pool *pgxpool.Pool, ob *outbox.Store, opts ...Or
 	cfg := newOrderRepoConfig(opts)
 	return &PostgresOrderRepository{
 		pool: pool, outbox: ob, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox,
-		completedOutbox: cfg.completedOutbox, autoCompleteAfter: cfg.autoCompleteAfter, returnWindow: cfg.returnWindow, shipByAfter: cfg.shipByAfter,
+		completedOutbox: cfg.completedOutbox, listingSalesOutbox: cfg.listingSalesOutbox, autoCompleteAfter: cfg.autoCompleteAfter, returnWindow: cfg.returnWindow, shipByAfter: cfg.shipByAfter,
 	}
 }
 
@@ -593,6 +595,18 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 		}
 		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 			return Order{}, err
+		}
+	}
+	if r.listingSalesOutbox != nil {
+		switch to {
+		case OrderStatusPaid:
+			if err := countOrderSales(ctx, tx, r.outbox, r.listingSalesOutbox, o.ID); err != nil {
+				return Order{}, err
+			}
+		case OrderStatusCancelled:
+			if err := reverseOrderSales(ctx, tx, r.outbox, r.listingSalesOutbox, o.ID); err != nil {
+				return Order{}, err
+			}
 		}
 	}
 	if to == OrderStatusCompleted {

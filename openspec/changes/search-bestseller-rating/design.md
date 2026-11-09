@@ -39,8 +39,12 @@ the existing convention (`platform.order.v1.ListingSalesChanged`, `platform.enga
 ## Configuration
 
 - `KAFKA_ORDER_TOPIC` default `order.events`; `KAFKA_ENGAGEMENT_TOPIC` default `engagement.events` (beside `KAFKA_LISTING_TOPIC`). The consumer group stays `KAFKA_CONSUMER_GROUP` (`team-search-indexer`).
-- DLQ topics are `<topic>.dlq`, so `order.events.dlq` and `engagement.events.dlq`. The retry budget is the go-sdk consumer default `MaxAttempts` 5 with its backoff; there is no team-search env var for it.
+- DLQ topics are the indexer's own `search-indexer.<topic>.dlq` (C17): `search-indexer.order.events.dlq`, `search-indexer.engagement.events.dlq` and `search-indexer.listing.events.dlq`, created by redpanda-init; the indexer never shares `order.events.dlq` with team-notification. The retry budget is the go-sdk consumer default `MaxAttempts` 5 with its backoff; there is no team-search env var for it.
 - Envelope types: `platform.order.v1.ListingSalesChanged`, `platform.engagement.v1.ListingRatingChanged`.
+
+## Clarifications
+
+- C17 (human, 2026-11-08): DLQ topics are `search-indexer.<topic>.dlq`, created by redpanda-init (three topics); supersedes the earlier `<topic>.dlq` naming.
 
 ## Rollout order (C9)
 

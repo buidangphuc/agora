@@ -206,7 +206,7 @@ def ghost_not_created(world: World) -> None:
 
 
 @then(
-    "within 60 seconds that record appears on listing.events.dlq and search still returns "
+    "within 60 seconds that record appears on search-indexer.listing.events.dlq and search still returns "
     "the listing with stock 10"
 )
 def parked_not_applied(world: World) -> None:
@@ -219,7 +219,7 @@ def parked_not_applied(world: World) -> None:
             for r in ev.dlq_records_for(lid, c.started_ms)
         )
 
-    s.eventually(parked, f"the malformed stock event for {lid} on {ev.DLQ_TOPIC}", s.DLQ_S)
+    s.eventually(parked, f"the malformed stock event for {lid} on {ev.SEARCH_INDEXER_DLQ_TOPIC}", s.DLQ_S)
     assert s.stock_of_hit(s.hit_of(s.search(s.listing(world, MAIN).title), lid)) == 10
 
 

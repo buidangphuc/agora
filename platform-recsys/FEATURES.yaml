@@ -2358,3 +2358,469 @@ features:
     tags: [recsys, unit]
     status: not-testable
     notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gitops_manifest.py::test_manifest_missing_key_fails. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.cattr-a-published-listing-carries-its-attributes
+    title: "A published listing carries its attributes"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: A published listing carries its attributes"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published and listing `L1` has seller `S1`, category `C1` and status `LISTING_STATUS_PUBLISHED`"
+      - "Then the Qdrant point of `L1` in both item collections has payload `seller_id=S1`, `category_id=C1`, `visible=true`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_point_payload_carries_attributes. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-a-banned-listing-is-written-invisible
+    title: "A banned listing is written invisible"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: A banned listing is written invisible"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published and listing `L2` has status `LISTING_STATUS_BANNED`"
+      - "Then the point of `L2` has `visible=false`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_non_published_status_is_not_visible. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-unknown-attribute-is-absent
+    title: "Unknown attribute is absent"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Unknown attribute is absent"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published and listing `L3` has seller `S3`, no category and no status"
+      - "Then the point of `L3` has `seller_id=S3` and has no `category_id` key and no `visible` key"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_unknown_attributes_are_absent_not_empty. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-listing-missing-from-the-snapshot-gets-no-attributes
+    title: "Listing missing from the snapshot gets no attributes"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Listing missing from the snapshot gets no attributes"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published and listing `L4` has a vector but no row in the snapshot"
+      - "Then the point of `L4` has none of `seller_id`, `category_id`, `visible` and the publish succeeds"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_listing_without_snapshot_row. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-missing-snapshot-does-not-abort-the-publish
+    title: "Missing snapshot does not abort the publish"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Missing snapshot does not abort the publish"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published and no `item_attributes@v2` snapshot exists"
+      - "Then the publish succeeds, no payload has the three keys and the log has `attributes=missing`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_missing_snapshot_publishes_without_attributes. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-unspecified-or-unrecognised-status-writes-no-visible
+    title: "Unspecified or unrecognised status writes no visible"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Unspecified or unrecognised status writes no visible"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published and listing `L7` has snapshot `status` null because the export said `LISTING_STATUS_UNSPECIFIED`"
+      - "Then the point of `L7` has no `visible` key"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_unknown_status_writes_no_visible. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-corrupt-snapshot-does-not-abort-the-publish
+    title: "Corrupt snapshot does not abort the publish"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Corrupt snapshot does not abort the publish"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published and the `item_attributes@v2` snapshot file is not readable Parquet"
+      - "Then the publish succeeds, no payload has the three keys and the log has `attributes=missing`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_corrupt_snapshot_publishes_without_attributes. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-oversized-value-is-treated-as-unknown
+    title: "Oversized value is treated as unknown"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Oversized value is treated as unknown"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When listing `L5` has a `seller_id` of 129 characters"
+      - "Then the point of `L5` has no `seller_id` key and the other known attributes are written"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_value_over_128_characters_is_unknown. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-exactly-128-characters-is-kept
+    title: "Exactly 128 characters is kept"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Exactly 128 characters is kept"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When listing `L6` has a `seller_id` of exactly 128 characters"
+      - "Then the point of `L6` has that `seller_id`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_value_of_128_characters_is_kept. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-user-points-are-not-enriched
+    title: "User points are not enriched"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: User points are not enriched"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published"
+      - "Then no point of `user_als_vectors__<gen>` has a `seller_id`, `category_id` or `visible` key"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_user_points_unchanged. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-snapshot-older-than-24-hours-warns
+    title: "Snapshot older than 24 hours warns"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Snapshot older than 24 hours warns"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published with a snapshot whose `as_of` is 25 hours old"
+      - "Then the publish succeeds and the log has one warning containing that `as_of`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_stale_snapshot_warns_and_publishes. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-snapshot-of-exactly-24-hours-does-not-warn
+    title: "Snapshot of exactly 24 hours does not warn"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Snapshot of exactly 24 hours does not warn"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published with a snapshot whose `as_of` is exactly 24 hours old"
+      - "Then the log has no staleness warning"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_snapshot_at_24_hours_does_not_warn. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-popular-entries-carry-attributes
+    title: "Popular entries carry attributes"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Popular entries carry attributes"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published with popular list `[L1, L2]` where `L2` is banned"
+      - "Then `recs:v1:gen:<gen>:popular` has `L1` with `visible=true` and `L2` with `visible=false`, each with its `seller_id` and `category_id`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_popular_entries_carry_attributes. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-user-and-item-entries-and-legacy-keys-carry-attributes
+    title: "User and item entries and legacy keys carry attributes"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: User and item entries and legacy keys carry attributes"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published with `RECS_WRITE_LEGACY_KEYS` on"
+      - "Then every entry in the generation `user` and `item` keys and in the unscoped `recs:v1:{user,item,popular}` keys carries the same attribute keys as the point payload of that listing"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_user_item_and_legacy_entries_carry_attributes. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-entry-with-unknown-attributes-keeps-the-old-shape
+    title: "Entry with unknown attributes keeps the old shape"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Entry with unknown attributes keeps the old shape"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a listing has no snapshot row"
+      - "Then its cache entry is exactly `{listing_id, score}`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_entry_without_attributes_is_the_old_shape. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-entries-add-at-most-three-keys-and-stay-small
+    title: "Entries add at most three keys and stay small"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Entries add at most three keys and stay small"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published with `TOP_N` entries per key"
+      - "Then each entry has at most 3 keys beyond `listing_id` and `score` and each encoded value is under 65536 bytes"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_entries_add_at_most_three_keys_and_stay_under_64kib. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-qdrant-writes-use-batches-of-256
+    title: "Qdrant writes use batches of 256"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Qdrant writes use batches of 256"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When 600 item points are upserted"
+      - "Then the client receives 3 upsert calls of 256, 256 and 88 points"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_upsert_batches_of_256. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-ttl-and-ordering-are-untouched
+    title: "TTL and ordering are untouched"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: TTL and ordering are untouched"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published"
+      - "Then each key's TTL equals `CACHE_TTL_SECONDS` and the `listing_id` order and `score` values equal those of a publish without attributes"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_ttl_order_and_scores_unchanged. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-contract-is-visible-end-to-end
+    title: "Contract is visible end to end"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Contract is visible end to end"
+    entry_route: /
+    services: [platform-recsys, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a generation is published with a published listing `P` and a banned listing `B`, both similar to the cart context listing, and `Recommend` for `cart_cross_sell` is called through the gateway"
+      - "Then the response contains `P` and does not contain `B`"
+    tags: [recsys, recommendations, integration]
+    status: automated
+    covered_by: recommendations/candidate_attributes.feature::Contract is visible end to end
+    notes: "recsys-candidate-attributes: recommendations/candidate_attributes.feature. BLOCKED: gateway-entry assertions need recsys-cart-cross-sell merged (placement cart_cross_sell and context_listing_ids)."
+
+  - id: recsys.cattr-payload-without-visible-is-not-eligible
+    title: "Payload without visible is not eligible"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Payload without visible is not eligible"
+    entry_route: /
+    services: [platform-recsys, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a generation holds a point or entry for a listing with no `visible` key and `Recommend` is called"
+      - "Then that listing is not in the response"
+    tags: [recsys, recommendations, integration]
+    status: automated
+    covered_by: recommendations/candidate_attributes.feature::Payload without visible is not eligible
+    notes: "recsys-candidate-attributes: recommendations/candidate_attributes.feature. BLOCKED: gateway-entry assertions need recsys-cart-cross-sell merged (placement cart_cross_sell and context_listing_ids)."
+
+  - id: recsys.cattr-backfill-patches-the-serving-generation
+    title: "Backfill patches the serving generation"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Backfill patches the serving generation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the serving generation was published before this change and the command runs with a snapshot"
+      - "Then every item point and cache entry of the serving generation carries the attribute keys and the pointers, vectors and scores are byte-identical to before"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_patches_serving_generation. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-backfill-is-idempotent-and-keeps-ttl
+    title: "Backfill is idempotent and keeps TTL"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Backfill is idempotent and keeps TTL"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the command runs twice"
+      - "Then the second run changes no value and each Redis key's TTL after both runs is at most its TTL before and more than zero"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_is_idempotent_and_keeps_ttl. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-backfill-without-a-snapshot-refuses
+    title: "Backfill without a snapshot refuses"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Backfill without a snapshot refuses"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the command runs and no `item_attributes@v2` snapshot exists"
+      - "Then it exits 2 and no Qdrant or Redis write occurred"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_without_snapshot_exits_2. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-backfill-patches-legacy-keys-and-handles-ttl-edge-cases
+    title: "Backfill patches legacy keys and handles TTL edge cases"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Backfill patches legacy keys and handles TTL edge cases"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the command runs with legacy keys present, one of them without TTL and one that expires between scan and rewrite"
+      - "Then the legacy entries carry the attribute keys, the key without TTL still has no TTL and the expired key is skipped without error"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_legacy_keys_and_ttl_edges. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-backfill-with-a-corrupt-snapshot-refuses
+    title: "Backfill with a corrupt snapshot refuses"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Backfill with a corrupt snapshot refuses"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the command runs and the snapshot file is not readable Parquet"
+      - "Then it exits 2 and no Qdrant or Redis write occurred"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_corrupt_snapshot_exits_2. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-backfill-without-store-credentials-fails-closed
+    title: "Backfill without store credentials fails closed"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Backfill without store credentials fails closed"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the command runs with an invalid Redis password"
+      - "Then it exits non-zero and no Qdrant write occurred"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_without_credentials_writes_nothing. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-backfill-leaves-other-generations-alone
+    title: "Backfill leaves other generations alone"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Backfill leaves other generations alone"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation that is neither serving nor previous exists and the command runs"
+      - "Then its points and keys are unchanged"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_touches_only_serving_and_previous. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-backfill-with-no-serving-generation
+    title: "Backfill with no serving generation"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Backfill with no serving generation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `recs:v1:serving` is unset and the command runs"
+      - "Then it exits 0, reports zero points and zero entries and writes nothing"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_without_serving_generation. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-logs-carry-counts-and-no-ids
+    title: "Logs carry counts and no ids"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-candidate-attributes: Logs carry counts and no ids"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the publish and the backfill run on listings with known seller ids and the logs are captured"
+      - "Then no log line contains any seller id or listing id"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_logs_carry_no_ids. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."

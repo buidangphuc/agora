@@ -36,6 +36,7 @@ type Retrieval struct {
 	LexicalWeight      float64 `env:"HYBRID_LEXICAL_WEIGHT" default:"1.0"`
 	SemanticWeight     float64 `env:"HYBRID_SEMANTIC_WEIGHT" default:"1.0"`
 	SemanticMinScore   float64 `env:"HYBRID_SEMANTIC_MIN_SCORE" default:"0.65"`
+	RankerVersion      string  `env:"SEARCH_RANKER_VERSION" default:"v1"`
 }
 
 type Taxonomy struct {
@@ -50,8 +51,10 @@ func (t Taxonomy) Validate() error {
 }
 
 type Events struct {
-	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-search-indexer"`
-	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+	ConsumerGroup   string `env:"KAFKA_CONSUMER_GROUP" default:"team-search-indexer"`
+	ListingTopic    string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+	OrderTopic      string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
+	EngagementTopic string `env:"KAFKA_ENGAGEMENT_TOPIC" default:"engagement.events"`
 }
 
 type Tombstone struct {

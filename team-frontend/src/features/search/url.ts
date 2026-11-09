@@ -1,16 +1,22 @@
 /**
  * URL state of /search (UI_SYSTEM_DESIGN.md section 5.B): `q, category, seller,
- * minPrice, maxPrice, sort, page`, plus one `tag.<group>` / `sku.<group>` param per
+ * minPrice, maxPrice, minRating, sort, page`, plus one `tag.<group>` / `sku.<group>` param per
  * dynamic facet group (comma-separated tag slugs; OR inside a group, AND across). Pure helpers (no React, no gateway)
  * so the server page, the link-based filters and the tests share one parser and
  * one builder. Unknown or malformed values fall back to defaults, never throw.
  */
 
-export type SortKey = "relevance" | "newest" | "price_asc" | "price_desc";
+export type SortKey =
+  | "relevance"
+  | "newest"
+  | "best_selling"
+  | "price_asc"
+  | "price_desc";
 
 export const SORT_KEYS: readonly SortKey[] = [
   "relevance",
   "newest",
+  "best_selling",
   "price_asc",
   "price_desc",
 ];
@@ -21,6 +27,7 @@ export interface SearchState {
   seller: string;
   minPrice?: number;
   maxPrice?: number;
+  minRating?: 3 | 4;
   sort: SortKey;
   /**
    * Dynamic facet selections keyed by the request filter key (`tag.connectivity`,
@@ -61,6 +68,11 @@ function positiveInt(v: string): number | undefined {
   return Number.isSafeInteger(n) && n > 0 ? n : undefined;
 }
 
+function parseMinRating(raw: string | string[] | undefined): 3 | 4 | undefined {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v === "3" ? 3 : v === "4" ? 4 : undefined;
+}
+
 export function parseSearchParams(raw: RawSearchParams): SearchState {
   const sort = first(raw.sort);
   return {
@@ -69,6 +81,7 @@ export function parseSearchParams(raw: RawSearchParams): SearchState {
     seller: first(raw.seller),
     minPrice: positiveInt(first(raw.minPrice)),
     maxPrice: positiveInt(first(raw.maxPrice)),
+    minRating: parseMinRating(raw.minRating),
     sort: (SORT_KEYS as readonly string[]).includes(sort)
       ? (sort as SortKey)
       : "relevance",
@@ -102,6 +115,8 @@ export function buildSearchHref(
   if (next.seller) params.set("seller", next.seller);
   if (next.minPrice) params.set("minPrice", String(next.minPrice));
   if (next.maxPrice) params.set("maxPrice", String(next.maxPrice));
+  if (next.minRating === 3 || next.minRating === 4)
+    params.set("minRating", String(next.minRating));
   for (const key of Object.keys(next.attrs ?? {}).sort()) {
     const slugs = next.attrs[key];
     if (slugs && slugs.length > 0) params.set(key, slugs.join(","));
@@ -118,6 +133,7 @@ export function activeFilterCount(state: SearchState): number {
     (state.category ? 1 : 0) +
     (state.seller ? 1 : 0) +
     (state.minPrice || state.maxPrice ? 1 : 0) +
+    (state.minRating ? 1 : 0) +
     Object.values(state.attrs ?? {}).filter((v) => v.length > 0).length
   );
 }
@@ -129,6 +145,7 @@ export function clearFiltersHref(state: SearchState): string {
     seller: "",
     minPrice: undefined,
     maxPrice: undefined,
+    minRating: undefined,
     attrs: {},
   });
 }

@@ -23,7 +23,7 @@ beforeEach(() => {
 describe("checkout shell", () => {
   it("renders the minimal header, Stepper and secure footer without search or bottom nav", async () => {
     const { container } = await shell();
-    expect(screen.getByRole("link", { name: "Marketplace" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Agora" })).toHaveAttribute(
       "href",
       "/",
     );

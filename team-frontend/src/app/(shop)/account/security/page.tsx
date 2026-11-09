@@ -22,7 +22,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Bảo mật tài khoản | Marketplace",
+  title: "Bảo mật tài khoản",
 };
 
 // Below `sm` the IP and time columns are hidden and repeated as a meta line

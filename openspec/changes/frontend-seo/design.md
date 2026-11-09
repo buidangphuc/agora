@@ -17,7 +17,7 @@ layout and keeps the others, so `login/page.tsx` (`referrer`) and a `login/layou
 - Origin: `NEXT_PUBLIC_SITE_URL`, trailing slash trimmed, default `http://localhost:3000`, read through `siteUrl()`
   (server only use). Never derived from request headers.
 - Canonical: PDP `/listing/<id>`; shop `/shop/<id>`; category `/search?category=<id>`; plain search `/search`; home
-  `/`. All other query parameters (sort, filters, page) are dropped so variants consolidate. `q=` pages carry no
+  `<site>` with no trailing slash (C19). All other query parameters (sort, filters, page) are dropped so variants consolidate. `q=` pages carry no
   canonical and `robots: {index:false, follow:true}`.
 - Description: PDP uses the listing description, whitespace collapsed, truncated to 160 characters on a word boundary;
   if empty, `Mua <title> giá <price> ₫ trên Agora.` Shop uses the tagline, else `Cửa hàng <name> trên Agora`. Category
@@ -50,6 +50,11 @@ layout and keeps the others, so `login/page.tsx` (`referrer`) and a `login/layou
 - `NEXT_PUBLIC_*` is inlined at build time: a per-environment build arg is needed for real canonical origins; local
   default keeps e2e working.
 - Adding layouts to private segments must not change the DOM; they return `children` only.
+
+## Clarifications
+
+- C18 (human, 2026-11-08): the listing page's `og:type=product` is emitted as a raw meta tag through metadata `other`; `openGraph.type` stays unset.
+- C19 (human, 2026-11-08): the SEO e2e follows Next 15 defaults. Googlebot receives streamed metadata (no `htmlLimitedBots`), so the test parser skips SVG `<title>` and reads streamed tags. The root canonical is `[site]` without a trailing slash, and SEO-16 no longer lists `/dev/ui`.
 
 ## Seller and admin apps
 

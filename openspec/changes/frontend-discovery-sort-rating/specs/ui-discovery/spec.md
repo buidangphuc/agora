@@ -61,7 +61,7 @@ client JavaScript.
 
 - **WHEN** the `SortBar` is rendered
 - **THEN** it offers Liên quan, Mới nhất, Bán chạy, Giá thấp đến cao and Giá cao đến thấp, selecting "Bán chạy" navigates to a URL
-  with `sort=best_selling`, and the active one has `aria-current="true"`
+  with `sort=best_selling`, and the active link has `aria-current="page"`
 
 #### Scenario: Best-selling sort orders results by sold count
 
@@ -72,4 +72,4 @@ client JavaScript.
 #### Scenario: An unknown sort value falls back to relevance
 
 - **WHEN** a buyer opens `/search?q=<keyword>&sort=top_rated`
-- **THEN** the page renders the relevance order with "Liên quan" marked `aria-current="true"` and no error
+- **THEN** the page renders the relevance order with "Liên quan" marked `aria-current="page"` and no error

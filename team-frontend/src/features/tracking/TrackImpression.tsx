@@ -41,7 +41,7 @@ function enqueueImpression(
   properties: Record<string, string> | undefined,
   item: ImpressionItem,
 ) {
-  const mapKey = `${groupId ?? ""}\u0000${key}\u0000${query ?? ""}`;
+  const mapKey = `${groupId ?? ""}\u0000${key}\u0000${query ?? ""}\u0000${item.impressionId ?? ""}`;
   let batch = pending.get(mapKey);
   if (!batch) {
     const created: PendingBatch = {
@@ -96,7 +96,13 @@ export function TrackImpression({
   const ref = useRef<HTMLDivElement | null>(null);
   const trackedRef = useRef(false);
 
+  const trackedImpressionRef = useRef(impressionId);
+
   useEffect(() => {
+    if (trackedImpressionRef.current !== impressionId) {
+      trackedImpressionRef.current = impressionId;
+      trackedRef.current = false;
+    }
     if (trackedRef.current || !listingId) return;
 
     const fireTracking = () => {

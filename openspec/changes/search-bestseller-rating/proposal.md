@@ -50,7 +50,7 @@ initiative: discovery-seo
 
 - `SearchListings` p95 with `sort=best_selling` or `min_rating` set regresses at most 10% against the current local-stack baseline for the same query, measured, non-gating.
 - A `ListingSalesChanged` or `ListingRatingChanged` event is visible on the search document and in results within 30 s of being published.
-- A poison event reaches its `.dlq` topic within 60 s on the e2e stack (5 attempts) and never blocks the partition.
+- A poison event reaches its `search-indexer.<topic>.dlq` topic within 60 s on the e2e stack (5 attempts) and never blocks the partition.
 - No `*_ENABLED` flag for the new consumers; the topics come from config with defaults `order.events` and `engagement.events`.
 - The p95 of searches without the new sort or filter changes by at most 5% against baseline, measured, non-gating.
 

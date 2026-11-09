@@ -1851,3 +1851,439 @@ features:
     status: not-testable
     notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_handler.py` `test_older_event_is_stale`"
 
+
+  - id: ai.sa-team-ai-returns-both-fields
+    title: "team-ai returns both fields"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: team-ai returns both fields"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-ai]
+    acceptance:
+      - "When a client with scope `search:read` calls team-ai `SearchListings` with a query that has matches"
+      - "Then the response `request_id` matches `^[0-9a-f]{32}$` and `model_version` equals `semantic@v1`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-ai `tests/unit/transport/test_search_servicer.py` (task 1.6); team-ai SearchListings has no edge path. Not producible end to end."
+
+  - id: ai.sa-two-team-ai-calls-differ
+    title: "Two team-ai calls differ"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Two team-ai calls differ"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-ai]
+    acceptance:
+      - "When a client calls team-ai `SearchListings` twice with the same query"
+      - "Then the two `request_id` values differ"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-ai `tests/unit/transport/test_search_servicer.py` (task 1.6); team-ai SearchListings has no edge path. Not producible end to end."
+
+  - id: ai.sa-team-ai-search-unavailable
+    title: "team-ai search unavailable"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: team-ai search unavailable"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-ai]
+    acceptance:
+      - "When the retrieval backend is not configured"
+      - "Then the call fails with `UNAVAILABLE` and the response carries no `request_id`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-ai `tests/unit/transport/test_search_servicer.py` (task 1.6); needs an unconfigured retrieval backend. Not producible end to end."
+
+  - id: ai.sa-team-ai-search-without-scope-is-denied
+    title: "team-ai search without scope is denied"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: team-ai search without scope is denied"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-ai]
+    acceptance:
+      - "When a caller without scope `search:read` calls team-ai `SearchListings`"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-ai `tests/unit/transport/test_search_servicer.py` (task 1.6); scope is checked on the internal gRPC call. Not producible end to end."
+
+  - id: ai.ccs-similar-listings-for-cart-lines
+    title: "Similar listings for cart lines"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Similar listings for cart lines"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called with `placement_id=cart_cross_sell` and `context_listing_ids=[A,B]` where A and B have similar-item neighbours"
+      - "Then the response contains at most 8 items in descending score, each item is a neighbour of A or B; each candidate's score before ranking is the maximum of its similarities to A and B"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Similar listings for cart lines
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-empty-context-ends-at-global-popular
+    title: "Empty context ends at global popular"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Empty context ends at global popular"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called with `placement_id=cart_cross_sell`, an empty `context_listing_ids` and no seed"
+      - "Then the response is not an error and its items are the `global_popular` listings"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Empty context ends at global popular
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-context-over-the-limit-is-rejected-by-team-ai
+    title: "Context over the limit is rejected by team-ai"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Context over the limit is rejected by team-ai"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test calls the team-ai Recommend servicer with 51 `context_listing_ids`"
+      - "Then the call aborts with `INVALID_ARGUMENT` and no candidate lookup runs"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_recommend_servicer.py` `context over the limit is rejected`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-exactly-50-context-ids-are-served
+    title: "Exactly 50 context ids are served"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Exactly 50 context ids are served"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called through the gateway with exactly 50 `context_listing_ids`"
+      - "Then the response status is OK with at most 8 items"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Exactly 50 context ids are served
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-unknown-context-listing-is-skipped
+    title: "Unknown context listing is skipped"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Unknown context listing is skipped"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called with `context_listing_ids=[A,unknown]` and `unknown` has no vector"
+      - "Then the response is OK and every item is a neighbour of A"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Unknown context listing is skipped
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-logs-carry-the-context-count-and-no-ids
+    title: "Logs carry the context count and no ids"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Logs carry the context count and no ids"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test serves a `cart_cross_sell` request with three context ids and captures the log output"
+      - "Then the logs contain `context_count=3` and none of the three listing ids"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_recommend_servicer.py` `logs carry context_count and no ids`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-seed-category
+    title: "Seed category"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Seed category"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` reaches `category_popular` with a `seed_listing_id` in category C and earlier steps empty"
+      - "Then every returned listing belongs to category C"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Seed category
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-seed-category-wins-over-context-categories
+    title: "Seed category wins over context categories"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Seed category wins over context categories"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When `Recommend` reaches `category_popular` with a seed in category C and context listings in category D"
+      - "Then every returned listing belongs to C and none to D"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_category_popular.py` `seed category wins over context categories`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-cart-categories
+    title: "Cart categories"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Cart categories"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called with `placement_id=cart_cross_sell`, no seed, context listings in categories C1 and C2, and `cart_cross_similarity` empty"
+      - "Then every returned listing belongs to C1 or C2"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Cart categories
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-context-listing-without-category-contributes-nothing
+    title: "Context listing without category contributes nothing"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Context listing without category contributes nothing"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When `category_popular` runs with context listings A (category C1) and B (no category)"
+      - "Then every returned listing belongs to C1"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_category_popular.py` `context listing without category contributes nothing`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-no-seed-and-no-context
+    title: "No seed and no context"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: No seed and no context"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When `Recommend` reaches `category_popular` with neither a seed nor context listings"
+      - "Then the step yields no candidates and the ladder continues to `global_popular`"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_category_popular.py` `no seed and no context`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-cart-items-and-out-of-stock-excluded
+    title: "Cart items and out-of-stock excluded"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Cart items and out-of-stock excluded"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called on `cart_cross_sell` with context listings A,B and one candidate is seeded with `in_stock=false` directly in the test fixture (no producer involved)"
+      - "Then neither A, B nor the out-of-stock listing appears in the response"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Cart items and out-of-stock excluded
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-one-listing-per-seller
+    title: "One listing per seller"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: One listing per seller"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called on `cart_cross_sell` and three candidates share seller S"
+      - "Then exactly one of them, the highest scored, appears in the response"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::One listing per seller
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-toggling-a-filter-off-changes-the-output
+    title: "Toggling a filter off changes the output"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Toggling a filter off changes the output"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test filters the same candidates with `deduplicate_sellers` off"
+      - "Then all three listings of seller S are eligible"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_filter.py` `deduplicate_sellers off keeps all sellers listings`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-seed-excluded-when-enabled
+    title: "Seed excluded when enabled"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Seed excluded when enabled"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called on `similar_items` with `exclude_seed: true` and the seed is its own nearest neighbour"
+      - "Then the seed is absent from the response"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Seed excluded when enabled
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: ai.ccs-seed-eligible-when-exclude-seed-is-off
+    title: "Seed eligible when exclude_seed is off"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Seed eligible when exclude_seed is off"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test filters candidates containing the seed with `exclude_seed` off"
+      - "Then the seed is among the eligible candidates"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_filter.py` `seed eligible when exclude_seed is off`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-unknown-filter-key-fails-at-load
+    title: "Unknown filter key fails at load"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Unknown filter key fails at load"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When `placements.yaml` contains `filters: {bogus: true}`"
+      - "Then loading fails with a validation error naming the key"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_placements.py` `unknown filter key fails at load`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-hidden-and-unpublished-listings-never-appear
+    title: "Hidden and unpublished listings never appear"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Hidden and unpublished listings never appear"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test runs any placement over candidates including a listing whose `visible` payload flag is false"
+      - "Then that listing is absent from the response"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_filter.py` `hidden listings never appear`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-missing-visible-fails-closed
+    title: "Missing visible fails closed"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Missing visible fails closed"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test runs any placement over a candidate whose payload has no `visible` key"
+      - "Then that candidate is absent from the response"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_filter.py` `missing visible fails closed`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-missing-seller-id-is-not-deduplicated
+    title: "Missing seller id is not deduplicated"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Missing seller id is not deduplicated"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test filters with `deduplicate_sellers` on over two candidates that have no `seller_id` and one with `seller_id` S"
+      - "Then all three are eligible"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_filter.py` `missing seller id is not deduplicated`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-adapters-read-the-attribute-keys
+    title: "Adapters read the attribute keys"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Adapters read the attribute keys"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test parses a Qdrant hit and a Redis cache entry that carry `seller_id`, `category_id` and `visible`"
+      - "Then each yields a `Candidate` with those three values, and an entry without them yields empty `seller_id`, empty `category_id` and `visible` false"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_candidate_attributes.py` `adapters read the attribute keys`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-no-ignored-keys-remain
+    title: "No ignored keys remain"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: No ignored keys remain"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a unit test scans `placements.yaml` for the removed keys and loads it"
+      - "Then the file loads, contains none of the removed keys at any level, and declares no `home.trending` placement"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_placements.py` `no ignored keys remain`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-a-removed-key-is-rejected
+    title: "A removed key is rejected"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: A removed key is rejected"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a placement declares `timeout_ms: 35`"
+      - "Then loading fails with a validation error naming `timeout_ms`"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_placements.py` `removed key is rejected`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-a-ladder-step-with-tier-is-rejected
+    title: "A ladder step with tier is rejected"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: A ladder step with tier is rejected"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a placement's `candidate_ladder` step declares `tier: \"tier1\"`"
+      - "Then loading fails with a validation error naming `tier`"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recsys-cart-cross-sell: VERIFIED BY `team-ai/tests/unit/test_placements.py` `ladder step with tier is rejected`. Not producible end to end: a unit-level behaviour with no public-edge signal."
+
+  - id: ai.ccs-existing-placements-still-resolve
+    title: "Existing placements still resolve"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Existing placements still resolve"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `Recommend` is called with `home_feed`, `similar_items` and an undefined placement id"
+      - "Then the first two use their own ladders and the third falls back to `home_feed` with status OK"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Existing placements still resolve
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."

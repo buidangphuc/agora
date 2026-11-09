@@ -73,8 +73,8 @@ async def test_memory_backend_wires_the_whole_pipeline_over_the_given_clients() 
         "recs:v1:gen:g1:user:u1",
         json.dumps(
             [
-                {"listing_id": "cheap", "score": 0.9},
-                {"listing_id": "dear", "score": 0.8},
+                {"listing_id": "cheap", "score": 0.9, "visible": True},
+                {"listing_id": "dear", "score": 0.8, "visible": True},
             ]
         ),
     )
@@ -112,7 +112,12 @@ async def test_memory_backend_wires_the_whole_pipeline_over_the_given_clients() 
 
 async def test_without_featurestore_or_nearline_clients_ranking_still_serves() -> None:
     serving = _fake()
-    await serving.set("recs:v1:user:u1", '["a","b"]')
+    await serving.set(
+        "recs:v1:user:u1",
+        json.dumps(
+            [{"listing_id": "a", "visible": True}, {"listing_id": "b", "visible": True}]
+        ),
+    )
     service = build_recommendation_service(
         RecsSettings(),
         source=MemoryCandidateSource(),

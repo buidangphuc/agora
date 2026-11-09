@@ -6853,3 +6853,322 @@ features:
     tags: [order, q7]
     status: not-testable
     notes: "VERIFIED BY team-order `internal/rpc` TestQ7HasCompletedOrder_LogsCarryNoBuyerIDInAnyForm (task 1.1). A store fault and the log content are not producible black box."
+
+  - id: order.ols-payment-adds-the-order-quantity
+    title: "Payment adds the order quantity"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Payment adds the order quantity"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::Payment adds the order quantity
+
+  - id: order.ols-a-payment-emits-the-new-absolute-value
+    title: "A payment emits the new absolute value"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "A payment emits the new absolute value"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::A payment emits the new absolute value
+
+  - id: order.ols-cancel-from-paid-subtracts-the-order-quantity
+    title: "Cancel from PAID subtracts the order quantity"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Cancel from PAID subtracts the order quantity"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::Cancel from PAID subtracts the order quantity
+
+  - id: order.ols-refunded-return-subtracts-the-order-quantity
+    title: "Refunded return subtracts the order quantity"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Refunded return subtracts the order quantity"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::Refunded return subtracts the order quantity
+
+  - id: order.ols-cancel-before-paid-changes-nothing
+    title: "Cancel before PAID changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Cancel before PAID changes nothing"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::Cancel before PAID changes nothing
+
+  - id: order.ols-a-repeated-or-redelivered-transition-changes-nothing
+    title: "A repeated or redelivered transition changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "A repeated or redelivered transition changes nothing"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::A repeated or redelivered transition changes nothing
+
+  - id: order.ols-a-cancel-and-a-refund-of-the-same-order-subtract-once
+    title: "A cancel and a refund of the same order subtract once"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "A cancel and a refund of the same order subtract once"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::A cancel and a refund of the same order subtract once
+
+  - id: order.ols-a-multi-listing-order-emits-one-event-per-listing
+    title: "A multi-listing order emits one event per listing"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "A multi-listing order emits one event per listing"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::A multi-listing order emits one event per listing
+
+  - id: order.ols-the-payload-carries-no-personal-identifier
+    title: "The payload carries no personal identifier"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "The payload carries no personal identifier"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::The payload carries no personal identifier
+
+  - id: order.ols-a-client-cannot-set-the-sold-count
+    title: "A client cannot set the sold count"
+    persona: buyer
+    priority: P1
+    summary: "Sold count published on order.events as ListingSalesChanged (change order-listing-sales, initiative discovery-seo)."
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.CancelOrder, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "A client cannot set the sold count"
+    tags: [order, discovery-seo]
+    status: automated
+    covered_by: order/listing_sales.feature::A client cannot set the sold count
+
+  - id: order.ols-the-count-never-goes-below-0
+    title: "The count never goes below 0"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The count never goes below 0"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestListingSales_FloorsAtZeroWithSeededCount. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-a-refund-or-cancel-with-no-counted-ledger-rows-changes-nothing
+    title: "A refund or cancel with no counted ledger rows changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A refund or cancel with no counted ledger rows changes nothing"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestListingSales_NoCountedRowsChangesNothing. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-an-order-with-several-lines-of-the-same-listing-is-summed
+    title: "An order with several lines of the same listing is summed"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An order with several lines of the same listing is summed"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestListingSales_SeveralLinesOfOneListingAreSummed. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-the-event-commits-or-rolls-back-with-the-state
+    title: "The event commits or rolls back with the state"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The event commits or rolls back with the state"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestListingSales_PaidRollbackLeavesNoRows. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-backfill-events-use-a-stable-id-and-the-commit-time
+    title: "Backfill events use a stable id and the commit time"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Backfill events use a stable id and the commit time"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0023_BackfillEventIDIsStableAndUsesCommitTime. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-a-redelivered-relay-does-not-change-the-meaning
+    title: "A redelivered relay does not change the meaning"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A redelivered relay does not change the meaning"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/events TestListingSalesChanged_RelayedTwiceKeepsValueAndID. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-existing-paid-orders-are-counted
+    title: "Existing paid orders are counted"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Existing paid orders are counted"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0023_ExistingPaidOrdersAreCounted. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-orders-paid-before-paid-at-was-recorded-are-counted
+    title: "Orders paid before paid_at was recorded are counted"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Orders paid before paid_at was recorded are counted"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0023_OrdersPaidBeforePaidAtAreCounted. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-cancelled-and-refunded-orders-are-excluded
+    title: "Cancelled and refunded orders are excluded"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Cancelled and refunded orders are excluded"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0023_CancelledAndRefundedOrdersAreExcluded. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-one-event-per-listing
+    title: "One event per listing"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "One event per listing"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0023_OneEventPerListing. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-running-the-migration-body-twice-does-not-duplicate
+    title: "Running the migration body twice does not duplicate"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Running the migration body twice does not duplicate"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0023_BackfillTwiceDoesNotDuplicate. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-an-empty-database-migrates-cleanly
+    title: "An empty database migrates cleanly"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An empty database migrates cleanly"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0023_EmptyDatabase. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.ols-a-backfilled-order-cancelled-later-is-subtracted-once
+    title: "A backfilled order cancelled later is subtracted once"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-listing-sales (initiative discovery-seo)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A backfilled order cancelled later is subtracted once"
+    tags: [order, discovery-seo, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0023_BackfilledOrderCancelledLaterIsSubtractedOnce. Not producible black box: needs a seeded database, the migration body or a transaction fault."

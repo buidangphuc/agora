@@ -71,8 +71,9 @@ def seed_faceted_listings(world: World) -> None:
     seller_name = fake.unique_username("facet_seller")
     seller_token = sf.auth.register(seller_name, SETTINGS.seed_password, "seller")
     sf.set_token(seller_token)
+    listing_ids: dict[str, str] = {}
     for i, (price, category_id) in enumerate(_FACET_SEED):
-        sf.listing.create_listing(
+        listing_ids[f"phòng {i}"] = sf.listing.create_listing(
             Listing(
                 title=f"{keyword} phòng {i}",
                 category_id=category_id,
@@ -86,6 +87,7 @@ def seed_faceted_listings(world: World) -> None:
         username=seller_name, password=SETTINGS.seed_password, role="seller", token=seller_token
     )
     world.state.extra["facet_keyword"] = keyword
+    world.state.extra["facet_listing_ids"] = listing_ids
 
     # Poll the public read-model until every seeded listing is indexed (bounded).
     read_model = BaseService(token=None)
@@ -198,3 +200,90 @@ def facet_counts_update(world: World) -> None:
         low_after < low_before
     ), f"'{_LOW_BUCKET_KEY}' count did not update: before {low_before}, after {low_after}"
     world.logger.info(f"Facet counts updated: '{_LOW_BUCKET_KEY}' {low_before} -> {low_after}")
+
+
+_SOLD_SEEDED = (("phòng 5", 7), ("phòng 4", 3))
+
+
+def _facet_search(world: World) -> SearchPage:
+    return world.get_page(PageName.SEARCH)  # type: ignore[return-value]
+
+
+@given("two of the seeded listings have sold counts 7 and 3")
+def seeded_listings_with_sold_counts(world: World) -> None:
+    from tests.e2e.step_definitions.search_best_selling_rating_steps import at, send_sales, wait_hit
+    from tests.e2e.support import srm_support as s
+
+    keyword = world.state.extra["facet_keyword"]
+    c = s.ctx(world)
+    c.keyword = keyword
+    hits = s.ok_json(s.search(keyword)).get("hits", [])
+    indexed = {h["listingId"] for h in hits}
+    seeded = world.state.extra["facet_listing_ids"]
+    for suffix, sold in _SOLD_SEEDED:
+        listing_id = seeded[suffix]
+        assert listing_id in indexed, (listing_id, sorted(indexed))
+        c.listings[suffix] = s.Listed(listing_id, f"{keyword} {suffix}")
+        send_sales(world, listing_id, sold, at(1))
+    for suffix, sold in _SOLD_SEEDED:
+        wait_hit(world, suffix, soldCount=sold)
+    world.state.extra["sold_order"] = [c.listings[suffix].id for suffix, _ in _SOLD_SEEDED]
+
+
+@when(parsers.parse('the buyer selects the "{label}" sort'))
+def buyer_selects_sort(world: World, label: str) -> None:
+    search = _facet_search(world)
+    search.wait_until_interactive(search.sort_link(label))
+    search.sort_link(label).click()
+    expect(world.page).to_have_url(re.compile(r".*sort=best_selling"), timeout=timeouts.DEFAULT)
+
+
+@then("the listing sold 7 comes first and the listing sold 3 second")
+def sold_order(world: World) -> None:
+    search = _facet_search(world)
+    expected = [f"/listing/{i}" for i in world.state.extra["sold_order"]]
+    expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
+    search.page.wait_for_function(
+        "n => document.querySelectorAll('[data-testid=\"search-results\"] a[href^=\"/listing/\"]').length >= n",
+        arg=2,
+        timeout=timeouts.NAVIGATION,
+    )
+    assert search.ordered_result_hrefs()[:2] == expected, search.ordered_result_hrefs()
+    world.state.extra["sold_order_hrefs"] = search.ordered_result_hrefs()
+
+
+@then("opening the same search URL in a new tab shows the same order")
+def same_order_in_new_tab(world: World) -> None:
+    other = world.context.new_page()
+    try:
+        other.goto(world.page.url, wait_until="domcontentloaded")
+        expect(other.get_by_role("main").get_by_test_id("search-results")).to_be_visible(
+            timeout=timeouts.NAVIGATION
+        )
+        assert "sort=best_selling" in other.url, other.url
+        order = _facet_search(world).ordered_result_hrefs(other)
+        assert order[:2] == world.state.extra["sold_order_hrefs"][:2], order
+    finally:
+        other.close()
+
+
+@when("the buyer opens the search results for the seeded listings with sort=top_rated")
+def open_unknown_sort(world: World) -> None:
+    keyword = world.state.extra["facet_keyword"]
+    search = _facet_search(world)
+    search.navigate_query(keyword)
+    expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
+    world.state.extra["plain_sorted_hrefs"] = search.result_hrefs()
+    world.page.goto(f"{search.url()}?q={keyword}&sort=top_rated", wait_until="domcontentloaded")
+    world.page.wait_for_load_state("networkidle")
+
+
+@then('the page lists the same results as without a sort, with "Liên quan" active and no error')
+def unknown_sort_is_relevance(world: World) -> None:
+    search = _facet_search(world)
+    expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
+    assert search.result_hrefs() == world.state.extra["plain_sorted_hrefs"]
+    expect(search.sort_link("Liên quan")).to_have_attribute(
+        "aria-current", "page", timeout=timeouts.DEFAULT
+    )
+    expect(search.error_alert).to_have_count(0)

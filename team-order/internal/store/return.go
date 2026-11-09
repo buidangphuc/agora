@@ -96,9 +96,10 @@ type ReturnOutboxBuilder func(ret OrderReturn, currency string) (outbox.Row, err
 type ReturnRepoOption func(*returnRepoConfig)
 
 type returnRepoConfig struct {
-	refundedOutbox   ReturnOutboxBuilder
-	requestedOutbox  ReturnOutboxBuilder
-	autoApproveAfter time.Duration
+	refundedOutbox     ReturnOutboxBuilder
+	requestedOutbox    ReturnOutboxBuilder
+	listingSalesOutbox ListingSalesOutboxBuilder
+	autoApproveAfter   time.Duration
 }
 
 // WithReturnAutoApproveAfter stamps auto_approve_at = created + d on every return created.
@@ -150,16 +151,17 @@ func ReturnRemainder(requested, orderTotal, taken int64) (int64, error) {
 }
 
 type PostgresReturnRepository struct {
-	pool             *pgxpool.Pool
-	outbox           *outbox.Store
-	refundedOutbox   ReturnOutboxBuilder
-	requestedOutbox  ReturnOutboxBuilder
-	autoApproveAfter time.Duration
+	pool               *pgxpool.Pool
+	outbox             *outbox.Store
+	refundedOutbox     ReturnOutboxBuilder
+	requestedOutbox    ReturnOutboxBuilder
+	listingSalesOutbox ListingSalesOutboxBuilder
+	autoApproveAfter   time.Duration
 }
 
 func NewPostgresReturnRepository(pool *pgxpool.Pool, ob *outbox.Store, opts ...ReturnRepoOption) *PostgresReturnRepository {
 	cfg := newReturnRepoConfig(opts)
-	return &PostgresReturnRepository{pool: pool, outbox: ob, refundedOutbox: cfg.refundedOutbox, requestedOutbox: cfg.requestedOutbox, autoApproveAfter: cfg.autoApproveAfter}
+	return &PostgresReturnRepository{pool: pool, outbox: ob, refundedOutbox: cfg.refundedOutbox, requestedOutbox: cfg.requestedOutbox, listingSalesOutbox: cfg.listingSalesOutbox, autoApproveAfter: cfg.autoApproveAfter}
 }
 
 const returnColumns = `id, order_id, buyer_id, seller_id, reason, refund_amount, status, created_at, updated_at, auto_approve_at`
@@ -353,6 +355,11 @@ func (r *PostgresReturnRepository) TransitionReturn(ctx context.Context, id stri
 			return OrderReturn{}, fmt.Errorf("build return refunded outbox row: %w", err)
 		}
 		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
+			return OrderReturn{}, err
+		}
+	}
+	if from == ReturnStatusApproved && to == ReturnStatusRefunded && r.listingSalesOutbox != nil {
+		if err := reverseOrderSales(ctx, tx, r.outbox, r.listingSalesOutbox, ret.OrderID); err != nil {
 			return OrderReturn{}, err
 		}
 	}

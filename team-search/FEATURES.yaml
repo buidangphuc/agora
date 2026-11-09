@@ -336,7 +336,7 @@ features:
     acceptance:
       - "Given a listing whose search stock is 10"
       - "When a `ListingStockChanged` for that listing with stock -1 is published to `listing.events`"
-      - "Then within 60 seconds that record appears on `listing.events.dlq` and `SearchListings` still returns the listing with `stock` 10"
+      - "Then within 60 seconds that record appears on `search-indexer.listing.events.dlq` and `SearchListings` still returns the listing with `stock` 10"
     tags: [buyer, search]
     status: automated
     covered_by: "search/search_stock_read_model.feature::A malformed stock event is parked, not applied"
@@ -555,7 +555,7 @@ features:
     acceptance:
       - "Given a listing deleted through the gateway"
       - "When a valid `ListingStockChanged` with stock 5 and an `occurred_at` after the delete is published to `listing.events`"
-      - "Then after the search indexer has consumed past that event, `SearchListings` for its title with `filters[\"in_stock\"]=\"true\"` does not return it and the record is not on `listing.events.dlq`"
+      - "Then after the search indexer has consumed past that event, `SearchListings` for its title with `filters[\"in_stock\"]=\"true\"` does not return it and the record is not on `search-indexer.listing.events.dlq`"
     tags: [buyer, search]
     status: automated
     covered_by: "search/search_read_model_deletes.feature::A stock event for a deleted listing is ignored"
@@ -696,47 +696,44 @@ features:
       the integrator flips this to automated once the code is merged and the scenario is green.
 
   - id: search.srm-a-minimum-rating-search-is-rejected
-    title: "A minimum-rating search is rejected"
+    title: "A minimum-rating search is accepted"
     persona: buyer
     priority: P1
-    summary: "Change port-search-read-model-correctness, capability search-query-correctness."
+    summary: "Change search-bestseller-rating, capability search-query-correctness."
     entry_route: /search
-    services: [team-search, team-gateway, team-domain]
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
     preconditions:
       login: buyer
     api:
       exercised: [search.v1.SearchListings]
     acceptance:
-      - "When a buyer calls `SearchListings` through the gateway with `min_rating` 4, then with `min_rating` 4 and `SEARCH_MODE_SEMANTIC`"
-      - "Then both calls fail with `invalid_argument`"
+      - "Given published listings matching one keyword with `rating_avg` 4.5, 3.5, 2 and one with no review"
+      - "When a buyer calls `SearchListings` for the keyword with `min_rating` 4, then with `min_rating` 4 and `SEARCH_MODE_SEMANTIC`"
+      - "Then both calls succeed and return only the listing with `rating_avg` 4.5"
     tags: [buyer, search]
     status: automated
-    covered_by: "search/search_query_correctness.feature::A minimum-rating search is rejected"
-    notes: >-
-      Feature: search/search_query_correctness.feature::A minimum-rating search is rejected. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
-      the integrator flips this to automated once the code is merged and the scenario is green.
+    covered_by: search/search_query_correctness.feature::A minimum-rating search is accepted
+    notes: "search-bestseller-rating: search/search_query_correctness.feature::A minimum-rating search is accepted. Rewrites the earlier scenario that asserted the rejection."
 
   - id: search.srm-the-ratings-facet-is-empty
-    title: "The ratings facet is empty"
+    title: "The ratings facet counts the floors"
     persona: buyer
     priority: P1
-    summary: "Change port-search-read-model-correctness, capability search-query-correctness."
+    summary: "Change search-bestseller-rating, capability search-query-correctness."
     entry_route: /search
-    services: [team-search, team-gateway, team-domain]
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
     preconditions:
       login: buyer
     api:
       exercised: [search.v1.SearchListings]
     acceptance:
-      - "Given published listings that match a query"
-      - "When a buyer calls `SearchListings` for that query with `min_rating` 0, and runs a saved search with the same query"
-      - "Then both responses return the matching listings and an empty `facets.ratings` list, while `facets.categories` is not empty"
+      - "Given published listings matching one keyword with `rating_avg` 4.5, 3.5, 2 and one with no review"
+      - "When a buyer calls `SearchListings` for the keyword with `min_rating` 0"
+      - "Then `facets.ratings` is `[{key \"4\", count 1}, {key \"3\", count 2}]` and `facets.categories` is not empty"
     tags: [buyer, search]
     status: automated
-    covered_by: "search/search_query_correctness.feature::The ratings facet is empty"
-    notes: >-
-      Feature: search/search_query_correctness.feature::The ratings facet is empty. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
-      the integrator flips this to automated once the code is merged and the scenario is green.
+    covered_by: search/search_query_correctness.feature::The ratings facet counts the floors
+    notes: "search-bestseller-rating: search/search_query_correctness.feature::The ratings facet counts the floors. Rewrites the earlier scenario that asserted an empty ratings facet."
 
   - id: search.mls-tag-spu-tags-indexed
     title: "Listing Events Index SPU Tags"
@@ -2210,3 +2207,883 @@ features:
     tags: [ops, security]
     status: automated
     covered_by: "ops/boot_guard_search.feature::team-search refuses in-memory storage in production"
+
+  - id: search.sa-a-search-returns-a-request-id
+    title: "A search returns a request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A search returns a request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client calls `SearchListings` with query \"laptop\""
+      - "Then the response `request_id` matches `^[0-9a-f]{32}$`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A search returns a request id
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-paging-gets-a-new-request-id
+    title: "Paging gets a new request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Paging gets a new request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client calls `SearchListings` twice with the same query, once for page 1 and once with the `next_cursor` of page 1"
+      - "Then the two responses carry different `request_id` values"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::Paging gets a new request id
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-repeating-one-search-gets-a-new-request-id
+    title: "Repeating one search gets a new request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Repeating one search gets a new request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client calls `SearchListings` 1000 times with identical parameters"
+      - "Then the responses carry 1000 distinct `request_id` values"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::Repeating one search gets a new request id
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-saved-search-run-returns-a-request-id
+    title: "A saved search run returns a request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A saved search run returns a request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the owner of a saved search calls `RunSavedSearch`"
+      - "Then the response `request_id` matches `^[0-9a-f]{32}$` and differs from the `request_id` of the previous run of the same saved search"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A saved search run returns a request id
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-failed-search-returns-no-request-id
+    title: "A failed search returns no request id"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A failed search returns no request id"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the index is unavailable and `SearchListings` fails with an error status"
+      - "Then the call returns the error status and no response body"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-search `internal/rpc` handler spec tests (task 1.5): index failure returns the error status and no response body. Not producible end to end."
+
+  - id: search.sa-a-saved-search-of-another-user-is-rejected
+    title: "A saved search of another user is rejected"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A saved search of another user is rejected"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a user calls `RunSavedSearch` for a saved search owned by another user"
+      - "Then the call fails with `NOT_FOUND` and no `request_id` is returned"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A saved search of another user is rejected
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-an-anonymous-caller-can-still-search
+    title: "An anonymous caller can still search"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: An anonymous caller can still search"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a caller with no principal calls `SearchListings`"
+      - "Then the response carries a valid `request_id` and `model_version`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::An anonymous caller can still search
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-hybrid-search-reports-hybrid
+    title: "A hybrid search reports hybrid"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A hybrid search reports hybrid"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client searches with `search_mode` hybrid, a non-empty query, sort relevance and page 1, and both legs succeed"
+      - "Then `model_version` equals `hybrid@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A hybrid search reports hybrid
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-the-reranker-is-reported
+    title: "The reranker is reported"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: The reranker is reported"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When `ENABLE_RERANKER` is true and the reranker reorders the fused hits of a hybrid search"
+      - "Then `model_version` equals `hybrid+rerank@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::The reranker is reported
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-reranker-failure-is-not-reported-as-rerank
+    title: "A reranker failure is not reported as rerank"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A reranker failure is not reported as rerank"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the reranker call fails and the fused order is kept"
+      - "Then `model_version` equals `hybrid@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A reranker failure is not reported as rerank
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-fallback-page-never-carries-rerank
+    title: "A fallback page never carries rerank"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A fallback page never carries rerank"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When `ENABLE_RERANKER` is true and a hybrid search is served by the lexical leg because the semantic leg failed"
+      - "Then `model_version` equals `lexical@v1` and does not contain `+rerank`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A fallback page never carries rerank
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-lexical-request-reports-lexical
+    title: "A lexical request reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A lexical request reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client searches with `search_mode` lexical"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A lexical request reports lexical
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-semantic-fallback-reports-lexical
+    title: "Semantic fallback reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Semantic fallback reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the embedding call fails during a semantic search and `Execute` falls back to the lexical index"
+      - "Then `model_version` equals `lexical@v1`, not `semantic@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::Semantic fallback reports lexical
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-hybrid-with-a-failed-semantic-leg-reports-lexical
+    title: "Hybrid with a failed semantic leg reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Hybrid with a failed semantic leg reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the semantic leg of a hybrid search fails and the lexical results are returned"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::Hybrid with a failed semantic leg reports lexical
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-key-sort-in-hybrid-mode-reports-lexical
+    title: "A key sort in hybrid mode reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A key sort in hybrid mode reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client requests `search_mode` hybrid with `sort_by` price ascending"
+      - "Then `model_version` equals `lexical@v1`, because the lexical leg served the page"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A key sort in hybrid mode reports lexical
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-deep-paging-beyond-the-fusion-window-reports-lexical
+    title: "Deep paging beyond the fusion window reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: Deep paging beyond the fusion window reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client requests hybrid mode with an offset of at least `HYBRID_FUSION_WINDOW`"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::Deep paging beyond the fusion window reports lexical
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-an-empty-query-reports-lexical
+    title: "An empty query reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: An empty query reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client searches with an empty query and `search_mode` hybrid"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::An empty query reports lexical
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-the-unspecified-mode-resolves-to-the-mode-that-ran
+    title: "The unspecified mode resolves to the mode that ran"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: The unspecified mode resolves to the mode that ran"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When a client searches with `search_mode` unspecified, a non-empty query, hybrid enabled and the embedding client configured"
+      - "Then `model_version` equals `hybrid@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::The unspecified mode resolves to the mode that ran
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-the-ranker-version-comes-from-the-environment
+    title: "The ranker version comes from the environment"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: The ranker version comes from the environment"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When team-search starts with `SEARCH_RANKER_VERSION=v2` and a client runs a lexical search"
+      - "Then `model_version` equals `lexical@v2`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-search `internal/config` and `internal/rpc` tests (tasks 1.1, 1.5): SEARCH_RANKER_VERSION=v2 gives lexical@v2; the ranker version is read at process start, so no e2e can change it on the shared stack. Not producible end to end."
+
+  - id: search.sa-an-unset-ranker-version-defaults-to-v1
+    title: "An unset ranker version defaults to v1"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: An unset ranker version defaults to v1"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When team-search starts without `SEARCH_RANKER_VERSION`"
+      - "Then `model_version` ends with `@v1`"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::An unset ranker version defaults to v1
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-a-saved-search-run-reports-lexical
+    title: "A saved search run reports lexical"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: A saved search run reports lexical"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the owner calls `RunSavedSearch`"
+      - "Then `model_version` equals `lexical@v1`, because the run uses the lexical index search"
+    tags: [search]
+    status: automated
+    covered_by: search/search_attribution.feature::A saved search run reports lexical
+    notes: "search-attribution: search/search_attribution.feature"
+
+  - id: search.sa-the-engine-is-not-configured
+    title: "The engine is not configured"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change search-attribution: The engine is not configured"
+    entry_route: /platform.search.v1.SearchService/SearchListings
+    services: [team-gateway, team-search]
+    acceptance:
+      - "When the handler has no retrieval engine and falls back to the plain index search"
+      - "Then `model_version` equals `lexical@v1`"
+    tags: [search, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-search `internal/rpc` handler spec tests (task 1.5): a handler built without a retrieval engine reports lexical@v1; the stack always configures the engine. Not producible end to end."
+
+  # change search-bestseller-rating (specs search-bestseller-rating, search-query-correctness, search-read-model-deletes)
+
+  - id: search.sbr-a-sales-event-sets-the-sold-count-within-30-seconds
+    title: "A sales event sets the sold count within 30 seconds"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing L is indexed with `sold_count` 0"
+      - "When `ListingSalesChanged{listing_id: L, sold_count: 5}` is published to `order.events`"
+      - "Then within 30 seconds a `SearchListings` call that returns L carries `sold_count` 5 on the hit of L"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A sales event sets the sold count within 30 seconds
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A sales event sets the sold count within 30 seconds"
+
+  - id: search.sbr-a-rating-event-sets-the-average-and-the-review-count
+    title: "A rating event sets the average and the review count"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing L is indexed"
+      - "When `ListingRatingChanged{listing_id: L, average_rating: 4.5, review_count: 2}` is published to `engagement.events`"
+      - "Then within 30 seconds the hit of L carries `rating_avg` 4.5 and `review_count` 2"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A rating event sets the average and the review count
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A rating event sets the average and the review count"
+
+  - id: search.sbr-a-later-lower-sold-count-replaces-the-earlier-value
+    title: "A later lower sold count replaces the earlier value"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given L has `sold_count` 5 from an event at time T1"
+      - "When `ListingSalesChanged{sold_count: 3}` with `changed_at` T2 later than T1 is published"
+      - "Then within 30 seconds the hit of L carries `sold_count` 3"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A later lower sold count replaces the earlier value
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A later lower sold count replaces the earlier value"
+
+  - id: search.sbr-a-redelivered-or-older-event-changes-nothing
+    title: "A redelivered or older event changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given L has `sold_count` 5 from an event at T2"
+      - "When `ListingSalesChanged{sold_count: 9}` with `changed_at` T1 earlier than T2 is published, and the T2 event is delivered again"
+      - "Then the hit of L still carries `sold_count` 5 after the indexer has consumed both"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A redelivered or older event changes nothing
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A redelivered or older event changes nothing"
+
+  - id: search.sbr-values-for-a-not-yet-indexed-listing-are-merged-on-creation
+    title: "Values for a not-yet-indexed listing are merged on creation"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a listing id L that has no search document"
+      - "When `ListingSalesChanged{sold_count: 4}` and `ListingRatingChanged{average_rating: 4, review_count: 1}` for L are published, and then a `ListingChanged` CREATED for L (published) is published"
+      - "Then between the events and the creation a search for the keyword of L's future title returns no hit and the total does not count L, and within 30 seconds the hit of L carries `sold_count` 4, `rating_avg` 4 and `review_count` 1"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Values for a not-yet-indexed listing are merged on creation
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Values for a not-yet-indexed listing are merged on creation"
+
+  - id: search.sbr-a-listing-update-does-not-reset-the-projected-values
+    title: "A listing update does not reset the projected values"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given L has `sold_count` 5 and `rating_avg` 4.5"
+      - "When a `ListingChanged` UPDATED for L with a new title is published"
+      - "Then within 30 seconds the hit of L carries the new title and still `sold_count` 5 and `rating_avg` 4.5"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A listing update does not reset the projected values
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A listing update does not reset the projected values"
+
+  - id: search.sbr-a-malformed-event-is-parked-and-not-applied
+    title: "A malformed event is parked and not applied"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a `ListingSalesChanged` with `sold_count` -1 is published to `order.events` and a `ListingRatingChanged` with `average_rating` 7 is published to `engagement.events`, for a published listing L"
+      - "Then within 60 seconds the first record is on `search-indexer.order.events.dlq` and the second on `search-indexer.engagement.events.dlq`, and L's `sold_count` and `rating_avg` are unchanged"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A malformed event is parked and not applied
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A malformed event is parked and not applied"
+
+  - id: search.sbr-an-event-with-an-empty-listing-id-or-no-changed-at-is-parked
+    title: "An event with an empty listing id or no changed_at is parked"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a `ListingSalesChanged` with an empty `listing_id` and a `ListingRatingChanged` for a published listing L with no `changed_at` are published"
+      - "Then within 60 seconds both reach their `.dlq` topic and L's `rating_avg` is unchanged"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::An event with an empty listing id or no changed_at is parked
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::An event with an empty listing id or no changed_at is parked"
+
+  - id: search.sbr-an-event-not-later-than-the-delete-is-ignored
+    title: "An event not later than the delete is ignored"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given listing L was deleted from the index (tombstoned) at time T"
+      - "When `ListingSalesChanged{sold_count: 2}` and `ListingRatingChanged{average_rating: 4, review_count: 1}` for L with `changed_at` earlier than T are published"
+      - "Then L stays absent from search results, totals and facets, and a later `ListingChanged` CREATED for L with `occurred_at` after T shows `sold_count` 0 and `review_count` 0"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::An event not later than the delete is ignored
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::An event not later than the delete is ignored"
+
+  - id: search.sbr-best-selling-lists-the-highest-sold-count-first
+    title: "Best-selling lists the highest sold count first"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given published listings A, B and C matching one keyword with `sold_count` 7, 0 and 3"
+      - "When a buyer calls `SearchListings` for the keyword with `SORT_BY_BEST_SELLING`"
+      - "Then the hits are returned in the order A, C, B"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Best-selling lists the highest sold count first
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Best-selling lists the highest sold count first"
+
+  - id: search.sbr-ties-are-broken-by-creation-time-then-id
+    title: "Ties are broken by creation time then id"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given listings D, E and F, all with `sold_count` 2; D was created at 10:00:00, E and F at 10:05:00, and the id of E sorts before the id of F"
+      - "When a buyer calls `SearchListings` with `SORT_BY_BEST_SELLING`"
+      - "Then the order is E, F, D"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Ties are broken by creation time then id
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Ties are broken by creation time then id"
+
+  - id: search.sbr-best-selling-holds-in-semantic-and-hybrid-mode
+    title: "Best-selling holds in semantic and hybrid mode"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given the listings of BR-9 and a non-matching listing with a higher `sold_count`"
+      - "When a buyer calls `SearchListings` with `SORT_BY_BEST_SELLING` and `SEARCH_MODE_SEMANTIC`, then with `SEARCH_MODE_HYBRID`"
+      - "Then both calls return exactly the matching listings A, C, B, in that order, and no non-matching listing"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Best-selling holds in semantic and hybrid mode
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Best-selling holds in semantic and hybrid mode"
+
+  - id: search.sbr-best-selling-does-not-show-a-draft-to-a-stranger
+    title: "Best-selling does not show a draft to a stranger"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a draft listing with the highest `sold_count` owned by seller S"
+      - "When a buyer who is not S calls `SearchListings` with `SORT_BY_BEST_SELLING`"
+      - "Then the draft is not among the hits"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Best-selling does not show a draft to a stranger
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Best-selling does not show a draft to a stranger"
+
+  - id: search.sbr-a-minimum-rating-search-returns-only-listings-at-or-above-it
+    title: "A minimum-rating search returns only listings at or above it"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given published listings matching one keyword with `rating_avg` 4.5, 3.5, 2 and one with no review"
+      - "When a buyer calls `SearchListings` for the keyword with `min_rating` 4, then with `min_rating` 3"
+      - "Then the first call returns only the 4.5 listing and the second returns the 4.5 and 3.5 listings"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A minimum-rating search returns only listings at or above it
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A minimum-rating search returns only listings at or above it"
+
+  - id: search.sbr-a-rating-at-the-boundary-is-included
+    title: "A rating at the boundary is included"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with `rating_avg` exactly 4"
+      - "When a buyer calls `SearchListings` with `min_rating` 4"
+      - "Then the listing is among the hits"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A rating at the boundary is included
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A rating at the boundary is included"
+
+  - id: search.sbr-unreviewed-listings-are-excluded-by-any-rating-filter
+    title: "Unreviewed listings are excluded by any rating filter"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with `review_count` 0"
+      - "When a buyer calls `SearchListings` with `min_rating` 3"
+      - "Then the listing is not among the hits and is not counted in `total`"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::Unreviewed listings are excluded by any rating filter
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::Unreviewed listings are excluded by any rating filter"
+
+  - id: search.sbr-the-rating-filter-works-in-semantic-and-hybrid-mode-and-in-a-saved-search
+    title: "The rating filter works in semantic and hybrid mode and in a saved search"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given the listings of BR-13 and a saved search for the keyword with `min_rating` 4"
+      - "When a buyer calls `SearchListings` with `min_rating` 4 and `SEARCH_MODE_SEMANTIC`, then `SEARCH_MODE_HYBRID`, and runs the saved search"
+      - "Then each of the three responses returns only the 4.5 listing"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::The rating filter works in semantic and hybrid mode and in a saved search
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::The rating filter works in semantic and hybrid mode and in a saved search"
+
+  - id: search.sbr-an-out-of-range-minimum-rating-is-rejected
+    title: "An out-of-range minimum rating is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer calls `SearchListings` through the gateway with `min_rating` 6, then with `min_rating` -1"
+      - "Then both calls fail with `invalid_argument`, while `min_rating` 5 and `min_rating` 0 are accepted"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::An out-of-range minimum rating is rejected
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::An out-of-range minimum rating is rejected"
+
+  - id: search.sbr-the-ratings-facet-ignores-its-own-filter
+    title: "The ratings facet ignores its own filter"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given the listings of BR-13"
+      - "When a buyer calls `SearchListings` for the keyword with `min_rating` 4"
+      - "Then `hits` holds only the 4.5 listing and `facets.ratings` is still `[{key \"4\", count 1}, {key \"3\", count 2}]`, while `facets.categories` counts only the 4.5 listing"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::The ratings facet ignores its own filter
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::The ratings facet ignores its own filter"
+
+  - id: search.sbr-a-hit-shows-the-indexed-values
+    title: "A hit shows the indexed values"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given L has `sold_count` 5, `rating_avg` 4.5 and `review_count` 2"
+      - "When a buyer calls `SearchListings` for L's title"
+      - "Then the hit of L has `sold_count` 5, `rating_avg` 4.5 and `review_count` 2"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A hit shows the indexed values
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A hit shows the indexed values"
+
+  - id: search.sbr-a-listing-without-sales-or-reviews-shows-zeros
+    title: "A listing without sales or reviews shows zeros"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing that no event has touched, next to a listing with `sold_count` 1"
+      - "When a buyer calls `SearchListings` for its title"
+      - "Then its hit has `sold_count` 0, `rating_avg` 0 and `review_count` 0, the other hit has `sold_count` 1, and the call does not fail"
+    tags: [buyer, search]
+    status: automated
+    covered_by: search/search_best_selling_rating.feature::A listing without sales or reviews shows zeros
+    notes: "search-bestseller-rating: search/search_best_selling_rating.feature::A listing without sales or reviews shows zeros"
+
+  - id: search.sbr-an-expired-pending-document-is-purged
+    title: "An expired pending document is purged"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given the e2e stack runs the indexer with a short `TOMBSTONE_TTL` and `TOMBSTONE_PURGE_INTERVAL`, and a pending document exists for L"
+      - "When the TTL plus one purge interval has passed without a listing event for L"
+      - "Then the index holds no pending document for L, and a listing upserted before the TTL elapsed still has its `sold_count`"
+    tags: [buyer, search, destructive]
+    status: automated
+    covered_by: search/search_read_model_deletes.feature::An expired pending document is purged
+    notes: "search-bestseller-rating: search/search_read_model_deletes.feature::An expired pending document is purged. Needs the platform-e2e/compose/search-tombstones.override.yaml overlay (serial lane)."
+
+  - id: search.sbr-an-event-with-the-same-changed-at-as-the-stored-one-changes-nothing
+    title: "BR-4a An event with the same changed_at as the stored one changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given L has `rating_avg` 4.5 and `review_count` 2 from an event at T"
+      - "When a `ListingRatingChanged{average_rating: 1, review_count: 9}` with `changed_at` exactly T is published"
+      - "Then the hit of L still carries `rating_avg` 4.5 and `review_count` 2 after 30 seconds"
+    tags: [buyer, search]
+    status: not-testable
+    notes: "VERIFIED BY team-search/internal/events unit tests \"equal changed_at is a no-op\". Not verifiable end to end: the equal timestamp needs the stored changed_at to the nanosecond, which the stack does not expose."
+
+  - id: search.sbr-a-listing-recreated-after-a-delete-takes-the-pending-values
+    title: "BR-8a A listing recreated after a delete takes the pending values"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given L was deleted and tombstoned at time T"
+      - "When a newer `ListingChanged` CREATED for L arrives after `ListingSalesChanged{sold_count: 6}` and `ListingRatingChanged{average_rating: 5, review_count: 1}` for L were published with `changed_at` later than T"
+      - "Then within 30 seconds the hit of L carries `sold_count` 6, `rating_avg` 5 and `review_count` 1, as with a new listing"
+    tags: [buyer, search]
+    status: not-testable
+    notes: "VERIFIED BY team-search/internal/index integration test \"recreate after delete merges pending values\"."
+
+  - id: search.sbr-an-invalid-minimum-rating-fails-a-saved-search-run
+    title: "BR-18b An invalid minimum rating fails a saved-search run"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-bestseller-rating."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a saved search whose stored `min_rating` is 7"
+      - "When a buyer runs it with `RunSavedSearch`"
+      - "Then the call fails with `invalid_argument` and no retrieval runs"
+    tags: [buyer, search]
+    status: not-testable
+    notes: "VERIFIED BY team-search/internal/rpc unit test \"RunSavedSearch rejects an out-of-range stored min_rating\". Not verifiable end to end: SaveSearch validation is not specified to reject the value, and a stored value of 7 cannot be created through the gateway."
+
+  - id: search.sbr-a-pending-document-never-shows-in-search
+    title: "A pending document never shows in search"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a listing id L with no listing document"
+      - "When `ListingSalesChanged{sold_count: 3}` for L is published and a buyer searches for a keyword in L's future title"
+      - "Then no hit is returned for L, `total` and every facet bucket count exclude L, and a stock event for L still creates no listing document"
+    tags: [buyer, search]
+    status: not-testable
+    notes: "VERIFIED BY team-search/internal/index integration test \"pending doc is invisible\"; the e2e scenario \"Values for a not-yet-indexed listing are merged on creation\" in search/search_best_selling_rating.feature also asserts the absence from hits and total."
+
+  - id: search.sbr-a-listing-document-is-never-purged-as-pending
+    title: "A listing document is never purged as pending"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with projected `sold_count` older than `TOMBSTONE_TTL`"
+      - "When the sweep runs"
+      - "Then the listing is still returned by `SearchListings` with its `sold_count`"
+    tags: [buyer, search]
+    status: not-testable
+    notes: "VERIFIED BY team-search/internal/index integration test \"purge keeps live documents with projected values\"; the e2e scenario \"An expired pending document is purged\" also asserts a listing upserted before the TTL keeps its sold_count."
+
+  - id: search.sbr-pending-values-on-an-expired-tombstone-go-with-it
+    title: "Pending values on an expired tombstone go with it"
+    persona: buyer
+    priority: P1
+    summary: "Change search-bestseller-rating, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-order, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given the e2e stack runs the indexer with a short `TOMBSTONE_TTL` and `TOMBSTONE_PURGE_INTERVAL`, listing L is tombstoned, and a `ListingSalesChanged` for L with `changed_at` later than the delete is held as pending on the tombstone"
+      - "When the TTL plus one purge interval has passed and then a `ListingChanged` CREATED for L is published"
+      - "Then the hit of L carries `sold_count` 0, because the pending values were purged with the tombstone"
+    tags: [buyer, search]
+    status: not-testable
+    notes: "VERIFIED BY team-search/internal/index integration test \"pending values on an expired tombstone go with it\"."

@@ -41,12 +41,12 @@ copied from the manifest (`sha256` is the manifest's `file_sha256`), and the run
 
 | Store | Name | Content |
 |---|---|---|
-| Qdrant | `item_als_vectors__<model_version>` | One generation's L2-normalised item factors, cosine, dim = `ALS_RANK`. Payload `listing_id`, `model_version`, `updated_at`. Created fresh by each publish. |
+| Qdrant | `item_als_vectors__<model_version>` | One generation's L2-normalised item factors, cosine, dim = `ALS_RANK`. Payload `listing_id`, `model_version`, `updated_at` plus, when the `item_attributes@v2` snapshot knows them, `seller_id`, `category_id` and `visible` (`status == LISTING_STATUS_PUBLISHED`; an unknown attribute is absent, a value over 128 characters counts as unknown). The two-tower item collection carries the same. User points carry none. Created fresh by each publish. |
 | Qdrant | `user_als_vectors__<model_version>` | Same for users; payload `user_key`. |
 | Qdrant | alias `QDRANT_ITEM_COLLECTION` (`item_als_vectors`) | Alias, not a collection: points at the serving generation's item collection. Deprecated compatibility shim (serving-switch-atomicity): team-ai names `<alias>__<recs:v1:serving>` itself, so one pointer decides Redis and Qdrant; the alias is only for readers that predate that and for a deployment with no pointer yet. |
 | Qdrant | alias `QDRANT_USER_COLLECTION` (`user_als_vectors`) | Same for users. |
 | Qdrant | `item_two_tower_vectors__<model_version>` (`QDRANT_TWO_TOWER_COLLECTION` + `__` + generation) | Only when `ENABLE_TWO_TOWER=true`: L2-normalised item vectors, dim `TWO_TOWER_DIM`, written with the generation before the switch, retired with it, no alias (name it from `recs:v1:serving`). Needs the `item_popularity@v1` and `user_activity@v2` featurestore snapshots under `/features` (else exit 2). Also reads `item_attributes@v1` (category, price; attribute-only listings join the catalogue) and `user_preferences@v1` (preferred categories) when present; `TWO_TOWER_REQUIRE_ATTRIBUTES=true` makes a missing item snapshot exit 2. |
-| Redis | `recs:v1:gen:<model_version>:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N` |
+| Redis | `recs:v1:gen:<model_version>:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N`; each entry also carries the `seller_id` / `category_id` / `visible` it has in the `item_attributes@v2` snapshot (same for the item, popular and legacy `recs:v1:*` entries) |
 | Redis | `recs:v1:gen:<model_version>:item:{listing_id}` | Similar items, same shape |
 | Redis | `recs:v1:gen:<model_version>:popular` | Popularity fallback (summed weight), same shape |
 | Redis | `recs:v1:gen:<model_version>:ranker` | Only when `ENABLE_GBDT=true` and the GBDT candidate was promoted: the trained ranker as JSON (`agora-gbdt/1`: feature list, defaults, trees, learning rate, metrics), written before the switch, TTL-refreshed and retired with its generation. A rejected candidate leaves the generation without one. Format and loader contract: change `recsys-gbdt-trainer` design D7. |
@@ -147,6 +147,8 @@ A crash before step 2 leaves serving as it was. The first publish on a deploymen
 `item_als_vectors` / `user_als_vectors` collections copies them to `<name>__legacy`, deletes them and
 lets the aliases take the names; retention drops `__legacy` after the first switch.
 
+**Candidate attributes**: a publish reads the latest `as_of=<stamp>.parquet` under `ITEM_ATTRIBUTES_V2_DIR` (default `/features/item_attributes/v2`; `ITEM_ATTRIBUTES_V2_PATH` names one file and wins) and writes `seller_id`, `category_id` and `visible` into the item points and the Redis entries. A missing or corrupt snapshot is logged as `attributes=missing` and the publish continues with the old shape; a snapshot older than 24 hours is used with one warning naming its `as_of`. `in_stock` is never written. `python -m recsys backfill-attributes` patches the serving and previous generations in place (Qdrant `set_payload` in batches of 256, Redis entries rewritten with their remaining TTL, legacy keys included): exit 0, 2 with nothing written when the snapshot is missing or corrupt, 1 when Redis or Qdrant fails; no serving generation is exit 0 with no writes.
+
 **Rollback** (registry first): `python -m recsys rollback` checks its preconditions before moving anything
 (a previous generation with Redis keys and Qdrant collections, a `previous` registry version with an artifact for every
 model both generations carry, and `serving` and the registry in step). It then swaps `champion` and `previous` in the
@@ -192,6 +194,7 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 | Outputs | `TOP_N` (50), `QDRANT_URL` (http://localhost:6333), `QDRANT_ITEM_COLLECTION`, `QDRANT_USER_COLLECTION`, `REDIS_HOST` (localhost), `REDIS_PORT` (6379), `REDIS_PASSWORD` (empty), `REDIS_DATABASE` (0), `RECS_CACHE_PREFIX` (recs), `RECS_SCHEMA_VERSION` (v1), `RECS_CACHE_TTL_SECONDS` (172800) |
 | Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32), `ITEM_FEATURES_DIR` (/features/item_popularity/v1), `ITEM_FEATURES_PATH`, `USER_FEATURES_DIR` (/features/user_activity/v2), `USER_FEATURES_PATH`, `ITEM_ATTRIBUTES_DIR` (/features/item_attributes/v1), `ITEM_ATTRIBUTES_PATH`, `USER_PREFERENCES_DIR` (/features/user_preferences/v1), `USER_PREFERENCES_PATH`, `TWO_TOWER_REQUIRE_ATTRIBUTES` (false), `TWO_TOWER_MAX_CATEGORIES` (64), `TWO_TOWER_EPOCHS` (5), `TWO_TOWER_LR` (0.05), `TWO_TOWER_BATCH_SIZE` (256), `TWO_TOWER_TEMPERATURE` (0.1), `TWO_TOWER_MAX_PAIRS` (200000), `TWO_TOWER_HOLDOUT_FRACTION` (0.1; latest share of pairs the gate evaluates on) |
 | GBDT ranker | `ENABLE_GBDT` (false), `RANK_DATASET_DIR` (/features/datasets/rank_training/v1), `RANK_DATASET_PATH`, `GBDT_TREES` (40), `GBDT_MAX_DEPTH` (3), `GBDT_LEARNING_RATE` (0.1), `GBDT_MIN_LEAF` (10), `GBDT_HOLDOUT_FRACTION` (0.2), `GBDT_MAX_LIST` (30), `GBDT_MAX_LISTS` (50000), `GBDT_CTR_MIN_IMPRESSIONS` (3), `GBDT_ROWS_PATH` (empty). Features: every `as_of` snapshot under `ITEM_FEATURES_DIR` and `ITEM_ATTRIBUTES_DIR` |
+| Candidate attributes | `ITEM_ATTRIBUTES_V2_DIR` (/features/item_attributes/v2), `ITEM_ATTRIBUTES_V2_PATH` (empty; an explicit file, overrides the dir) |
 | Nearline | `KAFKA_BROKERS` (localhost:19092), `KAFKA_ANALYTICS_TOPIC` (analytics.events), `NEARLINE_CONSUMER_GROUP` (platform-recsys-nearline), `NEARLINE_START_OFFSET` (latest), `NEARLINE_TTL_SECONDS` (86400), `NEARLINE_IDLE_EXIT_SECONDS` (0 = run until stopped) |
 | Drift | `DRIFT_ALERT_THRESHOLD` (0.25), `DRIFT_METRICS_PATH` (empty: no Prometheus file) |
 | Gate | `MODEL_VERSION` (empty). Promotion thresholds are not env vars: they live in py-modelregistry `policies.yaml` |
@@ -253,7 +256,7 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 
 ## 8. Spec and verification
 
-- `FEATURES.yaml` has 143 entries: 56 `automated` (each with a `covered_by` e2e scenario) and 87 `not-testable`.
+- `FEATURES.yaml` has 172 entries: 58 `automated` (each with a `covered_by` e2e scenario) and 114 `not-testable`.
 - Coverage is verified from the workspace root with `make -C platform-e2e features-check` and, for a
   change, `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec in the root `openspec/changes/<id>` (this repo has no `openspec/` of its

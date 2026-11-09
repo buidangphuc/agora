@@ -17,7 +17,7 @@ headers. The root SHALL NOT set `openGraph`, `alternates` or `robots`. A page ti
 #### Scenario: SEO-2 The home page uses the default title and description
 
 - **WHEN** an anonymous visitor fetches `/`
-- **THEN** the response `<title>` is `Agora | Sàn thương mại điện tử`, `<meta name="description">` is non-empty Vietnamese text, and `link rel=canonical` is `<NEXT_PUBLIC_SITE_URL>/`
+- **THEN** the response `<title>` is `Agora | Sàn thương mại điện tử`, `<meta name="description">` is non-empty Vietnamese text, and `link rel=canonical` is `<NEXT_PUBLIC_SITE_URL>` with no trailing slash
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seo.feature` `SEO-2 The home page uses the default title and description`
 
 #### Scenario: SEO-3 A forged Host header does not change the canonical origin
@@ -176,7 +176,7 @@ a canonical link, whether or not the visitor is logged in. `login` SHALL keep `r
 
 #### Scenario: SEO-16 An anonymous crawler gets noindex on the private pages that render
 
-- **WHEN** an anonymous crawler fetches `/login`, `/register` and `/dev/ui`, the private URLs that render HTML without a session
+- **WHEN** an anonymous crawler fetches `/login` and `/register`, the private URLs that render HTML without a session
 - **THEN** each response contains `<meta name="robots" content="noindex, nofollow">` and no `og:*` tag
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seo.feature` `SEO-16 An anonymous crawler gets noindex on the private pages that render`
 

@@ -111,6 +111,9 @@ func (r *PostgresReviewRepository) CreateReview(ctx context.Context, review Revi
 	const q = `INSERT INTO reviews (id, listing_id, user_id, user_name, order_id, rating, comment, media_urls, helpful_count, verified_purchase, seller_id, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		if err := lockListingRating(ctx, tx, review.ListingID); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(ctx, q, review.ID, review.ListingID, review.UserID, review.UserName, review.OrderID,
 			review.Rating, review.Comment, review.MediaURLs, review.HelpfulCount, review.VerifiedPurchase,
 			review.SellerID, review.CreatedAt); err != nil {
@@ -130,10 +133,13 @@ func (r *PostgresReviewRepository) CreateReview(ctx context.Context, review Revi
 				return fmt.Errorf("lookup listing seller: %w", err)
 			}
 		}
-		return enqueueFact(ctx, r.outbox, tx, "Listing", review.ListingID, &engagementv1.ReviewCreated{
+		if err := enqueueFact(ctx, r.outbox, tx, "Listing", review.ListingID, &engagementv1.ReviewCreated{
 			ReviewId: review.ID, UserId: review.UserID, ListingId: review.ListingID,
 			SellerId: sellerID, Rating: review.Rating,
-		})
+		}); err != nil {
+			return err
+		}
+		return r.enqueueRatingChanged(ctx, tx, review.ListingID)
 	})
 	if err != nil {
 		return Review{}, err
@@ -205,8 +211,12 @@ func aggregateRows(rows pgx.Rows) (float64, int64, RatingBreakdown, error) {
 	return avg, totalReviews, breakdown, rows.Err()
 }
 
-func (r *PostgresReviewRepository) GetRatingSummary(ctx context.Context, listingID string) (RatingSummary, error) {
-	rows, err := r.pool.Query(ctx, `SELECT rating, COUNT(*) FROM reviews WHERE listing_id = $1 AND verified_purchase AND hidden_at IS NULL GROUP BY rating`, listingID)
+type ratingQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+func listingRatingSummary(ctx context.Context, q ratingQuerier, listingID string) (RatingSummary, error) {
+	rows, err := q.Query(ctx, `SELECT rating, COUNT(*) FROM reviews WHERE listing_id = $1 AND verified_purchase AND hidden_at IS NULL GROUP BY rating`, listingID)
 	if err != nil {
 		return RatingSummary{ListingID: listingID}, fmt.Errorf("query rating summary: %w", err)
 	}
@@ -215,6 +225,28 @@ func (r *PostgresReviewRepository) GetRatingSummary(ctx context.Context, listing
 		return RatingSummary{ListingID: listingID}, err
 	}
 	return RatingSummary{ListingID: listingID, AverageRating: avg, ReviewCount: total, Breakdown: breakdown}, nil
+}
+
+func (r *PostgresReviewRepository) GetRatingSummary(ctx context.Context, listingID string) (RatingSummary, error) {
+	return listingRatingSummary(ctx, r.pool, listingID)
+}
+
+func (r *PostgresReviewRepository) enqueueRatingChanged(ctx context.Context, tx pgx.Tx, listingID string) error {
+	sum, err := listingRatingSummary(ctx, tx, listingID)
+	if err != nil {
+		return err
+	}
+	return enqueuePrincipalessFact(ctx, r.outbox, tx, "Listing", listingID, &engagementv1.ListingRatingChanged{
+		ListingId: listingID, AverageRating: sum.AverageRating, ReviewCount: sum.ReviewCount,
+		ChangedAt: timestamppb.Now(),
+	})
+}
+
+func lockListingRating(ctx context.Context, tx pgx.Tx, listingID string) error {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, listingID); err != nil {
+		return fmt.Errorf("lock listing rating: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresReviewRepository) GetShopRatingSummary(ctx context.Context, sellerID string) (ShopRatingSummary, error) {
@@ -276,15 +308,25 @@ func (r *PostgresReviewRepository) HideReview(ctx context.Context, id, adminID, 
 	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		var listingID string
 		var hiddenAt time.Time
-		err := tx.QueryRow(ctx,
+		err := tx.QueryRow(ctx, `SELECT listing_id FROM reviews WHERE id = $1`, id).Scan(&listingID)
+		if err == nil {
+			err = lockListingRating(ctx, tx, listingID)
+		}
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("hide review: %w", err)
+		}
+		err = tx.QueryRow(ctx,
 			`UPDATE reviews SET hidden_at = now(), hidden_by = $2, hide_reason = $3 WHERE id = $1 AND hidden_at IS NULL RETURNING listing_id, hidden_at`,
 			id, adminID, reason).Scan(&listingID, &hiddenAt)
 		if err == nil {
 			changed = true
 			// Moderator identity and reason stay out of the fact.
-			return enqueueFact(ctx, r.outbox, tx, "Listing", listingID, &engagementv1.ReviewHidden{
+			if err := enqueueFact(ctx, r.outbox, tx, "Listing", listingID, &engagementv1.ReviewHidden{
 				ReviewId: id, ListingId: listingID, HiddenAt: timestamppb.New(hiddenAt),
-			})
+			}); err != nil {
+				return err
+			}
+			return r.enqueueRatingChanged(ctx, tx, listingID)
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("hide review: %w", err)

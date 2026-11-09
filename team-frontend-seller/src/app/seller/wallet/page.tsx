@@ -25,7 +25,7 @@ import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Ví người bán | Kênh người bán" };
+export const metadata = { title: "Ví người bán" };
 
 const LEDGER_PAGE_SIZE = 20;
 

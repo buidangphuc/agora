@@ -15,6 +15,9 @@ class _Entry(BaseModel):
     listing_id: str
     score: float | None = None
     in_stock: bool = True
+    seller_id: str = ""
+    category_id: str = ""
+    visible: bool = False
 
 
 # A list value is either an array of listing ids or an array of ``{"listing_id", "score"}``.
@@ -111,12 +114,19 @@ def _candidates(entries: list[str | _Entry]) -> list[Candidate]:
         fallback_score = float(len(entries) - position)
         if isinstance(entry, str):
             if entry:
-                out.append(Candidate(listing_id=entry, score=fallback_score))
+                out.append(
+                    Candidate(listing_id=entry, score=fallback_score, visible=False)
+                )
         elif entry.listing_id:
             score = fallback_score if entry.score is None else entry.score
             out.append(
                 Candidate(
-                    listing_id=entry.listing_id, score=score, in_stock=entry.in_stock
+                    listing_id=entry.listing_id,
+                    score=score,
+                    in_stock=entry.in_stock,
+                    seller_id=entry.seller_id,
+                    category_id=entry.category_id,
+                    visible=entry.visible,
                 )
             )
     return out

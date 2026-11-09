@@ -1,7 +1,11 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from app.modules.business.recommendation.ranking.filter import eligible
+from app.modules.business.recommendation.placements import Filters
+from app.modules.business.recommendation.ranking.filter import (
+    LEGACY_FILTERS,
+    eligible,
+)
 from app.modules.business.recommendation.ranking.rows import item_feature, popularity
 from app.modules.business.recommendation.schemas import Candidate, RecommendedItem
 
@@ -23,11 +27,18 @@ def _ranked(scored: list[tuple[Candidate, float]], limit: int) -> list[Recommend
 
 
 def rank_by_similarity(
-    candidates: Iterable[Candidate], seed_listing_id: str, limit: int
+    candidates: Iterable[Candidate],
+    seed_listing_id: str,
+    limit: int,
+    *,
+    filters: Filters = LEGACY_FILTERS,
+    cart_listing_ids: Sequence[str] = (),
 ) -> list[RecommendedItem]:
     """Retrieval score order; ``limit <= 0`` keeps everything."""
     ordered = sorted(
-        eligible(candidates, seed_listing_id), key=lambda c: c.score, reverse=True
+        eligible(candidates, seed_listing_id, cart_listing_ids, filters=filters),
+        key=lambda c: c.score,
+        reverse=True,
     )
     return _ranked([(cand, cand.score) for cand in ordered], limit)
 
@@ -38,13 +49,18 @@ def rank_by_fixed_weights(
     features: Mapping[str, dict[str, Any]],
     nearline: Mapping[str, float],
     limit: int,
+    *,
+    filters: Filters = LEGACY_FILTERS,
+    cart_listing_ids: Sequence[str] = (),
 ) -> list[RecommendedItem]:
     """Retrieval similarity, item popularity and CTR under fixed weights.
 
     A positive nearline (position-debiased) CTR replaces the item's prior ``ctr_7d``.
     """
     scored: list[tuple[Candidate, float]] = []
-    for cand in eligible(candidates, seed_listing_id):
+    for cand in eligible(
+        candidates, seed_listing_id, cart_listing_ids, filters=filters
+    ):
         row = features.get(cand.listing_id, {})
         ctr = item_feature(row, "ctr_7d")[0]
         nearline_ctr = nearline.get(cand.listing_id, 0.0)

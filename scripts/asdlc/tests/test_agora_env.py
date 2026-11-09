@@ -85,7 +85,8 @@ def test_override_remaps_ports_redpanda_and_localhost_env():
     with_fe = {**SERVICES, "team-frontend": {"image": "team-frontend:local", "ports": [{"published": "3000", "target": 3000}]}}
     ov_fe = ae.make_override("q7", with_fe, [], ae.port_map(with_fe, 0))["services"]
     assert ov_fe["team-gateway"]["environment"] == {"CORS_ORIGINS": "http://localhost:33000"}
-    assert any("external://localhost:49092" in c for c in ov["redpanda"]["command"])
+    assert any("external://127.0.0.1:49092" in c for c in ov["redpanda"]["command"])
+    assert not any("external://localhost" in c for c in ov["redpanda"]["command"])
     dumped = yaml.dump(ae.make_override("q7", SERVICES, [], pm))
     assert "!override" in dumped
 
@@ -120,3 +121,30 @@ def test_main_build_passes_frontend_build_args(monkeypatch):
     assert "NEXT_PUBLIC_GTM_ID=GTM-E2E0001" in fe
     assert "NEXT_PUBLIC_GATEWAY_URL=http://localhost:8080" in fe
     assert next(c for c in calls if c[-1] == "team-sharing") == ("build", "team-sharing")
+
+
+def test_frontend_build_args_carry_the_site_url():
+    assert ae.frontend_args("team-frontend", {3000: 33000})["NEXT_PUBLIC_SITE_URL"] == "http://localhost:33000"
+    assert ae.frontend_args("team-frontend", {})["NEXT_PUBLIC_SITE_URL"] == "http://localhost:3000"
+
+
+def _exports(monkeypatch, tmp_path, env, ports):
+    monkeypatch.setattr(ae, "config", lambda src, overlays: SERVICES)
+    monkeypatch.setattr(ae, "state_dir", lambda e: tmp_path / e)
+    st = {"env": env, "project": env, "src": str(tmp_path), "ports": ports, "owners": []}
+    return ae.e2e_exports(st)
+
+
+def test_feature_env_exports_ipv4_kafka_app_urls_and_redis_port(monkeypatch, tmp_path):
+    ports = {"19092": 49092, "3000": 33000, "3001": 33001, "3002": 33002, "6379": 36379, "8080": 38080}
+    e = _exports(monkeypatch, tmp_path, "q7", ports)
+    assert e["KAFKA_BROKERS"] == "127.0.0.1:49092"
+    assert e["SELLER_BASE_URL"] == "http://localhost:33001"
+    assert e["ADMIN_BASE_URL"] == "http://localhost:33002"
+    assert e["FSM_REDIS_PORT"] == "36379"
+
+
+def test_main_env_keeps_default_redis_port_for_fsm(monkeypatch, tmp_path):
+    e = _exports(monkeypatch, tmp_path, ae.MAIN, {})
+    assert "FSM_REDIS_PORT" not in e
+    assert e["ADMIN_BASE_URL"] == "http://localhost:3002"

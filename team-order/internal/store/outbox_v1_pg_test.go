@@ -24,7 +24,7 @@ import (
 
 const (
 	migrationsDir = "../../migrations"
-	lastMigration = 22
+	lastMigration = 23
 	orderTopic    = "order.events"
 )
 

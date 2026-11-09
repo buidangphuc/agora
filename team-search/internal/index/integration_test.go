@@ -131,10 +131,16 @@ func mustSource(t *testing.T, url, name, id string) map[string]any {
 }
 
 var srmFields = map[string]string{
-	"stock":         "integer",
-	"stock_version": "long",
-	"created_at":    "date",
-	"tombstoned_at": "date",
+	"stock":          "integer",
+	"stock_version":  "long",
+	"created_at":     "date",
+	"tombstoned_at":  "date",
+	"sold_count":     "long",
+	"rating_avg":     "double",
+	"review_count":   "long",
+	"sales_version":  "long",
+	"rating_version": "long",
+	"pending_at":     "date",
 }
 
 func TestIT_EnsureIndex_FreshCreateHasReadModelFields(t *testing.T) {

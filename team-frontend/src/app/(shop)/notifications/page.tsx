@@ -16,7 +16,7 @@ import { getPrincipal } from "@/lib/gateway/session";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Trung Tâm Thông Báo | Sàn Thương Mại Điện Tử",
+  title: "Trung Tâm Thông Báo",
   description:
     "Cập nhật trạng thái đơn hàng, ưu đãi khuyến mãi Flash Sale và tin nhắn hệ thống.",
 };

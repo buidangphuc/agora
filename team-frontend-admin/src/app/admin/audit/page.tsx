@@ -12,7 +12,7 @@ import { queryAuditLog } from "@/lib/gateway/audit";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
-  title: "Nhật ký kiểm toán | Sàn Thương Mại Điện Tử",
+  title: "Nhật ký kiểm toán",
   description:
     "Tra cứu các thao tác quản trị: ai đã làm gì, lên đối tượng nào, vào lúc nào.",
   referrer: "no-referrer",

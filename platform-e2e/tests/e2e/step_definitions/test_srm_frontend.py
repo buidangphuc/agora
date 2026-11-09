@@ -3,6 +3,7 @@
 from pytest_bdd import scenarios
 
 from tests.e2e.step_definitions.discovery_steps import *  # noqa: F401,F403
+from tests.e2e.step_definitions.search_best_selling_rating_steps import *  # noqa: F401,F403
 from tests.e2e.step_definitions.search_sort_steps import *  # noqa: F401,F403
 from tests.e2e.step_definitions.srm_frontend_steps import *  # noqa: F401,F403
 

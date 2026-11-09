@@ -45,3 +45,8 @@ user ids and no new cookie, storage or beacon field is added. Consent basis and 
   the frontend only accepts 3 or 4 and the known sort keys, otherwise ignores them, so the gateway never receives an
   out-of-range `min_rating` and the page never errors.
 - Authz: `/search` is public; no permission rule applies.
+
+## Clarifications
+
+- The active sort link carries `aria-current="page"` (converge, 2026-11-08).
+- The rating facet buckets are keyed `"4"` and `"3"` (`search.proto:106`); the frontend maps those keys.

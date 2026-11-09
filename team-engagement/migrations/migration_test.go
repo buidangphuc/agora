@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
+	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	eventsv1 "github.com/buidangphuc/team-engagement/generated/platform/events/v1"
 	"github.com/buidangphuc/team-engagement/migrations"
 
@@ -538,5 +539,339 @@ func TestEmbeddedFSHoldsMigration0014(t *testing.T) {
 	}
 	if _, err := fs.ReadFile(migrations.FS, "0001_engagement.up.sql"); err != nil {
 		t.Errorf("embedded FS misses 0001: %v", err)
+	}
+}
+
+const (
+	up15File         = "0015_listing_rating_backfill.up.sql"
+	down15File       = "0015_listing_rating_backfill.down.sql"
+	ratingEventType  = "platform.engagement.v1.ListingRatingChanged"
+	backfillIDSQL    = `md5('listing-rating-backfill:' || $1::text)::uuid::text`
+	backfillReviewer = "reviewer-secret-77"
+)
+
+func setup14(t *testing.T) env {
+	t.Helper()
+	ctx := context.Background()
+	url := testkit.Schema(t, testkit.SharedPostgres(t))
+	if err := migrate.Up(ctx, url, upTo(t, 14)); err != nil {
+		t.Fatalf("migrate up to 0014: %v", err)
+	}
+	pool, err := postgres.Open(ctx, config.Postgres{URL: url, MaxConns: 4})
+	if err != nil {
+		t.Fatalf("open pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return env{url: url, pool: pool}
+}
+
+func (e env) runFile(t *testing.T, name string) {
+	t.Helper()
+	body, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatalf("read %s: %v", name, err)
+	}
+	if _, err := e.pool.Exec(context.Background(), string(body)); err != nil {
+		t.Fatalf("run %s: %v", name, err)
+	}
+}
+
+type review struct {
+	id       string
+	listing  string
+	rating   int
+	verified bool
+	hidden   bool
+}
+
+func (e env) seedReviews(t *testing.T, rows ...review) {
+	t.Helper()
+	for _, r := range rows {
+		var hidden any
+		if r.hidden {
+			hidden = at(1)
+		}
+		_, err := e.pool.Exec(context.Background(), `
+INSERT INTO reviews (id, listing_id, user_id, order_id, rating, verified_purchase, hidden_at, comment)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'rất tốt')`,
+			r.id, r.listing, backfillReviewer, "order-"+r.id, r.rating, r.verified, hidden)
+		if err != nil {
+			t.Fatalf("seed review %s: %v", r.id, err)
+		}
+	}
+}
+
+type ratingRow struct {
+	row     copied
+	env     *eventsv1.EventEnvelope
+	payload *engagementv1.ListingRatingChanged
+}
+
+func (e env) ratingRows(t *testing.T) map[string]ratingRow {
+	t.Helper()
+	rows, err := e.pool.Query(context.Background(), `
+SELECT event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, seq, available_at
+FROM `+newTable+` WHERE event_type = $1 ORDER BY seq`, ratingEventType)
+	if err != nil {
+		t.Fatalf("select rating rows: %v", err)
+	}
+	defer rows.Close()
+	out := map[string]ratingRow{}
+	for rows.Next() {
+		var c copied
+		if err := rows.Scan(&c.eventID, &c.aggregateType, &c.aggregateID, &c.eventType, &c.payload, &c.requestID, &c.status, &c.attempts, &c.seq, &c.availableAt); err != nil {
+			t.Fatalf("scan rating row: %v", err)
+		}
+		if _, dup := out[c.aggregateID]; dup {
+			t.Errorf("listing %s has more than one rating row", c.aggregateID)
+		}
+		rr := ratingRow{row: c, env: &eventsv1.EventEnvelope{}, payload: &engagementv1.ListingRatingChanged{}}
+		if err := proto.Unmarshal(c.payload, rr.env); err != nil {
+			t.Fatalf("listing %s: outbox payload is not an EventEnvelope: %v", c.aggregateID, err)
+		}
+		if err := proto.Unmarshal(rr.env.GetPayload(), rr.payload); err != nil {
+			t.Fatalf("listing %s: envelope payload is not a ListingRatingChanged: %v", c.aggregateID, err)
+		}
+		out[c.aggregateID] = rr
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate rating rows: %v", err)
+	}
+	return out
+}
+
+func (e env) backfillID(t *testing.T, listing string) string {
+	t.Helper()
+	var id string
+	if err := e.pool.QueryRow(context.Background(), `SELECT `+backfillIDSQL, listing).Scan(&id); err != nil {
+		t.Fatalf("backfill id: %v", err)
+	}
+	return id
+}
+
+func TestMigration0015BackfillsRatingPerReviewedListing(t *testing.T) {
+	e := setup14(t)
+	e.seedReviews(t,
+		review{id: "a1", listing: "LA", rating: 5, verified: true},
+		review{id: "a2", listing: "LA", rating: 3, verified: true},
+		review{id: "b1", listing: "LB", rating: 4, verified: true, hidden: true},
+		review{id: "d1", listing: "LD", rating: 2, verified: false},
+	)
+	e.runFile(t, up15File)
+
+	got := e.ratingRows(t)
+	want := map[string]struct {
+		count int64
+		avg   float64
+	}{"LA": {2, 4.0}, "LB": {0, 0}, "LD": {0, 0}}
+	if len(got) != len(want) {
+		t.Fatalf("Each reviewed listing gets one backfill event: %d rating rows, want %d (LC has no reviews and must get none)", len(got), len(want))
+	}
+	if _, ok := got["LC"]; ok {
+		t.Errorf("listing without reviews got a backfill event")
+	}
+	for listing, w := range want {
+		r, ok := got[listing]
+		if !ok {
+			t.Errorf("listing %s has no backfill event", listing)
+			continue
+		}
+		if r.row.status != "pending" || r.row.attempts != 0 {
+			t.Errorf("listing %s status/attempts = %s/%d, want pending/0", listing, r.row.status, r.row.attempts)
+		}
+		if r.row.aggregateType != "Listing" {
+			t.Errorf("listing %s aggregate type = %s, want Listing", listing, r.row.aggregateType)
+		}
+		if r.row.eventID != e.backfillID(t, listing) {
+			t.Errorf("listing %s event id = %s, want deterministic %s", listing, r.row.eventID, e.backfillID(t, listing))
+		}
+		if r.env.GetEventId() != r.row.eventID {
+			t.Errorf("listing %s envelope event id = %q, want %q", listing, r.env.GetEventId(), r.row.eventID)
+		}
+		if r.env.GetType() != ratingEventType {
+			t.Errorf("listing %s envelope type = %q, want %q", listing, r.env.GetType(), ratingEventType)
+		}
+		if r.payload.GetListingId() != listing {
+			t.Errorf("listing %s payload listing id = %q", listing, r.payload.GetListingId())
+		}
+		if r.payload.GetReviewCount() != w.count || r.payload.GetAverageRating() != w.avg {
+			t.Errorf("listing %s payload = %d/%v, want %d/%v", listing, r.payload.GetReviewCount(), r.payload.GetAverageRating(), w.count, w.avg)
+		}
+	}
+}
+
+func TestMigration0015AverageIsSumOverCountExactly(t *testing.T) {
+	e := setup14(t)
+	ratings := []int{1, 1, 1, 1, 1, 1, 1, 1, 3}
+	rows := make([]review, 0, len(ratings))
+	sum := 0
+	for i, r := range ratings {
+		rows = append(rows, review{id: "x" + strconv.Itoa(i), listing: "LX", rating: r, verified: true})
+		sum += r
+	}
+	e.seedReviews(t, rows...)
+	e.runFile(t, up15File)
+
+	got, ok := e.ratingRows(t)["LX"]
+	if !ok {
+		t.Fatal("listing LX has no backfill event")
+	}
+	want := float64(sum) / float64(len(ratings))
+	if want != 1.2222222222222223 {
+		t.Fatalf("test premise: float64(%d)/%d = %v", sum, len(ratings), want)
+	}
+	if got.payload.GetReviewCount() != int64(len(ratings)) {
+		t.Errorf("review count = %d, want %d", got.payload.GetReviewCount(), len(ratings))
+	}
+	if got.payload.GetAverageRating() != want {
+		t.Errorf("backfilled average = %v, want exactly %v (sum/count in float64, as the store computes it)", got.payload.GetAverageRating(), want)
+	}
+}
+
+func TestMigration0015PayloadDecodesAsContractType(t *testing.T) {
+	e := setup14(t)
+	e.seedReviews(t,
+		review{id: "p1", listing: "LP", rating: 4, verified: true},
+		review{id: "p2", listing: "LP", rating: 4, verified: true},
+		review{id: "p3", listing: "LP", rating: 3, verified: true},
+	)
+	e.runFile(t, up15File)
+
+	r, ok := e.ratingRows(t)["LP"]
+	if !ok {
+		t.Fatalf("Backfill payload decodes with the contract type: no row for LP")
+	}
+	if r.payload.GetAverageRating() != float64(11)/float64(3) {
+		t.Errorf("average_rating = %v, want %v", r.payload.GetAverageRating(), float64(11)/float64(3))
+	}
+	if r.payload.GetReviewCount() != 3 {
+		t.Errorf("review_count = %d, want 3", r.payload.GetReviewCount())
+	}
+	if r.payload.GetListingId() != "LP" {
+		t.Errorf("listing_id = %q, want LP", r.payload.GetListingId())
+	}
+	if r.payload.GetChangedAt() == nil || r.payload.GetChangedAt().AsTime().IsZero() {
+		t.Errorf("changed_at is missing")
+	}
+	if r.env.GetOccurredAt() == nil || r.env.GetOccurredAt().AsTime().IsZero() {
+		t.Errorf("envelope occurred_at is missing")
+	}
+}
+
+func TestMigration0015IsIdempotent(t *testing.T) {
+	e := setup14(t)
+	e.seedReviews(t,
+		review{id: "i1", listing: "LI1", rating: 5, verified: true},
+		review{id: "i2", listing: "LI2", rating: 1, verified: true},
+	)
+	e.runFile(t, up15File)
+	before := e.ratingRows(t)
+	if len(before) != 2 {
+		t.Fatalf("Backfill is idempotent: first run wrote %d rating rows, want 2", len(before))
+	}
+	if _, err := e.pool.Exec(context.Background(), `UPDATE `+newTable+` SET status = 'published', published_at = now() WHERE aggregate_id = 'LI1'`); err != nil {
+		t.Fatalf("mark published: %v", err)
+	}
+	e.runFile(t, up15File)
+	after := e.ratingRows(t)
+	if len(after) != len(before) {
+		t.Fatalf("rating rows after second run = %d, want %d", len(after), len(before))
+	}
+	for k, b := range before {
+		if after[k].row.eventID != b.row.eventID || after[k].row.seq != b.row.seq {
+			t.Errorf("listing %s changed: %s/%d -> %s/%d", k, b.row.eventID, b.row.seq, after[k].row.eventID, after[k].row.seq)
+		}
+	}
+	if after["LI1"].row.status != "published" {
+		t.Errorf("a published backfill row was reset to %s by the second run", after["LI1"].row.status)
+	}
+}
+
+func TestMigration0015EmptyReviews(t *testing.T) {
+	e := setup14(t)
+	e.runFile(t, up15File)
+	if n := len(e.ratingRows(t)); n != 0 {
+		t.Errorf("Empty database backfills nothing: %d rating rows, want 0", n)
+	}
+	if n := e.count(t, newTable); n != 0 {
+		t.Errorf("%s holds %d rows, want 0", newTable, n)
+	}
+}
+
+func TestMigration0015DownRemovesOnlyPendingBackfill(t *testing.T) {
+	e := setup14(t)
+	ctx := context.Background()
+	insert := func(eventID, aggregate, status string) {
+		t.Helper()
+		_, err := e.pool.Exec(ctx, `
+INSERT INTO `+newTable+` (event_id, aggregate_type, aggregate_id, event_type, payload, status, published_at)
+VALUES ($1, 'Listing', $2, $3, '\x00', $4, CASE WHEN $4 = 'published' THEN now() END)`,
+			eventID, aggregate, ratingEventType, status)
+		if err != nil {
+			t.Fatalf("seed %s: %v", eventID, err)
+		}
+	}
+	publishedID := e.backfillID(t, "LPUB")
+	pendingID := e.backfillID(t, "LPEND")
+	liveID := uuidFor(900)
+	insert(publishedID, "LPUB", "published")
+	insert(pendingID, "LPEND", "pending")
+	insert(liveID, "LPEND", "pending")
+
+	e.runFile(t, down15File)
+
+	rows := e.copiedRows(t)
+	have := map[string]bool{}
+	for _, r := range rows {
+		have[r.eventID] = true
+	}
+	if have[pendingID] {
+		t.Errorf("Down migration removes only pending backfill rows: pending backfill row still present")
+	}
+	if !have[publishedID] {
+		t.Errorf("published backfill row was deleted")
+	}
+	if !have[liveID] {
+		t.Errorf("live pending ListingRatingChanged row was deleted")
+	}
+	if len(rows) != 2 {
+		t.Errorf("%d rows remain, want 2", len(rows))
+	}
+}
+
+func TestMigration0015EnvelopeCarriesNoPrincipal(t *testing.T) {
+	e := setup14(t)
+	e.seedReviews(t,
+		review{id: "c1", listing: "LC1", rating: 5, verified: true},
+		review{id: "c2", listing: "LC2", rating: 2, verified: true, hidden: true},
+	)
+	e.runFile(t, up15File)
+
+	got := e.ratingRows(t)
+	if len(got) != 2 {
+		t.Fatalf("Backfill envelope carries no principal: %d rating rows, want 2", len(got))
+	}
+	for listing, r := range got {
+		if r.env.GetPrincipal() != nil {
+			t.Errorf("listing %s envelope principal = %v, want none", listing, r.env.GetPrincipal())
+		}
+		for _, needle := range []string{backfillReviewer, "c1", "c2", "rất tốt"} {
+			if strings.Contains(string(r.row.payload), needle) {
+				t.Errorf("listing %s outbox payload contains %q", listing, needle)
+			}
+		}
+	}
+}
+
+func TestEmbeddedFSHoldsMigration0015(t *testing.T) {
+	for _, name := range []string{up15File, down15File} {
+		b, err := fs.ReadFile(migrations.FS, name)
+		if err != nil {
+			t.Errorf("embedded FS misses %s: %v", name, err)
+			continue
+		}
+		if len(strings.TrimSpace(string(b))) == 0 {
+			t.Errorf("embedded %s is empty", name)
+		}
 	}
 }

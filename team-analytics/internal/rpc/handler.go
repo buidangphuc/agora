@@ -329,7 +329,9 @@ const (
 	defaultQualityWindowHours = 24
 	maxQualityWindowHours     = 168
 
-	defaultPerformanceWindowHours = 168
+	defaultPerformanceWindowHours       = 168
+	defaultSearchPerformanceWindowHours = 24
+	maxSearchPerformanceWindowHours     = 168
 
 	statusOK       = "OK"
 	statusDegraded = "DEGRADED"
@@ -525,6 +527,52 @@ func (s *Handler) GetChannelFunnel(ctx context.Context, req *analyticsv1.GetChan
 			Impressions: d.Impressions, Views: d.Views, Adds: d.Adds,
 			BeginCheckouts: d.BeginCheckouts, Purchases: d.Purchases,
 		})
+	}
+	return resp, nil
+}
+
+func (s *Handler) GetSearchPerformance(ctx context.Context, req *analyticsv1.GetSearchPerformanceRequest) (*analyticsv1.GetSearchPerformanceResponse, error) {
+	if err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	hours := req.GetWindowHours()
+	if hours == 0 {
+		hours = defaultSearchPerformanceWindowHours
+	}
+	if hours > maxSearchPerformanceWindowHours {
+		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxSearchPerformanceWindowHours)
+	}
+	pr, ok := s.repo.(query.PerformanceRepository)
+	if !ok {
+		return nil, s.fail(ctx, query.ErrUnsupported)
+	}
+	now := s.now().UTC()
+	data, err := pr.SearchPerformance(ctx, now.Add(-time.Duration(hours)*time.Hour), now, s.attributionHours)
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	resp := &analyticsv1.GetSearchPerformanceResponse{
+		Rows:                   make([]*analyticsv1.RecommendationPerformanceRow, 0, len(data)),
+		WindowHours:            hours,
+		AttributionWindowHours: uint32(s.attributionHours), //nolint:gosec // bounded config value
+	}
+	for _, d := range data {
+		row := &analyticsv1.RecommendationPerformanceRow{
+			PlacementId:     query.SearchResultsPlacement,
+			ModelVersion:    d.ModelVersion,
+			Impressions:     d.Impressions,
+			ItemImpressions: d.ItemImpressions,
+			Clicks:          d.Clicks,
+			AddToCarts:      d.AddToCarts,
+			Purchases:       d.Purchases,
+		}
+		if d.ItemImpressions > 0 {
+			row.Ctr = float64(d.Clicks) / float64(d.ItemImpressions)
+		}
+		if d.MatureClicks > 0 {
+			row.ConversionRate = float64(d.MaturePurchases) / float64(d.MatureClicks)
+		}
+		resp.Rows = append(resp.Rows, row)
 	}
 	return resp, nil
 }

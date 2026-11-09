@@ -55,13 +55,13 @@ parked on the DLQ, leaving the document untouched.
 #### Scenario: BR-7 A malformed event is parked and not applied
 
 - **WHEN** a `ListingSalesChanged` with `sold_count` -1 is published to `order.events` and a `ListingRatingChanged` with `average_rating` 7 is published to `engagement.events`, for a published listing L
-- **THEN** within 60 seconds on the e2e stack (5 handler attempts, the go-sdk consumer default `MaxAttempts`, with the stack's consumer backoff) the first record is on `order.events.dlq` and the second on `engagement.events.dlq`, and L's `sold_count` and `rating_avg` are unchanged
+- **THEN** within 60 seconds on the e2e stack (5 handler attempts, the go-sdk consumer default `MaxAttempts`, with the stack's consumer backoff) the first record is on `search-indexer.order.events.dlq` and the second on `search-indexer.engagement.events.dlq`, and L's `sold_count` and `rating_avg` are unchanged
 - **VERIFIED BY**: `team-search/internal/events` unit tests for the new handlers and `platform-e2e` `search/search_best_selling_rating.feature` "A malformed event is parked and not applied"
 
 #### Scenario: BR-7a An event with an empty listing id or no changed_at is parked
 
 - **WHEN** a `ListingSalesChanged` with an empty `listing_id` and a `ListingRatingChanged` for a published listing L with no `changed_at` are published
-- **THEN** within 60 seconds on the e2e stack both reach their `.dlq` topic after 5 attempts and L's `rating_avg` is unchanged
+- **THEN** within 60 seconds on the e2e stack both reach their `search-indexer.<topic>.dlq` topic after 5 attempts and L's `rating_avg` is unchanged
 - **VERIFIED BY**: `team-search/internal/events` unit tests and `platform-e2e` `search/search_best_selling_rating.feature` "An event with an empty listing id or no changed_at is parked"
 
 #### Scenario: BR-4a An event with the same changed_at as the stored one changes nothing

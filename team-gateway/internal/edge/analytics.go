@@ -101,6 +101,22 @@ func (f *AnalyticsQueryForwarder) GetRecommendationPerformance(
 	return connect.NewResponse(out), nil
 }
 
+func (f *AnalyticsQueryForwarder) GetSearchPerformance(
+	ctx context.Context,
+	req *connect.Request[analyticsv1.GetSearchPerformanceRequest],
+) (*connect.Response[analyticsv1.GetSearchPerformanceResponse], error) {
+	var out *analyticsv1.GetSearchPerformanceResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetSearchPerformance(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
 func (f *AnalyticsQueryForwarder) GetChannelFunnel(
 	ctx context.Context,
 	req *connect.Request[analyticsv1.GetChannelFunnelRequest],

@@ -39,7 +39,19 @@ Feature: Faceted search filters
   Scenario: Sort options match what the server honours
     When the buyer opens the search results for the seeded listings
     Then the search results sort bar displays the sorting controls
-    And the sort controls offer no Bán Chạy option
+    And the sort controls offer Liên quan, Mới nhất, Bán chạy, Giá thấp đến cao and Giá cao đến thấp
+    And selecting "Bán chạy" navigates to a URL with sort=best_selling and marks it active
+
+  Scenario: Best-selling sort orders results by sold count
+    Given two of the seeded listings have sold counts 7 and 3
+    When the buyer opens the search results for the seeded listings
+    And the buyer selects the "Bán chạy" sort
+    Then the listing sold 7 comes first and the listing sold 3 second
+    And opening the same search URL in a new tab shows the same order
+
+  Scenario: An unknown sort value falls back to relevance
+    When the buyer opens the search results for the seeded listings with sort=top_rated
+    Then the page lists the same results as without a sort, with "Liên quan" active and no error
 
   Scenario: Page links preserve the query
     Given more than one page of listings is indexed

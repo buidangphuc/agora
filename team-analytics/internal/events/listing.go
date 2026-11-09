@@ -40,7 +40,11 @@ func ListingSellerFromEnvelope(value []byte) (rec *warehouse.ListingSellerRecord
 	if env.GetOccurredAt() != nil {
 		updatedAt = env.GetOccurredAt().AsTime().UTC()
 	}
+	status := ""
+	if _, defined := listingv1.ListingStatus_name[int32(l.GetStatus())]; defined && l.GetStatus() != 0 && lc.GetChangeType() != listingv1.ChangeType_CHANGE_TYPE_DELETED {
+		status = l.GetStatus().String()
+	}
 	return &warehouse.ListingSellerRecord{
-		ListingID: l.GetId(), SellerID: l.GetSellerId(), CategoryID: l.GetCategoryId(), Price: l.GetPrice(), UpdatedAt: updatedAt,
+		ListingID: l.GetId(), SellerID: l.GetSellerId(), CategoryID: l.GetCategoryId(), Price: l.GetPrice(), Status: status, UpdatedAt: updatedAt,
 	}, true, nil
 }

@@ -66,6 +66,7 @@ describe("getRecommendations", () => {
       seedListingId: "seed-1",
       context: RecommendationContext.SIMILAR_ITEMS,
       limit: 15,
+      contextListingIds: [],
     });
     // Best-first by rank: a (rank 1) then b (rank 2).
     expect(items.map((l) => l.id)).toEqual(["a", "b"]);
@@ -120,6 +121,7 @@ describe("getRecommendations", () => {
       seedListingId: "",
       context: RecommendationContext.UNSPECIFIED,
       limit: 30,
+      contextListingIds: [],
     });
   });
 

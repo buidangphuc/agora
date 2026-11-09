@@ -80,7 +80,7 @@ func TestMakefileReferencesSharedFiles(t *testing.T) {
 		"LINT_CONFIG := ../platform-core/packages/go-sdk/.golangci.yml": `(?m)^LINT_CONFIG\s*:=\s*\.\./platform-core/packages/go-sdk/\.golangci\.yml\s*$`,
 		"SERVICE":   `(?m)^SERVICE\s*:?=\s*\S+`,
 		"GRPC_PORT": `(?m)^GRPC_PORT\s*:?=\s*\S+`,
-		"BINARIES := consumer ga4-relay ga4import": `(?m)^BINARIES\s*:?=\s*consumer\s+ga4-relay\s+ga4import\s*$`,
+		"BINARIES := consumer ga4-relay ga4import listing-replay": `(?m)^BINARIES\s*:?=\s*consumer\s+ga4-relay\s+ga4import\s+listing-replay\s*$`,
 	}
 	for name, pattern := range checks {
 		if !regexp.MustCompile(pattern).MatchString(mk) {

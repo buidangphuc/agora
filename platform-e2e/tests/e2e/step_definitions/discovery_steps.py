@@ -138,7 +138,9 @@ def same_url_same_state(world: World) -> None:
     other = world.context.new_page()
     try:
         other.goto(world.page.url, wait_until="domcontentloaded")
-        selected = other.locator(f'[data-testid="facet-bucket"][data-key="{key}"]')
+        selected = other.get_by_role("main").locator(
+            f'[data-testid="facet-bucket"][data-key="{key}"]'
+        )
         expect(selected).to_have_attribute("data-active", "true", timeout=timeouts.NAVIGATION)
     finally:
         other.close()
@@ -176,11 +178,28 @@ def url_only_keyword(world: World) -> None:
     )
 
 
-@then("the sort controls offer no Bán Chạy option")
-def no_best_selling_sort(world: World) -> None:
+@then(
+    "the sort controls offer Liên quan, Mới nhất, Bán chạy, Giá thấp đến cao and Giá cao đến thấp"
+)
+def sort_controls_offer_best_selling(world: World) -> None:
     search = _search(world)
-    expect(search.sort_link("Mới nhất")).to_be_visible(timeout=timeouts.DEFAULT)
-    assert world.page.get_by_text("Bán Chạy", exact=False).count() == 0
+    for label in ("Liên quan", "Mới nhất", "Bán chạy"):
+        expect(search.sort_link(label)).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(search.price_sort_select).to_be_visible(timeout=timeouts.DEFAULT)
+    options = search.price_sort_select.locator("option").all_inner_texts()
+    for label in ("Giá thấp đến cao", "Giá cao đến thấp"):
+        assert label in options, options
+
+
+@then('selecting "Bán chạy" navigates to a URL with sort=best_selling and marks it active')
+def select_best_selling_marks_active(world: World) -> None:
+    search = _search(world)
+    search.wait_until_interactive(search.sort_link("Bán chạy"))
+    search.sort_link("Bán chạy").click()
+    expect(world.page).to_have_url(re.compile(r".*sort=best_selling"), timeout=timeouts.DEFAULT)
+    expect(search.sort_link("Bán chạy")).to_have_attribute(
+        "aria-current", "page", timeout=timeouts.DEFAULT
+    )
 
 
 @given("more than one page of listings is indexed")

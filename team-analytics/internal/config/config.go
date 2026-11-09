@@ -51,6 +51,7 @@ type Kafka struct {
 	ListingTopic         string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
 	ListingConsumerGroup string `env:"KAFKA_LISTING_CONSUMER_GROUP" default:"team-analytics-listing-attrs"`
 	ListingDLQTopic      string `env:"KAFKA_LISTING_DLQ_TOPIC" default:"listing.events.analytics.dlq"`
+	ListingReplayGroup   string `env:"KAFKA_LISTING_REPLAY_GROUP" default:"team-analytics-listing-replay"`
 }
 
 // Engagement configures the engagement.events consumer; undecodable or unknown
@@ -155,6 +156,12 @@ func (s Settings) Validate() error {
 	if strings.TrimSpace(s.Engagement.EventsTopic) == "" || strings.TrimSpace(s.Engagement.DLQTopic) == "" ||
 		strings.TrimSpace(s.Engagement.ConsumerGroup) == "" {
 		return errors.New("ENGAGEMENT_EVENTS_TOPIC, ENGAGEMENT_DLQ_TOPIC and ENGAGEMENT_CONSUMER_GROUP must not be empty")
+	}
+	if strings.TrimSpace(s.Kafka.ListingReplayGroup) == "" {
+		return errors.New("KAFKA_LISTING_REPLAY_GROUP must not be empty")
+	}
+	if s.Kafka.ListingReplayGroup == s.Kafka.ListingConsumerGroup {
+		return errors.New("KAFKA_LISTING_REPLAY_GROUP must differ from KAFKA_LISTING_CONSUMER_GROUP")
 	}
 	if s.GA4.ReconcileMaxDiffRatio < 0 {
 		return fmt.Errorf("GA4_RECONCILE_MAX_DIFF_RATIO must be >= 0: %v", s.GA4.ReconcileMaxDiffRatio)

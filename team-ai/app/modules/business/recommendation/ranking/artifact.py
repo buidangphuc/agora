@@ -9,7 +9,7 @@ charge, and a rejected artifact is logged once per load.
 
 import json
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, Self
 
 from loguru import logger
@@ -19,8 +19,12 @@ from app.modules.business.recommendation.contract.features import (
     GBDT_ARTIFACT_FORMAT,
     RANKING_FEATURES,
 )
+from app.modules.business.recommendation.placements import Filters
 from app.modules.business.recommendation.ports import ServingCache
-from app.modules.business.recommendation.ranking.filter import eligible
+from app.modules.business.recommendation.ranking.filter import (
+    LEGACY_FILTERS,
+    eligible,
+)
 from app.modules.business.recommendation.ranking.rows import number
 from app.modules.business.recommendation.schemas import Candidate, RecommendedItem
 
@@ -145,6 +149,9 @@ class TrainedRanker:
         attribute_rows: Mapping[str, dict[str, Any]],
         nearline: Mapping[str, float],
         limit: int,
+        *,
+        filters: Filters = LEGACY_FILTERS,
+        cart_listing_ids: Sequence[str] = (),
     ) -> list[RecommendedItem]:
         """Descending model score; retrieval similarity breaks ties."""
         scored = [
@@ -158,7 +165,9 @@ class TrainedRanker:
                     )
                 ),
             )
-            for cand in eligible(candidates, seed_listing_id)
+            for cand in eligible(
+                candidates, seed_listing_id, cart_listing_ids, filters=filters
+            )
         ]
         scored.sort(key=lambda pair: (-pair[1], -pair[0].score))
         if limit > 0:

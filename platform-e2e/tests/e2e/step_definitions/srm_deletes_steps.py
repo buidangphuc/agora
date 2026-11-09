@@ -9,6 +9,7 @@ from pytest_bdd import given, then, when
 
 from tests.e2e.flows import srm_events_flow as ev
 from tests.e2e.flows.oic_inv_flow import register
+from tests.e2e.step_definitions import search_best_selling_rating_steps as bs
 from tests.e2e.support import oic_inv_stack as stack
 from tests.e2e.support import srm_support as s
 from tests.e2e.support.world import World
@@ -185,7 +186,7 @@ def event_consumed_not_returned(world: World) -> None:
 
 @then(
     "after the search indexer has consumed past that event, an in-stock search for its title "
-    "does not return it and the record is not on listing.events.dlq"
+    "does not return it and the record is not on search-indexer.listing.events.dlq"
 )
 def in_stock_not_returned_not_parked(world: World) -> None:
     c = s.ctx(world)
@@ -259,3 +260,45 @@ def tombstone_then_purged(world: World) -> None:
     other = s.listing(world, OTHER)
     assert other.id in s.hit_ids(s.search(other.title)), "the other listing left search"
     assert ev.os_doc(other.id) is not None
+
+
+@given(
+    'a pending document exists for a listing id "G" and a second pending document for "U"'
+)
+def pending_documents(world: World) -> None:
+    s.create_listing(world, CONTROL, stock=5)
+    s.wait_indexed(world, CONTROL)
+    for label, sold in (("G", 3), ("U", 4)):
+        bs.ghost(world, label)
+        fact = bs.send_sales(world, s.listing(world, label).id, sold, bs.at(1))
+        bs.wait_consumed(fact)
+    for label in ("G", "U"):
+        doc = ev.os_doc(s.listing(world, label).id)
+        assert doc is not None and doc.get("status") is None, f"no pending document: {doc}"
+    assert s.hit_of(s.search(s.ctx(world).keyword), s.listing(world, "G").id) is None
+
+
+@when('a ListingChanged CREATED for "U" is published before the TTL elapses')
+def create_before_ttl(world: World) -> None:
+    bs.publish_created(world, "U")
+
+
+@then(
+    'the read-model holds no pending document for "G" once the TTL plus one purge interval has '
+    'passed, and "U" still has its sold_count 4'
+)
+def pending_purged(world: World) -> None:
+    c = s.ctx(world)
+    gid, uid = s.listing(world, "G").id, s.listing(world, "U").id
+    s.eventually(
+        lambda: ev.os_doc(gid) is None,
+        f"the pending document of {gid} to be purged",
+        c.extra["purge_wait_s"] + 20.0,
+    )
+    doc = ev.os_doc(uid)
+    assert doc is not None and int(doc.get("sold_count", 0)) == 4, doc
+    s.eventually(
+        lambda: bs.num(s.hit_of(s.search(c.keyword), uid), "soldCount") == 4,
+        "U to be searchable with sold_count 4",
+        s.VISIBLE_S,
+    )

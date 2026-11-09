@@ -8,7 +8,7 @@ import { fetchCockpit } from "@/lib/gateway/cockpit";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 
 export const metadata: Metadata = {
-  title: "Admin Operations Cockpit | Sàn Thương Mại Điện Tử",
+  title: "Admin Operations Cockpit",
   description:
     "Bản đồ vận hành thời gian thực, telemetry, Golden Signals và Jaeger Distributed Tracing.",
   referrer: "no-referrer",

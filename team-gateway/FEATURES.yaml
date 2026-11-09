@@ -3143,3 +3143,37 @@ features:
     tags: [security, edge]
     status: automated
     covered_by: "security/promotion_admin_scope.feature::Promotion admin edge: the seeded admin lists campaigns"
+
+  - id: gateway.ccs-gateway-rejects-51-ids
+    title: "Gateway rejects 51 ids"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Gateway rejects 51 ids"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a client calls `RecommendationService.Recommend` on the gateway with 51 `context_listing_ids`"
+      - "Then the response is `INVALID_ARGUMENT` and team-ai receives no call"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Gateway rejects 51 ids
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: gateway.ccs-gateway-forwards-context-ids
+    title: "Gateway forwards context ids"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-cart-cross-sell: Gateway forwards context ids"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a client calls the gateway with `placement_id=cart_cross_sell` and `context_listing_ids=[A,B]`"
+      - "Then the items are neighbours of A or B and contain neither A nor B"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: recommendations/cart_cross_sell.feature::Gateway forwards context ids
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."

@@ -259,6 +259,21 @@ def test_hash_guard_exits_4(dirs, env, redis, registry_copy, monkeypatch):
     assert not list(dirs[1].glob("runs/*"))  # nothing written
 
 
+def test_v2_drift_is_refused(dirs, env, redis, registry_copy, monkeypatch, capsys):
+    write_inputs(dirs[0], [ev("e1", "view", "u1", "L1", h(1))], [])
+    sql = registry_copy / "sql/item_attributes_v2.sql"
+    sql.write_text(sql.read_text() + "\n-- edited without a lock regeneration\n")
+    orig = Settings.from_env.__func__
+    monkeypatch.setattr(
+        Settings,
+        "from_env",
+        classmethod(lambda cls, e=None: dataclasses.replace(orig(cls, e), registry_dir=registry_copy)),
+    )
+    assert cli.main(["materialize"], env, redis) == 4
+    assert "item_attributes@v2" in capsys.readouterr().err
+    assert not list(dirs[1].glob("runs/*"))
+
+
 def test_committed_lock_matches_registry(settings):
     views = registry.load_registry(settings.registry_dir)
     registry.check_lock(settings.registry_dir, views)
@@ -267,6 +282,7 @@ def test_committed_lock_matches_registry(settings):
         "item_popularity@v1",
         "item_popularity@v2",
         "item_attributes@v1",
+        "item_attributes@v2",
         "user_preferences@v1",
     }
 

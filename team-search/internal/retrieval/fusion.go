@@ -13,7 +13,11 @@ type Candidate struct {
 	// Stock is carried from whichever leg returned the hit (D3); nil = unknown.
 	Stock *int32
 	// Text is the rerank document (title + description); empty when unknown.
-	Text string
+	Text        string
+	SoldCount   int64
+	RatingAvg   float64
+	ReviewCount int64
+	SellerID    string
 }
 
 // RRF merges ranked candidate lists using Reciprocal Rank Fusion:
@@ -28,6 +32,7 @@ func RRF(strategyCandidates map[string][]Candidate, k int, weights map[string]fl
 	orderSeen := make([]string, 0)
 	provenance := make(map[string][]string)
 	stock := make(map[string]*int32)
+	meta := make(map[string]Candidate)
 	text := make(map[string]string)
 
 	// Visit strategies in a fixed order: ranging over the map would make provenance and the
@@ -58,6 +63,9 @@ func RRF(strategyCandidates map[string][]Candidate, k int, weights map[string]fl
 			if text[c.ListingID] == "" {
 				text[c.ListingID] = c.Text
 			}
+			if m := meta[c.ListingID]; m.SoldCount == 0 && m.RatingAvg == 0 && m.ReviewCount == 0 && m.SellerID == "" {
+				meta[c.ListingID] = c
+			}
 			// 1-based rank
 			rrfScore := weight / float64(k+rank+1)
 			scores[c.ListingID] += rrfScore
@@ -73,6 +81,11 @@ func RRF(strategyCandidates map[string][]Candidate, k int, weights map[string]fl
 			Strategy:  "rrf_fused",
 			Stock:     stock[id],
 			Text:      text[id],
+
+			SoldCount:   meta[id].SoldCount,
+			RatingAvg:   meta[id].RatingAvg,
+			ReviewCount: meta[id].ReviewCount,
+			SellerID:    meta[id].SellerID,
 		})
 	}
 

@@ -53,6 +53,7 @@ export async function FilterPanel({ state }: { state: SearchState }) {
       currentSeller={state.seller}
       currentMinPrice={state.minPrice}
       currentMaxPrice={state.maxPrice}
+      currentMinRating={state.minRating}
       currentAttrs={state.attrs}
       currentQuery={state.q}
       currentSort={state.sort}
@@ -150,6 +151,8 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
           <ListingGrid
             listings={result.items}
             placementId="search_results"
+            impressionId={result.requestId || undefined}
+            modelVersion={result.modelVersion}
             query={state.q}
           />
         )}

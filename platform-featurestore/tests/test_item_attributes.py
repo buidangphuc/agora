@@ -62,7 +62,7 @@ def test_online_values_and_parity(dirs, env, redis, capsys):
         "price": 99,
     }
     assert json.loads(redis.get("fs:user_preferences:v1:u1")) == {"preferred_categories": "cat-a"}
-    assert redis.get("fs:item_attributes:current") == "1" and redis.get("fs:user_preferences:current") == "1"
+    assert redis.get("fs:item_attributes:current") == "2" and redis.get("fs:user_preferences:current") == "1"
     row = json.loads(redis.get("fs:item_attributes:v1:L1"))
     row["category_id"] = "cat-tampered"
     redis.set("fs:item_attributes:v1:L1", json.dumps(row))
@@ -102,3 +102,80 @@ def test_manifest_lists_the_listing_input_only_when_present(dirs, settings, redi
     manifest = job.materialize(settings, views, redis)
     assert "listings" in {i["input"] for i in manifest["inputs"]}
     assert {v["name"] for v in manifest["views"]} >= {"item_attributes", "user_preferences"}
+
+
+V1_LOCKED_HASH = "d50a0e9050bd3b4887c23410555141a6b1819a486ece056a01b13a6538914973"
+
+
+def v2_rows(settings, redis):
+    return rows_by_id(run(settings, redis)["item_attributes@v2"])
+
+
+def test_v2_carries_status(dirs, env, settings, redis):
+    write_inputs(
+        dirs[0],
+        listings=[{**listing("L1", "cat-a", 4200, seller="sellerA"), "status": "LISTING_STATUS_PUBLISHED"}],
+    )
+    assert v2_rows(settings, redis)["L1"] == {
+        "entity_id": "L1",
+        "seller_id": "sellerA",
+        "category_id": "cat-a",
+        "price": 4200,
+        "status": "LISTING_STATUS_PUBLISHED",
+    }
+    assert cli.main(["materialize"], env, redis) == 0
+    assert json.loads(redis.get("fs:item_attributes:v2:L1"))["status"] == "LISTING_STATUS_PUBLISHED"
+
+
+def test_v2_without_status_column_is_null_not_an_error(dirs, env, settings, redis, capsys):
+    write_inputs(dirs[0], listings=[listing("L1", "cat-a", 1), listing("L2", "cat-b", 2)])
+    assert cli.main(["materialize"], env, redis) == 0
+    assert "status" in capsys.readouterr().err
+    (snap,) = (dirs[1] / "item_attributes/v2").glob("as_of=*.parquet")
+    table = pq.read_table(snap)
+    assert table.num_rows == 2
+    assert table.column("status").to_pylist() == [None, None]
+    assert json.loads(redis.get("fs:item_attributes:v2:L1"))["status"] is None
+
+
+def test_v1_definition_is_unchanged(settings):
+    views = {v.key: v for v in registry.load_registry(settings.registry_dir)}
+    assert views["item_attributes@v1"].sha256 == V1_LOCKED_HASH
+    assert "item_attributes@v2" in views
+    registry.check_lock(
+        settings.registry_dir, list(views.values()), registry.load_datasets(settings.registry_dir)
+    )
+
+
+def test_v2_listing_after_as_of_excluded(dirs, settings, redis):
+    published = "LISTING_STATUS_PUBLISHED"
+    write_inputs(
+        dirs[0],
+        listings=[
+            {**listing("before", "cat-a", 1, h(2)), "status": published},
+            {**listing("after", "cat-a", 1, h(-2)), "status": published},
+        ],
+    )
+    assert set(v2_rows(settings, redis)) == {"before"}
+
+
+def test_v2_unspecified_or_unknown_status_is_null(dirs, settings, redis):
+    write_inputs(
+        dirs[0],
+        listings=[
+            {**listing("L1", "cat-a", 1), "status": "LISTING_STATUS_UNSPECIFIED"},
+            {**listing("L2", "cat-a", 1), "status": "LISTING_STATUS_FOO"},
+            {**listing("L3", "cat-a", 1), "status": "LISTING_STATUS_BANNED"},
+        ],
+    )
+    rows = v2_rows(settings, redis)
+    assert rows["L1"]["status"] is None and rows["L2"]["status"] is None
+    assert rows["L3"]["status"] == "LISTING_STATUS_BANNED"
+
+
+def test_current_is_2_and_both_versions_exist(dirs, env, redis):
+    write_inputs(dirs[0], listings=[{**listing("L1", "cat-a", 99), "status": "LISTING_STATUS_PUBLISHED"}])
+    assert cli.main(["materialize"], env, redis) == 0
+    assert redis.get("fs:item_attributes:current") == "2"
+    assert redis.get("fs:item_attributes:v1:L1") is not None
+    assert redis.get("fs:item_attributes:v2:L1") is not None
