@@ -86,8 +86,9 @@ Discovery routes SHALL display only data returned by the gateway. They SHALL NOT
 sold counts, strike-through prices computed from the price, discount badges, flash-sale countdowns or "% sold"
 bars, Mall badges or rows derived from title or price, or hard-coded hero/hub figures. A block with no real
 data SHALL be hidden; `Empty` is used only where the block is the page's purpose (search results, vouchers).
-Features without a backend SHALL be hidden, not simulated: the "Bán Chạy" sort option and "Lưu mã" on
-`/vouchers`; no `localStorage` voucher wallet SHALL exist.
+Features without a backend SHALL be hidden, not simulated: "Lưu mã" on `/vouchers`; no `localStorage` voucher wallet
+SHALL exist. The "Bán chạy" sort and the rating filter on `/search` are backed by indexed `sold_count` and `rating_avg`
+and are offered.
 
 #### Scenario: No fabricated markers on the home page
 
@@ -103,7 +104,7 @@ Features without a backend SHALL be hidden, not simulated: the "Bán Chạy" sor
 #### Scenario: Unsupported features are hidden
 
 - **WHEN** `/search` and `/vouchers` are rendered
-- **THEN** the sort options exclude "Bán Chạy" and no voucher card has a "Lưu mã" button
+- **THEN** the sort options include "Bán chạy" and no voucher card has a "Lưu mã" button
 
 ### Requirement: Discovery pages use the design scale and colour rules
 
@@ -170,7 +171,7 @@ It SHALL render nothing when there are no categories.
 `/search` SHALL render: a header with `Breadcrumb`, `h1` and the result count; a filter column with
 `SavedSearches` and `FilterSidebar`; and a results column with `SortBar`, active-filter `Tag`s,
 `ListingGrid` (`data-testid="search-results"`) and `Pagination`. All state SHALL live in the URL:
-`q, category, seller, rating, minPrice, maxPrice, sort, page`. Changing any filter or sort SHALL reset `page`.
+`q, category, seller, minRating, minPrice, maxPrice, sort, page`. Changing any filter or sort SHALL reset `page`.
 Facet counts SHALL be shown beside each bucket. The page SHALL work for sort and filter links without
 client JavaScript.
 
@@ -187,9 +188,9 @@ client JavaScript.
 
 #### Scenario: Active filters can be removed one by one
 
-- **WHEN** `/search?q=ao&category=c1&rating=4` is rendered
+- **WHEN** `/search?q=ao&category=c1&minRating=4` is rendered
 - **THEN** three closable `Tag`s are shown, and activating the category tag navigates to
-  `/search?q=ao&rating=4`
+  `/search?q=ao&minRating=4`
 
 #### Scenario: Clear all filters
 
@@ -199,8 +200,19 @@ client JavaScript.
 #### Scenario: Sort options match what the server honours
 
 - **WHEN** the `SortBar` is rendered
-- **THEN** it offers only Liên quan, Mới nhất, Giá thấp đến cao and Giá cao đến thấp (no "Bán Chạy"), and the active one has
-  `aria-current="true"`
+- **THEN** it offers Liên quan, Mới nhất, Bán chạy, Giá thấp đến cao and Giá cao đến thấp, selecting "Bán chạy" navigates to a URL
+  with `sort=best_selling`, and the active link has `aria-current="page"`
+
+#### Scenario: Best-selling sort orders results by sold count
+
+- **GIVEN** listings with `sold_count` 7, 3 and 0 match the keyword
+- **WHEN** a buyer selects "Bán chạy"
+- **THEN** the results appear in the order 7, 3, 0 and opening `/search?q=<keyword>&sort=best_selling` in a new tab shows the same order
+
+#### Scenario: An unknown sort value falls back to relevance
+
+- **WHEN** a buyer opens `/search?q=<keyword>&sort=top_rated`
+- **THEN** the page renders the relevance order with "Liên quan" marked `aria-current="page"` and no error
 
 ### Requirement: Search results are paginated
 
