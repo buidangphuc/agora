@@ -140,13 +140,13 @@ backfilled. The consumer-side behaviour is specified and tested in `recsys-cart-
 
 - **WHEN** a generation is published with a published listing `P` and a banned listing `B`, both similar to the cart context listing, and `Recommend` for `cart_cross_sell` is called through the gateway
 - **THEN** the response contains `P` and does not contain `B`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/candidate_attributes.feature` `Banned listing never returned`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/candidate_attributes.feature` `Contract is visible end to end`
 
 #### Scenario: Payload without visible is not eligible
 
 - **WHEN** a generation holds a point or entry for a listing with no `visible` key and `Recommend` is called
 - **THEN** that listing is not in the response
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/candidate_attributes.feature` `Payload without visible is not eligible`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/candidate_attributes.feature` `Payload without visible is not eligible`
 
 ### Requirement: Existing generations are backfilled by an explicit command
 

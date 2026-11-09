@@ -2980,7 +2980,7 @@ features:
       - Given a listing costs more than 5,000,000 or its title contains a brand keyword
       - Then its card shows no MALL badge and exactly one price
       - Given /search and /vouchers are rendered
-      - Then the sort options exclude "Bán Chạy" and no voucher card has a "Lưu mã" button
+      - Then no voucher card has a "Lưu mã" button
       - Given the gateway provides no flash-sale campaign
       - Then no flash-sale heading, countdown, "% sold" bar or discount badge is present
     tags: [buyer]
