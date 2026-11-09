@@ -12173,8 +12173,9 @@ features:
       - "When a crawler fetches `/robots.txt`"
       - "Then the response is 200, contains a `Disallow` for each of the twelve prefixes, and ends with `Sitemap: <NEXT_PUBLIC_SITE_URL>/sitemap.xml`"
     tags: [buyer, search]
-    status: planned
-    notes: 'Stays planned: robots.txt sitemap line uses the build-time NEXT_PUBLIC_SITE_URL; the Dockerfile build arg is missing (separate tooling PR).'
+    status: automated
+    covered_by: "frontend/seo.feature::SEO-21 robots.txt disallows private prefixes and lists the sitemap"
+    notes: "Runs on a feature env with agora_env.py exports (ADMIN_BASE_URL, NEXT_PUBLIC_SITE_URL build arg)."
 
   - id: frontend-seo.seo-22-robots-txt-does-not-depend-on-the-gateway
     title: "SEO-22 robots.txt does not depend on the gateway"

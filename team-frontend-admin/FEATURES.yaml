@@ -3279,8 +3279,9 @@ features:
       - "When an admin with scope `admin` fetches `/admin/audit` on `team-frontend-admin`"
       - "Then `<title>` is `Nhật ký kiểm toán | Agora` (source title `Nhật ký kiểm toán`, `team-frontend-admin/src/app/admin/audit/page.tsx:15`), the robots meta is `noindex, nofollow`, and the referrer meta is `no-referrer`"
     tags: [buyer, search]
-    status: planned
-    notes: 'Stays planned: harness admin URL is hard-coded in platform-e2e/config/settings.py (separate PR).'
+    status: automated
+    covered_by: "frontend/seo.feature::SEO-39 An admin page is noindex, titled once and keeps no-referrer"
+    notes: "Runs on a feature env with agora_env.py exports (ADMIN_BASE_URL, NEXT_PUBLIC_SITE_URL build arg)."
 
   - id: frontend-seo.seo-40-the-admin-login-and-forbidden-pages-deny-indexing-for-an-anonymous-crawler
     title: "SEO-40 The admin login and forbidden pages deny indexing for an anonymous crawler"
@@ -3293,8 +3294,9 @@ features:
       - "When an anonymous crawler fetches `/login` and `/forbidden` on `team-frontend-admin`"
       - "Then each response contains the robots meta `noindex, nofollow` and the referrer meta `no-referrer`"
     tags: [buyer, search]
-    status: planned
-    notes: 'Stays planned: harness admin URL is hard-coded in platform-e2e/config/settings.py (separate PR).'
+    status: automated
+    covered_by: "frontend/seo.feature::SEO-40 The admin login and forbidden pages deny indexing for an anonymous crawler"
+    notes: "Runs on a feature env with agora_env.py exports (ADMIN_BASE_URL, NEXT_PUBLIC_SITE_URL build arg)."
 
   - id: frontend-seo.seo-42-the-admin-root-keeps-its-referrer-and-robots-declarations
     title: "SEO-42 The admin root keeps its referrer and robots declarations"
