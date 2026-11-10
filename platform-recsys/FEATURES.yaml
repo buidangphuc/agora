@@ -2423,21 +2423,21 @@ features:
     status: not-testable
     notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_listing_without_snapshot_row. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
 
-  - id: recsys.cattr-missing-snapshot-does-not-abort-the-publish
-    title: "Missing snapshot does not abort the publish"
+  - id: recsys.cattr-missing-snapshot-refuses-the-run
+    title: "Missing snapshot refuses the run"
     persona: guest
     priority: P2
-    summary: "Scenario of change recsys-candidate-attributes: Missing snapshot does not abort the publish"
+    summary: "Scenario of change recsys-publish-requires-attributes: Missing snapshot refuses the run"
     entry_route: /
     services: [platform-recsys]
     preconditions:
       login: guest
     acceptance:
-      - "When a generation is published and no `item_attributes@v2` snapshot exists"
-      - "Then the publish succeeds, no payload has the three keys and the log has `attributes=missing`"
+      - "When a training run starts and no `item_attributes@v2` snapshot exists"
+      - "Then it exits 2, the log has `attributes=missing`, no MLflow run was created, no Qdrant collection or Redis key was written and `recs:v1:serving` is unchanged"
     tags: [recsys, unit]
     status: not-testable
-    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_missing_snapshot_publishes_without_attributes. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+    notes: "recsys-publish-requires-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_missing_snapshot_refuses_before_training. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
 
   - id: recsys.cattr-unspecified-or-unrecognised-status-writes-no-visible
     title: "Unspecified or unrecognised status writes no visible"
@@ -2455,21 +2455,21 @@ features:
     status: not-testable
     notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_unknown_status_writes_no_visible. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
 
-  - id: recsys.cattr-corrupt-snapshot-does-not-abort-the-publish
-    title: "Corrupt snapshot does not abort the publish"
+  - id: recsys.cattr-corrupt-snapshot-refuses-the-run
+    title: "Corrupt snapshot refuses the run"
     persona: guest
     priority: P2
-    summary: "Scenario of change recsys-candidate-attributes: Corrupt snapshot does not abort the publish"
+    summary: "Scenario of change recsys-publish-requires-attributes: Corrupt snapshot refuses the run"
     entry_route: /
     services: [platform-recsys]
     preconditions:
       login: guest
     acceptance:
-      - "When a generation is published and the `item_attributes@v2` snapshot file is not readable Parquet"
-      - "Then the publish succeeds, no payload has the three keys and the log has `attributes=missing`"
+      - "When a training run starts and the `item_attributes@v2` snapshot file is not readable Parquet"
+      - "Then it exits 2, the log has `attributes=missing` and nothing is trained or written"
     tags: [recsys, unit]
     status: not-testable
-    notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_corrupt_snapshot_publishes_without_attributes. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+    notes: "recsys-publish-requires-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_corrupt_snapshot_refuses_before_training. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
 
   - id: recsys.cattr-oversized-value-is-treated-as-unknown
     title: "Oversized value is treated as unknown"
@@ -2681,6 +2681,39 @@ features:
     covered_by: recommendations/candidate_attributes.feature::Payload without visible is not eligible
     notes: "recsys-candidate-attributes: recommendations/candidate_attributes.feature. BLOCKED: gateway-entry assertions need recsys-cart-cross-sell merged (placement cart_cross_sell and context_listing_ids)."
 
+
+  - id: recsys.cattr-a-refused-run-keeps-serving-the-previous-generation
+    title: "A refused run keeps serving the previous generation"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-publish-requires-attributes: A refused run keeps serving the previous generation"
+    entry_route: /
+    services: [platform-recsys, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When generation `G1` is serving and a training run starts without a readable snapshot"
+      - "Then the run exits 2 and Recommend through the gateway still answers from `G1` with a non-empty list"
+    tags: [recsys, recommendations, integration]
+    status: automated
+    covered_by: recommendations/candidate_attributes.feature::A refused run keeps serving the previous generation
+    notes: "recsys-publish-requires-attributes: recommendations/candidate_attributes.feature::A refused run keeps serving the previous generation."
+
+  - id: recsys.cattr-a-stale-snapshot-still-trains
+    title: "A stale snapshot still trains"
+    persona: guest
+    priority: P2
+    summary: "Scenario of change recsys-publish-requires-attributes: A stale snapshot still trains"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a training run starts and the only snapshot is 30 hours old"
+      - "Then the run trains and publishes, and the log has one stale-snapshot warning naming its `as_of`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-publish-requires-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_stale_snapshot_still_trains. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
   - id: recsys.cattr-backfill-patches-the-serving-generation
     title: "Backfill patches the serving generation"
     persona: guest

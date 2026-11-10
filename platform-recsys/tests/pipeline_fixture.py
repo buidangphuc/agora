@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -141,8 +142,28 @@ def no_holdout_rows() -> list[dict]:
     ]  # fmt: skip
 
 
+_DEFAULT_ATTRIBUTES: list[str] = []
+
+
+def default_attributes_dir() -> str:
+    """A shared ``item_attributes@v2`` snapshot (every fixture listing published) for runs that need one."""
+    if not _DEFAULT_ATTRIBUTES:
+        directory = Path(tempfile.mkdtemp(prefix="recsys-default-attrs-"))
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        listings = [f"l{c}" for c in "abcdef"] + ["l-cold", "l1", "l2", "l3"]
+        listings += [f"gb-{n:02d}" for n in range(8)]
+        frame = pd.DataFrame(
+            [[lid, "s1", "c1", 100, "LISTING_STATUS_PUBLISHED"] for lid in listings],
+            columns=["listing_id", "seller_id", "category_id", "price", "status"],
+        )
+        frame.to_parquet(directory / f"as_of={stamp}.parquet", index=False)
+        _DEFAULT_ATTRIBUTES.append(str(directory))
+    return _DEFAULT_ATTRIBUTES[0]
+
+
 def settings(data_dir, version: str, reg, **kw) -> Settings:
     base = dict(
+        item_attributes_v2_dir=default_attributes_dir(),
         spark_master="local[1]",
         dataset_dir=str(data_dir),
         als_max_iter=3,

@@ -258,23 +258,6 @@ def test_listing_without_snapshot_row(tmp_path, attributes):
         assert set(_payload(q, collection, "L4")) == BASE_PAYLOAD
 
 
-def test_missing_snapshot_publishes_without_attributes(tmp_path, attributes, caplog):
-    caplog.set_level(logging.DEBUG)
-    settings = _settings(tmp_path)
-    q, r = FakeQdrantClient(), FakeRedis()
-
-    summary = _publish(settings, "g1", r, q)
-
-    assert summary["serving"] == "g1"
-    assert "attributes=missing" in caplog.text
-    for collection in _item_collections(settings, "g1"):
-        for lid in LISTINGS:
-            assert set(_payload(q, collection, lid)) == BASE_PAYLOAD
-    for key in _generation_keys(settings, "g1"):
-        for entry in _entries(r, key):
-            assert set(entry) == {"listing_id", "score"}
-
-
 @pytest.mark.parametrize(
     "status", [None, "LISTING_STATUS_UNSPECIFIED", "LISTING_STATUS_NOT_A_REAL_STATUS", ""]
 )
@@ -291,21 +274,6 @@ def test_unknown_status_writes_no_visible(tmp_path, attributes, status):
         assert payload["seller_id"] == "S7" and payload["category_id"] == "C7"
     for entry in _entries(r, settings.gen_popular_key("g1")):
         assert "visible" not in entry
-
-
-def test_corrupt_snapshot_publishes_without_attributes(tmp_path, attributes, caplog):
-    caplog.set_level(logging.DEBUG)
-    _corrupt_snapshot(tmp_path)
-    settings = _settings(tmp_path)
-    q = FakeQdrantClient()
-
-    summary = _publish(settings, "g1", FakeRedis(), q)
-
-    assert summary["serving"] == "g1"
-    assert "attributes=missing" in caplog.text
-    for collection in _item_collections(settings, "g1"):
-        for lid in LISTINGS:
-            assert not ATTR_KEYS & set(_payload(q, collection, lid))
 
 
 def test_value_over_128_characters_is_unknown(tmp_path, attributes):
@@ -820,3 +788,64 @@ def test_logs_carry_no_ids(tmp_path, attributes, monkeypatch, caplog, capsys):
     text = caplog.text + out.out + out.err
     for secret in ("secret-1", "secret-2"):
         assert secret not in text
+
+
+def _training_world(tmp_path, reg, stamp=None, corrupt=False):
+    from tests.dataset_fixture import write_dataset
+    from tests.pipeline_fixture import als_rows, settings
+
+    write_dataset(tmp_path / "ds", als_rows())
+    if corrupt:
+        _corrupt_snapshot(tmp_path)
+    elif stamp:
+        _snapshot(tmp_path, stamp=stamp)
+    return settings(tmp_path / "ds", "g1", reg, item_attributes_v2_dir=str(tmp_path / "attr2"))
+
+
+def _mlflow_runs(reg):
+    ids = [e.experiment_id for e in reg.client.search_experiments()]
+    return reg.client.search_runs(ids) if ids else []
+
+
+def _assert_refused(tmp_path, reg, monkeypatch, caplog, corrupt):
+    from tests.pipeline_fixture import forbid_spark, registered_models, run_main
+
+    caplog.set_level(logging.DEBUG)
+    cfg = _training_world(tmp_path, reg, corrupt=corrupt)
+    forbid_spark(monkeypatch)
+    r, q = FakeRedis(), FakeQdrantClient()
+    r.store["recs:v1:serving"] = "g0"
+    before = dict(r.store)
+
+    assert run_main(monkeypatch, cfg, r, q) == 2
+
+    assert "attributes=missing" in caplog.text
+    assert registered_models(reg) == set() and _mlflow_runs(reg) == []
+    assert q.collections == {} and q.aliases == {}
+    assert r.store == before and r.store["recs:v1:serving"] == "g0"
+
+
+def test_missing_snapshot_refuses_before_training(tmp_path, reg, monkeypatch, caplog):
+    _assert_refused(tmp_path, reg, monkeypatch, caplog, corrupt=False)
+
+
+def test_corrupt_snapshot_refuses_before_training(tmp_path, reg, monkeypatch, caplog):
+    _assert_refused(tmp_path, reg, monkeypatch, caplog, corrupt=True)
+
+
+def test_stale_snapshot_still_trains(tmp_path, reg, monkeypatch, caplog):
+    from tests.pipeline_fixture import requires_spark, run_main
+
+    if requires_spark.args[0]:
+        pytest.skip("Spark needs a Java runtime")
+    caplog.set_level(logging.DEBUG)
+    as_of = datetime.now(timezone.utc) - timedelta(hours=30)
+    stamp = as_of.strftime("%Y%m%dT%H%M%SZ")
+    cfg = _training_world(tmp_path, reg, stamp=stamp)
+    r, q = FakeRedis(), FakeQdrantClient()
+
+    assert run_main(monkeypatch, cfg, r, q) == 0
+
+    assert r.store["recs:v1:serving"] == "g1"
+    assert q.collections
+    assert len(_warnings(caplog, stamp, as_of.strftime("%Y-%m-%dT%H:%M:%S"))) == 1

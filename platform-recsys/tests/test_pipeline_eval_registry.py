@@ -17,6 +17,7 @@ from tests.dataset_fixture import sample_rows, write_dataset  # noqa: E402
 from tests.fakes import FakeQdrantClient, FakeRedis  # noqa: E402
 from tests.pipeline_fixture import (  # noqa: E402
     ALS,
+    default_attributes_dir,
     newest,
     outcome,
     requires_spark,
@@ -90,7 +91,14 @@ def test_evaluation_model_never_trains_on_the_holdout(tmp_path, monkeypatch):
     from recsys.evals.holdout import EVAL_PROTOCOL
 
     parquet_file = write_dataset(tmp_path, sample_rows())
-    cfg = Settings(spark_master="local[1]", dataset_dir=str(tmp_path), als_max_iter=2, als_rank=4, top_n=5)
+    cfg = Settings(
+        spark_master="local[1]",
+        dataset_dir=str(tmp_path),
+        als_max_iter=2,
+        als_rank=4,
+        top_n=5,
+        item_attributes_v2_dir=default_attributes_dir(),
+    )
     seen_pairs: list[set] = []
     real_build = pipeline.dataset_triples
 

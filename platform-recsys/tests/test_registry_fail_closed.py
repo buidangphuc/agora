@@ -19,6 +19,7 @@ from tests.pipeline_fixture import (
     GBDT,
     aliases_of,
     als_rows,
+    default_attributes_dir,
     forbid_spark,
     newest,
     outcome,
@@ -54,6 +55,7 @@ def test_registry_unreachable_at_start_exits_1_before_spark(tmp_path, monkeypatc
         dataset_dir=str(tmp_path),
         model_version="g1",
         mlflow_tracking_uri=dead_registry_url,
+        item_attributes_v2_dir=default_attributes_dir(),
     )
 
     t0 = time.monotonic()
