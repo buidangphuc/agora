@@ -220,8 +220,6 @@ def run(settings: Settings | None = None, redis_client=None, qdrant_client=None)
     settings = settings or load_settings()
     settings.validate_for_training()
     model_version = resolve_model_version(settings)
-    # The item_attributes@v2 snapshot is a precondition: missing or unreadable, refuse to run
-    # (ConfigError → exit 2) before the dataset is read, Spark starts or anything is registered.
     attributes = attributes_load.load_attributes(settings)
     if attributes is None:
         raise ConfigError("attributes=missing: the item_attributes v2 snapshot is missing or unreadable")
