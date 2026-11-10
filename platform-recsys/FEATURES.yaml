@@ -2695,8 +2695,9 @@ features:
       - "When generation `G1` is serving and a training run starts without a readable snapshot"
       - "Then the run exits 2 and Recommend through the gateway still answers from `G1` with a non-empty list"
     tags: [recsys, recommendations, integration]
-    status: planned
-    notes: "recsys-publish-requires-attributes: recommendations/candidate_attributes.feature::A refused run keeps serving the previous generation. Red until the producer refuses a run without a snapshot."
+    status: automated
+    covered_by: recommendations/candidate_attributes.feature::A refused run keeps serving the previous generation
+    notes: "recsys-publish-requires-attributes: recommendations/candidate_attributes.feature::A refused run keeps serving the previous generation."
 
   - id: recsys.cattr-a-stale-snapshot-still-trains
     title: "A stale snapshot still trains"
