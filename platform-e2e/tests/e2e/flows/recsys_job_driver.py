@@ -19,7 +19,12 @@ Live plans (recsys-generation-publish) skip the namespace: they publish to the s
 data (DB 0, the default collections and their aliases), optionally forgetting every generation first
 ("reset"), and leave what they published in place. A run may name a dataset variant ("@fixture") and
 a subcommand ("@command", e.g. rollback), and an item_attributes@v2 snapshot ("@item_attributes":
-{listing_id: status or null}, written to ITEM_ATTRIBUTES_V2_DIR before the run). No run forces a promotion: the registry (MLflow, reached
+{listing_id: status or null}, written to ITEM_ATTRIBUTES_V2_DIR before the run). The job refuses a
+training run without a readable snapshot (exit 2), so a run with no "@item_attributes" key gets a
+default snapshot marking every listing of its dataset LISTING_STATUS_PUBLISHED (the listing ids of
+its DATASET_PATH file, or of the newest parquet under its DATASET_DIR; a dataset that cannot be read
+yields no snapshot). An explicit `"@item_attributes": None` writes none (the refusal scenarios); a
+"@command" run gets no default. No run forces a promotion: the registry (MLflow, reached
 at MLFLOW_TRACKING_URI) is reset or seeded by the caller, and namespace plans start from an empty one.
 
 Only the image's own dependencies are used (pandas, redis, qdrant-client).
@@ -28,6 +33,7 @@ Only the image's own dependencies are used (pandas, redis, qdrant-client).
 from __future__ import annotations
 
 import ast
+import glob
 import hashlib
 import json
 import os
@@ -116,6 +122,24 @@ def _write_dataset(rows: list[dict], root: str = WORK) -> str | None:
     with open(path[: -len(".parquet")] + ".manifest.json", "w") as f:
         json.dump(manifest, f)
     return path
+
+
+def _dataset_listings(env: dict) -> list[str]:
+    """Listing ids of the dataset a run reads (DATASET_PATH file, else newest file in DATASET_DIR)."""
+    path = env.get("DATASET_PATH") or ""
+    if not path and env.get("DATASET_DIR"):
+        files = sorted(glob.glob(f"{env['DATASET_DIR']}/as_of=*.parquet"))
+        path = files[-1] if files else ""
+    if not path or not os.path.isfile(path):
+        return []
+    try:
+        return sorted({str(v) for v in pd.read_parquet(path, columns=["listing_id"])["listing_id"]})
+    except Exception:
+        return []
+
+
+def _own_v2_source(env: dict) -> bool:
+    return bool(env.get("ITEM_ATTRIBUTES_V2_PATH") or env.get("ITEM_ATTRIBUTES_V2_DIR"))
 
 
 def _write_item_attributes(statuses: dict, root: str) -> str:
@@ -328,10 +352,8 @@ def main() -> int:
             command = run_env.pop("@command", None)
             # "@seed": "weak" | "strong" seeds a recsys-als champion before this run (after the
             # namespace reset); "@seed_protocol": "none" leaves it without `lineage.eval_protocol`.
+            has_attributes = "@item_attributes" in run_env
             attributes = run_env.pop("@item_attributes", None)
-            if attributes is not None:
-                env_dir = _write_item_attributes(attributes, f"{WORK}/attributes-{index}")
-                run_env["ITEM_ATTRIBUTES_V2_DIR"] = env_dir
             seed_kind = run_env.pop("@seed", None)
             seed_protocol = run_env.pop("@seed_protocol", None)
             if seed_kind:
@@ -350,6 +372,14 @@ def main() -> int:
             if variant:
                 path = _fixture_for(variant)
                 env["DATASET_PATH"] = path or ""
+            if not has_attributes and not command and not _own_v2_source(env):
+                listed = _dataset_listings(env)
+                if listed:
+                    attributes = {listing: "LISTING_STATUS_PUBLISHED" for listing in listed}
+            if attributes is not None:
+                env["ITEM_ATTRIBUTES_V2_DIR"] = _write_item_attributes(
+                    attributes, f"{WORK}/attributes-{index}"
+                )
             before = registry.counts()
             proc = subprocess.run(
                 [sys.executable, "-m", "recsys", *([command] if command else [])],
