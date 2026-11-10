@@ -16,11 +16,12 @@ from pathlib import Path
 from . import recommend
 from . import registry_client as rc
 from . import spark as spark_session
-from .config import Settings, load_settings
+from .config import ConfigError, Settings, load_settings
 from .dataset import resolve_dataset
 from .evals.evaluator import ModelEvaluator
 from .evals.holdout import EVAL_PROTOCOL, leave_last_new_item_out
 from .interactions import dataset_triples, index_interactions
+from .load import attributes as attributes_load
 from .model_version import resolve_model_version
 from .monitoring import generation as drift_monitor
 from .publish import publish_generation, refresh_serving_ttl
@@ -207,10 +208,11 @@ def _apply_all(candidates: list[tuple[str, int]]) -> None:
 def run(settings: Settings | None = None, redis_client=None, qdrant_client=None) -> dict:
     """Run the full pipeline. Returns a summary dict of what was produced.
 
-    Order: validate and resolve every input (exit 2) → registry pre-flight (exit 1) → train ALS, evaluate
-    it → only when it is ``promotable``: the GBDT and two-tower stages evaluate theirs → publish the
-    generation → ``apply`` each promotable model. A stage or publish failure marks the evaluated versions
-    rejected and raises; no alias moved before the publish succeeded.
+    Order: validate and resolve every input, the item_attributes snapshot first (exit 2) → registry
+    pre-flight (exit 1) → train ALS, evaluate it → only when it is ``promotable``: the GBDT and
+    two-tower stages evaluate theirs → publish the generation → ``apply`` each promotable model. A
+    stage or publish failure marks the evaluated versions rejected and raises; no
+    alias moved before the publish succeeded.
 
     ``redis_client`` / ``qdrant_client`` are injectable for tests; by default the job connects from
     the settings.
@@ -218,6 +220,11 @@ def run(settings: Settings | None = None, redis_client=None, qdrant_client=None)
     settings = settings or load_settings()
     settings.validate_for_training()
     model_version = resolve_model_version(settings)
+    # The item_attributes@v2 snapshot is a precondition: missing or unreadable, refuse to run
+    # (ConfigError → exit 2) before the dataset is read, Spark starts or anything is registered.
+    attributes = attributes_load.load_attributes(settings)
+    if attributes is None:
+        raise ConfigError("attributes=missing: the item_attributes v2 snapshot is missing or unreadable")
     # Resolve the governed dataset BEFORE starting Spark: with none (or a stale one), refuse to run
     # (ConfigError → exit 2) and register nothing. No fallback to raw events.
     dataset = resolve_dataset(settings)
@@ -415,6 +422,7 @@ def run(settings: Settings | None = None, redis_client=None, qdrant_client=None)
                 qdrant_client=qdrant_client,
                 two_tower_vectors=two_tower.vectors if tower_ships else None,
                 ranker_artifact=gbdt.artifact if ranker_ships else None,
+                attributes=attributes,
             )
         except Exception as exc:
             _mark_rejected(promotable, f"publish failed: {type(exc).__name__}")

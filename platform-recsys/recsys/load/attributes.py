@@ -5,8 +5,9 @@ The snapshot is read from ``ITEM_ATTRIBUTES_V2_PATH`` (an explicit file, wins) o
 ``status == LISTING_STATUS_PUBLISHED``; an unset or unknown status leaves ``visible`` absent. A value that is
 empty or longer than 128 characters is treated as unknown and left out. ``in_stock`` is never carried.
 
-A snapshot older than 24 hours is used anyway, with one warning naming its ``as_of``. A missing or corrupt
-snapshot yields ``None``: the caller publishes the old shape. Logs carry counts and never an id.
+A snapshot older than 24 hours is used anyway, with one warning naming its ``as_of``. A missing or
+corrupt snapshot yields ``None``: a training run refuses (exit 2) instead of publishing the old shape.
+Logs carry counts and never an id.
 """
 
 from __future__ import annotations

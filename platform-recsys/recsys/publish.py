@@ -43,6 +43,7 @@ def publish_generation(
     qdrant_client=None,
     two_tower_vectors: dict[str, list[float]] | None = None,
     ranker_artifact: dict | None = None,
+    attributes=None,
 ) -> dict:
     """Write ``model_version`` as a generation, switch serving to it, drop older generations.
 
@@ -54,7 +55,8 @@ def publish_generation(
     if qdrant_client is None:
         qdrant_client = qdrant_load._connect(settings)
 
-    attributes = attributes_load.load_attributes(settings)
+    if attributes is None:
+        attributes = attributes_load.load_attributes(settings)
 
     cache_counts = redis_cache.load_cache(
         settings,
