@@ -15,7 +15,8 @@ The live serving data (Redis DB 0 and the default collections) is never touched.
    "recsys done: {...}" log line), and snapshots the stores.
 4. It writes everything to /work/result.json and cleans the namespace up again.
 
-Live plans (recsys-generation-publish) skip the namespace: they publish to the stack's own serving
+Live plans (recsys-generation-publish) publish vectors that team-ai serves, so ALS_RANK is the serving
+dimension (RECS_VECTOR_DIM, default 64) instead of the namespace plans' 4. They skip the namespace: they publish to the stack's own serving
 data (DB 0, the default collections and their aliases), optionally forgetting every generation first
 ("reset"), and leave what they published in place. A run may name a dataset variant ("@fixture") and
 a subcommand ("@command", e.g. rollback), and an item_attributes@v2 snapshot ("@item_attributes":
@@ -326,7 +327,7 @@ def main() -> int:
         "QDRANT_USER_COLLECTION": USERS,
         "MLFLOW_TRACKING_URI": registry.base(),
         "SPARK_MASTER": "local[1]",
-        "ALS_RANK": "4",
+        "ALS_RANK": os.environ.get("RECS_VECTOR_DIM", "64") if LIVE else "4",
         "ALS_MAX_ITER": "3",
         "TOP_N": "5",
     }
