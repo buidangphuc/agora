@@ -82,6 +82,43 @@ def cattr_publish_no_status(world: World) -> None:
     )
 
 
+@when(
+    "the recsys job publishes a live generation whose attribute snapshot marks the similar "
+    "listings published"
+)
+def cattr_publish_all_published(world: World) -> None:
+    _publish(world, {CONTEXT_LISTING: _STATUS["published"], PUBLISHED: _STATUS["published"]})
+
+
+@when("a training run starts with no attribute snapshot")
+def cattr_run_without_snapshot(world: World) -> None:
+    user = world.state.current_user
+    assert user is not None and user.user_id, "no logged-in buyer to put in the dataset fixtures"
+    (run,) = run_recsys_job(
+        [],
+        [{**_MLFLOW_ENV, "@fixture": "better_b", "@item_attributes": None}],
+        live=True,
+        reset=False,
+        buyer_id=user.user_id,
+        expect_summary=False,
+    )
+    _ctx(world)["refused"] = run
+
+
+@then("the run exits 2 and trains nothing")
+def cattr_refused(world: World) -> None:
+    run = _ctx(world)["refused"]
+    assert run.exit_code == 2, f"expected exit 2, got {run.exit_code}\n{run.log}"
+    assert run.summary is None, f"a refused run must not report a summary: {run.summary}"
+
+
+@then("the first generation is still the serving generation")
+def cattr_first_generation_serving(world: World) -> None:
+    first = _ctx(world)["run"].summary["model_version"]
+    serving = _ctx(world)["refused"].state["serving"]
+    assert serving == first, f"recs:v1:serving moved to {serving!r}, expected {first!r}"
+
+
 @when("Recommend for cart_cross_sell is called through the gateway with the cart context listing")
 def cattr_recommend(world: World) -> None:
     data = world.service_factory.recommendation.post(

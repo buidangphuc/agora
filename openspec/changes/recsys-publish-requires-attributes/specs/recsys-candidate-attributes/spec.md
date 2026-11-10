@@ -91,7 +91,7 @@ snapshot exists or the snapshot is not readable Parquet with a `listing_id` colu
 
 - **WHEN** generation `G1` is serving and a training run starts without a readable snapshot
 - **THEN** the run exits 2 and Recommend through the gateway still answers from `G1` with a non-empty list
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/candidate_attributes.feature` `A run without an attribute snapshot keeps the serving generation`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/candidate_attributes.feature` `A refused run keeps serving the previous generation`
 
 #### Scenario: A stale snapshot still trains
 

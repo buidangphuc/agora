@@ -7,7 +7,7 @@
 ## 2. E2E track: platform-e2e
 
 - [ ] 2.1 `tests/e2e/flows/recsys_job_driver.py`: default `item_attributes@v2` snapshot (every fixture listing published) when a run has no `@item_attributes`; `"@item_attributes": null` writes none
-- [ ] 2.2 `tests/e2e/features/recommendations/candidate_attributes.feature`: scenario `A run without an attribute snapshot keeps the serving generation`; FEATURES.yaml entry via the e2e-author
+- [ ] 2.2 `tests/e2e/features/recommendations/candidate_attributes.feature`: scenario `A refused run keeps serving the previous generation`; FEATURES.yaml entry via the e2e-author
 - [ ] 2.3 Rerun on the main env after promote: the files listed in proposal.md "Why" plus `test_candidate_attributes`, `test_fir_recsys_item_attributes`, `test_mlr_ml_recsys`, `test_recsys_auto_train`, `test_rgp_generation_publish`, `test_rgt_gbdt_ranker`, `test_fsd_governed_datasets`
 
 ## 3. Checks
