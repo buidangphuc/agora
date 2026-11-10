@@ -69,7 +69,12 @@ def serve_tied_pair(world: World, first: str, second: str) -> None:
     prefix = rss.serving_prefix(serving)
     serving.put(
         f"{prefix}:user:{rss.buyer_id(world)}",
-        json.dumps([{"listing_id": first, "score": 0.5}, {"listing_id": second, "score": 0.5}]),
+        json.dumps(
+            [
+                {"listing_id": first, "score": 0.5, "visible": True},
+                {"listing_id": second, "score": 0.5, "visible": True},
+            ]
+        ),
     )
 
 

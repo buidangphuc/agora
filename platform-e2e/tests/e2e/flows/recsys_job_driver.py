@@ -28,13 +28,13 @@ yields no snapshot). An explicit `"@item_attributes": None` writes none (the ref
 "@command" run gets no default. No run forces a promotion: the registry (MLflow, reached
 at MLFLOW_TRACKING_URI) is reset or seeded by the caller, and namespace plans start from an empty one.
 
-Only the image's own dependencies are used (pandas, redis, qdrant-client).
+Only the image's own dependencies are used (pandas, redis, qdrant-client). The snapshot helpers live in
+item_attributes_support.py, copied next to this file by the host side like registry_support.py.
 """
 
 from __future__ import annotations
 
 import ast
-import glob
 import hashlib
 import json
 import os
@@ -44,6 +44,7 @@ import time
 from datetime import datetime, timezone
 
 import pandas as pd
+import item_attributes_support as attributes
 import registry_support as registry
 from qdrant_client import QdrantClient
 from qdrant_client.models import DeleteAlias, DeleteAliasOperation
@@ -123,49 +124,6 @@ def _write_dataset(rows: list[dict], root: str = WORK) -> str | None:
     with open(path[: -len(".parquet")] + ".manifest.json", "w") as f:
         json.dump(manifest, f)
     return path
-
-
-def _dataset_listings(env: dict) -> list[str]:
-    """Listing ids of the dataset a run reads (DATASET_PATH file, else newest file in DATASET_DIR)."""
-    path = env.get("DATASET_PATH") or ""
-    if not path and env.get("DATASET_DIR"):
-        files = sorted(glob.glob(f"{env['DATASET_DIR']}/as_of=*.parquet"))
-        path = files[-1] if files else ""
-    if not path or not os.path.isfile(path):
-        return []
-    try:
-        return sorted({str(v) for v in pd.read_parquet(path, columns=["listing_id"])["listing_id"]})
-    except Exception:
-        return []
-
-
-def _own_v2_source(env: dict) -> bool:
-    return bool(env.get("ITEM_ATTRIBUTES_V2_PATH") or env.get("ITEM_ATTRIBUTES_V2_DIR"))
-
-
-def _write_item_attributes(statuses: dict, root: str) -> str:
-    """Write an item_attributes@v2 snapshot (one row per listing, null status kept) under `root`."""
-    directory = f"{root}/item_attributes/v2"
-    os.makedirs(directory, exist_ok=True)
-    now = datetime.now(timezone.utc)
-    df = pd.DataFrame(
-        {
-            "listing_id": list(statuses),
-            "seller_id": [f"seller-{listing}" for listing in statuses],
-            "category_id": [f"category-{listing}" for listing in statuses],
-            "price": [1000.0] * len(statuses),
-            "status": [statuses[listing] for listing in statuses],
-            "as_of": [now] * len(statuses),
-        }
-    )
-    df["status"] = df["status"].astype("object")
-    df.to_parquet(
-        f"{directory}/as_of={now.strftime('%Y%m%dT%H%M%SZ')}.parquet",
-        index=False,
-        coerce_timestamps="ms",
-        allow_truncated_timestamps=True,
-    )
-    return directory
 
 
 # ── Fixture variants (recsys-generation-publish) ──────────────────────────
@@ -354,7 +312,7 @@ def main() -> int:
             # "@seed": "weak" | "strong" seeds a recsys-als champion before this run (after the
             # namespace reset); "@seed_protocol": "none" leaves it without `lineage.eval_protocol`.
             has_attributes = "@item_attributes" in run_env
-            attributes = run_env.pop("@item_attributes", None)
+            snapshot = run_env.pop("@item_attributes", None)
             seed_kind = run_env.pop("@seed", None)
             seed_protocol = run_env.pop("@seed_protocol", None)
             if seed_kind:
@@ -373,13 +331,11 @@ def main() -> int:
             if variant:
                 path = _fixture_for(variant)
                 env["DATASET_PATH"] = path or ""
-            if not has_attributes and not command and not _own_v2_source(env):
-                listed = _dataset_listings(env)
-                if listed:
-                    attributes = {listing: "LISTING_STATUS_PUBLISHED" for listing in listed}
-            if attributes is not None:
-                env["ITEM_ATTRIBUTES_V2_DIR"] = _write_item_attributes(
-                    attributes, f"{WORK}/attributes-{index}"
+            if not has_attributes and not command:
+                env.update(attributes.default_env(env, f"{WORK}/attributes-{index}"))
+            if snapshot is not None:
+                env["ITEM_ATTRIBUTES_V2_DIR"] = attributes.write_item_attributes(
+                    snapshot, f"{WORK}/attributes-{index}"
                 )
             before = registry.counts()
             proc = subprocess.run(

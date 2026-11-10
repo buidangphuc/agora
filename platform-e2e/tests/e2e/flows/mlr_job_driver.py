@@ -15,7 +15,9 @@ touched. /work/plan.json holds {"namespace", "redis_db", "steps": [...]}; each s
   {"op": "redis_set", "key": k, "value": v, "ex": seconds}
   {"op": "redis_dump", "pattern": "recs:nearline:*"}
 
-and the result of every step goes to /work/result.json.
+and the result of every step goes to /work/result.json. Every "recsys" step also gets the default
+all-published item_attributes@v2 snapshot of its dataset (item_attributes_support.py): the job refuses
+a training run without one.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
+import item_attributes_support as attributes
 import pandas as pd
 import registry_support as registry
 from qdrant_client import QdrantClient
@@ -214,6 +217,7 @@ def main() -> int:
                 if step.get("dataset"):
                     env["DATASET_PATH"] = _dataset(f"{WORK}/dataset-{index}", step["dataset"])
                 env.update(_features(step.get("features"), f"{WORK}/feat-{index}"))
+                env.update(attributes.default_env(env, f"{WORK}/attrs-{index}"))
                 env.setdefault("MODEL_VERSION", f"als-mlr-{nonce}-{index}")
                 code, out = _run([sys.executable, "-m", "recsys"], env)
                 summary = None

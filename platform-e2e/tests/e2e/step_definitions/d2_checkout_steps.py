@@ -80,7 +80,7 @@ def slow_actions(world: World, seconds: float, glob: str = "**/checkout**") -> N
 def shell_chrome(world: World) -> None:
     page = world.page
     shell = page.get_by_test_id("checkout-shell")
-    expect(shell.get_by_role("link", name="Marketplace")).to_have_attribute("href", "/")
+    expect(shell.get_by_role("link", name="Agora")).to_have_attribute("href", "/")
     expect(shell.get_by_role("navigation", name="Progress")).to_be_visible(timeout=timeouts.DEFAULT)
     expect(shell.get_by_text("Thanh toán an toàn · Môi trường demo")).to_be_visible()
     expect(page.get_by_placeholder("Tìm kiếm sản phẩm")).to_have_count(0)

@@ -1,0 +1,9 @@
+# Retrieval budget for the recommendation e2e on a local stack. team-ai's product default is
+# RECS_RETRIEVE_TIMEOUT_MS=15, which a laptop Docker stack (Qdrant + Redis behind it) exceeds, so a
+# Recommend answers empty. The default stays 15 for real environments; this overlay raises it for
+# local main / e2e only:
+#   <DC_WRAPPER> -f <this file> up -d --no-deps team-ai
+services:
+  team-ai:
+    environment:
+      RECS_RETRIEVE_TIMEOUT_MS: "200"

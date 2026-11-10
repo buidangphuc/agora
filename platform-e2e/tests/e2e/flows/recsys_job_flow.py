@@ -22,6 +22,7 @@ from config.settings import get_settings
 
 _DRIVER = Path(__file__).with_name("recsys_job_driver.py")
 _REGISTRY_SUPPORT = Path(__file__).with_name("registry_support.py")
+_ATTRIBUTES_SUPPORT = Path(__file__).with_name("item_attributes_support.py")
 _JOB_TIMEOUT_S = 600
 
 
@@ -70,6 +71,7 @@ def run_recsys_job(
     try:
         shutil.copy(_DRIVER, work / "driver.py")
         shutil.copy(_REGISTRY_SUPPORT, work / "registry_support.py")
+        shutil.copy(_ATTRIBUTES_SUPPORT, work / "item_attributes_support.py")
         plan = {
             "namespace": f"e2e_recsys_gw{idx}",
             "redis_db": 10 + idx,

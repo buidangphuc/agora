@@ -19,6 +19,7 @@ from config.settings import get_settings
 
 _DRIVER = Path(__file__).with_name("mlr_job_driver.py")
 _REGISTRY_SUPPORT = Path(__file__).with_name("registry_support.py")
+_ATTRIBUTES_SUPPORT = Path(__file__).with_name("item_attributes_support.py")
 _TIMEOUT_S = 900
 
 
@@ -34,6 +35,7 @@ def run_plan(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     try:
         shutil.copy(_DRIVER, work / "driver.py")
         shutil.copy(_REGISTRY_SUPPORT, work / "registry_support.py")
+        shutil.copy(_ATTRIBUTES_SUPPORT, work / "item_attributes_support.py")
         plan = {"namespace": f"e2e_mlr_gw{idx}", "redis_db": 10 + idx, "steps": steps}
         (work / "plan.json").write_text(json.dumps(plan))
         work.chmod(0o777)  # the job image runs as uid 1001
