@@ -127,7 +127,7 @@ of `RECSYS_IMAGE` on `STACK_NETWORK`, with `recsys_job_driver.py` mounted as the
 driver writes the Parquet from the scenario events, runs `python -m recsys` and snapshots the
 stores. The job refuses a run without an `item_attributes@v2` snapshot (exit 2), so the driver
 writes one marking every dataset listing published unless the run sets `@item_attributes` (a dict
-of statuses, or `null` for no snapshot). Live plans train at `RECS_VECTOR_DIM` (default 64), the
+of statuses, or `null` for no snapshot). The other recsys job drivers (`fir`, `mlr`, `rgt`, and the auto-train runner `src/api/recsys_job_runner.py`) get the same default from `tests/e2e/flows/item_attributes_support.py`, copied next to each driver like `registry_support.py`. Live plans train at `RECS_VECTOR_DIM` (default 64), the
 size team-ai serves; namespace plans keep rank 4. Prerequisites: the image must be built beforehand (the root compose service
 `platform-recsys`, profile `jobs`, tags it `platform-recsys:local`), and Redis and Qdrant must
 be running on the network (hosts `redis`, `qdrant`). Isolation is per xdist worker: Redis DB

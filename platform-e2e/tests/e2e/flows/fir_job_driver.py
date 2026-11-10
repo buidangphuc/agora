@@ -10,6 +10,9 @@ Feature fixtures (item_popularity@v1 / user_activity@v2 always, except "none"):
             only here: fir-cold-a and fir-cold-b, different categories, same price) and user_preferences@v1
   no_attrs  popularity and activity snapshots only
   none      no snapshot at all
+Every run also gets the default all-published item_attributes@v2 snapshot of its dataset
+(item_attributes_support.py), because the job refuses a training run without one; the v1 fixtures above
+stay what the scenarios vary.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
+import item_attributes_support as attributes
 import pandas as pd
 import registry_support as registry
 from qdrant_client import QdrantClient
@@ -167,6 +171,7 @@ def main() -> int:
             for k, v in (step.get("env") or {}).items():
                 env.pop(k, None) if v is None else env.__setitem__(k, v)
             env.update(_features(step.get("features", "attrs"), f"{WORK}/feat-{index}"))
+            env.update(attributes.default_env(env, f"{WORK}/attrs-{index}"))
             env.setdefault("MODEL_VERSION", f"als-fir-{nonce}-{index}")
             registry.reset()  # no champion: the run promotes without any forcing lever
             before = registry.counts()

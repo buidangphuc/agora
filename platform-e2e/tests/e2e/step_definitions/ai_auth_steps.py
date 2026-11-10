@@ -155,7 +155,8 @@ def two_buyers_with_lists(world: World) -> None:
         user_id = _claims(token)["sub"]
         ids = [f"e2e-{run}-{who}-{n}" for n in (1, 2, 3)]
         key = _recs_user_key(user_id)
-        _redis("set", key, json.dumps(ids), "EX", "600")
+        entries = [{"listing_id": lid, "visible": True} for lid in ids]
+        _redis("set", key, json.dumps(entries), "EX", "600")
         world.add_cleanup(lambda k=key: _redis("del", k))
         extra[f"{who}_token"], extra[f"{who}_id"], extra[f"{who}_ids"] = token, user_id, ids
     assert extra["a_id"] != extra["b_id"]

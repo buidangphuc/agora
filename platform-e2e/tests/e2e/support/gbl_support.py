@@ -77,6 +77,9 @@ def seed(world: World) -> tuple[str, str, rss.Keys]:
             features.put(f"fs:{view}:v{version}:{lid}", json.dumps(row))
     serving.put(
         f"{rss.serving_prefix(serving)}:user:{rss.buyer_id(world)}",
-        json.dumps([{"listing_id": first, "score": 0.9}, {"listing_id": second, "score": 0.8}]),
+        json.dumps([
+                {"listing_id": first, "score": 0.9, "visible": True},
+                {"listing_id": second, "score": 0.8, "visible": True},
+            ]),
     )
     return first, second, serving

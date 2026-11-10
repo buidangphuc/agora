@@ -3,7 +3,10 @@
 Black-box driver for the recsys-auto-train scenarios. It acts on the stack's LIVE serving data
 (Redis DB 0, the default Qdrant collections and aliases) because the scenarios assert what team-ai
 `Recommend` answers. It reuses `_write_dataset`, `_fixture_events` and `_reset_live` of
-tests/e2e/flows/recsys_job_driver.py (copied to /work/driver.py by the host side).
+tests/e2e/flows/recsys_job_driver.py (copied to /work/driver.py by the host side) and gives every
+training run with a dataset the default all-published item_attributes@v2 snapshot of
+tests/e2e/flows/item_attributes_support.py (the job refuses a run without one). An action "env"
+key (ITEM_ATTRIBUTES_V2_DIR / _PATH) overrides it.
 
 /work/plan.json carries the driver's own keys (namespace, redis_db, live=true, buyer_id, events,
 runs: only read when driver.py is imported) plus "actions", a list of:
@@ -28,6 +31,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, "/work")
 import driver  # noqa: E402  (the copy of recsys_job_driver.py)
+import item_attributes_support as attributes  # noqa: E402
 from qdrant_client import QdrantClient  # noqa: E402
 from redis import Redis  # noqa: E402
 
@@ -107,6 +111,8 @@ def _job_env(index: int, action: dict) -> dict:
         if action.get("age_hours"):
             _backdate(directory, float(action["age_hours"]))
         env["DATASET_DIR"] = directory
+        if not action.get("command"):
+            env.update(attributes.default_env(env, f"{WORK}/attrs-{index}"))
     for key, value in (action.get("env") or {}).items():
         if value is None:
             env.pop(key, None)

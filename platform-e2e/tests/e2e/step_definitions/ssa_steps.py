@@ -109,7 +109,11 @@ def ssa_add_marker(version: str) -> None:
                 {
                     "id": ssa_point_id(ssa_marker(version)),
                     "vector": got[0]["vector"],
-                    "payload": {"listing_id": ssa_marker(version), "model_version": version},
+                    "payload": {
+                        "listing_id": ssa_marker(version),
+                        "model_version": version,
+                        "visible": True,
+                    },
                 }
             ]
         },

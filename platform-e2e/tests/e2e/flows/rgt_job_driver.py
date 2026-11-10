@@ -8,7 +8,9 @@ never touched). /work/plan.json holds {"namespace", "redis_db", "steps": [...]};
 of 300 impression lists over 24 listings whose clicks depend on item price (cheap items are clicked), and one
 item_popularity@v1 and one item_attributes@v1 snapshot older than every impression. `rows` makes the run write
 every training row (GBDT_ROWS_PATH) and returns it; `score` asks the image to score those vectors with the
-artifact of the serving generation (recsys.ranker.gbdt.score_vector).
+artifact of the serving generation (recsys.ranker.gbdt.score_vector). Every run also gets the default
+all-published item_attributes@v2 snapshot of its als_interactions dataset (item_attributes_support.py):
+the job refuses a training run without one.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
+import item_attributes_support as attributes
 import pandas as pd
 import registry_support as registry
 from qdrant_client import QdrantClient
@@ -174,6 +177,7 @@ def main() -> int:
             for k, v in (step.get("env") or {}).items():
                 env.pop(k, None) if v is None else env.__setitem__(k, v)
             env.update(_features(step.get("features", "rank"), f"{WORK}/feat-{index}"))
+            env.update(attributes.default_env(env, f"{WORK}/attrs-{index}"))
             rows_path = f"{WORK}/rows-{index}.parquet"
             if step.get("rows"):
                 env["GBDT_ROWS_PATH"] = rows_path

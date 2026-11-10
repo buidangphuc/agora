@@ -330,10 +330,16 @@ def model_names_dataset(fsd_ctx):
 @when("the recsys ALS job starts with DATASET_DIR pointing at an empty directory")
 def recsys_without_dataset(fsd_ctx):
     # /work/empty-dataset is created empty by the driver; DATASET_PATH is unset so only DATASET_DIR
-    # is consulted.
+    # is consulted. The run has an item_attributes@v2 snapshot, so the dataset is what it lacks.
     (run,) = run_recsys_job(
         [],
-        [{"DATASET_DIR": "/work/empty-dataset", "DATASET_PATH": None}],
+        [
+            {
+                "DATASET_DIR": "/work/empty-dataset",
+                "DATASET_PATH": None,
+                "@item_attributes": {"fsd-listing": "LISTING_STATUS_PUBLISHED"},
+            }
+        ],
         expect_summary=False,
     )
     fsd_ctx.data["run"] = run

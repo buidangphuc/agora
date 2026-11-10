@@ -64,7 +64,12 @@ def rss_cold_start(world: World) -> None:
     redis.remove(f"{prefix}:user:{rss.buyer_id(world)}")
     redis.put(
         f"{prefix}:popular",
-        json.dumps([{"listing_id": lid, "score": 100.0 - n} for n, lid in enumerate(popular)]),
+        json.dumps(
+            [
+                {"listing_id": lid, "score": 100.0 - n, "visible": True}
+                for n, lid in enumerate(popular)
+            ]
+        ),
     )
     _x(world)["popular"] = popular
     _x(world)["response"] = rss.await_recommend(
@@ -126,7 +131,10 @@ def rss_tie_break(world: World) -> None:
     prefix = rss.serving_prefix(serving)
     serving.put(
         f"{prefix}:user:{rss.buyer_id(world)}",
-        json.dumps([{"listing_id": first, "score": 0.5}, {"listing_id": second, "score": 0.5}]),
+        json.dumps([
+                {"listing_id": first, "score": 0.5, "visible": True},
+                {"listing_id": second, "score": 0.5, "visible": True},
+            ]),
     )
     _x(world)["pair"] = (first, second)
     _x(world)["response"] = rss.await_recommend(
@@ -158,7 +166,12 @@ def rss_open_home_with_row(world: World) -> None:
     wanted = [listing.listing_id, *[i for i in own if i != listing.listing_id]][:10]
     serving.put(
         f"{prefix}:user:{rss.buyer_id(world)}",
-        json.dumps([{"listing_id": i, "score": 10.0 - n} for n, i in enumerate(wanted)]),
+        json.dumps(
+            [
+                {"listing_id": i, "score": 10.0 - n, "visible": True}
+                for n, i in enumerate(wanted)
+            ]
+        ),
     )
     # The pointer is memoised by team-ai: wait until the buyer's own list is what is served.
     rss.await_recommend(world, lambda r: rss.ids(r)[:1] == wanted[:1], "seeded list not served")
