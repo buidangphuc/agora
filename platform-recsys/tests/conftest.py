@@ -4,9 +4,9 @@ import os
 
 os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 
-from tests.registry_fixture import reg  # noqa: F401
-
 import pytest  # noqa: E402
+
+from tests.registry_fixture import reg  # noqa: F401
 
 
 @pytest.fixture(autouse=True)

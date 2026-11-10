@@ -150,7 +150,8 @@ def default_attributes_dir() -> str:
     if not _DEFAULT_ATTRIBUTES:
         directory = Path(tempfile.mkdtemp(prefix="recsys-default-attrs-"))
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        listings = [f"l{c}" for c in "abcdef"] + ["l-cold", "l1", "l2", "l3"] + [f"gb-{n:02d}" for n in range(8)]
+        listings = [f"l{c}" for c in "abcdef"] + ["l-cold", "l1", "l2", "l3"]
+        listings += [f"gb-{n:02d}" for n in range(8)]
         frame = pd.DataFrame(
             [[lid, "s1", "c1", 100, "LISTING_STATUS_PUBLISHED"] for lid in listings],
             columns=["listing_id", "seller_id", "category_id", "price", "status"],

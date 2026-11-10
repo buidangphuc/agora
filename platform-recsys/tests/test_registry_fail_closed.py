@@ -15,11 +15,11 @@ from recsys.config import ConfigError, Settings
 from tests.dataset_fixture import write_dataset
 from tests.fakes import FakeQdrantClient, FakeRedis
 from tests.pipeline_fixture import (
-    default_attributes_dir,
     ALS,
     GBDT,
     aliases_of,
     als_rows,
+    default_attributes_dir,
     forbid_spark,
     newest,
     outcome,
