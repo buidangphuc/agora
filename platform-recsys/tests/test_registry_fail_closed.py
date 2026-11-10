@@ -15,6 +15,7 @@ from recsys.config import ConfigError, Settings
 from tests.dataset_fixture import write_dataset
 from tests.fakes import FakeQdrantClient, FakeRedis
 from tests.pipeline_fixture import (
+    default_attributes_dir,
     ALS,
     GBDT,
     aliases_of,
@@ -54,6 +55,7 @@ def test_registry_unreachable_at_start_exits_1_before_spark(tmp_path, monkeypatc
         dataset_dir=str(tmp_path),
         model_version="g1",
         mlflow_tracking_uri=dead_registry_url,
+        item_attributes_v2_dir=default_attributes_dir(),
     )
 
     t0 = time.monotonic()
