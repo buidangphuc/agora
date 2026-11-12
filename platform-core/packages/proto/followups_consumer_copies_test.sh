@@ -72,7 +72,7 @@ renum() {
     else echo "FAIL renumbering $label rejected without naming $name: $(head -3 "$tmp/renum.out" | tr '\n' ' ')"; fail=1; fi
   else echo "FAIL renumbering $label: could not mutate scratch copy (element missing from source)"; fail=1; fi
 }
-renum "DELETED" "$LISTING" 's/(LISTING_STATUS_DELETED = )7;/\18;/' "LISTING_STATUS_DELETED"
+renum "DELETED" "$LISTING" 's/(LISTING_STATUS_DELETED = )7;/\18;/' "ListingStatus"
 renum "listing_ids" "$SEARCH" '/^message GetListingStockRequest /,/^}/ s/(listing_ids = )1;/\19;/' "listing_ids"
 renum "ListingStock.listing_id" "$SEARCH" '/^message ListingStock /,/^}/ s/(listing_id = )1;/\19;/' "listing_id"
 renum "ListingStock.stock" "$SEARCH" '/^message ListingStock /,/^}/ s/(stock = )2;/\19;/' "stock"
