@@ -7172,3 +7172,221 @@ features:
     tags: [order, discovery-seo, unit]
     status: not-testable
     notes: "VERIFIED BY team-order migrations TestMigration0023_BackfilledOrderCancelledLaterIsSubtractedOnce. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.cod-a-cod-order-completed-by-the-buyer-is-counted
+    title: "A COD order completed by the buyer is counted"
+    persona: buyer
+    priority: P1
+    summary: "COD completion counted into the search sold count (change order-cod-sales-count, initiative discovery-followups)."
+    entry_route: /
+    services: [team-order, team-search, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ConfirmReceipt, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A COD order completed by the buyer is counted"
+    tags: [order, discovery-followups]
+    status: automated
+    covered_by: "order/cod_sales_count.feature::A COD order completed by the buyer is counted"
+
+  - id: order.cod-a-cod-order-completed-by-the-seller-is-counted
+    title: "A COD order completed by the seller is counted"
+    persona: buyer
+    priority: P1
+    summary: "COD completion counted into the search sold count (change order-cod-sales-count, initiative discovery-followups)."
+    entry_route: /
+    services: [team-order, team-search, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ConfirmReceipt, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A COD order completed by the seller is counted"
+    tags: [order, discovery-followups]
+    status: automated
+    covered_by: "order/cod_sales_count.feature::A COD order completed by the seller is counted"
+
+  - id: order.cod-a-cod-order-completed-by-the-auto-complete-sweep-is-counted
+    title: "A COD order completed by the auto-complete sweep is counted"
+    persona: buyer
+    priority: P1
+    summary: "COD completion counted into the search sold count (change order-cod-sales-count, initiative discovery-followups)."
+    entry_route: /
+    services: [team-order, team-search, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ConfirmReceipt, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A COD order completed by the auto-complete sweep is counted"
+    tags: [order, discovery-followups]
+    status: automated
+    covered_by: "order/cod_sales_count.feature::A COD order completed by the auto-complete sweep is counted"
+
+  - id: order.cod-completing-an-online-paid-order-does-not-count-it-again
+    title: "Completing an online-paid order does not count it again"
+    persona: buyer
+    priority: P1
+    summary: "COD completion counted into the search sold count (change order-cod-sales-count, initiative discovery-followups)."
+    entry_route: /
+    services: [team-order, team-search, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ConfirmReceipt, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Completing an online-paid order does not count it again"
+    tags: [order, discovery-followups]
+    status: automated
+    covered_by: "order/cod_sales_count.feature::Completing an online-paid order does not count it again"
+
+  - id: order.cod-a-repeated-or-concurrent-cod-completion-counts-once
+    title: "A repeated or concurrent COD completion counts once"
+    persona: buyer
+    priority: P1
+    summary: "COD completion counted into the search sold count (change order-cod-sales-count, initiative discovery-followups)."
+    entry_route: /
+    services: [team-order, team-search, team-gateway]
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ConfirmReceipt, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A repeated or concurrent COD completion counts once"
+    tags: [order, discovery-followups]
+    status: automated
+    covered_by: "order/cod_sales_count.feature::A repeated or concurrent COD completion counts once"
+
+  - id: order.cod-a-cod-order-cannot-jump-from-pending-to-completed
+    title: "A COD order cannot jump from PENDING to COMPLETED"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A COD order cannot jump from PENDING to COMPLETED"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestCodSales_PendingToCompletedIsRefused. Unit level only; the e2e track covers tasks 7-11."
+
+  - id: order.cod-a-cod-order-is-not-counted-before-it-completes
+    title: "A COD order is not counted before it completes"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A COD order is not counted before it completes"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestCodSales_NotCountedBeforeCompletion. Unit level only; the e2e track covers tasks 7-11."
+
+  - id: order.cod-a-cod-completion-that-fails-midway-leaves-no-sales-rows
+    title: "A COD completion that fails midway leaves no sales rows"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A COD completion that fails midway leaves no sales rows"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestCodSales_OutboxFailureRollsBackCompletion. Not producible black box: needs a transaction fault."
+
+  - id: order.cod-a-cod-order-with-several-listings-emits-one-event-per-listing
+    title: "A COD order with several listings emits one event per listing"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A COD order with several listings emits one event per listing"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestCodSales_SeveralListingsEmitOneEventEach. Unit level only; the e2e track covers tasks 7-11."
+
+  - id: order.cod-a-cod-return-request-does-not-change-the-sold-count
+    title: "A COD return request does not change the sold count"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A COD return request does not change the sold count"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestCodSales_ReturnRequestDoesNotChangeCount. Unit level only; the e2e track covers tasks 7-11."
+
+  - id: order.cod-completing-a-cod-order-stays-within-the-latency-budget
+    title: "Completing a COD order stays within the latency budget"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Completing a COD order stays within the latency budget"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store BenchmarkCodCompletionLatency. Local benchmark with a before/after p95 comparison, not an e2e assertion."
+
+  - id: order.cod-a-client-cannot-set-the-sold-count-proto
+    title: "A client cannot set the sold count"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A client cannot set the sold count"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/rpc TestNoRPCAcceptsSoldCount. Proto field check; the existing e2e probe order.ols-a-client-cannot-set-the-sold-count covers the black-box side."
+
+  - id: order.cod-historical-cod-completed-orders-are-counted-once
+    title: "Historical COD completed orders are counted once"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Historical COD completed orders are counted once"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0024_HistoricalCodCompletedOrdersAreCountedOnce. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.cod-the-cod-backfill-ignores-orders-already-in-the-ledger-and-non-cod-orders
+    title: "The COD backfill ignores orders already in the ledger and non-COD orders"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The COD backfill ignores orders already in the ledger and non-COD orders"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0024_IgnoresLedgerAndNonCodOrders. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.cod-running-the-cod-backfill-twice-does-not-duplicate
+    title: "Running the COD backfill twice does not duplicate"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Running the COD backfill twice does not duplicate"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0024_BackfillTwiceDoesNotDuplicate. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.cod-the-cod-backfill-on-a-database-with-no-cod-orders-succeeds
+    title: "The COD backfill on a database with no COD orders succeeds"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-cod-sales-count (initiative discovery-followups)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The COD backfill on a database with no COD orders succeeds"
+    tags: [order, discovery-followups, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0024_NoCodOrders. Not producible black box: needs a seeded database, the migration body or a transaction fault."

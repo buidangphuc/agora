@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import cast
+from typing import Any, cast
 
 import grpc
 import pytest
+from fakeredis import aioredis
 from loguru import logger
 
 from app.modules.business.recommendation.schemas import (
@@ -23,6 +24,14 @@ from app.transport.grpc.servicers.recommendation import (
     recommendation_service_registration,
 )
 from tests.factories import allow_all_limiter
+from tests.unit.recs_support import (
+    FakeStock,
+    Source,
+    build_service,
+    popular_entry,
+    seed_popular,
+    write_placements,
+)
 
 _MD = (
     ("x-principal-id", "u1"),
@@ -46,7 +55,7 @@ class _Fake:
 
 @asynccontextmanager
 async def _serving(
-    service: _Fake,
+    service: Any,
 ) -> AsyncIterator[recommendation_pb2_grpc.RecommendationServiceStub]:
     server = build_grpc_server(
         registrations=(
@@ -132,3 +141,25 @@ async def test_logs_carry_context_count_and_no_ids():
     assert "context_count=3" in text or "'context_count': 3" in text
     for listing_id in ids:
         assert listing_id not in text
+
+
+class _TimedOutSource(Source):
+    async def similar(self, seed_listing_id, *, top_k, generation):
+        return []
+
+
+async def test_retrieval_timeout_yields_popular_fallback(tmp_path):
+    redis = aioredis.FakeRedis(decode_responses=True)
+    await seed_popular(redis, [popular_entry("p1", 0.9), popular_entry("p2", 0.8)])
+    placements = write_placements(
+        tmp_path,
+        "  home_feed:\n    candidate_ladder:\n      - strategy: seed_vector_similarity\n",
+    )
+    stock = FakeStock()
+    service = build_service(_TimedOutSource(), redis, placements, stock_lookup=stock)
+    async with _serving(service) as stub:
+        reply = await stub.Recommend(
+            pb.RecommendRequest(user_id="u1", seed_listing_id="seed"), metadata=_MD
+        )
+    assert [i.listing_id for i in reply.items] == ["p1", "p2"]
+    assert stock.calls == []

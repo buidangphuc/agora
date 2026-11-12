@@ -1,0 +1,16 @@
+## 1. Code track (team-search)
+
+- [ ] 1.1 Tests first (red): handler tests with a fake `Index` for ordering, absent vs zero stock, repeated id, tombstone, 10/11 ids, empty list, empty id, anonymous/user/service principals (scenarios: "Stock is returned in request order", "A repeated id yields a repeated entry", "An unknown listing has no stock", "A deleted listing has no stock", "A document without projected stock has no stock", "Ten ids is accepted, eleven is rejected", "An empty or malformed request is rejected", "A user or anonymous caller is refused", "An unreachable index fails the call")
+- [ ] 1.2 Tests first (red): OpenSearch-backed index test (Docker, `GO_SDK_REQUIRE_DOCKER=1`) for a batch get by ids returning stock, tombstone and no-stock documents in one round trip (scenarios: "Stock is returned in request order", "A deleted listing has no stock", "A document without projected stock has no stock")
+- [ ] 1.3 Add a batch get-by-ids method to the `Index` port and `OpenSearchIndex` (single mget/ids query over `_source` stock and status; no per-id queries) (scenarios: "Stock is returned in request order", "An unreachable index fails the call", "A 10-id lookup is fast")
+- [ ] 1.4 Implement `GetListingStock` in `internal/rpc` (new file beside `search.go`): validate 1..10 non-empty ids before index access, require principal type `service` plus scope `search:read` (not `RequireScopesAllowAnonymous`), 200 ms context deadline on the index read mapped to `UNAVAILABLE`, map the result to one entry per id in request order, log the id count only, with a log-capture test asserting no id value appears (scenarios: all handler scenarios above, "Requested ids are not logged", "A slow index fails the call within the deadline", "A repeated id yields a repeated entry")
+- [ ] 1.5 Verify the gateway has no route for `GetListingStock` (no edit to `team-gateway`; the e2e 2.2 asserts 404 or 501) (scenario: "The gateway does not expose the lookup")
+
+## 2. E2E track (platform-e2e)
+
+- [ ] 2.1 Feature "search listing stock lookup": request-order and zero-stock, checkout visible within 30 s, unknown and deleted listing absent, 10 ok / 11 rejected, empty request rejected (scenarios: "Stock is returned in request order", "A checkout is visible in the lookup", "An unknown listing has no stock", "A deleted listing has no stock", "Ten ids is accepted, eleven is rejected", "An empty or malformed request is rejected")
+- [ ] 2.2 Authz steps with a service token, a user token, a service token without `search:read` and no token against `team-search` directly; gateway returns HTTP 404 or 501 (unimplemented) for the method's path (scenarios: "A user or anonymous caller is refused", "The gateway does not expose the lookup")
+- [ ] 2.3 Index-down and index-slow (>200 ms) scenarios on `mainx` with the OpenSearch overlay stopped or delayed (scenarios: "An unreachable index fails the call", "A slow index fails the call within the deadline")
+- [ ] 2.3b Log-capture step: call with two ids and assert the `team-search` logs hold the count and no id (scenario: "Requested ids are not logged")
+- [ ] 2.4 Latency check: 200 sequential calls with 10 ids, p95 <= 20 ms on `mainx` with the OpenSearch overlay (scenario: "A 10-id lookup is fast")
+- [ ] 2.5 `openspec validate search-listing-stock-lookup --strict`, team-search gates, pre-commit-ci

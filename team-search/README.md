@@ -13,7 +13,8 @@ Two binaries ship in one image (`Dockerfile`):
 | `/server` (default) | `cmd/server` | gRPC query API on `:50052` | `team-search` (container `team-search-svc`) |
 | `/indexer` | `cmd/indexer` | Kafka consumer that writes the index | `team-search-indexer` |
 
-The gateway reaches it through `UPSTREAM_SEARCH_ADDR=team-search-svc:50052`.
+The gateway reaches it through `UPSTREAM_SEARCH_ADDR=team-search-svc:50052`; team-ai calls
+`GetListingStock` directly at `RECS_SEARCH_ADDR=team-search-svc:50052`.
 
 ## Contract
 
@@ -30,6 +31,7 @@ missing scope gives `PermissionDenied`.
 | `ListSavedSearches` | `search:read` | Caller's own searches, newest first |
 | `DeleteSavedSearch` | `search:write` | Owner-scoped; another user's id returns `NotFound` |
 | `RunSavedSearch` | `search:read` | Owner-scoped; re-runs the saved query and filters (first page, size 10) |
+| `GetListingStock` | principal type `service` + `search:read` | 1..10 ids; one entry per id in request order; `stock` set only for a live listing with projected stock (0 is present), absent for tombstoned, unprojected or unknown ids; `Unavailable` when the index fails or exceeds 200 ms; `InvalidArgument` outside 1..10 or an empty id; user and anonymous callers are refused |
 
 Behaviour of `SearchListings`:
 
@@ -232,7 +234,7 @@ Docker build uses `golang:1.26`.
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` in this repo (177 features: 105 `automated`, 72 `not-testable`), with
+- Feature manifest: `FEATURES.yaml` in this repo (191 features: 105 `automated`, 74 `not-testable`, 12 `planned`), with
   `automated` entries mapped to feature files in `platform-e2e/tests/e2e/features/` (for example
   `buyer/search_and_discovery.feature`, `search/hybrid_retrieval.feature`).
 - Verify coverage: `make -C platform-e2e features-check`; for an OpenSpec change,

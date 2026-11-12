@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config.settings import get_settings
+from tests.e2e.flows import recsys_stock_flow
 
 _DRIVER = Path(__file__).with_name("recsys_job_driver.py")
 _REGISTRY_SUPPORT = Path(__file__).with_name("registry_support.py")
@@ -112,6 +113,8 @@ def run_recsys_job(
         result = json.loads((work / "result.json").read_text())
     finally:
         shutil.rmtree(work, ignore_errors=True)
+    if live:
+        recsys_stock_flow.seed_serving_stock()
     out = []
     for r in result["runs"]:
         if expect_summary:

@@ -40,6 +40,9 @@ service SearchService {
   rpc DeleteSavedSearch(DeleteSavedSearchRequest) returns (DeleteSavedSearchResponse);
   // Re-execute a saved search; returns the same shape as SearchListings.
   rpc RunSavedSearch(RunSavedSearchRequest) returns (RunSavedSearchResponse);
+  // Live stock lookup for 1..10 listing ids, service-to-service only
+  // (team-gateway does not expose it).
+  rpc GetListingStock(GetListingStockRequest) returns (GetListingStockResponse);
 }
 
 message SearchListingsRequest {
@@ -170,4 +173,22 @@ message RunSavedSearchResponse {
   string request_id = 4;
   // Format <mode>[+rerank]@<version>, where mode is the mode that actually ran.
   string model_version = 5;
+}
+
+message GetListingStockRequest {
+  // 1..10 listing ids, else INVALID_ARGUMENT.
+  repeated string listing_ids = 1;
+}
+
+message ListingStock {
+  string listing_id = 1;
+  // The listing's projected base stock, net of reservations, exactly as the
+  // in_stock filter and SearchHit.stock use it (no variant rollup). In stock
+  // means greater than 0. Stock is absent when it is not projected or unknown.
+  optional int32 stock = 2;
+}
+
+message GetListingStockResponse {
+  // Holds one entry per requested id, in request order.
+  repeated ListingStock listings = 1;
 }

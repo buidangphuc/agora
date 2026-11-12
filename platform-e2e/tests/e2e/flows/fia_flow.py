@@ -46,12 +46,34 @@ def probe_export(listings: list[str], users: list[str]) -> dict:
     return _driver({"op": "probe", "listings": listings, "users": users}, mounts)
 
 
-def run_replay() -> fsm.JobResult:
-    """Stop the live analytics consumer (DuckDB lock), run `/listing-replay` from its image on its
-    volume and network, and start the consumer again."""
+def _consumer_state() -> tuple[str, str, str, list[str]]:
     name = tii.analytics_container()
     insp = json.loads(subprocess.check_output(["docker", "inspect", name], text=True))[0]
-    image, env = insp["Config"]["Image"], insp["Config"]["Env"]
+    probe = subprocess.check_output(
+        [
+            "docker", "run", "--rm", "-v", f"{fsm.analytics_volume()}:/data:ro",
+            "--entrypoint", "python", fsm.image(), "-c",
+            "import os;s=os.stat('/data/analytics.duckdb');print(f'{s.st_uid}:{s.st_gid}')",
+        ],
+        text=True,
+    ).strip()
+    return name, insp["Config"]["Image"], probe, insp["Config"]["Env"]
+
+
+def seed_null_status(seed: dict) -> list[dict]:
+    name, _, user, _ = _consumer_state()
+    subprocess.run(["docker", "stop", name], capture_output=True, text=True, check=True)
+    try:
+        mounts = ["-v", f"{fsm.analytics_volume()}:/data"]
+        if user:
+            mounts += ["--user", user]
+        return _driver({"op": "seed_null", "row": seed}, mounts)["stored"]
+    finally:
+        subprocess.run(["docker", "start", name], capture_output=True, text=True, check=True)
+
+
+def run_replay() -> fsm.JobResult:
+    name, image, _, env = _consumer_state()
     subprocess.run(["docker", "stop", name], capture_output=True, text=True, check=True)
     try:
         args = ["docker", "run", "--rm", "--network", get_settings().stack_network]

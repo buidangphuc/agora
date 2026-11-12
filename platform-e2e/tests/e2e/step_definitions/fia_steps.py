@@ -22,6 +22,7 @@ from pytest_bdd import parsers, then, when
 
 from tests.e2e.flows import fia_flow as flow
 from tests.e2e.flows import fsm_job_flow as fsm
+from tests.e2e.flows import srm_events_flow as ev
 from tests.e2e.support import oic_order_support as oic
 from tests.e2e.support import tii_support as tii
 from tests.e2e.support.oic_order_support import Actor, OicWorld, register
@@ -132,6 +133,49 @@ def _status_batch() -> dict:
         )
         _BANNED = {"shared": s, "banned": banned}
     return _BANNED
+
+
+def _delete_time(ns: int) -> datetime:
+    return datetime(1970, 1, 1) + timedelta(microseconds=ns // 1000)
+
+
+def _deleted_listing() -> dict:
+    w = OicWorld()
+    seller = register(w, "seller", "seller")
+    tag = uuid.uuid4().hex[:8]
+    category, price = f"cat-fia-{tag}-x", 130_000
+    lid = _create(w, seller, "X", category, price)
+    since = int(time.time() * 1000) - 2_000
+    oic.ok(oic.post(w, seller, oic.LISTING, "DeleteListing", {"id": lid}))
+    deadline = time.monotonic() + 60.0
+    record = None
+    while record is None:
+        record = next((r for r in ev.records_for(lid, since) if r.change_type == ev.DELETED), None)
+        if record is None:
+            assert time.monotonic() < deadline, f"no delete event of {lid} on {ev.TOPIC}"
+            time.sleep(2.0)
+    assert record.occurred_at_ns, "the delete event carries no occurred_at"
+    return {
+        "id": lid,
+        "seller": seller,
+        "category": category,
+        "price": price,
+        "deleted_at": _delete_time(record.occurred_at_ns),
+    }
+
+
+def _wait_consumed_delete(d: dict) -> dict:
+    deadline = time.monotonic() + EXPORT_WAIT_S
+    while True:
+        last = flow.probe_export([d["id"]], [])
+        stamps = [datetime.fromisoformat(x) for x in last["updated"].get(d["id"], []) if x]
+        if stamps and max(stamps) >= d["deleted_at"] - timedelta(milliseconds=1):
+            return last
+        if time.monotonic() >= deadline:
+            raise AssertionError(
+                f"the export did not hold the delete of {d['id']} in {EXPORT_WAIT_S}s: {last}"
+            )
+        time.sleep(POLL_S)
 
 
 def _wait_statuses(listing_ids: list[str], expected: dict[str, str]) -> dict:
@@ -298,6 +342,68 @@ def replay_statuses(fia):
     for lid, status in want.items():
         assert fia.data["probe"]["statuses"][lid] == [status], (lid, fia.data["probe"])
         assert len(fia.data["probe"]["listings"][lid]) == 1, lid
+
+
+@when(
+    "a seller creates a listing, deletes it through the gateway and the next export cycle completes"
+)
+def deleted_exported(fia):
+    d = _deleted_listing()
+    fia.data["deleted"] = d
+    _wait_consumed_delete(d)
+    fia.data["probe"] = _wait_statuses([d["id"]], {d["id"]: "LISTING_STATUS_DELETED"})
+
+
+@then(
+    "listing_sellers.parquet has exactly one row for that listing, with its seller id and status "
+    "LISTING_STATUS_DELETED"
+)
+def deleted_status(fia):
+    d = fia.data["deleted"]
+    probe = fia.data["probe"]
+    assert probe["statuses"][d["id"]] == ["LISTING_STATUS_DELETED"], probe
+    rows = probe["listings"][d["id"]]
+    assert len(rows) == 1 and rows[0]["seller"] == d["seller"].user_id, rows
+
+
+@when(
+    "the warehouse row of a deleted listing is rewritten with a null status, the listing replay "
+    "command runs over the real events and the next export cycle completes"
+)
+def replay_deleted(fia):
+    d = _deleted_listing()
+    fia.data["deleted"] = d
+    _wait_consumed_delete(d)
+    seed = {
+        "id": d["id"],
+        "seller": d["seller"].user_id,
+        "category": d["category"],
+        "price": d["price"],
+        "at": d["deleted_at"].isoformat(sep=" "),
+    }
+    stored = flow.seed_null_status(seed)
+    assert [x["status"] for x in stored] == [None], f"the row was not seeded null: {stored}"
+    fia.data["probe"] = _wait_statuses([d["id"]], {d["id"]: None})
+    r = flow.run_replay()
+    fia.data["replay"] = r
+    assert r.exit_code == 0, f"listing-replay exited {r.exit_code}:\n{r.output[-3000:]}"
+    fia.data["probe"] = _wait_statuses([d["id"]], {d["id"]: "LISTING_STATUS_DELETED"})
+
+
+@then(
+    "listing_sellers.parquet has exactly one row for that listing with status "
+    "LISTING_STATUS_DELETED and updated_at equal to the time of its delete event"
+)
+def replay_deleted_row(fia):
+    d = fia.data["deleted"]
+    probe = fia.data["probe"]
+    assert probe["statuses"][d["id"]] == ["LISTING_STATUS_DELETED"], probe
+    assert len(probe["listings"][d["id"]]) == 1, probe
+    (stamp,) = probe["updated"][d["id"]]
+    assert abs(datetime.fromisoformat(stamp) - d["deleted_at"]) < timedelta(milliseconds=1), (
+        stamp,
+        d["deleted_at"],
+    )
 
 
 # ── materialised features on the real export ────────────────────────────────

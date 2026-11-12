@@ -132,6 +132,10 @@ type RatingFloorCounter interface {
 	RatingFloors(ctx context.Context, filters map[string]string, categoryID string, minPrice, maxPrice int64) ([]FacetBucket, error)
 }
 
+type ListingStockReader interface {
+	ListingStocks(ctx context.Context, ids []string) (map[string]int32, error)
+}
+
 // OpenSearchIndex implements Index against an OpenSearch cluster.
 type OpenSearchIndex struct {
 	client *opensearch.Client
@@ -1202,6 +1206,56 @@ func (o *OpenSearchIndex) doSearch(ctx context.Context, body map[string]any, out
 		return err
 	}
 	return json.Unmarshal(data, out)
+}
+
+func (o *OpenSearchIndex) ListingStocks(ctx context.Context, ids []string) (map[string]int32, error) {
+	out := map[string]int32{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	seen := make(map[string]struct{}, len(ids))
+	uniq := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if _, dup := seen[id]; !dup {
+			seen[id] = struct{}{}
+			uniq = append(uniq, id)
+		}
+	}
+	raw, err := json.Marshal(map[string]any{"ids": uniq})
+	if err != nil {
+		return nil, err
+	}
+	res, err := opensearchapi.MgetRequest{
+		Index:          o.name,
+		Body:           bytes.NewReader(raw),
+		SourceIncludes: []string{"stock", "status"},
+	}.Do(ctx, o.client)
+	if err != nil {
+		return nil, fmt.Errorf("mget: %w", err)
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return nil, fmt.Errorf("mget: %s", res.String())
+	}
+	var parsed struct {
+		Docs []struct {
+			ID     string `json:"_id"`
+			Found  bool   `json:"found"`
+			Source struct {
+				Stock  *int32 `json:"stock"`
+				Status string `json:"status"`
+			} `json:"_source"`
+		} `json:"docs"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
+		return nil, fmt.Errorf("mget: %w", err)
+	}
+	for _, d := range parsed.Docs {
+		if d.Found && d.Source.Status != statusDeleted && d.Source.Stock != nil {
+			out[d.ID] = *d.Source.Stock
+		}
+	}
+	return out, nil
 }
 
 // compile-time assertion.

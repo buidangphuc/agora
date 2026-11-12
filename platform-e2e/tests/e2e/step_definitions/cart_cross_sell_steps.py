@@ -23,6 +23,7 @@ from src.api.services.recommendation_service import (
 )
 from src.constants import PageName, timeouts
 from src.pages import CartPage
+from tests.e2e.flows import recsys_stock_flow as rsf
 from tests.e2e.step_definitions.pdp_streaming_steps import _record_beacons
 from tests.e2e.support import cart_cross_sell_support as cx
 from tests.e2e.support import cart_selection_support as cs
@@ -64,13 +65,28 @@ def _unknown(count: int) -> list[str]:
     "a cross-sell catalogue where cart listings A and B each have ten similar listings from ten different sellers"
 )
 def cx_catalogue(world: World) -> None:
-    cx.state(world)["std"] = cx.Standard(cx.Catalogue(world))
+    rsf.ensure_serving_generation(world)
+    std = cx.Standard(cx.Catalogue(world))
+    cx.state(world)["std"] = std
+    rsf.seed_stock(
+        world,
+        [
+            std.a,
+            std.b,
+            *std.a_cluster,
+            *std.b_cluster,
+            *std.popular_c,
+            *std.popular_d,
+            std.popular_none,
+        ],
+    )
 
 
 @given(
     "the global popular list holds one hidden listing with the top score and three visible listings of three sellers"
 )
 def cx_popular_with_hidden(world: World) -> None:
+    rsf.ensure_serving_generation(world)
     run = uuid.uuid4().hex[:8]
     hidden = f"cx-{run}-hidden"
     visible = [f"cx-{run}-vis{n}" for n in range(3)]
@@ -94,6 +110,7 @@ def cx_popular_with_hidden(world: World) -> None:
     ]
     redis = rss.keys(world, rss.SERVING_DB)
     redis.put(f"{rss.serving_prefix(redis)}:popular", json.dumps(entries))
+    rsf.seed_stock(world, visible)
     cx.state(world).update(hidden=hidden, visible_popular=set(visible))
 
 
@@ -103,10 +120,12 @@ def cx_similar_hidden(world: World) -> None:
     std.cat.patch(std.a_cluster + std.b_cluster, visible=False)
 
 
-@given("the most similar listing of A is a cart line and the second most similar is out of stock")
+@given(
+    "the most similar listing of A is a cart line and the second most similar has search stock 0"
+)
 def cx_second_out_of_stock(world: World) -> None:
     std = _std(world)
-    std.cat.patch([std.a_cluster[1]], in_stock=False)
+    rsf.set_stock([std.a_cluster[1]], 0)
     cx.state(world).update(cart_line=std.a_cluster[0], out_of_stock=std.a_cluster[1])
 
 
@@ -330,7 +349,7 @@ def cx_no_context(world: World) -> None:
     assert not leaked, f"cart lines served back: {sorted(leaked)}"
 
 
-@then("the out-of-stock listing is not in the response")
+@then("the zero-stock listing is not in the response")
 def cx_no_oos(world: World) -> None:
     assert cx.state(world)["out_of_stock"] not in cx.ids_of(_answer(world))
 
@@ -359,9 +378,9 @@ def cx_popular_category(world: World, which: str) -> None:
     categories = {"C": [std.category_c], "C or D": [std.category_c, std.category_d]}[which]
     ids = cx.ids_of(_answer(world))
     assert ids, "the response holds no item"
-    assert set(ids) <= std.popular_ids(
-        *categories
-    ), f"items outside categories {which}: {sorted(set(ids) - std.popular_ids(*categories))}"
+    assert set(ids) <= std.popular_ids(*categories), (
+        f"items outside categories {which}: {sorted(set(ids) - std.popular_ids(*categories))}"
+    )
 
 
 @then("the seed listing is not in the response")
@@ -417,6 +436,7 @@ def cx_ui_seed(world: World) -> None:
     user = d2.seed_buyer(world)
     cart_shop, first, second = (d2.seed_shop(price=200_000, stock=50) for _ in range(3))
     cs.add(user.token, cart_shop["listing_id"])
+    rsf.ensure_serving_generation(world)
     cat = cx.Catalogue(world)
     category = f"cx-{cat.run}-cat"
     cat.add(

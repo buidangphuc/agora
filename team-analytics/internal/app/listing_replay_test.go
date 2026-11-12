@@ -217,3 +217,60 @@ func TestListingReplay_SkipsMalformedRecord(t *testing.T) {
 	assert.Equal(t, "LISTING_STATUS_PUBLISHED", got["L1"].Status.String)
 	assert.Equal(t, "LISTING_STATUS_BANNED", got["L2"].Status.String)
 }
+
+func listingEventOfType(t *testing.T, id string, status listingv1.ListingStatus, ct listingv1.ChangeType, at time.Time) *kgo.Record {
+	t.Helper()
+	lc := &listingv1.ListingChanged{
+		Listing:    &listingv1.Listing{Id: id, SellerId: "seller-" + id, CategoryId: "cat-books", Price: 125000, Status: status},
+		ChangeType: ct,
+	}
+	value := marshal(t, &eventsv1.EventEnvelope{
+		EventId:    "evt-" + id + "-" + ct.String(),
+		Type:       "platform.listing.v1.ListingChanged",
+		Payload:    marshal(t, lc),
+		OccurredAt: timestamppb.New(at),
+		Principal:  &commonv1.Principal{Id: "seller-" + id, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER},
+	})
+	return &kgo.Record{Key: []byte(id), Value: value}
+}
+
+func TestListingReplay_RederivesDeletedStatus(t *testing.T) {
+	brokers := testkit.Redpanda(t)
+	s := baseSettings(t, brokers, nil)
+	seedRows(t, s.Warehouse.DuckDBPath,
+		&warehouse.ListingSellerRecord{ListingID: "L1", SellerID: "seller-L1", CategoryID: "cat-books", Price: 125000, UpdatedAt: replayT2},
+	)
+	produce(t, brokers, s.Kafka.ListingTopic,
+		listingEventOfType(t, "L1", listingv1.ListingStatus_LISTING_STATUS_PUBLISHED, listingv1.ChangeType_CHANGE_TYPE_CREATED, replayT1),
+		listingEventOfType(t, "L1", listingv1.ListingStatus_LISTING_STATUS_PUBLISHED, listingv1.ChangeType_CHANGE_TYPE_DELETED, replayT2),
+	)
+
+	require.NoError(t, runReplay(t, s))
+
+	got := readRows(t, s.Warehouse.DuckDBPath)
+	require.Len(t, got, 1)
+	assert.Equal(t, "seller-L1", got["L1"].Seller)
+	assert.True(t, got["L1"].Status.Valid)
+	assert.Equal(t, "LISTING_STATUS_DELETED", got["L1"].Status.String)
+	assert.True(t, replayT2.Equal(got["L1"].UpdatedAt))
+}
+
+func TestListingReplay_ExpiredDeleteEventLeavesRowUnchanged(t *testing.T) {
+	brokers := testkit.Redpanda(t)
+	s := baseSettings(t, brokers, nil)
+	seedRows(t, s.Warehouse.DuckDBPath,
+		&warehouse.ListingSellerRecord{ListingID: "L2", SellerID: "seller-L2", UpdatedAt: replayT2},
+	)
+	produce(t, brokers, s.Kafka.ListingTopic,
+		listingEvent(t, "L1", listingv1.ListingStatus_LISTING_STATUS_PUBLISHED, replayT1),
+	)
+
+	require.NoError(t, runReplay(t, s))
+
+	got := readRows(t, s.Warehouse.DuckDBPath)
+	require.Len(t, got, 2)
+	assert.Equal(t, "LISTING_STATUS_PUBLISHED", got["L1"].Status.String)
+	assert.Equal(t, "seller-L2", got["L2"].Seller)
+	assert.False(t, got["L2"].Status.Valid)
+	assert.True(t, replayT2.Equal(got["L2"].UpdatedAt))
+}

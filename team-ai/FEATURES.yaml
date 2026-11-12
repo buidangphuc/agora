@@ -2090,12 +2090,12 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "When `Recommend` is called on `cart_cross_sell` with context listings A,B and one candidate is seeded with `in_stock=false` directly in the test fixture (no producer involved)"
-      - "Then neither A, B nor the out-of-stock listing appears in the response"
+      - "When `Recommend` is called on `cart_cross_sell` with context listings A,B and one candidate listing has search stock 0"
+      - "Then neither A, B nor the zero-stock listing appears in the response"
     tags: [recsys, recommendations]
     status: automated
     covered_by: recommendations/cart_cross_sell.feature::Cart items and out-of-stock excluded
-    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+    notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented. recs-in-stock-filter: the zero-stock listing is set to stock 0 in search through listing.events instead of a fixture in_stock=false; red until the live stock lookup lands."
 
   - id: ai.ccs-one-listing-per-seller
     title: "One listing per seller"
@@ -2287,3 +2287,329 @@ features:
     status: automated
     covered_by: recommendations/cart_cross_sell.feature::Existing placements still resolve
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  # ---- recs-in-stock-filter (change recs-in-stock-filter, capabilities recommendation-placements and recommendations)
+
+  - id: ai.isr-sold-out-listing-is-dropped-from-an-in-stock-only-placement
+    title: "Sold-out listing is dropped from an in_stock_only placement"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Sold-out listing is dropped from an in_stock_only placement"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai, team-search]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given a seed listing and five neighbours, all published with stock 5 in search, one sold out through the gateway while its Qdrant payload says `in_stock=true`"
+      - "When `Recommend` is called on `similar_items` with the seed listing"
+      - "Then the sold-out listing is absent and every returned listing has search stock greater than 0"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recsys/in_stock_recommendations.feature::Sold-out listing is dropped from an in_stock_only placement"
+    notes: "recsys/in_stock_recommendations.feature::Sold-out listing is dropped from an in_stock_only placement."
+
+  - id: ai.isr-stock-sold-out-after-indexing-is-dropped-without-a-batch-run
+    title: "Stock sold out after indexing is dropped without a batch run"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Stock sold out after indexing is dropped without a batch run"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai, team-search]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given `Recommend` on `home_feed` returned a listing"
+      - "When its search stock is set to 0 through the seller and `Recommend` is called again with no training run in between"
+      - "Then the second response no longer contains that listing"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recsys/in_stock_recommendations.feature::Stock sold out after indexing is dropped without a batch run"
+    notes: "recsys/in_stock_recommendations.feature::Stock sold out after indexing is dropped without a batch run."
+
+  - id: ai.isr-search-unavailable-empties-the-placement
+    title: "Search unavailable empties the placement"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Search unavailable empties the placement"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai, team-search]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given Qdrant and Redis hold in-stock candidates for `cart_cross_sell`"
+      - "When `Recommend` is called while team-search is stopped"
+      - "Then the response is OK with zero items, and after team-search is restarted a later call returns items again"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recsys/in_stock_recommendations.feature::Search unavailable empties the placement"
+    notes: "recsys/in_stock_recommendations.feature::Search unavailable empties the placement."
+
+  - id: ai.isr-lookup-without-a-valid-principal-fails-closed
+    title: "Lookup without a valid principal fails closed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Lookup without a valid principal fails closed"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-gateway, team-ai, team-search]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Given a team-ai run whose service principal lacks `search:read`"
+      - "When `Recommend` is called on `cart_cross_sell`"
+      - "Then team-search rejects the lookup and the response is OK with zero items"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recsys/in_stock_recommendations.feature::Lookup without a valid principal fails closed"
+    notes: "recsys/in_stock_recommendations.feature::Lookup without a valid principal fails closed."
+
+  - id: ai.isr-stock-lookup-timeout-yields-an-empty-placement-not-an-error
+    title: "Stock lookup timeout yields an empty placement, not an error"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Stock lookup timeout yields an empty placement, not an error"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the stock lookup of an `in_stock_only` placement exceeds `RECS_RETRIEVE_TIMEOUT_MS`"
+      - "Then `Recommend` returns an OK response with zero items within the budget plus 50 ms and not the popularity fallback"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `timeout fails closed within budget`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-retrieval-timeout-yields-a-fallback-not-an-error
+    title: "Retrieval timeout yields a fallback, not an error"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Retrieval timeout yields a fallback, not an error"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the Qdrant retrieval exceeds `RECS_RETRIEVE_TIMEOUT_MS` on a placement without `in_stock_only`"
+      - "Then `Recommend` returns the popularity fallback list instead of failing or blocking past the budget"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_recommend_servicer.py` `retrieval timeout yields popular fallback`. Not producible end to end: needs a retrieval that exceeds the budget, which no public-edge call can force."
+
+  - id: ai.isr-absent-stock-or-missing-entry-drops-only-that-candidate
+    title: "Absent stock or missing entry drops only that candidate"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Absent stock or missing entry drops only that candidate"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the lookup returns an entry with no `stock` for X, stock 3 for Y, stock 5 for W and no entry for Z"
+      - "Then Y and W are returned, X and Z are not, and the result is not empty"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `absent stock drops only that candidate`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-stock-of-exactly-1-is-in-stock-and-0-is-not
+    title: "Stock of exactly 1 is in stock and 0 is not"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Stock of exactly 1 is in stock and 0 is not"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the lookup returns stock 1 for A and stock 0 for B"
+      - "Then A is returned and B is not"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `stock boundary one in zero out`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-slow-search-fails-closed-within-the-budget
+    title: "Slow search fails closed within the budget"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Slow search fails closed within the budget"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the lookup exceeds `RECS_RETRIEVE_TIMEOUT_MS`"
+      - "Then zero items are returned, the RPC does not abort and the call finishes within the budget plus 50 ms"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `timeout fails closed within budget`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-one-failed-call-drops-the-whole-placement
+    title: "One failed call drops the whole placement"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: One failed call drops the whole placement"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the second of two lookup calls raises an error although the first reported stock greater than 0"
+      - "Then the result has zero items"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `one failed call drops all candidates`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-malformed-response-empties-the-placement
+    title: "Malformed response empties the placement"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Malformed response empties the placement"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the lookup returns 9 entries for 10 ids, or 10 entries in a different order"
+      - "Then the result has zero items and the RPC does not abort"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `malformed response empties the placement`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-only-the-top-ranked-candidates-are-looked-up
+    title: "Only the top ranked candidates are looked up"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Only the top ranked candidates are looked up"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When `limit` is 8 with 100 eligible in-stock candidates"
+      - "Then the lookup receives exactly the 16 top ranked ids in at most 2 calls of at most 10 ids and the response is the first 8 in rank order"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `looks up only limit times two top ranked ids`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-lookup-is-capped-at-20-ids
+    title: "Lookup is capped at 20 ids"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Lookup is capped at 20 ids"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When `limit` is 15 with 100 eligible in-stock candidates"
+      - "Then the first phase requests exactly 20 distinct ids in 2 calls and the response has 15 items"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `lookup capped at twenty ids`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-too-few-in-stock-triggers-a-refill
+    title: "Too few in stock triggers a refill"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Too few in stock triggers a refill"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When `limit` is 8 and 12 of the first 16 ranked candidates have stock 0"
+      - "Then the next ranked candidates are looked up and the response has 8 in-stock items in rank order"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `refill from next ranked candidates`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-refill-stops-when-candidates-are-exhausted
+    title: "Refill stops when candidates are exhausted"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Refill stops when candidates are exhausted"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When `limit` is 8 with only 5 eligible candidates in stock"
+      - "Then the response has 5 items and no further lookup call is made"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `refill stops when candidates are exhausted`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-refill-stops-when-the-budget-is-spent
+    title: "Refill stops when the budget is spent"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Refill stops when the budget is spent"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the first phase returns 3 in-stock candidates for `limit` 8 and the refill call exceeds the remaining budget"
+      - "Then the response is OK, holds no more candidates than were verified in stock and finishes within the budget plus 50 ms"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `refill bounded by budget`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-stock-is-looked-up-once-per-id-per-request
+    title: "Stock is looked up once per id per request"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Stock is looked up once per id per request"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When ladder steps yield overlapping ids and the popular floor repeats them"
+      - "Then each distinct listing id is sent to the lookup at most once in the request"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `lookup memoised across ladder steps`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-unknown-payload-stock-does-not-leak-through
+    title: "Unknown payload stock does not leak through"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Unknown payload stock does not leak through"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When candidates from a Qdrant payload and a Redis entry carry no `in_stock` value and the lookup reports stock 0 or is unavailable"
+      - "Then none of them is returned"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `default in_stock does not leak`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-placement-without-in-stock-only-makes-no-search-call
+    title: "Placement without in_stock_only makes no search call"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Placement without in_stock_only makes no search call"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When a placement whose `filters.in_stock_only` is false is served with a recording lookup"
+      - "Then the lookup records zero calls and the candidates are ranked as before"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `no lookup without in_stock_only`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-popular-fallback-is-also-stock-checked
+    title: "Popular fallback is also stock-checked"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Popular fallback is also stock-checked"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When ranking raises and the popular fallback runs on an `in_stock_only` placement with one popular listing at stock 0"
+      - "Then the fallback list excludes it, and with the lookup failing the list is empty"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `popular fallback is stock checked`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-the-lookup-carries-the-service-principal
+    title: "The lookup carries the service principal"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: The lookup carries the service principal"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the metadata of the outgoing `GetListingStock` call is captured"
+      - "Then it carries team-ai's service principal credential with scope `search:read`"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `lookup carries service principal with search read`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  - id: ai.isr-logs-carry-no-listing-ids
+    title: "Logs carry no listing ids"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Logs carry no listing ids"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When an `in_stock_only` request whose lookup fails is served and the logs are captured"
+      - "Then the logs contain the outcome and a candidate count and none of the listing ids"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `logs carry outcome and no ids`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."

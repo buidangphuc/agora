@@ -19,6 +19,14 @@ Feature: Candidate payloads carry seller, category and visibility (recsys-candid
     Then the response contains the published listing
     And the response does not contain the listing without visible
 
+  Scenario: A deleted listing is not recommended
+    Given a buyer is logged in
+    When the recsys job publishes a live generation whose attribute snapshot marks one similar listing published and another deleted
+    And Recommend for cart_cross_sell is called through the gateway with the cart context listing
+    Then the response contains the published listing
+    And the response does not contain the deleted listing
+    And the item point of the deleted listing is stored with visible false
+
   Scenario: A refused run keeps serving the previous generation
     Given a buyer is logged in
     When the recsys job publishes a live generation whose attribute snapshot marks the similar listings published

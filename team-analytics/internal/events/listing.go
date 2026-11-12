@@ -17,9 +17,9 @@ const ListingChangedEventType = "platform.listing.v1.ListingChanged"
 
 // ListingSellerFromEnvelope decodes one listing.events record into a
 // listing -> seller mapping plus the listing's category and price. A well-formed envelope of another type, or a
-// snapshot without a listing id or seller id, is a clean skip (ok=false). The
-// change type is deliberately ignored: a DELETED event keeps the mapping so
-// historical tracking stays attributable to the seller.
+// snapshot without a listing id or seller id, is a clean skip (ok=false). A
+// DELETED event keeps the mapping, so historical tracking stays attributable to
+// the seller, and records the status as DELETED.
 func ListingSellerFromEnvelope(value []byte) (rec *warehouse.ListingSellerRecord, ok bool, err error) {
 	var env eventsv1.EventEnvelope
 	if err := proto.Unmarshal(value, &env); err != nil {
@@ -41,7 +41,9 @@ func ListingSellerFromEnvelope(value []byte) (rec *warehouse.ListingSellerRecord
 		updatedAt = env.GetOccurredAt().AsTime().UTC()
 	}
 	status := ""
-	if _, defined := listingv1.ListingStatus_name[int32(l.GetStatus())]; defined && l.GetStatus() != 0 && lc.GetChangeType() != listingv1.ChangeType_CHANGE_TYPE_DELETED {
+	if lc.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
+		status = listingv1.ListingStatus_LISTING_STATUS_DELETED.String()
+	} else if _, defined := listingv1.ListingStatus_name[int32(l.GetStatus())]; defined && l.GetStatus() != 0 {
 		status = l.GetStatus().String()
 	}
 	return &warehouse.ListingSellerRecord{

@@ -8,8 +8,10 @@ as the logged-in buyer with placement `cart_cross_sell` and `contextListingIds`.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
+import httpx
 from pytest_bdd import then, when
 
 from src.api.mlflow_registry import MlflowRegistry
@@ -23,10 +25,13 @@ CONTEXT_LISTING = "rgp-item-0-0"
 PUBLISHED = "rgp-item-0-1"
 BANNED = "rgp-item-0-2"
 NO_STATUS = "rgp-item-0-3"
+DELETED = BANNED
+ITEM_ALIAS = "item_als_vectors"
 _MLFLOW_ENV = {"MLFLOW_TRACKING_URI": MLFLOW_IN_STACK}
 _STATUS = {
     "published": "LISTING_STATUS_PUBLISHED",
     "banned": "LISTING_STATUS_BANNED",
+    "deleted": "LISTING_STATUS_DELETED",
     "none": None,
 }
 
@@ -63,6 +68,21 @@ def cattr_publish_banned(world: World) -> None:
             CONTEXT_LISTING: _STATUS["published"],
             PUBLISHED: _STATUS["published"],
             BANNED: _STATUS["banned"],
+        },
+    )
+
+
+@when(
+    "the recsys job publishes a live generation whose attribute snapshot marks one similar listing "
+    "published and another deleted"
+)
+def cattr_publish_deleted(world: World) -> None:
+    _publish(
+        world,
+        {
+            CONTEXT_LISTING: _STATUS["published"],
+            PUBLISHED: _STATUS["published"],
+            DELETED: _STATUS["deleted"],
         },
     )
 
@@ -148,3 +168,30 @@ def cattr_no_banned(world: World) -> None:
 def cattr_no_unknown(world: World) -> None:
     ids = _ctx(world)["ids"]
     assert NO_STATUS not in ids, f"listing without visible served in {ids}"
+
+
+@then("the response does not contain the deleted listing")
+def cattr_no_deleted(world: World) -> None:
+    ids = _ctx(world)["ids"]
+    assert DELETED not in ids, f"deleted listing served in {ids}"
+
+
+@then("the item point of the deleted listing is stored with visible false")
+def cattr_deleted_point_invisible(world: World) -> None:
+    base = os.getenv("QDRANT_URL", "http://localhost:6333")
+    resp = httpx.post(
+        f"{base}/collections/{ITEM_ALIAS}/points/scroll",
+        json={
+            "limit": 10,
+            "with_payload": True,
+            "with_vector": False,
+            "filter": {"must": [{"key": "listing_id", "match": {"value": DELETED}}]},
+        },
+        timeout=30.0,
+    )
+    assert resp.status_code == 200, f"qdrant scroll -> {resp.status_code}: {resp.text}"
+    points = resp.json()["result"]["points"]
+    assert len(points) == 1, f"expected one item point for the deleted listing, got {points}"
+    payload = points[0]["payload"]
+    assert "visible" in payload, f"visible is absent from {payload}"
+    assert payload["visible"] is False, f"visible is {payload['visible']!r} in {payload}"

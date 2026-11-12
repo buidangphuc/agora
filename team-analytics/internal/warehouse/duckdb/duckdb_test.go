@@ -865,21 +865,64 @@ func TestUpsertListingSellers_OlderStatusIgnored(t *testing.T) {
 	wantStatus(t, w, "L1", "LISTING_STATUS_BANNED")
 }
 
-func TestUpsertListingSellers_DeletedKeepsRowNullStatus(t *testing.T) {
-	ctx := context.Background()
+func upsertOne(t *testing.T, w *Writer, id, status string, at time.Time) {
+	t.Helper()
+	if err := w.UpsertListingSellers(context.Background(), []*warehouse.ListingSellerRecord{listingStatusRec(id, status, at)}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func wantUpdatedAt(t *testing.T, w *Writer, id string, want time.Time) {
+	t.Helper()
+	var got time.Time
+	if err := w.DB().QueryRow("SELECT updated_at FROM listing_sellers WHERE listing_id = ?", id).Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if !got.UTC().Equal(want) {
+		t.Errorf("updated_at = %v, want %v", got.UTC(), want)
+	}
+}
+
+func TestUpsertListingSellers_DeletedKeepsRowWithDeletedStatus(t *testing.T) {
 	w := openMem(t)
 	t1 := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
-	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "LISTING_STATUS_PUBLISHED", t1)}); err != nil {
-		t.Fatal(err)
-	}
-	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{listingStatusRec("L1", "", t1.Add(time.Hour))}); err != nil {
-		t.Fatal(err)
-	}
-	wantStatus(t, w, "L1", "")
+	t2 := t1.Add(time.Hour)
+	upsertOne(t, w, "L1", "LISTING_STATUS_PUBLISHED", t1)
+	upsertOne(t, w, "L1", "LISTING_STATUS_DELETED", t2)
+	wantStatus(t, w, "L1", "LISTING_STATUS_DELETED")
+	wantUpdatedAt(t, w, "L1", t2)
 	var seller string
 	if err := w.DB().QueryRow("SELECT seller_id FROM listing_sellers WHERE listing_id = 'L1'").Scan(&seller); err != nil || seller != "s-L1" {
 		t.Errorf("seller_id = %q, err = %v; the row must be kept", seller, err)
 	}
+}
+
+func TestUpsertListingSellers_OlderEventDoesNotUndoDeleted(t *testing.T) {
+	w := openMem(t)
+	t1 := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	t2 := t1.Add(time.Hour)
+	upsertOne(t, w, "L1", "LISTING_STATUS_DELETED", t2)
+	upsertOne(t, w, "L1", "LISTING_STATUS_PUBLISHED", t1)
+	wantStatus(t, w, "L1", "LISTING_STATUS_DELETED")
+	wantUpdatedAt(t, w, "L1", t2)
+}
+
+func TestUpsertListingSellers_EqualTimestampDoesNotUndoDeleted(t *testing.T) {
+	w := openMem(t)
+	t2 := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+	upsertOne(t, w, "L1", "LISTING_STATUS_DELETED", t2)
+	upsertOne(t, w, "L1", "LISTING_STATUS_PUBLISHED", t2)
+	wantStatus(t, w, "L1", "LISTING_STATUS_DELETED")
+	wantUpdatedAt(t, w, "L1", t2)
+}
+
+func TestUpsertListingSellers_NewerNonDeletedEventDoesNotUndoDeleted(t *testing.T) {
+	w := openMem(t)
+	t2 := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+	t3 := t2.Add(time.Hour)
+	upsertOne(t, w, "L1", "LISTING_STATUS_DELETED", t2)
+	upsertOne(t, w, "L1", "LISTING_STATUS_PUBLISHED", t3)
+	wantStatus(t, w, "L1", "LISTING_STATUS_DELETED")
 }
 
 func TestUpsertListingSellers_ReplayBackfillsStatus(t *testing.T) {

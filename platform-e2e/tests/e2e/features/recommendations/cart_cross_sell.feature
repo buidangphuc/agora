@@ -3,7 +3,9 @@ Feature: Cart cross-sell recommendations (recsys-cart-cross-sell)
   The cart_cross_sell placement uses the cart lines as context (`context_listing_ids`, at most 50, capped by
   the gateway), falls back to the popular listings of the relevant category and then to global popular, and
   applies the placement filters. Every candidate of the scenarios is seeded with `visible=true`, directly in
-  the serving item collection and popular list; everything else is hidden and restored in teardown.
+  the serving item collection and popular list, and with stock greater than 0 in search through listing.events
+  (in_stock_only reads live search stock and an unknown listing fails closed); everything else is hidden and
+  restored in teardown.
 
   Scenario: Similar listings for cart lines
     Given a buyer is logged in
@@ -61,11 +63,11 @@ Feature: Cart cross-sell recommendations (recsys-cart-cross-sell)
   Scenario: Cart items and out-of-stock excluded
     Given a buyer is logged in
     And a cross-sell catalogue where cart listings A and B each have ten similar listings from ten different sellers
-    And the most similar listing of A is a cart line and the second most similar is out of stock
+    And the most similar listing of A is a cart line and the second most similar has search stock 0
     When Recommend for cart_cross_sell is called through the gateway with the context listings A and its most similar listing
     Then every item is a neighbour of the context listings
     And the response contains none of the context listings
-    And the out-of-stock listing is not in the response
+    And the zero-stock listing is not in the response
 
   Scenario: One listing per seller
     Given a buyer is logged in
