@@ -523,7 +523,8 @@ var upsertListingSellerSQL = fmt.Sprintf(
 	`INSERT INTO %[1]s (listing_id, seller_id, updated_at, category_id, price, status) VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT (listing_id) DO UPDATE SET seller_id = excluded.seller_id, updated_at = excluded.updated_at,
   category_id = excluded.category_id, price = excluded.price, status = excluded.status
-WHERE excluded.updated_at >= %[1]s.updated_at`, warehouse.ListingSellersTableName)
+WHERE excluded.updated_at >= %[1]s.updated_at
+  AND (%[1]s.status IS DISTINCT FROM 'LISTING_STATUS_DELETED' OR excluded.status = 'LISTING_STATUS_DELETED')`, warehouse.ListingSellersTableName)
 
 // UpsertListingSellers idempotently upserts listing -> seller mappings in one
 // transaction (all-or-nothing, so the caller can commit offsets after nil).

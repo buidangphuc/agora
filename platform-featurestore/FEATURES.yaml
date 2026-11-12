@@ -858,3 +858,35 @@ features:
     tags: [featurestore, unit]
     status: not-testable
     notes: "recsys-candidate-attributes: VERIFIED BY platform-featurestore/tests/test_item_attributes.py test_current_is_2_and_both_versions_exist. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: featurestore.ia2-deleted-is-a-known-status
+    title: "DELETED is a known status"
+    persona: guest
+    priority: P2
+    summary: "DELETED is a known status"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the export has a listing `L9` with `status=LISTING_STATUS_DELETED`"
+      - "Then the `item_attributes@v2` row for `L9` has `status = LISTING_STATUS_DELETED` (not null) and the online key `fs:item_attributes:v2:L9` carries it"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "analytics-listing-deleted-status: VERIFIED BY platform-featurestore/tests/test_item_attributes.py test_v2_deleted_status_is_known. Not producible end to end: it exercises decoder or store internals that no public-edge call can reach."
+
+  - id: featurestore.ia2-v2-definition-and-lock-are-unchanged
+    title: "The v2 definition and lock are unchanged"
+    persona: guest
+    priority: P2
+    summary: "The v2 definition and lock are unchanged"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the registry drift check runs after this change"
+      - "Then it exits 0 and the hash of `item_attributes@v2` equals the locked value"
+    tags: [featurestore, unit]
+    status: not-testable
+    notes: "analytics-listing-deleted-status: VERIFIED BY platform-featurestore/tests/test_materialize.py test_v2_drift_is_refused. Not producible end to end: it exercises decoder or store internals that no public-edge call can reach."

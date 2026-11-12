@@ -8,6 +8,8 @@ ops:
   mkinputs  write synthetic feature inputs into /work/in in the warehouse schemas: tracking views,
             optional listing_sellers.parquet (rows, optionally without a column), empty facts and orders
   rows      read-only: every row of the newest snapshot of a view under /features
+  seed_null write the warehouse row of one listing with a null status (the same columns the
+            upsert writes) into the DuckDB file at /data/analytics.duckdb and read it back
 """
 
 from __future__ import annotations
@@ -73,7 +75,7 @@ LISTINGS = pa.schema(
 
 
 def probe() -> dict:
-    out: dict = {"listings": {}, "columns": [], "users": {}, "statuses": {}}
+    out: dict = {"listings": {}, "columns": [], "users": {}, "statuses": {}, "updated": {}}
     path = "/data/listing_sellers.parquet"
     if os.path.exists(path):
         rel = f"read_parquet('{path}')"
@@ -92,6 +94,15 @@ def probe() -> dict:
                     f"SELECT status FROM {rel} WHERE listing_id = ?", [lid]
                 ).fetchall()
                 out["statuses"][lid] = [r[0] for r in rows]
+        if "updated_at" in out["columns"]:
+            for lid in PLAN.get("listings", []):
+                rows = duckdb.execute(
+                    f"SELECT updated_at FROM {rel} WHERE listing_id = ?", [lid]
+                ).fetchall()
+                out["updated"][lid] = [
+                    r[0].replace(tzinfo=None).isoformat() if r[0] is not None else None
+                    for r in rows
+                ]
     resolved = "/data/tracking_events_resolved.parquet"
     if os.path.exists(resolved):
         for uk in PLAN.get("users", []):
@@ -140,6 +151,24 @@ def mkinputs() -> dict:
     return {"written": len(events)}
 
 
+def seed_null() -> dict:
+    row = PLAN["row"]
+    con = duckdb.connect("/data/analytics.duckdb")
+    try:
+        con.execute(
+            "INSERT OR REPLACE INTO listing_sellers "
+            "(listing_id, seller_id, updated_at, category_id, price, status) "
+            "VALUES (?, ?, CAST(? AS TIMESTAMP), ?, ?, NULL)",
+            [row["id"], row["seller"], row["at"], row["category"], row["price"]],
+        )
+        stored = con.execute(
+            "SELECT seller_id, status FROM listing_sellers WHERE listing_id = ?", [row["id"]]
+        ).fetchall()
+    finally:
+        con.close()
+    return {"stored": [{"seller": r[0], "status": r[1]} for r in stored]}
+
+
 def rows() -> dict:
     view = PLAN["view"]
     paths = sorted(glob.glob(f"/features/{view}/v1/as_of=*.parquet"))
@@ -148,4 +177,9 @@ def rows() -> dict:
     return {"found": True, "rows": pq.read_table(paths[-1]).to_pylist()}
 
 
-print(json.dumps({"probe": probe, "mkinputs": mkinputs, "rows": rows}[PLAN["op"]](), default=str))
+print(
+    json.dumps(
+        {"probe": probe, "mkinputs": mkinputs, "rows": rows, "seed_null": seed_null}[PLAN["op"]](),
+        default=str,
+    )
+)

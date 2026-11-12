@@ -31,6 +31,14 @@ Feature: Listing attributes become item and user features
     When the listing replay command runs over listing.events and the next export cycle completes
     Then listing_sellers.parquet has exactly one row per listing and each status equals the enum name of that listing's newest event
 
+  Scenario: A deleted listing is exported as DELETED
+    When a seller creates a listing, deletes it through the gateway and the next export cycle completes
+    Then listing_sellers.parquet has exactly one row for that listing, with its seller id and status LISTING_STATUS_DELETED
+
+  Scenario: Replay re-derives DELETED for a listing deleted earlier
+    When the warehouse row of a deleted listing is rewritten with a null status, the listing replay command runs over the real events and the next export cycle completes
+    Then listing_sellers.parquet has exactly one row for that listing with status LISTING_STATUS_DELETED and updated_at equal to the time of its delete event
+
   Scenario: A listing's attributes become item features
     When a seller creates a listing with a category and a price, the export cycle completes, and the materialisation job runs
     Then the online features of that listing under item_attributes@v1 carry that category and price and the seller
