@@ -4,8 +4,9 @@ from fakeredis import aioredis
 
 from app.modules.business.recommendation.placements import Filters
 from app.modules.business.recommendation.ranking.filter import eligible
-from app.modules.business.recommendation.schemas import RecommendationQuery
+from app.modules.business.recommendation.schemas import Candidate, RecommendationQuery
 from tests.unit.recs_support import (
+    FakeStock,
     Source,
     build_service,
     cand,
@@ -76,6 +77,18 @@ def test_out_of_stock_dropped_when_in_stock_only_is_on():
         [cand("a", in_stock=False), cand("b")], filters=Filters(in_stock_only=True)
     )
     assert _ids(got) == ["b"]
+
+
+def test_unknown_stock_never_passes_in_stock_only():
+    got = _eligible(
+        [Candidate("a", 1.0), Candidate("b", 0.9, in_stock=True)],
+        filters=Filters(in_stock_only=True),
+    )
+    assert _ids(got) == ["b"]
+
+
+def test_a_candidate_has_unknown_stock_by_default():
+    assert Candidate("a", 1.0).in_stock is None
 
 
 def test_out_of_stock_eligible_when_in_stock_only_is_off():
@@ -184,7 +197,7 @@ async def test_hidden_listings_never_appear_on_any_shipped_placement():
             [popular_entry("ok", 0.9), popular_entry("hidden", 0.8, visible=False)],
         )
         source = Source({"seed": [cand("ok", 0.9), cand("hidden", 0.8, visible=False)]})
-        service = build_service(source, redis)
+        service = build_service(source, redis, stock_lookup=FakeStock())
         result = await service.recommend(
             RecommendationQuery(
                 placement_id=placement_id,

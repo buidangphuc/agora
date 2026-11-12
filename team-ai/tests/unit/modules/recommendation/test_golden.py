@@ -26,6 +26,7 @@ from app.modules.business.recommendation.schemas import (
     RecommendationResult,
 )
 from app.modules.business.recommendation.service import RecommendationService
+from tests.unit.recs_support import FakeStock
 
 FIXTURE = Path(__file__).parents[3] / "fixtures" / "recommendation_golden.json"
 GOLDEN: dict[str, Any] = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -74,6 +75,15 @@ def _service(case: dict[str, Any], redis: Any) -> RecommendationService:
         candidate_top_k=100,
         result_top_k=10,
         model_version=overrides.get("model_version", "serving-fallback"),
+        stock_lookup=FakeStock(
+            {
+                r["listing_id"]: 0
+                for rows in case["similar"].values()
+                for r in rows
+                if not r["in_stock"]
+            }
+        ),
+        retrieve_timeout_s=1.0,
     )
 
 

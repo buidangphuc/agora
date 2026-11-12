@@ -144,11 +144,11 @@ def test_garbage_is_malformed(raw: str) -> None:
 def test_ranking_orders_by_model_score_then_retrieval_similarity() -> None:
     model = TrainedRanker.parse(json.dumps(artifact()))
     cands = [
-        Candidate("cheap", 0.9),
-        Candidate("dear", 0.8),
-        Candidate("tie-high", 0.7),
-        Candidate("tie-low", 0.6),
-        Candidate("seed", 1.0),
+        Candidate("cheap", 0.9, in_stock=True),
+        Candidate("dear", 0.8, in_stock=True),
+        Candidate("tie-high", 0.7, in_stock=True),
+        Candidate("tie-low", 0.6, in_stock=True),
+        Candidate("seed", 1.0, in_stock=True),
         Candidate("gone", 0.99, in_stock=False),
     ]
     attrs = {

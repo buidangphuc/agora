@@ -1,5 +1,6 @@
+import asyncio
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from app.modules.business.recommendation.placements import (
     Placements,
     load_placements,
 )
+from app.modules.business.recommendation.ports import StockEntry, StockLookupError
 from app.modules.business.recommendation.ranking.artifact import TrainedRankerLoader
 from app.modules.business.recommendation.schemas import Candidate
 from app.modules.business.recommendation.service import RecommendationService
@@ -108,10 +110,49 @@ def write_placements(tmp_path: Path, body: str) -> Placements:
     return load_placements(path)
 
 
+class FakeStock:
+    def __init__(
+        self,
+        stock: Mapping[str, int | None] | None = None,
+        *,
+        default: int | None = 5,
+        fail_ids: Sequence[str] = (),
+        hang_ids: Sequence[str] = (),
+        reply: Callable[[list[StockEntry]], list[StockEntry]] | None = None,
+    ) -> None:
+        self.stock = dict(stock or {})
+        self.default = default
+        self.fail_ids = set(fail_ids)
+        self.hang_ids = set(hang_ids)
+        self.reply = reply
+        self.calls: list[list[str]] = []
+        self.timeouts: list[float] = []
+
+    @property
+    def looked_up(self) -> list[str]:
+        return [i for call in self.calls for i in call]
+
+    async def lookup(
+        self, listing_ids: Sequence[str], *, timeout_s: float
+    ) -> list[StockEntry]:
+        ids = list(listing_ids)
+        self.calls.append(ids)
+        self.timeouts.append(timeout_s)
+        if self.fail_ids.intersection(ids):
+            raise StockLookupError("search unavailable")
+        if self.hang_ids.intersection(ids):
+            await asyncio.Event().wait()
+        entries = [StockEntry(i, self.stock.get(i, self.default)) for i in ids]
+        return self.reply(entries) if self.reply else entries
+
+
 def build_service(
     source: Any = None,
     redis: Any = None,
     placements: Placements | None = None,
+    *,
+    stock_lookup: Any = None,
+    retrieve_timeout_s: float = 1.0,
 ) -> RecommendationService:
     redis = aioredis.FakeRedis(decode_responses=True) if redis is None else redis
     cache = RedisServingCache(redis, ServingKeys("recs", "v1"))
@@ -126,4 +167,6 @@ def build_service(
         candidate_top_k=100,
         result_top_k=10,
         model_version="test-v1",
+        stock_lookup=FakeStock() if stock_lookup is None else stock_lookup,
+        retrieve_timeout_s=retrieve_timeout_s,
     )

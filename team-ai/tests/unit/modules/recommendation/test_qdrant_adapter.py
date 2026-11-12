@@ -61,7 +61,7 @@ async def test_similar_queries_by_producer_point_id_in_the_generation_collection
     got = await _source(client).similar("a", top_k=5, generation="g1")
     assert [c.listing_id for c in got] == ["b", "c"]  # the seed itself is excluded
     assert got[0].score > got[1].score
-    assert all(c.in_stock for c in got)
+    assert all(c.in_stock is None for c in got)
 
 
 async def test_similar_without_a_generation_reads_the_bare_collection_name() -> None:
