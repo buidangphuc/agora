@@ -56,6 +56,7 @@ def _sell_out(world: World, label: str) -> None:
 
 def _neighbourhood(world: World) -> None:
     st = _st(world)
+    rsf.ensure_serving_generation(world)
     cat = cx.Catalogue(world)
     ids = _publish(world, ["seed", *[f"n{n}" for n in range(NEIGHBOURS)]])
     run = cat.run
@@ -116,6 +117,7 @@ def isr_sell_out_neighbour(world: World) -> None:
 )
 def isr_popular(world: World) -> None:
     st = _st(world)
+    rsf.ensure_serving_generation(world)
     cat = cx.Catalogue(world)
     labels = [f"p{n}" for n in range(POPULAR)]
     ids = _publish(world, labels)

@@ -190,3 +190,43 @@ def private_ai_without_search_scope(world) -> str:
     pe.docker(*args, image)
     pe.wait_healthy(name, 120.0)
     return f"{name}:{ai_port()}"
+
+
+def has_serving_generation() -> bool:
+    aliases = httpx.get(f"{qdrant_url()}/aliases", timeout=30.0)
+    aliases.raise_for_status()
+    target = next(
+        (
+            a["collection_name"]
+            for a in aliases.json()["result"]["aliases"]
+            if a["alias_name"] == ITEM_ALIAS
+        ),
+        None,
+    )
+    if target is None:
+        return False
+    return httpx.get(f"{qdrant_url()}/collections/{target}", timeout=30.0).status_code == 200
+
+
+def ensure_serving_generation(world) -> None:
+    """Publish the `good_a` fixture generation when the stack serves none (fresh environment).
+
+    A stack that already serves a generation is left untouched."""
+    if has_serving_generation():
+        return
+    from src.api.mlflow_registry import MlflowRegistry
+    from src.api.recsys_job import MLFLOW_IN_STACK
+    from tests.e2e.flows.recsys_job_flow import run_recsys_job
+
+    user = world.state.current_user
+    assert user is not None and user.user_id, "no logged-in buyer to put in the dataset fixture"
+    MlflowRegistry().reset_registry()
+    (run,) = run_recsys_job(
+        [],
+        [{"MLFLOW_TRACKING_URI": MLFLOW_IN_STACK, "@fixture": "good_a"}],
+        live=True,
+        reset=True,
+        buyer_id=user.user_id,
+    )
+    assert run.exit_code == 0, f"the fixture generation was not published: {run.summary}\n{run.log}"
+    assert has_serving_generation(), "no serving generation after publishing the fixture"

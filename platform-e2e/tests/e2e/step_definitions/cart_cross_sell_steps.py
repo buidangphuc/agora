@@ -65,6 +65,7 @@ def _unknown(count: int) -> list[str]:
     "a cross-sell catalogue where cart listings A and B each have ten similar listings from ten different sellers"
 )
 def cx_catalogue(world: World) -> None:
+    rsf.ensure_serving_generation(world)
     std = cx.Standard(cx.Catalogue(world))
     cx.state(world)["std"] = std
     rsf.seed_stock(
@@ -85,6 +86,7 @@ def cx_catalogue(world: World) -> None:
     "the global popular list holds one hidden listing with the top score and three visible listings of three sellers"
 )
 def cx_popular_with_hidden(world: World) -> None:
+    rsf.ensure_serving_generation(world)
     run = uuid.uuid4().hex[:8]
     hidden = f"cx-{run}-hidden"
     visible = [f"cx-{run}-vis{n}" for n in range(3)]
@@ -434,6 +436,7 @@ def cx_ui_seed(world: World) -> None:
     user = d2.seed_buyer(world)
     cart_shop, first, second = (d2.seed_shop(price=200_000, stock=50) for _ in range(3))
     cs.add(user.token, cart_shop["listing_id"])
+    rsf.ensure_serving_generation(world)
     cat = cx.Catalogue(world)
     category = f"cx-{cat.run}-cat"
     cat.add(
