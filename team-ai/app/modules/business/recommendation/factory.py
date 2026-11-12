@@ -23,7 +23,7 @@ from app.modules.business.recommendation.contract.features import (
 )
 from app.modules.business.recommendation.contract.keys import ServingKeys
 from app.modules.business.recommendation.placements import load_placements
-from app.modules.business.recommendation.ports import CandidateSource
+from app.modules.business.recommendation.ports import CandidateSource, StockLookup
 from app.modules.business.recommendation.ranking.artifact import TrainedRankerLoader
 from app.modules.business.recommendation.service import RecommendationService
 
@@ -64,6 +64,7 @@ class RecommendationClients:
     qdrant: "AsyncQdrantClient"
     featurestore: Redis | None
     nearline: Redis | None
+    stock: StockLookup | None = None
 
 
 def build_candidate_source(
@@ -119,4 +120,6 @@ def build_recommendation_service(
         candidate_top_k=settings.RECS_CANDIDATE_TOP_K,
         result_top_k=settings.RECS_RESULT_TOP_K,
         model_version=settings.RECS_MODEL_VERSION,
+        stock_lookup=clients.stock,
+        retrieve_timeout_s=settings.RECS_RETRIEVE_TIMEOUT_MS / 1000,
     )

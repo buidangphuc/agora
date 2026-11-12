@@ -177,7 +177,7 @@ def _candidate(hit: Any) -> Candidate | None:
     return Candidate(
         listing_id=str(listing_id),
         score=float(hit.score),
-        in_stock=bool(payload.get("in_stock", True)),
+        in_stock=payload.get("in_stock"),
         seller_id=str(payload.get("seller_id") or ""),
         category_id=str(payload.get("category_id") or ""),
         visible=bool(payload.get("visible", False)),

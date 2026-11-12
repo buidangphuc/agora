@@ -13,7 +13,7 @@ class Candidate:
 
     listing_id: str
     score: float
-    in_stock: bool = True
+    in_stock: bool | None = None
     seller_id: str = ""
     category_id: str = ""
     visible: bool = True

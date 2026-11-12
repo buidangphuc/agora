@@ -46,3 +46,9 @@ class RecommendationSettingsMixin(BaseModel):
     RECS_NEARLINE_PREFIX: str = "recs:nearline"
     RECS_NEARLINE_MIN_IMPRESSIONS: float = Field(default=1.0, ge=0)
     RECS_NEARLINE_TIMEOUT_MS: int = Field(default=20, gt=0)
+
+    # team-search's gRPC address and the service principal team-ai sends on stock lookups
+    # (``in_stock_only`` placements); the scopes are comma-separated.
+    RECS_SEARCH_ADDR: str = "localhost:50052"
+    RECS_SEARCH_PRINCIPAL_ID: str = "team-ai"
+    RECS_SEARCH_PRINCIPAL_SCOPES: str = "search:read"

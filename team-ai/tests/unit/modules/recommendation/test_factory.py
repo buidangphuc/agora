@@ -7,7 +7,10 @@ from typing import Any, Literal
 
 from fakeredis import aioredis
 
-from app.modules.business.recommendation.adapters.memory import MemoryCandidateSource
+from app.modules.business.recommendation.adapters.memory import (
+    MemoryCandidateSource,
+    MemoryStockLookup,
+)
 from app.modules.business.recommendation.adapters.qdrant import QdrantCandidateSource
 from app.modules.business.recommendation.contract.features import RANKING_FEATURES
 from app.modules.business.recommendation.factory import (
@@ -97,7 +100,10 @@ async def test_memory_backend_wires_the_whole_pipeline_over_the_given_clients() 
         source=MemoryCandidateSource(),
         serving_redis=serving,
         clients=RecommendationClients(
-            qdrant=NO_QDRANT, featurestore=featurestore, nearline=nearline
+            qdrant=NO_QDRANT,
+            featurestore=featurestore,
+            nearline=nearline,
+            stock=MemoryStockLookup({"cheap": 5, "dear": 5}),
         ),
     )
 
@@ -123,7 +129,10 @@ async def test_without_featurestore_or_nearline_clients_ranking_still_serves() -
         source=MemoryCandidateSource(),
         serving_redis=serving,
         clients=RecommendationClients(
-            qdrant=NO_QDRANT, featurestore=None, nearline=None
+            qdrant=NO_QDRANT,
+            featurestore=None,
+            nearline=None,
+            stock=MemoryStockLookup({"a": 5, "b": 5}),
         ),
     )
     result = await service.recommend(RecommendationQuery(user_id="u1"))

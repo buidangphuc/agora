@@ -21,13 +21,13 @@ def test_eligible_drops_empty_ids_the_seed_and_out_of_stock_keeping_the_best_dup
 ):
     got = eligible(
         [
-            Candidate("", 9.0),
-            Candidate("seed", 1.0),
-            Candidate("a", 0.5),
+            Candidate("", 9.0, in_stock=True),
+            Candidate("seed", 1.0, in_stock=True),
+            Candidate("a", 0.5, in_stock=True),
             Candidate("b", 0.8, in_stock=False),
-            Candidate("a", 0.9),
-            Candidate("a", 0.9),
-            Candidate("c", 0.1),
+            Candidate("a", 0.9, in_stock=True),
+            Candidate("a", 0.9, in_stock=True),
+            Candidate("c", 0.1, in_stock=True),
         ],
         "seed",
     )
@@ -35,20 +35,33 @@ def test_eligible_drops_empty_ids_the_seed_and_out_of_stock_keeping_the_best_dup
 
 
 def test_eligible_keeps_first_seen_order_of_distinct_ids() -> None:
-    got = eligible([Candidate("z", 0.1), Candidate("a", 0.9), Candidate("z", 0.2)], "")
+    got = eligible(
+        [
+            Candidate("z", 0.1, in_stock=True),
+            Candidate("a", 0.9, in_stock=True),
+            Candidate("z", 0.2, in_stock=True),
+        ],
+        "",
+    )
     assert [c.listing_id for c in got] == ["z", "a"]
 
 
 def test_similarity_rank_orders_by_score_with_stable_ties_and_one_based_ranks() -> None:
     items = rank_by_similarity(
-        [Candidate("a", 0.5), Candidate("b", 0.9), Candidate("c", 0.5)], "", 0
+        [
+            Candidate("a", 0.5, in_stock=True),
+            Candidate("b", 0.9, in_stock=True),
+            Candidate("c", 0.5, in_stock=True),
+        ],
+        "",
+        0,
     )
     assert _ids(items) == ["b", "a", "c"]
     assert [i.rank for i in items] == [1, 2, 3]
 
 
 def test_similarity_rank_limit_zero_or_negative_returns_everything() -> None:
-    cands = [Candidate(c, 1.0 - i / 10) for i, c in enumerate("abcd")]
+    cands = [Candidate(c, 1.0 - i / 10, in_stock=True) for i, c in enumerate("abcd")]
     assert len(rank_by_similarity(cands, "", 2)) == 2
     assert len(rank_by_similarity(cands, "", 0)) == 4
     assert len(rank_by_similarity(cands, "", -1)) == 4
@@ -56,17 +69,19 @@ def test_similarity_rank_limit_zero_or_negative_returns_everything() -> None:
 
 def test_fixed_weights_score_is_similarity_popularity_and_ctr() -> None:
     row = {"views_7d": 400, "clicks_7d": 80, "ctr_7d": 0.2}
-    [item] = rank_by_fixed_weights([Candidate("a", 0.8)], "", {"a": row}, {}, 0)
+    [item] = rank_by_fixed_weights(
+        [Candidate("a", 0.8, in_stock=True)], "", {"a": row}, {}, 0
+    )
     assert item.score == pytest.approx(0.8 * 0.30 + popularity(row) * 0.15 + 0.2 * 0.10)
 
 
 def test_fixed_weights_without_features_scores_similarity_alone() -> None:
-    [item] = rank_by_fixed_weights([Candidate("a", 0.5)], "", {}, {}, 0)
+    [item] = rank_by_fixed_weights([Candidate("a", 0.5, in_stock=True)], "", {}, {}, 0)
     assert item.score == pytest.approx(0.5 * 0.30)
 
 
 def test_nearline_ctr_replaces_the_prior_when_positive() -> None:
-    cands = [Candidate("a", 0.8), Candidate("b", 0.8)]
+    cands = [Candidate("a", 0.8, in_stock=True), Candidate("b", 0.8, in_stock=True)]
     prior = {"a": {"ctr_7d": 0.02}, "b": {"ctr_7d": 0.02}}
     items = rank_by_fixed_weights(cands, "", prior, {"b": 0.11, "a": 0.0}, 0)
     assert _ids(items) == ["b", "a"]
@@ -76,7 +91,7 @@ def test_nearline_ctr_replaces_the_prior_when_positive() -> None:
 
 def test_ctr_is_clamped_to_the_unit_interval() -> None:
     [item] = rank_by_fixed_weights(
-        [Candidate("a", 0.0)], "", {"a": {"ctr_7d": 50.0}}, {}, 0
+        [Candidate("a", 0.0, in_stock=True)], "", {"a": {"ctr_7d": 50.0}}, {}, 0
     )
     assert item.score == pytest.approx(0.1)
 
@@ -84,9 +99,9 @@ def test_ctr_is_clamped_to_the_unit_interval() -> None:
 def test_fixed_weights_use_the_one_filter() -> None:
     items = rank_by_fixed_weights(
         [
-            Candidate("seed", 1.0),
+            Candidate("seed", 1.0, in_stock=True),
             Candidate("a", 0.5, in_stock=False),
-            Candidate("b", 0.1),
+            Candidate("b", 0.1, in_stock=True),
         ],
         "seed",
         {},

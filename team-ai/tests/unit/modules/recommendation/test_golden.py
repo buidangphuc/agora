@@ -26,6 +26,7 @@ from app.modules.business.recommendation.schemas import (
     RecommendationResult,
 )
 from app.modules.business.recommendation.service import RecommendationService
+from tests.unit.recs_support import FakeStock
 
 FIXTURE = Path(__file__).parents[3] / "fixtures" / "recommendation_golden.json"
 GOLDEN: dict[str, Any] = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -40,6 +41,26 @@ class UserReadFails(RedisServingCache):
         self, user_id: str, generation: str | None
     ) -> list[Candidate]:
         raise ConnectionError("user list unreadable")
+
+
+def _sold_out(case: dict[str, Any]) -> dict[str, int]:
+    out = {
+        r["listing_id"]: 0
+        for rows in case["similar"].values()
+        for r in rows
+        if not r["in_stock"]
+    }
+    for value in case["redis"].values():
+        try:
+            entries = json.loads(value)
+        except ValueError:
+            continue
+        if not isinstance(entries, list):
+            continue
+        for e in entries:
+            if isinstance(e, dict) and e.get("in_stock") is False:
+                out[e["listing_id"]] = 0
+    return out
 
 
 def _service(case: dict[str, Any], redis: Any) -> RecommendationService:
@@ -74,6 +95,8 @@ def _service(case: dict[str, Any], redis: Any) -> RecommendationService:
         candidate_top_k=100,
         result_top_k=10,
         model_version=overrides.get("model_version", "serving-fallback"),
+        stock_lookup=FakeStock(_sold_out(case)),
+        retrieve_timeout_s=1.0,
     )
 
 

@@ -23,6 +23,7 @@ from app.modules.business.recommendation.schemas import (
     RecommendationQuery,
 )
 from app.modules.business.recommendation.service import RecommendationService
+from tests.unit.recs_support import FakeStock
 
 
 class Clock:
@@ -76,6 +77,8 @@ def _service(
         candidate_top_k=100,
         result_top_k=10,
         model_version=kw.pop("model_version", "test-v1"),
+        stock_lookup=kw.pop("stock_lookup", None) or FakeStock(),
+        retrieve_timeout_s=kw.pop("retrieve_timeout_s", 1.0),
         clock=clock,
         **kw,
     )

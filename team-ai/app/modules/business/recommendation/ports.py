@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.modules.business.recommendation.schemas import Candidate
@@ -64,3 +65,19 @@ class NearlineSignals(Protocol):
         """Position-debiased CTR by listing id; items with no usable data are absent.
         Never raises, and returns within its own time budget."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class StockEntry:
+    listing_id: str
+    stock: int | None
+
+
+class StockLookupError(Exception):
+    pass
+
+
+class StockLookup(Protocol):
+    async def lookup(
+        self, listing_ids: Sequence[str], *, timeout_s: float
+    ) -> list[StockEntry]: ...

@@ -26,7 +26,7 @@ def eligible(
             continue
         if filters.exclude_seed and cand.listing_id == seed_listing_id:
             continue
-        if filters.in_stock_only and not cand.in_stock:
+        if filters.in_stock_only and cand.in_stock is not True:
             continue
         if cand.listing_id in cart:
             continue
