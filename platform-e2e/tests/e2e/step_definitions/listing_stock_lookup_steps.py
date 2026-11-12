@@ -156,17 +156,18 @@ def call_three_callers(world: World) -> None:
 @when("a client sends an HTTP request to the gateway for any path derived from SearchService/GetListingStock")
 def call_gateway(world: World) -> None:
     st = _state(world)
-    st["since"] = lsl.now() - 1
     gateway = get_settings().gateway_url
+    st["gw_started"] = lsl.now()
     results = []
     for path in GATEWAY_PATHS:
+        request_id = uuid.uuid4().hex
         resp = httpx.post(
             gateway + path,
             json={"listingIds": [_fresh_id()]},
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "X-Request-Id": request_id},
             timeout=30.0,
         )
-        results.append((path, resp.status_code, resp.text[:200]))
+        results.append((path, resp.status_code, resp.text[:200], request_id))
     st["gateway"] = results
 
 
@@ -258,14 +259,15 @@ def check_authz(world: World) -> None:
 
 @then("the gateway answers HTTP 404 or 501 for every path")
 def check_gateway_not_exposed(world: World) -> None:
-    for path, status, text in _state(world)["gateway"]:
+    for path, status, text, _ in _state(world)["gateway"]:
         assert status in (404, 501), f"{path}: expected HTTP 404 or 501, got {status}: {text}"
 
 
 @then("team-search records no GetListingStock call")
 def check_no_call_recorded(world: World) -> None:
-    logs = lsl.logs_since(_state(world)["since"])
-    assert lsl.METHOD not in logs, f"team-search logged a {lsl.METHOD} call:\n{logs[-1000:]}"
+    time.sleep(1.0)
+    calls = lsl.search_calls_after(_state(world)["gw_started"])
+    assert not calls, f"team-search logged a {lsl.METHOD} call after the gateway request: {calls[-3:]}"
 
 
 @then("the call fails with unavailable and returns no entries")
@@ -280,7 +282,7 @@ def check_slow_unavailable(world: World) -> None:
     report = lsl.ghz([_fresh_id()], 1)
     codes = lsl.status_codes(report)
     assert codes == {"Unavailable": 1}, f"expected one Unavailable, got {codes}"
-    took = lsl.percentile_ms(report, 99)
+    took = report["total"] / 1e6
     assert took <= SLOW_DEADLINE_MS, f"unavailable after {took:.0f} ms (> {SLOW_DEADLINE_MS:.0f} ms)"
     check_unavailable(world)
 
