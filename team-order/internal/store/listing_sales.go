@@ -34,6 +34,10 @@ type salesDelta struct {
 }
 
 func countOrderSales(ctx context.Context, tx pgx.Tx, ob *outbox.Store, build ListingSalesOutboxBuilder, orderID string) error {
+	return countOrderSalesAs(ctx, tx, ob, build, orderID, "paid")
+}
+
+func countOrderSalesAs(ctx context.Context, tx pgx.Tx, ob *outbox.Store, build ListingSalesOutboxBuilder, orderID, stage string) error {
 	rows, err := tx.Query(ctx, `INSERT INTO listing_sales_orders (order_id, listing_id, quantity, state)
 		SELECT order_id, listing_id, SUM(quantity), 'counted' FROM order_items WHERE order_id = $1 GROUP BY order_id, listing_id
 		ON CONFLICT (order_id, listing_id) DO NOTHING
@@ -45,7 +49,7 @@ func countOrderSales(ctx context.Context, tx pgx.Tx, ob *outbox.Store, build Lis
 	if err != nil {
 		return err
 	}
-	return applySalesDeltas(ctx, tx, ob, build, deltas, 1, "order:"+orderID+":paid")
+	return applySalesDeltas(ctx, tx, ob, build, deltas, 1, "order:"+orderID+":"+stage)
 }
 
 func reverseOrderSales(ctx context.Context, tx pgx.Tx, ob *outbox.Store, build ListingSalesOutboxBuilder, orderID string) error {
@@ -83,26 +87,98 @@ func applySalesDeltas(ctx context.Context, tx pgx.Tx, ob *outbox.Store, build Li
 	if len(deltas) == 0 {
 		return nil
 	}
-	var changedAt time.Time
-	if err := tx.QueryRow(ctx, `SELECT now()`).Scan(&changedAt); err != nil {
-		return fmt.Errorf("read transaction time: %w", err)
+	ids := make([]string, len(deltas))
+	qty := make(map[string]int64, len(deltas))
+	for i, d := range deltas {
+		ids[i] = d.listingID
+		qty[d.listingID] = d.quantity
 	}
-	for _, d := range deltas {
-		if _, err := tx.Exec(ctx, `INSERT INTO listing_sales (listing_id, sold_count) VALUES ($1, 0) ON CONFLICT (listing_id) DO NOTHING`, d.listingID); err != nil {
-			return fmt.Errorf("init listing sales %q: %w", d.listingID, err)
-		}
+	if sign > 0 {
+		return addSalesDeltas(ctx, tx, ob, build, deltas, source)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO listing_sales (listing_id, sold_count)
+		SELECT unnest($1::text[]), 0 ON CONFLICT (listing_id) DO NOTHING`, ids); err != nil {
+		return fmt.Errorf("init listing sales: %w", err)
+	}
+	rows, err := tx.Query(ctx, `SELECT listing_id, sold_count, now() FROM listing_sales
+		WHERE listing_id = ANY($1::text[]) ORDER BY listing_id FOR UPDATE`, ids)
+	if err != nil {
+		return fmt.Errorf("lock listing sales: %w", err)
+	}
+	var changedAt time.Time
+	var changed []ListingSalesChange
+	var changedIDs []string
+	var changedNext []int64
+	for rows.Next() {
+		var id string
 		var old int64
-		if err := tx.QueryRow(ctx, `SELECT sold_count FROM listing_sales WHERE listing_id = $1 FOR UPDATE`, d.listingID).Scan(&old); err != nil {
-			return fmt.Errorf("lock listing sales %q: %w", d.listingID, err)
+		if err := rows.Scan(&id, &old, &changedAt); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan listing sales: %w", err)
 		}
-		next := max(old+sign*d.quantity, 0)
+		next := max(old+sign*qty[id], 0)
 		if next == old {
 			continue
 		}
-		if _, err := tx.Exec(ctx, `UPDATE listing_sales SET sold_count = $2 WHERE listing_id = $1`, d.listingID, next); err != nil {
-			return fmt.Errorf("update listing sales %q: %w", d.listingID, err)
+		changedIDs = append(changedIDs, id)
+		changedNext = append(changedNext, next)
+		changed = append(changed, ListingSalesChange{ListingID: id, SoldCount: next, SourceEventID: source})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("lock listing sales: %w", err)
+	}
+	if len(changed) == 0 {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `UPDATE listing_sales s SET sold_count = v.next
+		FROM unnest($1::text[], $2::bigint[]) AS v(listing_id, next) WHERE s.listing_id = v.listing_id`, changedIDs, changedNext); err != nil {
+		return fmt.Errorf("update listing sales: %w", err)
+	}
+	for _, c := range changed {
+		c.ChangedAt = changedAt
+		row, err := build(c)
+		if err != nil {
+			return fmt.Errorf("build listing sales outbox row: %w", err)
 		}
-		row, err := build(ListingSalesChange{ListingID: d.listingID, SoldCount: next, ChangedAt: changedAt, SourceEventID: source})
+		if err := ob.EnqueueTx(ctx, tx, row); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addSalesDeltas(ctx context.Context, tx pgx.Tx, ob *outbox.Store, build ListingSalesOutboxBuilder, deltas []salesDelta, source string) error {
+	ids := make([]string, len(deltas))
+	qtys := make([]int64, len(deltas))
+	for i, d := range deltas {
+		ids[i] = d.listingID
+		qtys[i] = d.quantity
+	}
+	rows, err := tx.Query(ctx, `INSERT INTO listing_sales AS s (listing_id, sold_count)
+		SELECT v.listing_id, v.qty FROM unnest($1::text[], $2::bigint[]) AS v(listing_id, qty) ORDER BY v.listing_id
+		ON CONFLICT (listing_id) DO UPDATE SET sold_count = s.sold_count + EXCLUDED.sold_count
+		RETURNING s.listing_id, s.sold_count, now()`, ids, qtys)
+	if err != nil {
+		return fmt.Errorf("add listing sales: %w", err)
+	}
+	var changes []ListingSalesChange
+	for rows.Next() {
+		var c ListingSalesChange
+		if err := rows.Scan(&c.ListingID, &c.SoldCount, &c.ChangedAt); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan listing sales: %w", err)
+		}
+		c.SourceEventID = source
+		changes = append(changes, c)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("add listing sales: %w", err)
+	}
+	sort.Slice(changes, func(i, j int) bool { return changes[i].ListingID < changes[j].ListingID })
+	for _, c := range changes {
+		row, err := build(c)
 		if err != nil {
 			return fmt.Errorf("build listing sales outbox row: %w", err)
 		}
