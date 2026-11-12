@@ -141,6 +141,7 @@ def second_refused(cod_world):
     assert o.code_of(resp) == "failed_precondition", (o.code_of(resp), resp.text[:300])
 
 
+@given(parsers.parse('the search sold count of "{name}" rises by {n:d}'))
 @then(parsers.parse('the search sold count of "{name}" rises by {n:d}'))
 def count_rises(cod_world, name, n):
     w = cod_world
