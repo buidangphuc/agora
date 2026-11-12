@@ -999,3 +999,128 @@ export class RunSavedSearchResponse extends Message<RunSavedSearchResponse> {
   }
 }
 
+/**
+ * @generated from message platform.search.v1.GetListingStockRequest
+ */
+export class GetListingStockRequest extends Message<GetListingStockRequest> {
+  /**
+   * 1..10 listing ids, else INVALID_ARGUMENT.
+   *
+   * @generated from field: repeated string listing_ids = 1;
+   */
+  listingIds: string[] = [];
+
+  constructor(data?: PartialMessage<GetListingStockRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.search.v1.GetListingStockRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "listing_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetListingStockRequest {
+    return new GetListingStockRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetListingStockRequest {
+    return new GetListingStockRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetListingStockRequest {
+    return new GetListingStockRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetListingStockRequest | PlainMessage<GetListingStockRequest> | undefined, b: GetListingStockRequest | PlainMessage<GetListingStockRequest> | undefined): boolean {
+    return proto3.util.equals(GetListingStockRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.search.v1.ListingStock
+ */
+export class ListingStock extends Message<ListingStock> {
+  /**
+   * @generated from field: string listing_id = 1;
+   */
+  listingId = "";
+
+  /**
+   * The listing's projected base stock, net of reservations, exactly as the
+   * in_stock filter and SearchHit.stock use it (no variant rollup). In stock
+   * means greater than 0. Stock is absent when it is not projected or unknown.
+   *
+   * @generated from field: optional int32 stock = 2;
+   */
+  stock?: number;
+
+  constructor(data?: PartialMessage<ListingStock>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.search.v1.ListingStock";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "listing_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "stock", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListingStock {
+    return new ListingStock().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListingStock {
+    return new ListingStock().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListingStock {
+    return new ListingStock().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListingStock | PlainMessage<ListingStock> | undefined, b: ListingStock | PlainMessage<ListingStock> | undefined): boolean {
+    return proto3.util.equals(ListingStock, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.search.v1.GetListingStockResponse
+ */
+export class GetListingStockResponse extends Message<GetListingStockResponse> {
+  /**
+   * Holds one entry per requested id, in request order.
+   *
+   * @generated from field: repeated platform.search.v1.ListingStock listings = 1;
+   */
+  listings: ListingStock[] = [];
+
+  constructor(data?: PartialMessage<GetListingStockResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.search.v1.GetListingStockResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "listings", kind: "message", T: ListingStock, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetListingStockResponse {
+    return new GetListingStockResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetListingStockResponse {
+    return new GetListingStockResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetListingStockResponse {
+    return new GetListingStockResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetListingStockResponse | PlainMessage<GetListingStockResponse> | undefined, b: GetListingStockResponse | PlainMessage<GetListingStockResponse> | undefined): boolean {
+    return proto3.util.equals(GetListingStockResponse, a, b);
+  }
+}
+

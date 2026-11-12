@@ -81,6 +81,13 @@ export enum ListingStatus {
    * @generated from enum value: LISTING_STATUS_HELD = 6;
    */
   HELD = 6,
+
+  /**
+   * Set by read models for a hard-deleted listing; team-domain never returns it.
+   *
+   * @generated from enum value: LISTING_STATUS_DELETED = 7;
+   */
+  DELETED = 7,
 }
 // Retrieve enum metadata with: proto3.getEnumType(ListingStatus)
 proto3.util.setEnumType(ListingStatus, "platform.listing.v1.ListingStatus", [
@@ -91,6 +98,7 @@ proto3.util.setEnumType(ListingStatus, "platform.listing.v1.ListingStatus", [
   { no: 4, name: "LISTING_STATUS_PENDING_REVIEW" },
   { no: 5, name: "LISTING_STATUS_BANNED" },
   { no: 6, name: "LISTING_STATUS_HELD" },
+  { no: 7, name: "LISTING_STATUS_DELETED" },
 ]);
 
 /**

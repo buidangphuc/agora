@@ -27,7 +27,7 @@ const tsKind = "message:google.protobuf.Timestamp"
 var listingStatusEnum = map[string]int{
 	"LISTING_STATUS_UNSPECIFIED": 0, "LISTING_STATUS_DRAFT": 1, "LISTING_STATUS_PUBLISHED": 2,
 	"LISTING_STATUS_REJECTED": 3, "LISTING_STATUS_PENDING_REVIEW": 4, "LISTING_STATUS_BANNED": 5,
-	"LISTING_STATUS_HELD": 6,
+	"LISTING_STATUS_HELD": 6, "LISTING_STATUS_DELETED": 7,
 }
 
 // Scenario: Trust contract: New listing statuses have fixed numbers
