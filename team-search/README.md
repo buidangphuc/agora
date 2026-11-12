@@ -30,7 +30,7 @@ missing scope gives `PermissionDenied`.
 | `ListSavedSearches` | `search:read` | Caller's own searches, newest first |
 | `DeleteSavedSearch` | `search:write` | Owner-scoped; another user's id returns `NotFound` |
 | `RunSavedSearch` | `search:read` | Owner-scoped; re-runs the saved query and filters (first page, size 10) |
-| `GetListingStock` | principal type `service` + `search:read` | Contract only (discovery-followups-contract, not built) |
+| `GetListingStock` | principal type `service` + `search:read` | 1..10 ids; one entry per id in request order; `stock` set only for a live listing with projected stock (0 is present), absent for tombstoned, unprojected or unknown ids; `Unavailable` when the index fails or exceeds 200 ms; `InvalidArgument` outside 1..10 or an empty id; user and anonymous callers are refused |
 
 Behaviour of `SearchListings`:
 
