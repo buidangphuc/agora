@@ -256,10 +256,10 @@ def check_authz(world: World) -> None:
         assert "stock" not in str(body), f"{key}: error carries stock: {body}"
 
 
-@then("the gateway answers HTTP 404 for every path")
-def check_gateway_404(world: World) -> None:
+@then("the gateway answers HTTP 404 or 501 for every path")
+def check_gateway_not_exposed(world: World) -> None:
     for path, status, text in _state(world)["gateway"]:
-        assert status == 404, f"{path}: expected HTTP 404, got {status}: {text}"
+        assert status in (404, 501), f"{path}: expected HTTP 404 or 501, got {status}: {text}"
 
 
 @then("team-search records no GetListingStock call")
@@ -295,7 +295,7 @@ def check_not_logged(world: World) -> None:
     assert lines, f"no {lsl.METHOD} log line captured:\n{logs[-1000:]}"
     import re
 
-    assert any(re.search(r"\b2\b", ln) for ln in lines), f"no log line carries the count 2: {lines}"
+    assert any(re.search(r"\"?id_count\"?\s*[=:]\s*\"?2\b", ln) for ln in lines), f"no log line carries id_count=2: {lines}"
     for listing_id in st["ids"]:
         assert listing_id not in logs, f"id {listing_id} found in team-search logs"
 

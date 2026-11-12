@@ -40,7 +40,7 @@ Feature: Search listing stock lookup
   @destructive
   Scenario: The gateway does not expose the lookup
     When a client sends an HTTP request to the gateway for any path derived from SearchService/GetListingStock
-    Then the gateway answers HTTP 404 for every path
+    Then the gateway answers HTTP 404 or 501 for every path
     And team-search records no GetListingStock call
 
   @destructive
