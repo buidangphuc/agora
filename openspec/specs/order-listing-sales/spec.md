@@ -112,7 +112,7 @@ The system SHALL write one `ListingSalesChanged{listing_id, sold_count, changed_
 
 ### Requirement: The migration backfills existing orders
 
-The migration SHALL seed `listing_sales` and the per-order ledger from existing orders (paid and not cancelled, minus refunded returns) and SHALL enqueue exactly one `ListingSalesChanged` outbox row per listing that has an order line, without duplicating rows when run again.
+The migrations SHALL seed `listing_sales` and the per-order ledger from existing orders (paid and not cancelled, minus refunded returns) and SHALL enqueue exactly one `ListingSalesChanged` outbox row per listing that has an order line, without duplicating rows when run again. A further migration (0024) SHALL add COD orders already COMPLETED (not yet in the ledger) to the ledger and to `sold_count`, and enqueue one `ListingSalesChanged` row per listing whose `sold_count` changed, with an event id that includes the migration id so it cannot collide with 0023 backfill ids.
 
 #### Scenario: Existing paid orders are counted
 - **VERIFIED BY**: team-order `migrations` `TestMigration0023_ExistingPaidOrdersAreCounted`
@@ -159,3 +159,29 @@ The migration SHALL seed `listing_sales` and the per-order ledger from existing 
 - **GIVEN** a backfilled order of 2 units counted in `sold_count` 2
 - **WHEN** it is cancelled from PAID
 - **THEN** `sold_count` is 0
+
+#### Scenario: Historical COD completed orders are counted once
+- **VERIFIED BY**: team-order `migrations` `TestMigration0024_HistoricalCodCompletedOrdersAreCountedOnce`
+
+- **GIVEN** before the COD migration: listing L has `sold_count` 3, a COD COMPLETED order of 2 units not in the ledger, a COD SHIPPED order of 4 units, and a COD PENDING order of 1 unit
+- **WHEN** the COD migration runs
+- **THEN** `sold_count` for L is 5, the ledger holds one `counted` row for the COD COMPLETED order only, and exactly one `ListingSalesChanged{listing_id=L, sold_count=5}` outbox row is enqueued with event id `hash(L, 5, '0024-backfill-cod')`
+
+#### Scenario: The COD backfill ignores orders already in the ledger and non-COD orders
+- **VERIFIED BY**: team-order `migrations` `TestMigration0024_IgnoresLedgerAndNonCodOrders`
+
+- **GIVEN** before the COD migration: a non-COD COMPLETED order of 1 unit of L already counted at PAID, and a COD COMPLETED order already in the ledger
+- **WHEN** the COD migration runs
+- **THEN** `sold_count` for L is unchanged and no outbox row is enqueued for L
+
+#### Scenario: Running the COD backfill twice does not duplicate
+- **VERIFIED BY**: team-order `migrations` `TestMigration0024_BackfillTwiceDoesNotDuplicate`
+
+- **WHEN** the COD backfill statements run a second time
+- **THEN** `listing_sales` totals, ledger rows and the outbox row count are unchanged
+
+#### Scenario: The COD backfill on a database with no COD orders succeeds
+- **VERIFIED BY**: team-order `migrations` `TestMigration0024_NoCodOrders`
+
+- **WHEN** the COD migration runs with no COD COMPLETED orders
+- **THEN** it succeeds, `listing_sales` is unchanged and no outbox row is written
