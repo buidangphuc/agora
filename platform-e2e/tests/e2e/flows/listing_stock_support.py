@@ -7,10 +7,10 @@ with the `x-principal-*` headers the interceptor reads.
     STACK_NETWORK              docker network of the stack (default agora_default)
     LSL_SEARCH_ADDR            default team-search-svc:50052
     LSL_GRPCURL_IMAGE          default fullstorydev/grpcurl:latest
-    LSL_GHZ_IMAGE              default obvionaryltd/ghz:latest
+    LSL_GHZ_IMAGE              default ghcr.io/bojand/ghz:0.120.0
     LSL_PROTO_DIR              proto root holding platform/search/v1/search.proto
                                (default team-search/proto of this checkout)
-    LSL_OPENSEARCH_CONTAINER   default agora-opensearch-1
+    LSL_OPENSEARCH_CONTAINER   default: REDIS_CONTAINER with its redis-1 suffix replaced by opensearch-1
     SEARCH_CONTAINER           team-search container (settings.search_container)
 """
 
@@ -20,6 +20,7 @@ import json
 import os
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,11 +48,15 @@ def grpcurl_image() -> str:
 
 
 def ghz_image() -> str:
-    return os.getenv("LSL_GHZ_IMAGE", "obvionaryltd/ghz:latest")
+    return os.getenv("LSL_GHZ_IMAGE", "ghcr.io/bojand/ghz:0.120.0")
 
 
 def opensearch_container() -> str:
-    return os.getenv("LSL_OPENSEARCH_CONTAINER", "agora-opensearch-1")
+    explicit = os.getenv("LSL_OPENSEARCH_CONTAINER")
+    if explicit:
+        return explicit
+    redis = os.getenv("REDIS_CONTAINER", "agora-redis-1")
+    return re.sub(r"redis-1$", "opensearch-1", redis)
 
 
 def search_container() -> str:
@@ -144,6 +149,46 @@ def status_codes(report: dict[str, Any]) -> dict[str, int]:
 def logs_since(since_unix: float) -> str:
     proc = stack.docker("logs", "--since", str(int(since_unix)), search_container(), check=False)
     return proc.stdout + proc.stderr
+
+
+def _line_time(line: str) -> float | None:
+    try:
+        stamp = json.loads(line)["time"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    m = re.match(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?(Z|[+-]\d\d:\d\d)$", str(stamp))
+    if not m:
+        return None
+    frac = (m.group(2) or ".0")[:7]
+    zone = "+00:00" if m.group(3) == "Z" else m.group(3)
+    return datetime.fromisoformat(f"{m.group(1)}{frac}{zone}").timestamp()
+
+
+def lines_after(container: str, started: float) -> list[str]:
+    proc = stack.docker("logs", "--since", str(int(started) - 1), container, check=False)
+    kept = []
+    for line in (proc.stdout + proc.stderr).splitlines():
+        at = _line_time(line)
+        if at is not None and at >= started:
+            kept.append(line)
+    return kept
+
+
+def gateway_edge_line(started: float, request_id: str) -> dict[str, Any] | None:
+    for raw in lines_after(get_settings().gateway_container, started):
+        if request_id not in raw or '"edge.request"' not in raw:
+            continue
+        try:
+            line = json.loads(raw)
+        except ValueError:
+            continue
+        if line.get("msg") == "edge.request" and line.get("request_id") == request_id:
+            return line
+    return None
+
+
+def search_calls_after(started: float) -> list[str]:
+    return [ln for ln in lines_after(search_container(), started) if METHOD in ln]
 
 
 def pause_opensearch() -> None:
