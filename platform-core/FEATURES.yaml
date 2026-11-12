@@ -8846,3 +8846,273 @@ features:
     tags: [discovery-seo-contract, unit]
     status: not-testable
     notes: "discovery-seo-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/discovery_seo_consumer_copies_test.sh` 'Discovery SEO contract: Consumer protos build' (tasks 2.1)"
+
+  - id: followups.contract-deleted-value-present-at-7
+    title: "Deleted value present at 7"
+    persona: guest
+    priority: P2
+    summary: "Deleted value present at 7"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Deleted value present at 7 (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/listing/v1/followups_compat_test.go` 'TestFollowups_ListingStatusDeletedIsSeven' (tasks 2.1)"
+
+  - id: followups.contract-semantics-are-documented
+    title: "Semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Semantics are documented (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/listing/v1/followups_compat_test.go` 'TestFollowups_DeletedStatusDocumented' (tasks 2.1)"
+
+  - id: followups.contract-old-consumer-meets-the-new-value
+    title: "Old consumer meets the new value"
+    persona: guest
+    priority: P2
+    summary: "Old consumer meets the new value"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old consumer meets the new value (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/listing/v1/followups_compat_test.go` 'TestFollowups_OldSchemaParsesDeleted' (tasks 2.1)"
+
+  - id: followups.contract-undefined-status-number-is-not-a-defined-value
+    title: "Undefined status number is not a defined value"
+    persona: guest
+    priority: P2
+    summary: "Undefined status number is not a defined value"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Undefined status number is not a defined value (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/listing/v1/followups_compat_test.go` 'TestFollowups_NoUndefinedStatusNumbers' (tasks 2.1)"
+
+  - id: followups.contract-values-0-to-6-keep-their-numbers
+    title: "Values 0 to 6 keep their numbers"
+    persona: guest
+    priority: P2
+    summary: "Values 0 to 6 keep their numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Values 0 to 6 keep their numbers (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/listing/v1/followups_compat_test.go` 'TestFollowups_ExistingStatusValuesUnchanged' (tasks 2.1)"
+
+  - id: followups.contract-rpc-and-messages-present-at-the-specified-numbers
+    title: "RPC and messages present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "RPC and messages present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "RPC and messages present at the specified numbers (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/followups_compat_test.go` 'TestFollowups_GetListingStockShape' (tasks 2.1)"
+
+  - id: followups.contract-existing-search-surface-is-untouched
+    title: "Existing search surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing search surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing search surface is untouched (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/followups_compat_test.go` 'TestFollowups_ExistingSearchSurfaceUntouched' (tasks 2.1)"
+
+  - id: followups.contract-absent-stock-is-distinct-from-zero-stock
+    title: "Absent stock is distinct from zero stock"
+    persona: guest
+    priority: P2
+    summary: "Absent stock is distinct from zero stock"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Absent stock is distinct from zero stock (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/followups_compat_test.go` 'TestFollowups_StockPresenceRoundTrip' (tasks 2.1)"
+
+  - id: followups.contract-ten-id-request-round-trips-at-the-schema-level
+    title: "Ten-id request round trips at the schema level"
+    persona: guest
+    priority: P2
+    summary: "Ten-id request round trips at the schema level"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Ten-id request round trips at the schema level (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/followups_compat_test.go` 'TestFollowups_RequestRoundTrip' (tasks 2.1)"
+
+  - id: followups.contract-id-bound-and-ordering-are-documented
+    title: "Id bound and ordering are documented"
+    persona: guest
+    priority: P2
+    summary: "Id bound and ordering are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Id bound and ordering are documented (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/followups_compat_test.go` 'TestFollowups_BoundAndOrderingDocumented' (tasks 2.1)"
+
+  - id: followups.contract-stock-semantics-and-internal-use-are-documented
+    title: "Stock semantics and internal use are documented"
+    persona: guest
+    priority: P2
+    summary: "Stock semantics and internal use are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Stock semantics and internal use are documented (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/followups_compat_test.go` 'TestFollowups_StockSemanticsDocumented' (tasks 2.1)"
+
+  - id: followups.contract-wire-compatible-both-ways
+    title: "Wire compatible both ways"
+    persona: guest
+    priority: P2
+    summary: "Wire compatible both ways"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Wire compatible both ways (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/followups_compat_test.go` 'TestFollowups_WireCompatible' (tasks 2.1)"
+
+  - id: followups.contract-the-rpc-carries-no-personal-data
+    title: "The RPC carries no personal data"
+    persona: guest
+    priority: P2
+    summary: "The RPC carries no personal data"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The RPC carries no personal data (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/search/v1/followups_compat_test.go` 'TestFollowups_NoPersonalFields' (tasks 2.1)"
+
+  - id: followups.contract-copies-match-the-source
+    title: "Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Copies match the source (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'copies match the source' (tasks 2.1)"
+
+  - id: followups.contract-drifted-or-missing-copy-is-rejected
+    title: "Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Drifted or missing copy is rejected (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'drifted or missing copy is rejected' (tasks 2.1)"
+
+  - id: followups.contract-renumbering-is-rejected
+    title: "Renumbering is rejected"
+    persona: guest
+    priority: P2
+    summary: "Renumbering is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Renumbering is rejected (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'renumbering is rejected' (tasks 2.1)"
+
+  - id: followups.contract-consumer-protos-still-build
+    title: "Consumer protos still build"
+    persona: guest
+    priority: P2
+    summary: "Consumer protos still build"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Consumer protos still build (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'consumer protos still build' (tasks 2.1)"
+
+  - id: followups.contract-lint-and-breaking-check-pass
+    title: "Lint and breaking check pass"
+    persona: guest
+    priority: P2
+    summary: "Lint and breaking check pass"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Lint and breaking check pass (unit-verified)"
+    tags: [discovery-followups-contract, unit]
+    status: not-testable
+    notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'buf lint and breaking pass' (tasks 2.1)"
