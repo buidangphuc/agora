@@ -49,7 +49,15 @@ def probe_export(listings: list[str], users: list[str]) -> dict:
 def _consumer_state() -> tuple[str, str, str, list[str]]:
     name = tii.analytics_container()
     insp = json.loads(subprocess.check_output(["docker", "inspect", name], text=True))[0]
-    return name, insp["Config"]["Image"], insp["Config"].get("User") or "", insp["Config"]["Env"]
+    probe = subprocess.check_output(
+        [
+            "docker", "run", "--rm", "-v", f"{fsm.analytics_volume()}:/data:ro",
+            "--entrypoint", "python", fsm.image(), "-c",
+            "import os;s=os.stat('/data/analytics.duckdb');print(f'{s.st_uid}:{s.st_gid}')",
+        ],
+        text=True,
+    ).strip()
+    return name, insp["Config"]["Image"], probe, insp["Config"]["Env"]
 
 
 def seed_null_status(seed: dict) -> list[dict]:
