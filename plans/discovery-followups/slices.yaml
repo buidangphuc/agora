@@ -1,0 +1,22 @@
+initiative: discovery-followups
+slices:
+  - id: discovery-followups-contract
+    owner: platform-core
+    depends_on: []
+    provides: [SearchService.GetListingStock]
+  - id: order-cod-sales-count
+    owner: team-order
+    depends_on: []
+    uses: [order.events/ListingSalesChanged]
+  - id: analytics-listing-deleted-status
+    owner: team-analytics
+    depends_on: [discovery-followups-contract]
+    uses: [listing.events/ListingChanged]
+  - id: search-listing-stock-lookup
+    owner: team-search
+    depends_on: [discovery-followups-contract]
+    uses: [SearchService.GetListingStock]
+  - id: recs-in-stock-filter
+    owner: team-ai
+    depends_on: [search-listing-stock-lookup]
+    uses: [SearchService.GetListingStock]
