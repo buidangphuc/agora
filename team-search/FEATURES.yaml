@@ -3271,10 +3271,10 @@ features:
       exercised: [search.v1.GetListingStock]
     acceptance:
       - "When a client sends an HTTP request to the gateway for any path derived from SearchService/GetListingStock"
-      - "Then the gateway answers HTTP 404, and team-search records no GetListingStock call"
+      - "Then the gateway answers HTTP 404 or 501 unimplemented, and team-search records no GetListingStock call"
     tags: [buyer, search]
     status: planned
-    notes: "search/listing_stock_lookup.feature::The gateway does not expose the lookup. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Spec says 404; the gateway may answer 501 unimplemented instead (see change open issues)."
+    notes: "search/listing_stock_lookup.feature::The gateway does not expose the lookup. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Human decision 2026-11-12: HTTP 404 or 501 unimplemented are both accepted; the requirement is that the call is not forwarded to team-search."
 
   - id: search.lsl-an-unreachable-index-fails-the-call
     title: "An unreachable index fails the call"
