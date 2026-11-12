@@ -381,10 +381,11 @@ def replay_deleted(fia):
         "price": d["price"],
         "at": d["deleted_at"].isoformat(sep=" "),
     }
-    r = flow.run_replay(seed_null=seed)
+    stored = flow.seed_null_status(seed)
+    assert [x["status"] for x in stored] == [None], f"the row was not seeded null: {stored}"
+    fia.data["probe"] = _wait_statuses([d["id"]], {d["id"]: None})
+    r = flow.run_replay()
     fia.data["replay"] = r
-    seeded = r.output.splitlines()[0]
-    assert '"status": null' in seeded, f"the row was not seeded null: {seeded}"
     assert r.exit_code == 0, f"listing-replay exited {r.exit_code}:\n{r.output[-3000:]}"
     fia.data["probe"] = _wait_statuses([d["id"]], {d["id"]: "LISTING_STATUS_DELETED"})
 
