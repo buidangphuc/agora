@@ -19,6 +19,10 @@ Implement OpenSpec change `discovery-followups-contract` test-first per its task
 - team-*/proto/platform/listing/v1/listing.proto
 - team-*/proto/platform/search/v1/search.proto
 - team-frontend*/package-lock.json
+- team-frontend*/vendor/fe-platform-api-client.tgz
+- fe-platform/packages/api-client/src/generated/**
+- fe-platform/.changeset/**
+- platform-core/packages/proto/platform/listing/v1/moderation_compat_test.go
 - team-*/README.md
 
 ## Verify

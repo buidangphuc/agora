@@ -1,17 +1,17 @@
 # LOCK — discovery-followups
 status: approved
 approved-by: Bùi Đăng Phúc
-date: 2026-11-12
+date: 2026-11-12 (re-signed 2026-11-12 in chat after spec-clarify and traceability edits)
 spec: plans/discovery-followups/00-spec.md (Locked 2026-11-12, Clarified 2026-11-12)
 
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
 | discovery-followups-contract | platform-core | [] | 2 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | e6afe5654013 | [x] |
-| order-cod-sales-count | team-order | [] | 3 | pass | pass | fail r1, fail r2 → r3 fix verified by orchestrator | ENGINE_DOWN (LLM fallback) | bd2154828398 | [x] |
-| analytics-listing-deleted-status | team-analytics | [discovery-followups-contract] | 2 | pass | pass (1 warning: PERM-scenario, internal pipeline, no caller authz) | pass (r1) | ENGINE_DOWN (LLM fallback) | f35440598ae1 | [x] |
-| search-listing-stock-lookup | team-search | [discovery-followups-contract] | 2 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | 4d10ed023587 | [x] |
-| recs-in-stock-filter | team-ai | [search-listing-stock-lookup] | 2 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | 8543a46fda3c | [x] |
+| order-cod-sales-count | team-order | [] | 3 | pass | pass | fail r1, fail r2 → r3 fix verified by orchestrator | ENGINE_DOWN (LLM fallback) | bd427fb8ebb5 | [x] |
+| analytics-listing-deleted-status | team-analytics | [discovery-followups-contract] | 2 | pass | pass (1 warning: PERM-scenario, internal pipeline, no caller authz) | pass (r1) | ENGINE_DOWN (LLM fallback) | 41b5fbcbf2c9 | [x] |
+| search-listing-stock-lookup | team-search | [discovery-followups-contract] | 2 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | 7c59d3b88345 | [x] |
+| recs-in-stock-filter | team-ai | [search-listing-stock-lookup] | 2 | pass | pass | pass (r1) | ENGINE_DOWN (LLM fallback) | b66568578ff2 | [x] |
 
 Round 2 fixes for the slices that passed in round 1 were not re-reviewed by spec-quality-reviewer; validate and spec_lint were re-run on all five.
 

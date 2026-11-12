@@ -14,6 +14,7 @@ Implement OpenSpec change `recs-in-stock-filter` test-first per its tasks.md; co
 - team-ai/app/modules/business/recommendation/**
 - team-ai/app/config*
 - team-ai/app/core/**
+- team-ai/app/bootstrap/addons/recommendation.py
 - team-ai/tests/unit/**
 - team-ai/tests/fixtures/**
 - team-ai/.env.example

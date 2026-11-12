@@ -36,6 +36,9 @@ Implement OpenSpec change `analytics-listing-deleted-status` test-first per its 
 - platform-e2e/tests/e2e/step_definitions/candidate_attributes_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_candidate_attributes.py
 - platform-e2e/tests/e2e/flows/item_attributes_support.py
+- platform-e2e/tests/e2e/step_definitions/fia_steps.py
+- platform-e2e/tests/e2e/flows/fia_flow.py
+- platform-e2e/tests/e2e/flows/fia_job_driver.py
 
 ## Verify
 - `cd team-analytics && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`
