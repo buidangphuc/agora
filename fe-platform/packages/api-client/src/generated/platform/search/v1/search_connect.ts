@@ -8,7 +8,7 @@
 // suggest); the engine is swappable to hybrid/semantic later WITHOUT changing
 // this contract (ADR-0005) — embeddings come from team-ai's model-server seam.
 
-import { DeleteSavedSearchRequest, DeleteSavedSearchResponse, ListSavedSearchesRequest, ListSavedSearchesResponse, RunSavedSearchRequest, RunSavedSearchResponse, SaveSearchRequest, SaveSearchResponse, SearchListingsRequest, SearchListingsResponse, SuggestRequest, SuggestResponse } from "./search_pb.js";
+import { DeleteSavedSearchRequest, DeleteSavedSearchResponse, GetListingStockRequest, GetListingStockResponse, ListSavedSearchesRequest, ListSavedSearchesResponse, RunSavedSearchRequest, RunSavedSearchResponse, SaveSearchRequest, SaveSearchResponse, SearchListingsRequest, SearchListingsResponse, SuggestRequest, SuggestResponse } from "./search_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -79,6 +79,18 @@ export const SearchService = {
       name: "RunSavedSearch",
       I: RunSavedSearchRequest,
       O: RunSavedSearchResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Live stock lookup for 1..10 listing ids, service-to-service only
+     * (team-gateway does not expose it).
+     *
+     * @generated from rpc platform.search.v1.SearchService.GetListingStock
+     */
+    getListingStock: {
+      name: "GetListingStock",
+      I: GetListingStockRequest,
+      O: GetListingStockResponse,
       kind: MethodKind.Unary,
     },
   }
