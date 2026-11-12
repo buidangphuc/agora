@@ -130,7 +130,7 @@ async def test_hits_map_payload_to_candidates_and_skip_those_without_a_listing_i
     )
     got = await _source(client).similar("seed", top_k=7, generation="g1")
     assert [(c.listing_id, c.score, c.in_stock) for c in got] == [
-        ("L1", 0.9, True),
+        ("L1", 0.9, None),
         ("L2", 0.8, False),
     ]
     assert client.kwargs["collection_name"] == "item_als_vectors__g1"

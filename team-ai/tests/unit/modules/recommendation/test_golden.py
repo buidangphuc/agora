@@ -43,6 +43,26 @@ class UserReadFails(RedisServingCache):
         raise ConnectionError("user list unreadable")
 
 
+def _sold_out(case: dict[str, Any]) -> dict[str, int]:
+    out = {
+        r["listing_id"]: 0
+        for rows in case["similar"].values()
+        for r in rows
+        if not r["in_stock"]
+    }
+    for value in case["redis"].values():
+        try:
+            entries = json.loads(value)
+        except ValueError:
+            continue
+        if not isinstance(entries, list):
+            continue
+        for e in entries:
+            if isinstance(e, dict) and e.get("in_stock") is False:
+                out[e["listing_id"]] = 0
+    return out
+
+
 def _service(case: dict[str, Any], redis: Any) -> RecommendationService:
     overrides = case["settings"]
     keys = ServingKeys("recs", "v1")
@@ -75,14 +95,7 @@ def _service(case: dict[str, Any], redis: Any) -> RecommendationService:
         candidate_top_k=100,
         result_top_k=10,
         model_version=overrides.get("model_version", "serving-fallback"),
-        stock_lookup=FakeStock(
-            {
-                r["listing_id"]: 0
-                for rows in case["similar"].values()
-                for r in rows
-                if not r["in_stock"]
-            }
-        ),
+        stock_lookup=FakeStock(_sold_out(case)),
         retrieve_timeout_s=1.0,
     )
 

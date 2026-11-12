@@ -3,6 +3,7 @@ from fakeredis import aioredis
 
 from app.modules.business.recommendation.schemas import RecommendationQuery
 from tests.unit.recs_support import (
+    FakeStock,
     Source,
     build_service,
     cand,
@@ -109,7 +110,7 @@ async def test_cart_items_and_out_of_stock_excluded():
             "B": [cand("A", 0.99), cand("y", 0.5)],
         }
     )
-    result = await build_service(source).recommend(
+    result = await build_service(source, stock_lookup=FakeStock({"oos": 0})).recommend(
         RecommendationQuery(
             placement_id="cart_cross_sell", context_listing_ids=["A", "B"]
         )
