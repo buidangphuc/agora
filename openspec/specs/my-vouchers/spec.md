@@ -17,7 +17,7 @@ TBD - created by archiving change promotion-new-user-vouchers. Update Purpose af
 #### Scenario: An anonymous caller is refused
 - **WHEN** `ListMyVouchers` is called through the gateway without a token
 - **THEN** the response is `UNAUTHENTICATED` and team-promotion receives zero calls
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/promotion/my_vouchers.feature` `An anonymous caller cannot list vouchers`; unit `team-gateway/internal/edge/promotion_test.go` `TestListMyVouchersAnonymous`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/promotion/my_vouchers.feature` `An anonymous caller cannot list vouchers`; unit `team-gateway/internal/edge/q7_promotion_test.go` `TestListMyVouchersAnonymous`
 
 #### Scenario: Any signed-in principal needs no scope
 - **WHEN** a buyer token without `listing.write` or admin scopes calls `ListMyVouchers`

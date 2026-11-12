@@ -269,8 +269,15 @@ func TestRelayedRecordCarriesKeyTopicAndHeaders(t *testing.T) {
 		t.Fatalf("RevokeSession: %v", err)
 	}
 
-	recs := testkit.ReadAll(t, brokers, "identity.events.test", 1, 60*time.Second)
-	rec := recs[0]
+	var rec *kgo.Record
+	for _, r := range testkit.ReadAll(t, brokers, "identity.events.test", 2, 60*time.Second) {
+		if header(r, "event-type") == evSessionRevoked {
+			rec = r
+		}
+	}
+	if rec == nil {
+		t.Fatalf("no %s record on identity.events.test", evSessionRevoked)
+	}
 	if rec.Topic != "identity.events.test" {
 		t.Errorf("topic = %s, want identity.events.test", rec.Topic)
 	}
