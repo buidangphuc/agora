@@ -22,6 +22,8 @@ from app.modules.business.recommendation.ports import (
     FeatureStore,
     NearlineSignals,
     ServingCache,
+    StockLookup,
+    StockLookupError,
 )
 from app.modules.business.recommendation.ranking.artifact import TrainedRankerLoader
 from app.modules.business.recommendation.ranking.boost import apply_online_features
@@ -36,8 +38,17 @@ from app.modules.business.recommendation.schemas import (
     RecommendationResult,
     RecommendedItem,
 )
+from app.modules.business.recommendation.stock import RequestStock
 
 _RECHECK_S = 30.0
+
+
+def _without_stock_filter(placement: Placement) -> Placement:
+    return placement.model_copy(
+        update={
+            "filters": placement.filters.model_copy(update={"in_stock_only": False})
+        }
+    )
 
 
 class RecommendationService:
@@ -54,6 +65,8 @@ class RecommendationService:
         candidate_top_k: int,
         result_top_k: int,
         model_version: str,
+        stock_lookup: StockLookup | None = None,
+        retrieve_timeout_s: float = 0.015,
         clock: Callable[[], float] = time.monotonic,
         recheck_s: float = _RECHECK_S,
     ) -> None:
@@ -67,6 +80,8 @@ class RecommendationService:
         self._candidate_top_k = candidate_top_k
         self._result_top_k = result_top_k
         self._model_version = model_version
+        self._stock_lookup = stock_lookup
+        self._retrieve_timeout_s = retrieve_timeout_s
         self._clock = clock
         self._recheck_s = recheck_s
         self._ready = False
@@ -98,12 +113,21 @@ class RecommendationService:
         placement_id = self._placement_id(query)
         placement = self._placements.get(placement_id)
         limit = query.limit or placement.result_limit or self._result_top_k
+        stock = RequestStock(self._stock_lookup, self._retrieve_timeout_s)
         try:
-            return await self._serve(query, placement_id, placement, limit, generation)
+            return await self._serve(
+                query, placement_id, placement, limit, generation, stock
+            )
         except Exception as exc:
             logger.warning("recs.recommend.failed err={}", exc)
             return await self._popular_result(
-                query, placement_id, placement, limit, generation, SERVING_FALLBACK
+                query,
+                placement_id,
+                placement,
+                limit,
+                generation,
+                SERVING_FALLBACK,
+                stock,
             )
 
     @staticmethod
@@ -123,6 +147,7 @@ class RecommendationService:
         placement: Placement,
         limit: int,
         generation: str | None,
+        stock: RequestStock,
     ) -> RecommendationResult:
         model_version = self._model_version
         if model_version == SERVING_FALLBACK:
@@ -132,13 +157,20 @@ class RecommendationService:
             candidates = await self._candidates(step.strategy, query, generation)
             if len(candidates) < step.min_candidates:
                 continue
-            items = await self._rank(candidates, query, placement, limit, generation)
+            try:
+                items = await self._rank(
+                    candidates, query, placement, limit, generation, stock
+                )
+            except StockLookupError:
+                return RecommendationResult(
+                    items=[], model_version=model_version, placement_id=placement_id
+                )
             if items:
                 return RecommendationResult(
                     items=items, model_version=model_version, placement_id=placement_id
                 )
         return await self._popular_result(
-            query, placement_id, placement, limit, generation, model_version
+            query, placement_id, placement, limit, generation, model_version, stock
         )
 
     async def _candidates(
@@ -207,7 +239,22 @@ class RecommendationService:
         placement: Placement,
         limit: int,
         generation: str | None,
+        stock: RequestStock,
     ) -> list[RecommendedItem]:
+        if placement.filters.in_stock_only:
+            ranked = await self._rank_all(candidates, query, placement, generation)
+            return await stock.confirm(ranked, limit)
+        return await self._rank_all(candidates, query, placement, generation, limit)
+
+    async def _rank_all(
+        self,
+        candidates: list[Candidate],
+        query: RecommendationQuery,
+        placement: Placement,
+        generation: str | None,
+        limit: int = 0,
+    ) -> list[RecommendedItem]:
+        placement = _without_stock_filter(placement)
         seed = query.seed_listing_id
         cart = query.context_listing_ids
         ids = [c.listing_id for c in candidates if c.listing_id]
@@ -269,17 +316,25 @@ class RecommendationService:
         limit: int,
         generation: str | None,
         model_version: str,
+        stock: RequestStock,
     ) -> RecommendationResult:
         """The popular list in retrieval order: the floor of the ladder and the fallback."""
         popular = await self._cache.popular_candidates(generation)
+        in_stock_only = placement.filters.in_stock_only
+        items = rank_by_similarity(
+            popular,
+            query.seed_listing_id,
+            0 if in_stock_only else limit,
+            filters=_without_stock_filter(placement).filters,
+            cart_listing_ids=query.context_listing_ids,
+        )
+        if in_stock_only:
+            try:
+                items = await stock.confirm(items, limit)
+            except StockLookupError:
+                items = []
         return RecommendationResult(
-            items=rank_by_similarity(
-                popular,
-                query.seed_listing_id,
-                limit,
-                filters=placement.filters,
-                cart_listing_ids=query.context_listing_ids,
-            ),
+            items=items,
             model_version=model_version,
             placement_id=placement_id,
             fallback=True,

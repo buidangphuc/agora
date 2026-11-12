@@ -14,7 +14,7 @@ _POINTER_TTL_S = 5.0
 class _Entry(BaseModel):
     listing_id: str
     score: float | None = None
-    in_stock: bool = True
+    in_stock: bool | None = None
     seller_id: str = ""
     category_id: str = ""
     visible: bool = False

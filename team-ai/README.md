@@ -49,6 +49,8 @@ curl http://localhost:8000/healthz
 
 `make dev` needs a Redis at `REDIS_HOST` and a Qdrant at `RECS_QDRANT_URL`. The compose stack in `ops/compose/local.yaml` brings up the API and Redis. For Docker, configuration, auth and gRPC, see [docs/usage.md](docs/usage.md).
 
+Placements with `in_stock_only` read live stock from team-search (`SearchService.GetListingStock`) at `RECS_SEARCH_ADDR` (default `localhost:50052`), as the service principal `RECS_SEARCH_PRINCIPAL_ID` (default `team-ai`) with the comma-separated scopes `RECS_SEARCH_PRINCIPAL_SCOPES` (default `search:read`), within `RECS_RETRIEVE_TIMEOUT_MS`. The first `limit` x 2 ranked ids (at most 20, at most 10 per call) are looked up and refilled from the next ranked ids; an absent stock drops only that listing, and a failed, rejected, slow or malformed lookup returns an empty placement.
+
 ## Documentation
 
 - [docs/usage.md](docs/usage.md): requirements, quickstart, services and routes, Docker, commands, env defaults, bearer auth.

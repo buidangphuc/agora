@@ -3,6 +3,7 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from app.modules.business.recommendation.ports import StockEntry
 from app.modules.business.recommendation.schemas import Candidate
 
 
@@ -56,3 +57,13 @@ class MemoryNearlineSignals:
         return {
             lid: self._ctrs[lid] for lid in listing_ids if self._ctrs.get(lid, 0.0) > 0
         }
+
+
+class MemoryStockLookup:
+    def __init__(self, stock: Mapping[str, int | None] | None = None) -> None:
+        self._stock = stock or {}
+
+    async def lookup(
+        self, listing_ids: Sequence[str], *, timeout_s: float
+    ) -> list[StockEntry]:
+        return [StockEntry(lid, self._stock.get(lid)) for lid in listing_ids]
