@@ -232,6 +232,19 @@ def test_non_published_status_is_not_visible(tmp_path, attributes, status):
         assert _payload(q, collection, "L2")["visible"] is False
 
 
+def test_deleted_status_is_not_visible(tmp_path, attributes):
+    _snapshot(tmp_path, [["L8", "S8", "C8", 1, "LISTING_STATUS_DELETED"]])
+    settings = _settings(tmp_path)
+    q, r = FakeQdrantClient(), FakeRedis()
+
+    _publish(settings, "g1", r, q, listings=["L8"])
+
+    for collection in _item_collections(settings, "g1"):
+        payload = _payload(q, collection, "L8")
+        assert "visible" in payload and payload["visible"] is False
+        assert payload["seller_id"] == "S8" and payload["category_id"] == "C8"
+
+
 def test_unknown_attributes_are_absent_not_empty(tmp_path, attributes):
     _snapshot(tmp_path)
     settings = _settings(tmp_path)
@@ -622,6 +635,23 @@ def test_backfill_patches_serving_generation(tmp_path, attributes, monkeypatch, 
     user_collection = qdrant_load.generation_collection(settings.qdrant_user_collection, "g2")
     for point in q.collections[user_collection].values():
         assert not ATTR_KEYS & set(point["payload"])
+
+
+def test_backfill_deleted_status_writes_visible_false(tmp_path, attributes, monkeypatch):
+    settings, r, q = _old_world(tmp_path)
+    rows = [row[:] for row in ROWS]
+    rows[0][4] = "LISTING_STATUS_DELETED"
+    _snapshot(tmp_path, rows)
+    expected = {**EXPECTED, "L1": {"seller_id": "S1", "category_id": "C1", "visible": False}}
+
+    assert _run_backfill(monkeypatch, settings, r, q) == 0
+
+    for gen in ("g1", "g2"):
+        for collection in _item_collections(settings, gen):
+            payload = _payload(q, collection, "L1")
+            assert "visible" in payload and payload["visible"] is False, (collection, gen)
+        _assert_entries_carry(r, _generation_keys(settings, gen), expected)
+    _assert_entries_carry(r, _legacy_keys(settings), expected)
 
 
 def test_backfill_is_idempotent_and_keeps_ttl(tmp_path, attributes, monkeypatch):

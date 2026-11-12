@@ -173,6 +173,15 @@ def test_v2_unspecified_or_unknown_status_is_null(dirs, settings, redis):
     assert rows["L3"]["status"] == "LISTING_STATUS_BANNED"
 
 
+def test_v2_deleted_status_is_known(dirs, env, settings, redis):
+    write_inputs(
+        dirs[0],
+        listings=[{**listing("L9", "cat-a", 1), "status": "LISTING_STATUS_DELETED"}],
+    )
+    assert cli.main(["materialize"], env, redis) == 0
+    assert json.loads(redis.get("fs:item_attributes:v2:L9"))["status"] == "LISTING_STATUS_DELETED"
+
+
 def test_current_is_2_and_both_versions_exist(dirs, env, redis):
     write_inputs(dirs[0], listings=[{**listing("L1", "cat-a", 99), "status": "LISTING_STATUS_PUBLISHED"}])
     assert cli.main(["materialize"], env, redis) == 0

@@ -72,26 +72,55 @@ func TestListingSellerFromEnvelope_StatusIsEnumName(t *testing.T) {
 
 func TestListingSellerFromEnvelope_AllStatuses(t *testing.T) {
 	seen := 0
+	sawDeleted := false
 	for num, name := range listingv1.ListingStatus_name {
 		if num == 0 {
 			continue
 		}
 		seen++
+		if name == "LISTING_STATUS_DELETED" {
+			sawDeleted = true
+		}
 		rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, listingv1.ListingStatus(num), listingv1.ChangeType_CHANGE_TYPE_UPDATED))
 		require.NoError(t, err, name)
 		require.True(t, ok, name)
 		assert.Equal(t, name, rec.Status)
 	}
 	assert.Positive(t, seen)
+	assert.True(t, sawDeleted, "LISTING_STATUS_DELETED must be in the generated enum")
+	assert.Equal(t, "LISTING_STATUS_DELETED", listingv1.ListingStatus_LISTING_STATUS_DELETED.String())
 }
 
-func TestListingSellerFromEnvelope_DeletedHasNullStatus(t *testing.T) {
+func TestListingSellerFromEnvelope_DeletedIsDeletedStatus(t *testing.T) {
 	rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, listingv1.ListingStatus_LISTING_STATUS_PUBLISHED, listingv1.ChangeType_CHANGE_TYPE_DELETED))
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, "lst-1", rec.ListingID)
 	assert.Equal(t, "seller-1", rec.SellerID)
-	assert.Empty(t, rec.Status)
+	assert.Equal(t, "LISTING_STATUS_DELETED", rec.Status)
+}
+
+func TestListingSellerFromEnvelope_DeletedOverridesCarriedStatus(t *testing.T) {
+	for _, carried := range []listingv1.ListingStatus{
+		listingv1.ListingStatus_LISTING_STATUS_UNSPECIFIED,
+		listingv1.ListingStatus_LISTING_STATUS_BANNED,
+		listingv1.ListingStatus(99),
+	} {
+		rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, carried, listingv1.ChangeType_CHANGE_TYPE_DELETED))
+		require.NoError(t, err, carried.String())
+		require.True(t, ok, carried.String())
+		assert.Equal(t, "LISTING_STATUS_DELETED", rec.Status, "carried %d", int32(carried))
+	}
+}
+
+func TestListingSellerFromEnvelope_OnlyDeletedChangeTypeIsDeleted(t *testing.T) {
+	for _, ct := range []listingv1.ChangeType{listingv1.ChangeType_CHANGE_TYPE_CREATED, listingv1.ChangeType_CHANGE_TYPE_UPDATED} {
+		rec, ok, err := events.ListingSellerFromEnvelope(statusEnvelope(t, listingv1.ListingStatus_LISTING_STATUS_PUBLISHED, ct))
+		require.NoError(t, err, ct.String())
+		require.True(t, ok, ct.String())
+		assert.Equal(t, "LISTING_STATUS_PUBLISHED", rec.Status, ct.String())
+		assert.NotEqual(t, "LISTING_STATUS_DELETED", rec.Status, ct.String())
+	}
 }
 
 func TestListingSellerFromEnvelope_UnspecifiedIsNull(t *testing.T) {
