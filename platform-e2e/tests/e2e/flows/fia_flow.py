@@ -46,24 +46,28 @@ def probe_export(listings: list[str], users: list[str]) -> dict:
     return _driver({"op": "probe", "listings": listings, "users": users}, mounts)
 
 
-def run_replay(seed_null: dict | None = None) -> fsm.JobResult:
-    """Stop the live analytics consumer (DuckDB lock), run `/listing-replay` from its image on its
-    volume and network, and start the consumer again. With `seed_null` ({id, seller, category,
-    price, at}) the warehouse row of that listing is first rewritten with a null status while the
-    consumer is stopped; the stored row is returned in `JobResult.output` ahead of the replay output."""
+def _consumer_state() -> tuple[str, str, str, list[str]]:
     name = tii.analytics_container()
     insp = json.loads(subprocess.check_output(["docker", "inspect", name], text=True))[0]
-    image, env = insp["Config"]["Image"], insp["Config"]["Env"]
-    user = insp["Config"].get("User") or ""
+    return name, insp["Config"]["Image"], insp["Config"].get("User") or "", insp["Config"]["Env"]
+
+
+def seed_null_status(seed: dict) -> list[dict]:
+    name, _, user, _ = _consumer_state()
     subprocess.run(["docker", "stop", name], capture_output=True, text=True, check=True)
-    seeded = ""
     try:
-        if seed_null is not None:
-            mounts = ["-v", f"{fsm.analytics_volume()}:/data"]
-            if user:
-                mounts += ["--user", user]
-            out = _driver({"op": "seed_null", "row": seed_null}, mounts)
-            seeded = f"seeded: {json.dumps(out['stored'])}\n"
+        mounts = ["-v", f"{fsm.analytics_volume()}:/data"]
+        if user:
+            mounts += ["--user", user]
+        return _driver({"op": "seed_null", "row": seed}, mounts)["stored"]
+    finally:
+        subprocess.run(["docker", "start", name], capture_output=True, text=True, check=True)
+
+
+def run_replay() -> fsm.JobResult:
+    name, image, _, env = _consumer_state()
+    subprocess.run(["docker", "stop", name], capture_output=True, text=True, check=True)
+    try:
         args = ["docker", "run", "--rm", "--network", get_settings().stack_network]
         args += ["-v", f"{fsm.analytics_volume()}:/data"]
         for e in env:
@@ -72,7 +76,7 @@ def run_replay(seed_null: dict | None = None) -> fsm.JobResult:
         proc = subprocess.run(args, capture_output=True, text=True, timeout=_TIMEOUT_S, check=False)
     finally:
         subprocess.run(["docker", "start", name], capture_output=True, text=True, check=True)
-    return fsm.JobResult(proc.returncode, seeded + proc.stdout + proc.stderr)
+    return fsm.JobResult(proc.returncode, proc.stdout + proc.stderr)
 
 
 def make_inputs(
