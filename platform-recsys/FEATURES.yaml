@@ -2857,3 +2857,51 @@ features:
     tags: [recsys, unit]
     status: not-testable
     notes: "recsys-candidate-attributes: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_logs_carry_no_ids. Not verifiable end to end: it exercises job internals (files, logs, exit codes, store writes) that no public-edge call can reach."
+
+  - id: recsys.cattr-a-deleted-listing-is-written-invisible
+    title: "A deleted listing is written invisible"
+    persona: guest
+    priority: P2
+    summary: "A deleted listing is written invisible"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a generation is published and listing `L8` has snapshot `status = LISTING_STATUS_DELETED`"
+      - "Then the point of `L8` in both item collections has `visible=false` and the key is present"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "analytics-listing-deleted-status: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_deleted_status_is_not_visible. Not producible end to end: it exercises decoder or store internals that no public-edge call can reach."
+
+  - id: recsys.cattr-a-deleted-listing-is-not-recommended-end-to-end
+    title: "A deleted listing is not recommended end to end"
+    persona: buyer
+    priority: P1
+    summary: "A deleted listing is not recommended end to end"
+    entry_route: "/"
+    services: [platform-recsys, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a generation is published with a published listing `P` and a deleted listing `X`, both similar to the cart context listing, and `Recommend` for `cart_cross_sell` is called through the gateway"
+      - "Then the response contains `P` and does not contain `X`"
+    tags: [recsys, recommendations, integration]
+    status: planned
+    notes: "analytics-listing-deleted-status: recommendations/candidate_attributes.feature. planned until the scenario has run green against the stack."
+
+  - id: recsys.cattr-backfill-writes-visible-false-for-a-deleted-snapshot-row
+    title: "Backfill writes visible=false for a DELETED snapshot row"
+    persona: guest
+    priority: P2
+    summary: "Backfill writes visible=false for a DELETED snapshot row"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `backfill-attributes` runs on the serving generation with a snapshot row `L8` of `status = LISTING_STATUS_DELETED`"
+      - "Then the item points of `L8` and every Redis user, item and popular entry for `L8` of that generation carry `visible=false` (key present)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "analytics-listing-deleted-status: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_deleted_status_writes_visible_false. Not producible end to end: it exercises decoder or store internals that no public-edge call can reach."
