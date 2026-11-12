@@ -148,3 +148,38 @@ def test_main_env_keeps_default_redis_port_for_fsm(monkeypatch, tmp_path):
     e = _exports(monkeypatch, tmp_path, ae.MAIN, {})
     assert "FSM_REDIS_PORT" not in e
     assert e["ADMIN_BASE_URL"] == "http://localhost:3002"
+
+
+def test_promote_builds_job_only_images_that_exist_locally():
+    services = {
+        "team-sharing": SERVICES["team-sharing"],
+        "featurestore-job": {"image": "platform-featurestore:local", "build": {"context": "/r/platform-featurestore"}},
+        "featurestore-dataset": {"image": "platform-featurestore:local"},
+        "team-frontend-admin": {"image": "team-frontend-admin:local", "build": {"context": "/r/team-frontend-admin"}},
+    }
+    owners = ["team-sharing", "featurestore-job", "team-frontend-admin"]
+    have = {"platform-featurestore"}
+    got = ae.deployed_owners(services, owners, existing={"team-sharing"}, has_image=lambda img: img in have)
+    assert got == ["featurestore-job", "team-sharing"]
+
+
+def test_down_removes_leftover_job_containers_and_volumes(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(ae, "STATE_ROOT", tmp_path)
+    monkeypatch.setattr(ae, "env_images", lambda env: [])
+
+    def fake_out(cmd, cwd=None):
+        calls.append(cmd)
+        if cmd[:3] == ["docker", "ps", "-aq"]:
+            return "c1\nc2\n"
+        if cmd[:3] == ["docker", "volume", "ls"]:
+            return "recs_data\n"
+        return ""
+
+    monkeypatch.setattr(ae, "out", fake_out)
+    monkeypatch.setattr(ae, "run", lambda cmd, **kw: calls.append(cmd))
+    ae.cmd_down(type("A", (), {"env": "recs-attrs"})())
+    label = "label=com.docker.compose.project=recs-attrs"
+    assert ["docker", "ps", "-aq", "--filter", label] in calls
+    assert ["docker", "rm", "-f", "c1", "c2"] in calls
+    assert ["docker", "volume", "rm", "recs_data"] in calls

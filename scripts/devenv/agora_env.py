@@ -493,6 +493,13 @@ def cmd_down(a):
         compose(load_state(env), "down", "-v", "--remove-orphans", check=False)
     else:
         run(["docker", "compose", "-p", env, "down", "-v", "--remove-orphans"], check=False)
+    label = f"label=com.docker.compose.project={env}"
+    left = out(["docker", "ps", "-aq", "--filter", label]).split()
+    if left:
+        run(["docker", "rm", "-f", *left], check=False, capture=True)
+    vols = out(["docker", "volume", "ls", "-q", "--filter", label]).split()
+    if vols:
+        run(["docker", "volume", "rm", *vols], check=False, capture=True)
     imgs = env_images(env)
     if imgs:
         run(["docker", "rmi", *imgs], check=False)
@@ -515,6 +522,16 @@ def export_main(sha):
 
 def changed_files(old, new):
     return out(["git", "diff", "--name-only", f"{old}..{new}"], cwd=REPO).split()
+
+
+def deployed_owners(services, owners, existing, has_image, src=None):
+    by_image = {}
+    key = (lambda n: (build_dir(src, services[n]) != n, n)) if src else (lambda n: n)
+    for o in sorted(owners, key=key):
+        img = base_image(services[o])
+        if set(image_users(services, o)) & existing or has_image(img):
+            by_image.setdefault(img, o)
+    return sorted(by_image.values())
 
 
 def cmd_promote(a):
@@ -540,11 +557,7 @@ def cmd_promote(a):
         owners.update(n for n, s in services.items() if s.get("build") and (Path(src) / (build_dir(src, s) or "-") / "buf.gen.yaml").exists())
     existing = set(out(["docker", "ps", "-a", "--filter", f"label=com.docker.compose.project={MAIN_PROJECT}", "--format", '{{.Label "com.docker.compose.service"}}']).split())
     running = set(out(["docker", "ps", "--filter", f"label=com.docker.compose.project={MAIN_PROJECT}", "--format", '{{.Label "com.docker.compose.service"}}']).split())
-    by_image = {}
-    for o in sorted(owners, key=lambda n: (build_dir(src, services[n]) != n, n)):
-        if set(image_users(services, o)) & existing:
-            by_image.setdefault(base_image(services[o]), o)
-    owners = sorted(by_image.values())
+    owners = deployed_owners(services, owners, existing, lambda img: image_id(f"{img}:{MAIN_TAG}") is not None, src)
     compose_changed = any(f.endswith((".yaml", ".yml")) and ("docker-compose" in f or f.startswith("platform-e2e/compose/")) for f in files)
     print(f"promote {old[:8]}..{new[:8]}: build {' '.join(owners) or '-'}{'; compose changed' if compose_changed else ''}")
     if a.dry_run:
