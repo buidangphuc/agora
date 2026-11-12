@@ -37,6 +37,7 @@ call SHALL complete within 20 ms at p95 on the reference stack (`mainx` with the
 - **GIVEN** listing A with stock 5
 - **WHEN** a service calls `GetListingStock` with `[A, A]`
 - **THEN** the response has two entries, both for A with `stock` 5
+- **VERIFIED BY**: `team-search/internal/rpc/listing_stock_test.go` `TestGetListingStockRepeatedID`
 
 #### Scenario: A deleted listing has no stock
 
@@ -49,6 +50,7 @@ call SHALL complete within 20 ms at p95 on the reference stack (`mainx` with the
 - **GIVEN** a document indexed before stock was projected and not replayed
 - **WHEN** a service calls `GetListingStock` with its id
 - **THEN** the entry's `stock` is absent, not `0`
+- **VERIFIED BY**: `team-search/internal/rpc/listing_stock_test.go` `TestGetListingStockNoProjectedStock`, `team-search/internal/index/listing_stock_integration_test.go` `TestOpenSearchGetListingStockBatch`
 
 #### Scenario: Ten ids is accepted, eleven is rejected
 

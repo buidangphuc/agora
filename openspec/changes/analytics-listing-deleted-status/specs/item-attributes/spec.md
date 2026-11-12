@@ -59,7 +59,7 @@ A change of `status` SHALL be visible in the parquet within 2 x `PARQUET_EXPORT_
 - **THEN** the stored and exported `status` for `L1` remains `LISTING_STATUS_BANNED`
 - **VERIFIED BY**: `team-analytics/internal/warehouse/duckdb/duckdb_test.go` `TestUpsertListingSellers_OlderStatusIgnored`
 
-#### Scenario: A deleted listing keeps its row with status DELETED
+#### Scenario: A deleted listing is exported as DELETED
 
 - **WHEN** a `ListingChanged` with `change_type = CHANGE_TYPE_DELETED` and `Listing.status = LISTING_STATUS_PUBLISHED` is consumed for `L1` and the next export cycle completes
 - **THEN** `listing_sellers.parquet` has exactly one row for `L1`, with its `seller_id` and `status` equal to the string `LISTING_STATUS_DELETED`
@@ -189,7 +189,7 @@ the offsets of the live group. It SHALL be safe to run more than once.
 - **THEN** both valid events are applied, the bad record is logged without ids and counted, and the command exits 0
 - **VERIFIED BY**: `team-analytics/internal/app/listing_replay_test.go` `TestListingReplay_SkipsMalformedRecord`
 
-#### Scenario: Replay re-derives DELETED for a listing deleted before this change
+#### Scenario: Replay re-derives DELETED for a listing deleted earlier
 
 - **WHEN** a warehouse holds a row for `L1` with null `status` (seeded by a test fixture that upserts through the warehouse writer, or in e2e by running the pre-change team-analytics decoder, see task 4.1; written as the previous decoder wrote it from a `CHANGE_TYPE_DELETED` event at T2), `listing.events` holds `L1`'s `CREATED` event at T1 and `DELETED` event at T2, `listing-replay` runs to completion and the next export cycle completes
 - **THEN** `listing_sellers.parquet` has exactly one row for `L1` with `status = LISTING_STATUS_DELETED` and `updated_at = T2`

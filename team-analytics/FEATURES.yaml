@@ -4332,10 +4332,10 @@ features:
     notes: "analytics-listing-deleted-status: featurestore/item_attributes.feature. Unit: team-analytics/internal/events/listing_test.go TestListingSellerFromEnvelope_DeletedIsDeletedStatus and team-analytics/internal/warehouse/duckdb/duckdb_test.go TestUpsertListingSellers_DeletedKeepsRowWithDeletedStatus."
 
   - id: analytics.listing-replay-rederives-deleted
-    title: "Replay re-derives DELETED for a listing deleted before this change"
+    title: "Replay re-derives DELETED for a listing deleted earlier"
     persona: seller
     priority: P1
-    summary: "Replay re-derives DELETED for a listing deleted before this change"
+    summary: "Replay re-derives DELETED for a listing deleted earlier"
     entry_route: "/"
     services: [team-analytics, listing]
     preconditions:
