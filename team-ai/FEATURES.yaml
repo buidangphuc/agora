@@ -2304,8 +2304,9 @@ features:
       - "When `Recommend` is called on `similar_items` with the seed listing"
       - "Then the sold-out listing is absent and every returned listing has search stock greater than 0"
     tags: [recsys, recommendations]
-    status: planned
-    notes: "recsys/in_stock_recommendations.feature::Sold-out listing is dropped from an in_stock_only placement. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green."
+    status: automated
+    covered_by: "recsys/in_stock_recommendations.feature::Sold-out listing is dropped from an in_stock_only placement"
+    notes: "recsys/in_stock_recommendations.feature::Sold-out listing is dropped from an in_stock_only placement."
 
   - id: ai.isr-stock-sold-out-after-indexing-is-dropped-without-a-batch-run
     title: "Stock sold out after indexing is dropped without a batch run"
@@ -2321,8 +2322,9 @@ features:
       - "When its search stock is set to 0 through the seller and `Recommend` is called again with no training run in between"
       - "Then the second response no longer contains that listing"
     tags: [recsys, recommendations]
-    status: planned
-    notes: "recsys/in_stock_recommendations.feature::Stock sold out after indexing is dropped without a batch run. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green."
+    status: automated
+    covered_by: "recsys/in_stock_recommendations.feature::Stock sold out after indexing is dropped without a batch run"
+    notes: "recsys/in_stock_recommendations.feature::Stock sold out after indexing is dropped without a batch run."
 
   - id: ai.isr-search-unavailable-empties-the-placement
     title: "Search unavailable empties the placement"
@@ -2338,8 +2340,9 @@ features:
       - "When `Recommend` is called while team-search is stopped"
       - "Then the response is OK with zero items, and after team-search is restarted a later call returns items again"
     tags: [recsys, recommendations]
-    status: planned
-    notes: "recsys/in_stock_recommendations.feature::Search unavailable empties the placement. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green."
+    status: automated
+    covered_by: "recsys/in_stock_recommendations.feature::Search unavailable empties the placement"
+    notes: "recsys/in_stock_recommendations.feature::Search unavailable empties the placement."
 
   - id: ai.isr-lookup-without-a-valid-principal-fails-closed
     title: "Lookup without a valid principal fails closed"
@@ -2355,8 +2358,9 @@ features:
       - "When `Recommend` is called on `cart_cross_sell`"
       - "Then team-search rejects the lookup and the response is OK with zero items"
     tags: [recsys, recommendations]
-    status: planned
-    notes: "recsys/in_stock_recommendations.feature::Lookup without a valid principal fails closed. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green."
+    status: automated
+    covered_by: "recsys/in_stock_recommendations.feature::Lookup without a valid principal fails closed"
+    notes: "recsys/in_stock_recommendations.feature::Lookup without a valid principal fails closed."
 
   - id: ai.isr-stock-lookup-timeout-yields-an-empty-placement-not-an-error
     title: "Stock lookup timeout yields an empty placement, not an error"

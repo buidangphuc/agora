@@ -7185,7 +7185,8 @@ features:
     acceptance:
       - "A COD order completed by the buyer is counted"
     tags: [order, discovery-followups]
-    status: planned
+    status: automated
+    covered_by: "order/cod_sales_count.feature::A COD order completed by the buyer is counted"
 
   - id: order.cod-a-cod-order-completed-by-the-seller-is-counted
     title: "A COD order completed by the seller is counted"
@@ -7199,7 +7200,8 @@ features:
     acceptance:
       - "A COD order completed by the seller is counted"
     tags: [order, discovery-followups]
-    status: planned
+    status: automated
+    covered_by: "order/cod_sales_count.feature::A COD order completed by the seller is counted"
 
   - id: order.cod-a-cod-order-completed-by-the-auto-complete-sweep-is-counted
     title: "A COD order completed by the auto-complete sweep is counted"
@@ -7213,7 +7215,8 @@ features:
     acceptance:
       - "A COD order completed by the auto-complete sweep is counted"
     tags: [order, discovery-followups]
-    status: planned
+    status: automated
+    covered_by: "order/cod_sales_count.feature::A COD order completed by the auto-complete sweep is counted"
 
   - id: order.cod-completing-an-online-paid-order-does-not-count-it-again
     title: "Completing an online-paid order does not count it again"
@@ -7227,7 +7230,8 @@ features:
     acceptance:
       - "Completing an online-paid order does not count it again"
     tags: [order, discovery-followups]
-    status: planned
+    status: automated
+    covered_by: "order/cod_sales_count.feature::Completing an online-paid order does not count it again"
 
   - id: order.cod-a-repeated-or-concurrent-cod-completion-counts-once
     title: "A repeated or concurrent COD completion counts once"
@@ -7241,7 +7245,8 @@ features:
     acceptance:
       - "A repeated or concurrent COD completion counts once"
     tags: [order, discovery-followups]
-    status: planned
+    status: automated
+    covered_by: "order/cod_sales_count.feature::A repeated or concurrent COD completion counts once"
 
   - id: order.cod-a-cod-order-cannot-jump-from-pending-to-completed
     title: "A COD order cannot jump from PENDING to COMPLETED"

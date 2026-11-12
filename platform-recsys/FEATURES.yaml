@@ -2887,8 +2887,9 @@ features:
       - "When a generation is published with a published listing `P` and a deleted listing `X`, both similar to the cart context listing, and `Recommend` for `cart_cross_sell` is called through the gateway"
       - "Then the response contains `P` and does not contain `X`"
     tags: [recsys, recommendations, integration]
-    status: planned
-    notes: "analytics-listing-deleted-status: recommendations/candidate_attributes.feature. planned until the scenario has run green against the stack."
+    status: automated
+    covered_by: "recommendations/candidate_attributes.feature::A deleted listing is not recommended"
+    notes: "analytics-listing-deleted-status: recommendations/candidate_attributes.feature."
 
   - id: recsys.cattr-backfill-writes-visible-false-for-a-deleted-snapshot-row
     title: "Backfill writes visible=false for a DELETED snapshot row"

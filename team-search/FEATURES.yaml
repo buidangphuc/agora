@@ -3106,8 +3106,9 @@ features:
       - "When a service calls GetListingStock with [C, A, B]"
       - "Then the response has exactly three entries [C: 12, A: 5, B: 0], with B's stock present as 0"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::Stock is returned in request order. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockRequestOrder; index: TestOpenSearchGetListingStockBatch."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::Stock is returned in request order"
+    notes: "search/listing_stock_lookup.feature::Stock is returned in request order."
 
   - id: search.lsl-a-checkout-is-visible-in-the-lookup
     title: "A checkout is visible in the lookup"
@@ -3125,8 +3126,9 @@ features:
       - "When a buyer checks out quantity 1 of it through the gateway"
       - "Then within 30 seconds GetListingStock for that listing returns stock 0"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::A checkout is visible in the lookup. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::A checkout is visible in the lookup"
+    notes: "search/listing_stock_lookup.feature::A checkout is visible in the lookup."
 
   - id: search.lsl-an-unknown-listing-has-no-stock
     title: "An unknown listing has no stock"
@@ -3144,8 +3146,9 @@ features:
       - "When a service calls GetListingStock with [A, U]"
       - "Then the response has two entries, A with stock 5 and U with stock absent"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::An unknown listing has no stock. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockUnknownListing."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::An unknown listing has no stock"
+    notes: "search/listing_stock_lookup.feature::An unknown listing has no stock."
 
   - id: search.lsl-a-repeated-id-yields-a-repeated-entry
     title: "A repeated id yields a repeated entry"
@@ -3182,8 +3185,9 @@ features:
       - "When a service calls GetListingStock with its id"
       - "Then the response has one entry for it with stock absent"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::A deleted listing has no stock. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockTombstone; index: TestOpenSearchGetListingStockBatch."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::A deleted listing has no stock"
+    notes: "search/listing_stock_lookup.feature::A deleted listing has no stock."
 
   - id: search.lsl-a-document-without-projected-stock-has-no-stock
     title: "A document without projected stock has no stock"
@@ -3219,8 +3223,9 @@ features:
       - "When a service calls GetListingStock with exactly 10 ids, then with 11 ids"
       - "Then the first call returns 10 entries and the second fails with invalid_argument without reading the index"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::Ten ids is accepted, eleven is rejected. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockIDLimit asserts the index is not read for 11 ids; the e2e asserts the code only."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::Ten ids is accepted, eleven is rejected"
+    notes: "search/listing_stock_lookup.feature::Ten ids is accepted, eleven is rejected."
 
   - id: search.lsl-an-empty-or-malformed-request-is-rejected
     title: "An empty or malformed request is rejected"
@@ -3237,8 +3242,9 @@ features:
       - "When a service calls GetListingStock with no ids, then with [\"A\", \"\"]"
       - "Then both calls fail with invalid_argument"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::An empty or malformed request is rejected. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockInvalidRequest."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::An empty or malformed request is rejected"
+    notes: "search/listing_stock_lookup.feature::An empty or malformed request is rejected."
 
   - id: search.lsl-a-user-or-anonymous-caller-is-refused
     title: "A user or anonymous caller is refused"
@@ -3255,8 +3261,9 @@ features:
       - "When an anonymous caller, then a user principal with search:read, then a service principal without search:read, calls GetListingStock with one valid id"
       - "Then the first fails with unauthenticated, the second and third with permission_denied, and no response carries stock"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::A user or anonymous caller is refused. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockPrincipals."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::A user or anonymous caller is refused"
+    notes: "search/listing_stock_lookup.feature::A user or anonymous caller is refused."
 
   - id: search.lsl-the-gateway-does-not-expose-the-lookup
     title: "The gateway does not expose the lookup"
@@ -3273,8 +3280,9 @@ features:
       - "When a client sends an HTTP request to the gateway for any path derived from SearchService/GetListingStock"
       - "Then the gateway answers HTTP 404 or 501 unimplemented, and team-search records no GetListingStock call"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::The gateway does not expose the lookup. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Human decision 2026-11-12: HTTP 404 or 501 unimplemented are both accepted; the requirement is that the call is not forwarded to team-search."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::The gateway does not expose the lookup"
+    notes: "search/listing_stock_lookup.feature::The gateway does not expose the lookup."
 
   - id: search.lsl-an-unreachable-index-fails-the-call
     title: "An unreachable index fails the call"
@@ -3292,8 +3300,9 @@ features:
       - "When a service calls GetListingStock with one valid id"
       - "Then the call fails with unavailable and returns no entries"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::An unreachable index fails the call. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockIndexUnavailable. Destructive: stops the OpenSearch container, restored in teardown."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::An unreachable index fails the call"
+    notes: "search/listing_stock_lookup.feature::An unreachable index fails the call."
 
   - id: search.lsl-a-slow-index-fails-the-call-within-the-deadline
     title: "A slow index fails the call within the deadline"
@@ -3311,8 +3320,9 @@ features:
       - "When a service calls GetListingStock with one valid id"
       - "Then the call fails with unavailable within 400 ms and returns no entries"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::A slow index fails the call within the deadline. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockDeadline. The e2e pauses the OpenSearch container (unbounded delay) and measures with ghz."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::A slow index fails the call within the deadline"
+    notes: "search/listing_stock_lookup.feature::A slow index fails the call within the deadline."
 
   - id: search.lsl-requested-ids-are-not-logged
     title: "Requested ids are not logged"
@@ -3329,8 +3339,9 @@ features:
       - "When a service calls GetListingStock with ids [A, B]"
       - "Then the captured team-search log lines for that call contain the id count 2 and neither id value"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::Requested ids are not logged. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green. Unit: team-search/internal/rpc TestGetListingStockLogsCountOnly."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::Requested ids are not logged"
+    notes: "search/listing_stock_lookup.feature::Requested ids are not logged."
 
   - id: search.lsl-a-10-id-lookup-is-fast
     title: "A 10-id lookup is fast"
@@ -3348,5 +3359,6 @@ features:
       - "When a service makes 200 sequential GetListingStock calls with those 10 ids"
       - "Then the p95 latency is at most 20 ms"
     tags: [buyer, search]
-    status: planned
-    notes: "search/listing_stock_lookup.feature::A 10-id lookup is fast. Written from the spec before the code landed (red-first); the integrator flips this to automated with covered_by once the code is merged and the scenario is green."
+    status: automated
+    covered_by: "search/listing_stock_lookup.feature::A 10-id lookup is fast"
+    notes: "search/listing_stock_lookup.feature::A 10-id lookup is fast."

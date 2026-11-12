@@ -4327,8 +4327,9 @@ features:
       - "When a seller creates a listing, deletes it through the gateway and the next export cycle completes"
       - "Then listing_sellers.parquet has exactly one row for that listing, with its seller id and status LISTING_STATUS_DELETED"
     tags: [analytics, batch, integration]
-    status: planned
-    notes: "analytics-listing-deleted-status: featurestore/item_attributes.feature. Unit: team-analytics/internal/events/listing_test.go TestListingSellerFromEnvelope_DeletedIsDeletedStatus and team-analytics/internal/warehouse/duckdb/duckdb_test.go TestUpsertListingSellers_DeletedKeepsRowWithDeletedStatus. planned until the scenario has run green against the stack."
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A deleted listing is exported as DELETED"
+    notes: "analytics-listing-deleted-status: featurestore/item_attributes.feature. Unit: team-analytics/internal/events/listing_test.go TestListingSellerFromEnvelope_DeletedIsDeletedStatus and team-analytics/internal/warehouse/duckdb/duckdb_test.go TestUpsertListingSellers_DeletedKeepsRowWithDeletedStatus."
 
   - id: analytics.listing-replay-rederives-deleted
     title: "Replay re-derives DELETED for a listing deleted before this change"
@@ -4343,8 +4344,9 @@ features:
       - "When the warehouse row of a deleted listing is rewritten with a null status, the listing replay command runs over the real events and the next export cycle completes"
       - "Then listing_sellers.parquet has exactly one row for that listing with status LISTING_STATUS_DELETED and updated_at equal to the time of its delete event"
     tags: [analytics, batch, integration]
-    status: planned
-    notes: "analytics-listing-deleted-status: featurestore/item_attributes.feature. planned until the scenario has run green against the stack."
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::Replay re-derives DELETED for a listing deleted earlier"
+    notes: "analytics-listing-deleted-status: featurestore/item_attributes.feature."
 
   - id: analytics.listing-status-deleted-overrides-carried
     title: "DELETED wins over every carried status"
