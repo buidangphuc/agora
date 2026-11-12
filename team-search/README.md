@@ -13,7 +13,8 @@ Two binaries ship in one image (`Dockerfile`):
 | `/server` (default) | `cmd/server` | gRPC query API on `:50052` | `team-search` (container `team-search-svc`) |
 | `/indexer` | `cmd/indexer` | Kafka consumer that writes the index | `team-search-indexer` |
 
-The gateway reaches it through `UPSTREAM_SEARCH_ADDR=team-search-svc:50052`.
+The gateway reaches it through `UPSTREAM_SEARCH_ADDR=team-search-svc:50052`; team-ai calls
+`GetListingStock` directly at `RECS_SEARCH_ADDR=team-search-svc:50052`.
 
 ## Contract
 
@@ -233,7 +234,7 @@ Docker build uses `golang:1.26`.
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` in this repo (177 features: 105 `automated`, 72 `not-testable`), with
+- Feature manifest: `FEATURES.yaml` in this repo (191 features: 105 `automated`, 74 `not-testable`, 12 `planned`), with
   `automated` entries mapped to feature files in `platform-e2e/tests/e2e/features/` (for example
   `buyer/search_and_discovery.feature`, `search/hybrid_retrieval.feature`).
 - Verify coverage: `make -C platform-e2e features-check`; for an OpenSpec change,

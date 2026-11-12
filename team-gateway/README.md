@@ -34,6 +34,8 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 | analytics `AnalyticsQueryService` | team-analytics (`UPSTREAM_ANALYTICS_ADDR`) |
 | referral / verification / sharing / audit | team-referral / team-verification / team-sharing / team-audit (`UPSTREAM_*_ADDR`) |
 
+`SearchService.GetListingStock` is not forwarded: `SearchForwarder` does not implement it, so the edge returns `Unimplemented` (service-to-service only, team-ai calls team-search directly).
+
 `RecommendationService.Recommend` rejects more than 50 `context_listing_ids` with `INVALID_ARGUMENT` before any upstream call (no truncation).
 
 Upstream calls get a deadline (`CALL_TIMEOUT_SECONDS`). Idempotent reads (`callRead`) retry up to
