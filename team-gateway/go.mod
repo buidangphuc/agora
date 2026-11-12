@@ -29,7 +29,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.47.0
 
 	// h2c: serve HTTP/2 (gRPC) over cleartext for local/dev.
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/time v0.11.0
 
 	// gRPC client to upstream services + protobuf runtime.
