@@ -609,6 +609,11 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 			}
 		}
 	}
+	if to == OrderStatusCompleted && r.listingSalesOutbox != nil && o.PaymentMethod == CodPaymentMethod {
+		if err := countOrderSalesAs(ctx, tx, r.outbox, r.listingSalesOutbox, o.ID, "completed"); err != nil {
+			return Order{}, err
+		}
+	}
 	if to == OrderStatusCompleted {
 		o.CompletedBy = cfg.completedBy
 		if r.completedOutbox != nil {
