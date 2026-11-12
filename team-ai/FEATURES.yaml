@@ -2376,6 +2376,20 @@ features:
     status: not-testable
     notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `timeout fails closed within budget`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
 
+  - id: ai.isr-retrieval-timeout-yields-a-fallback-not-an-error
+    title: "Retrieval timeout yields a fallback, not an error"
+    persona: guest
+    priority: P1
+    summary: "Scenario of change recs-in-stock-filter: Retrieval timeout yields a fallback, not an error"
+    entry_route: /platform.recommendation.v1.RecommendationService/Recommend
+    services: [team-ai]
+    acceptance:
+      - "When the Qdrant retrieval exceeds `RECS_RETRIEVE_TIMEOUT_MS` on a placement without `in_stock_only`"
+      - "Then `Recommend` returns the popularity fallback list instead of failing or blocking past the budget"
+    tags: [recsys, recommendations, unit]
+    status: not-testable
+    notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_recommend_servicer.py` `retrieval timeout yields popular fallback`. Not producible end to end: needs a retrieval that exceeds the budget, which no public-edge call can force."
+
   - id: ai.isr-absent-stock-or-missing-entry-drops-only-that-candidate
     title: "Absent stock or missing entry drops only that candidate"
     persona: guest
