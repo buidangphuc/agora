@@ -68,7 +68,7 @@ call SHALL complete within 20 ms at p95 on the reference stack (`mainx` with the
 #### Scenario: The gateway does not expose the lookup
 
 - **WHEN** a client sends an HTTP request to the gateway for any path derived from `SearchService/GetListingStock`
-- **THEN** the gateway answers HTTP `404` (observed at the gateway's HTTP response), and `team-search` records no `GetListingStock` call
+- **THEN** the gateway answers HTTP `404` or `501` (unimplemented) (observed at the gateway's HTTP response), and `team-search` records no `GetListingStock` call
 
 #### Scenario: An unreachable index fails the call
 

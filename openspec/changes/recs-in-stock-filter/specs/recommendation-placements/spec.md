@@ -8,13 +8,13 @@
 
 - **WHEN** `Recommend` is called on `cart_cross_sell` with context listings A,B and one candidate listing has search stock 0
 - **THEN** neither A, B nor the zero-stock listing appears in the response
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `Cart items and out-of-stock excluded`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/cart_cross_sell.feature` `Cart items and out-of-stock excluded`
 
 #### Scenario: One listing per seller
 
 - **WHEN** `Recommend` is called on `cart_cross_sell` and three in-stock candidates share seller S
 - **THEN** exactly one of them, the highest scored, appears in the response
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `One listing per seller`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/cart_cross_sell.feature` `One listing per seller`
 
 #### Scenario: Toggling a filter off changes the output
 
@@ -146,7 +146,7 @@
 
 - **WHEN** `Recommend` is called on `similar_items` with `exclude_seed: true` and the seed is its own nearest neighbour
 - **THEN** the seed is absent from the response
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recsys/cart_cross_sell.feature` `Seed excluded when enabled`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/cart_cross_sell.feature` `Seed excluded when enabled`
 
 #### Scenario: Seed eligible when exclude_seed is off
 

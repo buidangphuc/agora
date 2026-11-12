@@ -69,66 +69,77 @@ The system SHALL keep, per listing, a `sold_count` equal to the total quantity o
 - **THEN** `sold_count` for L increases by 4
 
 #### Scenario: A COD order completed by the buyer is counted
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_BuyerCompletionIsCounted`, `platform-e2e/tests/e2e/features/order/cod_sales_count.feature` "A COD order completed by the buyer is counted"
 
 - **GIVEN** listing L with `sold_count` 5 and a COD order O with 2 units of L in SHIPPED
 - **WHEN** the buyer moves O to COMPLETED
 - **THEN** `sold_count` for L is 7 and exactly one `ListingSalesChanged{listing_id=L, sold_count=7}` is produced to `order.events` within 5 s
 
 #### Scenario: A COD order completed by the seller is counted
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_SellerCompletionIsCounted`, `platform-e2e/tests/e2e/features/order/cod_sales_count.feature` "A COD order completed by the seller is counted"
 
 - **GIVEN** listing L with `sold_count` 5 and a COD order O with 2 units of L in SHIPPED
 - **WHEN** the seller moves O to COMPLETED
 - **THEN** `sold_count` for L is 7 and exactly one `ListingSalesChanged{listing_id=L, sold_count=7}` is produced within 5 s
 
 #### Scenario: A COD order completed by the auto-complete sweep is counted
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_SweepCompletionIsCounted`, `platform-e2e/tests/e2e/features/order/cod_sales_count.feature` "A COD order completed by the auto-complete sweep is counted"
 
 - **GIVEN** listing L with `sold_count` 5 and a COD order O with 2 units of L in SHIPPED whose `auto_complete_at` has passed
 - **WHEN** the auto-complete sweep runs
 - **THEN** O is COMPLETED, `sold_count` for L is 7 and exactly one `ListingSalesChanged{listing_id=L, sold_count=7}` is produced within 5 s
 
 #### Scenario: A COD order cannot jump from PENDING to COMPLETED
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_PendingToCompletedIsRefused`
 
 - **GIVEN** listing L with `sold_count` 5 and a COD order O with 2 units of L in PENDING
 - **WHEN** any caller tries to move O to COMPLETED
 - **THEN** the call fails with the existing status-conflict error, O stays PENDING, `sold_count` for L stays 5 and no `ListingSalesChanged` row is written
 
 #### Scenario: Completing a COD order stays within the latency budget
+- **VERIFIED BY**: team-order `internal/store` `BenchmarkCodCompletionLatency`
 
 - **GIVEN** a local run with COD orders of up to 10 lines in SHIPPED, and a baseline p95 of SHIPPED to COMPLETED measured before this change on the same setup
 - **WHEN** at least 200 such orders are completed, with baseline and change measured on the same machine in the same run, taking the median p95 of 3 runs
 - **THEN** the median p95 latency is at most 5 ms above the median baseline p95
 
 #### Scenario: A COD order is not counted before it completes
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_NotCountedBeforeCompletion`
 
 - **GIVEN** listing L with `sold_count` 5 and a COD order O with 2 units of L in PENDING
 - **WHEN** O moves to SHIPPED, or is cancelled from PENDING
 - **THEN** `sold_count` for L stays 5 and no `ListingSalesChanged` row is written
 
 #### Scenario: Completing an online-paid order does not count it again
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_OnlinePaidCompletionIsNotCountedAgain`, `platform-e2e/tests/e2e/features/order/cod_sales_count.feature` "Completing an online-paid order does not count it again"
 
 - **GIVEN** a non-COD order O with 2 units of L, counted at PAID, `sold_count` 5, now in SHIPPED
 - **WHEN** O moves to COMPLETED
 - **THEN** `sold_count` for L stays 5 and no new `ListingSalesChanged` row is written
 
 #### Scenario: A repeated or concurrent COD completion counts once
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_RepeatedCompletionCountsOnce`, `TestCodSales_ConcurrentCompletionCountsOnce`, `platform-e2e/tests/e2e/features/order/cod_sales_count.feature` "A repeated or concurrent COD completion counts once"
 
 - **GIVEN** a COD order O with 2 units of L in SHIPPED, `sold_count` 5
 - **WHEN** two callers complete O at the same time, or the completion is retried after it succeeded
 - **THEN** exactly one call succeeds, the other fails with the existing status-conflict error, and `sold_count` for L is 7 with one `ListingSalesChanged` row
 
 #### Scenario: A COD completion that fails midway leaves no sales rows
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_OutboxFailureRollsBackCompletion`
 
 - **GIVEN** a COD order O with 2 units of L in SHIPPED and a forced failure when the `ListingSalesChanged` outbox row is written
 - **WHEN** O is moved to COMPLETED
 - **THEN** the call fails, O stays SHIPPED, and `listing_sales`, the ledger and the outbox contain no row for O
 
 #### Scenario: A COD order with several listings emits one event per listing
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_SeveralListingsEmitOneEventEach`
 
 - **GIVEN** a COD order with lines for listings L1 (2 units) and L2 (1 unit)
 - **WHEN** it moves to COMPLETED
 - **THEN** one `ListingSalesChanged` per listing is produced, each carrying that listing's own `sold_count`
 
 #### Scenario: A COD return request does not change the sold count
+- **VERIFIED BY**: team-order `internal/store` `TestCodSales_ReturnRequestDoesNotChangeCount`
 
 - **GIVEN** a COD order O with 2 units of L counted at COMPLETED, `sold_count` 7, and a return request of O
 - **WHEN** the return is requested and approval is refused because the order was not paid online
@@ -187,23 +198,27 @@ The migrations SHALL seed `listing_sales` and the per-order ledger from existing
 - **THEN** `sold_count` is 0
 
 #### Scenario: Historical COD completed orders are counted once
+- **VERIFIED BY**: team-order `migrations` `TestMigration0024_HistoricalCodCompletedOrdersAreCountedOnce`
 
 - **GIVEN** before the COD migration: listing L has `sold_count` 3, a COD COMPLETED order of 2 units not in the ledger, a COD SHIPPED order of 4 units, and a COD PENDING order of 1 unit
 - **WHEN** the COD migration runs
 - **THEN** `sold_count` for L is 5, the ledger holds one `counted` row for the COD COMPLETED order only, and exactly one `ListingSalesChanged{listing_id=L, sold_count=5}` outbox row is enqueued with event id `hash(L, 5, '0024-backfill-cod')`
 
 #### Scenario: The COD backfill ignores orders already in the ledger and non-COD orders
+- **VERIFIED BY**: team-order `migrations` `TestMigration0024_IgnoresLedgerAndNonCodOrders`
 
 - **GIVEN** before the COD migration: a non-COD COMPLETED order of 1 unit of L already counted at PAID, and a COD COMPLETED order already in the ledger
 - **WHEN** the COD migration runs
 - **THEN** `sold_count` for L is unchanged and no outbox row is enqueued for L
 
 #### Scenario: Running the COD backfill twice does not duplicate
+- **VERIFIED BY**: team-order `migrations` `TestMigration0024_BackfillTwiceDoesNotDuplicate`
 
 - **WHEN** the COD backfill statements run a second time
 - **THEN** `listing_sales` totals, ledger rows and the outbox row count are unchanged
 
 #### Scenario: The COD backfill on a database with no COD orders succeeds
+- **VERIFIED BY**: team-order `migrations` `TestMigration0024_NoCodOrders`
 
 - **WHEN** the COD migration runs with no COD COMPLETED orders
 - **THEN** it succeeds, `listing_sales` is unchanged and no outbox row is written

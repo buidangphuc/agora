@@ -264,4 +264,4 @@ the column. `LISTING_STATUS_DELETED` is a known status and SHALL pass through un
 
 - **WHEN** the registry drift check runs after this change
 - **THEN** it exits 0 and the hash of `item_attributes@v2` equals the locked value
-- **VERIFIED BY**: `platform-featurestore/tests/test_materialize.py` `test_v2_drift_is_refused`
+- **VERIFIED BY**: `platform-featurestore/tests/test_materialize.py` `test_committed_lock_matches_registry`

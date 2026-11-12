@@ -67,7 +67,7 @@ of the user collection SHALL NOT receive these keys. The loader SHALL NOT write 
 #### Scenario: A deleted listing is not recommended end to end
 
 - **WHEN** a generation is published with a published listing `P` and a deleted listing `X`, both similar to the cart context listing, and `Recommend` for `cart_cross_sell` is called through the gateway
-- **THEN** the response contains `P` and does not contain `X`
+- **THEN** the response contains `P` and does not contain `X`, and the item point of `X` in the serving collection carries `visible=false`
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/candidate_attributes.feature` "A deleted listing is not recommended"
 
 #### Scenario: Backfill writes visible=false for a DELETED snapshot row
