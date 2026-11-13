@@ -11,11 +11,13 @@ from app.modules.business.recommendation.adapters.memory import (
     MemoryCandidateSource,
     MemoryStockLookup,
 )
+from app.modules.business.recommendation.adapters.flipt import FliptExperimentAssigner
 from app.modules.business.recommendation.adapters.qdrant import QdrantCandidateSource
 from app.modules.business.recommendation.contract.features import RANKING_FEATURES
 from app.modules.business.recommendation.factory import (
     RecommendationClients,
     build_candidate_source,
+    build_experiment_assigner,
     build_recommendation_service,
 )
 from app.modules.business.recommendation.schemas import RecommendationQuery
@@ -37,6 +39,9 @@ class RecsSettings:
     RECS_NEARLINE_PREFIX: str = "recs:nearline"
     RECS_NEARLINE_MIN_IMPRESSIONS: float = 1.0
     RECS_NEARLINE_TIMEOUT_MS: int = 20
+    RECS_FLIPT_URL: str = "http://flipt:8080"
+    RECS_FLIPT_TIMEOUT_MS: int = 50
+    RECS_EXPERIMENT_SALT: str = "salt"
 
 
 # The memory source never touches Qdrant, so a placeholder client is enough.
@@ -164,3 +169,13 @@ def test_the_candidate_source_wraps_the_qdrant_client() -> None:
     assert isinstance(
         build_candidate_source(RecsSettings(), clients), QdrantCandidateSource
     )
+
+
+def test_factory_builds_the_flipt_assigner_from_settings_flipt_unreachable_serves_default() -> None:
+    assigner = build_experiment_assigner(RecsSettings())
+
+    assert isinstance(assigner, FliptExperimentAssigner)
+
+
+def test_factory_builds_no_assigner_without_a_flipt_url_flipt_unreachable_serves_default() -> None:
+    assert build_experiment_assigner(RecsSettings(RECS_FLIPT_URL="")) is None
