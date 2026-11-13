@@ -561,7 +561,7 @@ func TestLifecycleContract_ReturnAndEventAdditionsAreFixed(t *testing.T) {
 		{"items", 3, "TYPE_MESSAGE", orderPkg + "OrderLineItemFact"},
 		i64("total_amount", 4), str("currency", 5), ts("paid_at", 6),
 		str("seller_id", 7), ts("ship_by", 8),
-	}, 0)
+	}, 8)
 }
 
 func TestLifecycleContract_NewEventMessagesHaveFixedFields(t *testing.T) {
