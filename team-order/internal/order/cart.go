@@ -77,7 +77,7 @@ func (s *CartService) GetCart(ctx context.Context, userID string) ([]store.CartI
 	}
 	var subtotal int64
 	for _, it := range items {
-		subtotal += it.UnitPrice * int64(it.Quantity)
+		subtotal += it.UnitPrice*int64(it.Quantity) - it.BundleDiscount
 	}
 	return items, subtotal, nil
 }
@@ -144,14 +144,28 @@ func (s *CartService) AddToCart(ctx context.Context, userID, listingID, variantI
 }
 
 func (s *CartService) UpdateCartItem(ctx context.Context, userID, itemID string, quantity int32) ([]store.CartItem, int64, error) {
+	bundleID, err := s.bundleOfLine(ctx, userID, itemID)
+	if err != nil {
+		return nil, 0, err
+	}
 	if _, err := s.repo.UpdateItem(ctx, userID, itemID, quantity); err != nil {
+		return nil, 0, err
+	}
+	if err := s.dropBundleTag(ctx, userID, bundleID); err != nil {
 		return nil, 0, err
 	}
 	return s.GetCart(ctx, userID)
 }
 
 func (s *CartService) RemoveFromCart(ctx context.Context, userID, itemID string) ([]store.CartItem, int64, error) {
+	bundleID, err := s.bundleOfLine(ctx, userID, itemID)
+	if err != nil {
+		return nil, 0, err
+	}
 	if _, err := s.repo.RemoveItem(ctx, userID, itemID); err != nil {
+		return nil, 0, err
+	}
+	if err := s.dropBundleTag(ctx, userID, bundleID); err != nil {
 		return nil, 0, err
 	}
 	return s.GetCart(ctx, userID)
