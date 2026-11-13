@@ -575,8 +575,11 @@ func (s *OrderService) reserveGroup(ctx context.Context, g *sellerGroup, buyerID
 			Quantity:    it.Quantity,
 			UnitPrice:   it.UnitPrice,
 			ImageURL:    it.ImageURL,
+
+			BundleID:       it.BundleID,
+			BundleDiscount: it.BundleDiscount,
 		})
-		g.itemsSubtotal += it.UnitPrice * int64(it.Quantity)
+		g.itemsSubtotal += it.UnitPrice*int64(it.Quantity) - it.BundleDiscount
 	}
 	return nil
 }
@@ -1048,7 +1051,7 @@ func (s *OrderService) PreviewCheckout(ctx context.Context, buyerID, addressID s
 		var sub int64
 		ids := make([]string, 0, len(g.items))
 		for _, it := range g.items {
-			sub += it.UnitPrice * int64(it.Quantity)
+			sub += it.UnitPrice*int64(it.Quantity) - it.BundleDiscount
 			ids = append(ids, it.ID)
 		}
 		inputs = append(inputs, quoteGroupInput{sellerID: g.sellerID, itemIDs: ids, itemsSubtotal: sub})

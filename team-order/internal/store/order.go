@@ -47,15 +47,17 @@ type Address struct {
 }
 
 type OrderItem struct {
-	ID          string
-	OrderID     string
-	ListingID   string
-	VariantID   string
-	Title       string
-	VariantName string
-	Quantity    int32
-	UnitPrice   int64
-	ImageURL    string
+	ID             string
+	OrderID        string
+	ListingID      string
+	VariantID      string
+	Title          string
+	VariantName    string
+	Quantity       int32
+	UnitPrice      int64
+	ImageURL       string
+	BundleID       string
+	BundleDiscount int64
 }
 
 type Order struct {
@@ -287,7 +289,7 @@ func NewPostgresOrderRepository(pool *pgxpool.Pool, ob *outbox.Store, opts ...Or
 
 const (
 	orderColumns     = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason, payment_reminder_sent_at, shipped_at, auto_complete_at, completed_at, return_window_ends_at, ship_by, checkout_id, platform_voucher_code, platform_discount_amount`
-	orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
+	orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url, bundle_id, bundle_discount`
 )
 
 func scanOrder(row pgx.Row, o *Order) error {
@@ -353,9 +355,9 @@ func insertOrderTx(ctx context.Context, tx pgx.Tx, order *Order) error {
 			item.ID = uuid.NewString()
 		}
 		item.OrderID = order.ID
-		const qItem = `INSERT INTO order_items (id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-		if _, err := tx.Exec(ctx, qItem, item.ID, item.OrderID, item.ListingID, item.VariantID, item.Title, item.VariantName, item.Quantity, item.UnitPrice, item.ImageURL); err != nil {
+		const qItem = `INSERT INTO order_items (id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url, bundle_id, bundle_discount)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+		if _, err := tx.Exec(ctx, qItem, item.ID, item.OrderID, item.ListingID, item.VariantID, item.Title, item.VariantName, item.Quantity, item.UnitPrice, item.ImageURL, item.BundleID, item.BundleDiscount); err != nil {
 			return fmt.Errorf("insert order item: %w", err)
 		}
 	}
@@ -382,7 +384,7 @@ func loadOrderItems(ctx context.Context, q rowQuerier, orderID string) ([]OrderI
 	var items []OrderItem
 	for rows.Next() {
 		var item OrderItem
-		if err := rows.Scan(&item.ID, &item.OrderID, &item.ListingID, &item.VariantID, &item.Title, &item.VariantName, &item.Quantity, &item.UnitPrice, &item.ImageURL); err != nil {
+		if err := rows.Scan(&item.ID, &item.OrderID, &item.ListingID, &item.VariantID, &item.Title, &item.VariantName, &item.Quantity, &item.UnitPrice, &item.ImageURL, &item.BundleID, &item.BundleDiscount); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
