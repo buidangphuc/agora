@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -9,6 +10,7 @@ import {
 import { makeClients } from "./client.js";
 import {
   createPayment,
+  getOrderSettlement,
   getPayment,
   getPaymentMethodText,
   getPaymentStatusText,
@@ -24,6 +26,7 @@ vi.mock("./session.js", () => ({
 function stubPayment(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
   const payment = {
     createPayment: vi.fn(),
+    getOrderSettlement: vi.fn(),
     getPayment: vi.fn(),
     processMockPayment: vi.fn(),
     ...rpcs,
@@ -146,5 +149,103 @@ describe("payment gateway wrapper", () => {
       simulateSuccess: true,
     });
     expect(res).toMatchObject({ success: true, message: "ok" });
+  });
+});
+
+describe("getOrderSettlement", () => {
+  const resp = {
+    orderId: "o1",
+    credited: 310000n,
+    commission: 14000n,
+    commissionReversed: 0n,
+    refundDeducted: 0n,
+    net: 296000n,
+    commissionRateBps: 500,
+  };
+
+  it("Breakdown of a settled order: maps amounts and rate bps to percent, 2 s timeout", async () => {
+    const payment = stubPayment({
+      getOrderSettlement: vi.fn().mockResolvedValue(resp),
+    });
+    const res = await getOrderSettlement("o1");
+    expect(payment.getOrderSettlement).toHaveBeenCalledWith(
+      { orderId: "o1" },
+      { timeoutMs: 2000 },
+    );
+    expect(res).toEqual({
+      credited: 310000,
+      commission: 14000,
+      commissionRatePercent: 5,
+      commissionReversed: 0,
+      refundDeducted: 0,
+      net: 296000,
+    });
+  });
+
+  it("Breakdown of a settled order: keeps a fractional percent rate", async () => {
+    stubPayment({
+      getOrderSettlement: vi
+        .fn()
+        .mockResolvedValue({ ...resp, commissionRateBps: 250 }),
+    });
+    expect((await getOrderSettlement("o1"))?.commissionRatePercent).toBe(2.5);
+  });
+
+  it("Zero commission is shown, not hidden: zero commission and rate map to 0", async () => {
+    stubPayment({
+      getOrderSettlement: vi.fn().mockResolvedValue({
+        ...resp,
+        commission: 0n,
+        commissionRateBps: 0,
+        net: 310000n,
+      }),
+    });
+    expect(await getOrderSettlement("o1")).toMatchObject({
+      commission: 0,
+      commissionRatePercent: 0,
+      net: 310000,
+    });
+  });
+
+  it("maps int64 settlement amounts without rounding", async () => {
+    stubPayment({
+      getOrderSettlement: vi.fn().mockResolvedValue({
+        ...resp,
+        credited: 9007199254740000n,
+        commission: 450359962737000n,
+        net: 9007199254740000n - 450359962737000n,
+      }),
+    });
+    const res = await getOrderSettlement("o1");
+    expect(res?.credited).toBe(9007199254740000);
+    expect(res?.commission).toBe(450359962737000);
+    expect(res?.net).toBe(8556839292003000);
+  });
+
+  it("Unsettled order shows the not-settled state: NOT_FOUND resolves to null", async () => {
+    stubPayment({
+      getOrderSettlement: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("none", Code.NotFound)),
+    });
+    expect(await getOrderSettlement("o1")).toBeNull();
+  });
+
+  it("Settlement service failure degrades only the card: UNAVAILABLE rejects", async () => {
+    stubPayment({
+      getOrderSettlement: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("down", Code.Unavailable)),
+    });
+    await expect(getOrderSettlement("o1")).rejects.toThrow();
+  });
+
+  it("Settlement service failure degrades only the card: deadline exceeded rejects", async () => {
+    stubPayment({
+      getOrderSettlement: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("slow", Code.DeadlineExceeded)),
+    });
+    await expect(getOrderSettlement("o1")).rejects.toThrow();
   });
 });
