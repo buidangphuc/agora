@@ -10,7 +10,7 @@ Feature: Recommendation serving degrades, cold-starts and identifies itself (rec
   Scenario: Recommendations survive a Redis outage
     Given a buyer is logged in
     When the Redis used by team-ai is stopped and a buyer requests homepage recommendations through the gateway
-    Then the call succeeds with model_version "serving-fallback"
+    Then the call succeeds with a model_version that starts with "serving-fallback/serving-fallback/"
 
   @destructive
   Scenario: A new buyer gets the popular list

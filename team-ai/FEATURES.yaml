@@ -2613,3 +2613,167 @@ features:
     tags: [recsys, recommendations, unit]
     status: not-testable
     notes: "recs-in-stock-filter: VERIFIED BY `team-ai/tests/unit/test_in_stock_lookup.py` `logs carry outcome and no ids`. Not producible end to end: needs a fake lookup (failure, timeout, malformed response, call counts, outgoing metadata, captured logs) with no public-edge signal."
+
+  # ---- recs-experiment-arms (planned until the code is merged and the serial lane has run) ----
+
+  - id: ai.era-stable-arm
+    title: "A visitor always lands in the same arm"
+    persona: buyer
+    priority: P1
+    summary: "A visitor always lands in the same arm"
+    entry_route: /
+    services: [team-ai, flipt, gateway]
+    preconditions:
+      login: buyer
+      data: "Stateful: toggles the shared Flipt flag recs-home-feed-ranker (restored disabled)."
+    acceptance:
+      - 'When an enabled 50/50 variant flag `recs-home-feed-ranker` exists and one anonymous visitor requests homepage recommendations 5 times through the gateway'
+      - 'Then all 5 responses carry the same arm segment of `model_version`, and it is `recs-home-feed-ranker:control` or `recs-home-feed-ranker:similarity`'
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::A visitor always lands in the same arm"
+
+  - id: ai.era-both-variants
+    title: "Both variants receive traffic"
+    persona: buyer
+    priority: P1
+    summary: "Both variants receive traffic"
+    entry_route: /
+    services: [team-ai, flipt, gateway]
+    preconditions:
+      login: buyer
+      data: "Toggles the shared Flipt flag (restored disabled)."
+    acceptance:
+      - 'When 40 distinct anonymous visitors request homepage recommendations while the 50/50 flag is enabled'
+      - 'Then the responses contain both arm `recs-home-feed-ranker:control` and arm `recs-home-feed-ranker:similarity`'
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::Both variants receive traffic"
+
+  - id: ai.era-disabled-no-arm
+    title: "A disabled flag means no arm"
+    persona: buyer
+    priority: P1
+    summary: "A disabled flag means no arm"
+    entry_route: /
+    services: [team-ai, flipt, gateway]
+    preconditions:
+      login: buyer
+      data: "Seeds the flag disabled in Flipt."
+    acceptance:
+      - 'When the flag `recs-home-feed-ranker` is disabled and a buyer requests homepage recommendations through the gateway'
+      - 'Then the arm segment of `model_version` is `none` and the response is otherwise served as before'
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::A disabled flag means no arm"
+
+  - id: ai.era-similarity-ranker
+    title: "The similarity arm changes the ranker segment"
+    persona: buyer
+    priority: P1
+    summary: "The similarity arm changes the ranker segment"
+    entry_route: /
+    services: [team-ai, flipt, gateway]
+    preconditions:
+      login: buyer
+      data: "Toggles the shared Flipt flag (restored disabled)."
+    acceptance:
+      - 'When a visitor is assigned the `similarity` variant whose attachment is `{"ranking":{"model":"cosine_rank"}}`'
+      - 'Then the ranker segment of `model_version` is `similarity` and the tier segment is the one the default ladder would produce'
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::The similarity arm changes the ranker segment"
+
+  - id: ai.era-flipt-down
+    title: "Flipt unreachable serves the default ranker as unassigned"
+    persona: buyer
+    priority: P1
+    summary: "Flipt unreachable serves the default ranker as unassigned"
+    entry_route: /
+    services: [team-ai, flipt, gateway]
+    preconditions:
+      login: buyer
+      data: "Stops the stack flipt container (restarted and awaited in teardown)."
+    acceptance:
+      - 'When Flipt is stopped and a buyer requests homepage recommendations through the gateway'
+      - 'Then the call succeeds, the ranker segment is the placement default (`fixed_weights` or `gbdt`), and the arm segment is `recs-home-feed-ranker:unassigned`'
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::Flipt unreachable serves the default ranker as unassigned"
+
+  - id: ai.era-seed-idempotent
+    title: "Seeding creates a disabled flag and is idempotent"
+    persona: buyer
+    priority: P1
+    summary: "Seeding creates a disabled flag and is idempotent"
+    entry_route: /
+    services: [team-ai, flipt]
+    preconditions:
+      login: buyer
+      data: "Deletes the flag, runs team-ai/scripts/seed_flipt_flags.py twice against Flipt."
+    acceptance:
+      - 'When the seed script runs twice against a Flipt without the flag'
+      - 'Then the flag exists with `enabled=false` and both variants, and the second run exits 0 without changing it'
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::Seeding creates a disabled flag and is idempotent"
+
+  - id: ai.era-user-tier
+    title: "A buyer with precomputed recommendations reports the user tier"
+    persona: buyer
+    priority: P1
+    summary: "A buyer with precomputed recommendations reports the user tier"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the buyer's precomputed list in the serving Redis (restored in teardown)."
+    acceptance:
+      - 'When a signed-in buyer who has a precomputed list requests homepage recommendations through the gateway'
+      - 'Then `model_version` matches `<serving generation>/user_precomputed/<ranker>/<arm>`'
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::A buyer with precomputed recommendations reports the user tier"
+
+  - id: ai.era-seed-tier
+    title: "A similar-items request reports the seed tier and similarity ranker"
+    persona: buyer
+    priority: P1
+    summary: "A similar-items request reports the seed tier and similarity ranker"
+    entry_route: /
+    services: [team-ai, team-search, gateway]
+    preconditions:
+      login: buyer
+      data: "Real published listings with vector neighbours in the serving collection."
+    acceptance:
+      - 'When a visitor requests similar items for a listing that has vector neighbours'
+      - 'Then `model_version` matches `<serving generation>/seed_vector_similarity/similarity/none`'
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::A similar-items request reports the seed tier and similarity ranker"
+
+  - id: ai.era-served-log
+    title: "The served log line carries tier, ranker and arm"
+    persona: buyer
+    priority: P1
+    summary: "The served log line carries tier, ranker and arm"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Reads `docker logs` of team-ai."
+    acceptance:
+      - 'When a buyer requests homepage recommendations twice through the gateway'
+      - "Then each `recs.served` log line carries `tier`, `ranker` and `arm` equal to the segments of that response's `model_version`, and no raw user id"
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::The served log line carries tier, ranker and arm"
