@@ -111,6 +111,13 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	}
 	stack.Push(func(context.Context) error { dlq.Close(); return nil })
 
+	identityTopic, erasureGroup := n.IdentityTopic, n.ErasureConsumerGroup
+	if identityTopic == "" {
+		identityTopic = "identity.events"
+	}
+	if erasureGroup == "" {
+		erasureGroup = "team-notification-erasure"
+	}
 	specs := []struct {
 		topic, dlq, group string
 		handler           consume.Handler
@@ -118,6 +125,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		{n.ListingTopic, n.ListingDLQTopic, n.ListingConsumerGroup, events.NewListingHandler(pool, n.LowStockThreshold, logger)},
 		{n.ChatTopic, n.ChatDLQTopic, n.ChatConsumerGroup, events.NewChatHandler(pool, resolver, logger)},
 		{n.OrderTopic, n.OrderDLQTopic, n.OrderConsumerGroup, events.NewOrderHandler(pool, logger)},
+		{identityTopic, identityTopic + ".notification.dlq", erasureGroup, events.IdentityEventHandler(store.NewEraser(pool), fp, logger)},
 	}
 	components := []lifecycle.Component{health, grpcx.Serve(srv, s.GRPC)}
 	for _, sp := range specs {
