@@ -2,34 +2,50 @@
 
 from __future__ import annotations
 
-import pandas as pd
+import datetime as dt
+
+import numpy as np
+
+FEATURE_COLS = [
+    "lag_1",
+    "lag_7",
+    "lag_14",
+    "rolling_mean_7",
+    "rolling_std_7",
+    "rolling_mean_14",
+    "day_of_week",
+]
 
 
-def generate_time_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Computes lag features, rolling statistics, and calendar features."""
-    if df.empty:
-        return df
+def feature_vector(history: np.ndarray, day: dt.date) -> list[float]:
+    """Features for `day` computed only from the daily values before it."""
+    n = len(history)
 
-    out = df.copy()
-    out["dt"] = pd.to_datetime(out["date"])
-    out["day_of_week"] = out["dt"].dt.dayofweek
-    out["is_weekend"] = out["day_of_week"].isin([5, 6]).astype(float)
-    out["day_of_month"] = out["dt"].dt.day
+    def lag(k: int) -> float:
+        return float(history[n - k]) if n >= k else 0.0
 
-    # Sort to ensure lag consistency
-    out = out.sort_values(["seller_id", "listing_id", "dt"])
+    last7 = history[-7:] if n else np.zeros(1)
+    last14 = history[-14:] if n else np.zeros(1)
+    return [
+        lag(1),
+        lag(7),
+        lag(14),
+        float(np.mean(last7)),
+        float(np.std(last7)),
+        float(np.mean(last14)),
+        float(day.weekday()),
+    ]
 
-    # Compute lags per (seller_id, listing_id)
-    grouped = out.groupby(["seller_id", "listing_id"])
-    
-    out["lag_1"] = grouped["quantity"].shift(1).fillna(0.0)
-    out["lag_7"] = grouped["quantity"].shift(7).fillna(0.0)
-    out["lag_14"] = grouped["quantity"].shift(14).fillna(0.0)
 
-    # Rolling statistics
-    out["rolling_mean_7"] = grouped["quantity"].shift(1).rolling(7, min_periods=1).mean().fillna(0.0)
-    out["rolling_std_7"] = grouped["quantity"].shift(1).rolling(7, min_periods=1).std().fillna(0.0)
-    out["rolling_mean_14"] = grouped["quantity"].shift(1).rolling(14, min_periods=1).mean().fillna(0.0)
-    out["rolling_mean_28"] = grouped["quantity"].shift(1).rolling(28, min_periods=1).mean().fillna(0.0)
-
-    return out.drop(columns=["dt"])
+def training_rows(
+    history: np.ndarray, end_date: dt.date, min_history: int
+) -> tuple[list[list[float]], list[float]]:
+    """One row per day from `min_history` on; `end_date` is the day after the last value."""
+    n = len(history)
+    rows: list[list[float]] = []
+    targets: list[float] = []
+    for t in range(min(min_history, n), n):
+        day = end_date - dt.timedelta(days=n - t)
+        rows.append(feature_vector(history[:t], day))
+        targets.append(float(history[t]))
+    return rows, targets

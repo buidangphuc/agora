@@ -842,6 +842,26 @@ services:
     depends_on:
       - redis
 
+  # Nightly demand forecast (forecast-nightly-job) — a batch, not a server:
+  #   docker compose --profile forecast run --rm forecast-job
+  # Reads order_facts.parquet from the analytics export volume (read-only) and writes the
+  # fc:v1:* keys to Redis DB 3. AS_OF (RFC 3339) pins the point in time; unset means now.
+  forecast-job:
+    build:
+      context: ./platform-forecast
+      dockerfile: Dockerfile
+      target: job
+    image: platform-forecast:local
+    profiles: ["forecast"]
+    environment:
+      - INPUT_DIR=/data
+      - REDIS_URL=redis://redis:6379/3
+      - AS_OF=${AS_OF:-}
+    volumes:
+      - analytics_data:/data:ro
+    depends_on:
+      - redis
+
   team-analytics:
     build:
       context: ./team-analytics
