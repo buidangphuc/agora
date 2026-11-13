@@ -224,6 +224,25 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		return err
 	}
 
+	erasureSettings := s
+	if erasureSettings.Events.ErasureGroup == "" {
+		erasureSettings.Events.ErasureGroup = defaultErasureGroup
+	}
+	if erasureSettings.Events.ErasureDLQ == "" {
+		erasureSettings.Events.ErasureDLQ = defaultErasureDLQ
+	}
+	erasureGroup := erasureSettings.Events.ErasureGroup
+	erasureClient, err := kafkax.NewConsumerClient(s.Kafka, erasureGroup, []string{identityEventsTopic}, kgo.AllowAutoTopicCreation())
+	if err != nil {
+		return fmt.Errorf("kafka: %w", err)
+	}
+	stack.Push(func(context.Context) error { erasureClient.Close(); return nil })
+	erasureHandler := events.NewErasureConsumer(orderRepo, logger)
+	erasureConsumer, err := events.NewErasureKafkaConsumer(erasureClient, erasureHandler.Handle, pub, fp, erasureSettings)
+	if err != nil {
+		return err
+	}
+
 	reservations, err := reservationSweep(orderSvc, sweepInterval, logger)
 	if err != nil {
 		return err
@@ -247,7 +266,14 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		wrapComponent("relayer", relayer),
 		wrapComponent("payment-consumer", paymentConsumer),
 		wrapComponent("dispute-consumer", disputeConsumer),
+		wrapComponent("erasure-consumer", erasureConsumer),
 		wrapComponent("reservation-sweep", reservations),
 		wrapComponent("lifecycle-sweep", lifecycles),
 		wrapComponent("outbox-purge", purge)))
 }
+
+const (
+	identityEventsTopic = "identity.events"
+	defaultErasureGroup = "team-order.erasure"
+	defaultErasureDLQ   = "identity.events.order.dlq"
+)

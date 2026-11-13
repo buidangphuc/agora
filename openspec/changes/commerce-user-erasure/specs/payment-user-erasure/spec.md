@@ -26,19 +26,23 @@ idempotent by user id, and SHALL ignore every other event type on the topic.
 #### Scenario: PER-4 A user without payouts is a no-op
 - **WHEN** a `UserErased` event for a buyer with payment transactions but no payout requests is consumed
 - **THEN** the handler completes OK and no payment transaction or ledger row changes
+- **VERIFIED BY**: team-payment/internal/store TestEraseSellerPayouts
 
 #### Scenario: PER-5 A malformed event is parked, not applied
 - **WHEN** a `UserErased` event with an empty `user_id`, or an envelope that does not decode, is consumed
 - **THEN** no row changes and the record is written to `identity.events.payment.dlq`
+- **VERIFIED BY**: team-payment/internal/app TestErasureConsumerParksMalformed
 
 #### Scenario: PER-6 A store error is retried and leaves no partial erasure
 - **GIVEN** the payment database fails during the update
 - **WHEN** a `UserErased` event for S is consumed
 - **THEN** no payout request is masked until the database recovers, the record is retried, and afterwards all of S's payout requests are masked and the DLQ is empty
+- **VERIFIED BY**: team-payment/internal/store TestEraseSellerPayoutsRollsBack
 
 #### Scenario: PER-7 Other identity events are ignored
 - **WHEN** a `UserRegistered` or `UserStatusChanged` event for S is consumed
 - **THEN** no payout request changes
+- **VERIFIED BY**: team-payment/internal/app TestErasureConsumerIgnoresOtherEvents
 
 #### Scenario: PER-8 Payout history shows the mask
 - **GIVEN** S's data was erased

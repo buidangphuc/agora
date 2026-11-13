@@ -5697,3 +5697,134 @@ features:
     tags: [promotion, unit]
     status: not-testable
     notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestUpdatePerUserFields. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.pro-1-owned-vouchers-are-deactivated-and-state-is-deleted
+    title: "PRO-1 Owned vouchers are deactivated and state is deleted"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-1 Owned vouchers are deactivated and state is deleted"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given user U owns 1 new-user voucher (kind 2, active), has a `new_user_voucher_state` row, and 2 committed reservations of 20000 and 30000"
+      - "When a `UserErased` event for U is consumed"
+      - "Then the voucher has `active` false and a `deactivated_at`, U's state row is gone, and the 2 reservations keep their buyer id, `status` and `discount_amount`"
+    tags: [promotion, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in promotion/user_erasure.feature (red before implementation)."
+
+  - id: promotion.pro-2-other-users-vouchers-and-state-are-untouched
+    title: "PRO-2 Other users' vouchers and state are untouched"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-2 Other users' vouchers and state are untouched"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given user W owns an active voucher and has a state row, and a shop voucher with `seller_id` U's id and no `owner_user_id` exists"
+      - "When a `UserErased` event for U is consumed"
+      - "Then W's voucher and state row are unchanged and the shop voucher is unchanged"
+    tags: [promotion, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUser. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: promotion.pro-3-a-redelivered-event-changes-nothing
+    title: "PRO-3 A redelivered event changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-3 A redelivered event changes nothing"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given a `UserErased` event for U was consumed"
+      - "When the same event, and then a second event with a new event id for U, are consumed"
+      - "Then both complete without error, `deactivated_at` keeps its first value, and the DLQ stays empty"
+    tags: [promotion, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserIdempotent. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: promotion.pro-4-a-user-with-no-promotion-data-is-a-no-op
+    title: "PRO-4 A user with no promotion data is a no-op"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-4 A user with no promotion data is a no-op"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "When a `UserErased` event for a user who owns no voucher and has no state row is consumed"
+      - "Then the handler completes OK and no row changes"
+    tags: [promotion, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUser. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: promotion.pro-5-a-malformed-event-is-parked-not-applied
+    title: "PRO-5 A malformed event is parked, not applied"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-5 A malformed event is parked, not applied"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "When a `UserErased` event with an empty `user_id`, or an envelope that does not decode, is consumed"
+      - "Then no row changes and the record is written to `identity.events.promotion.dlq`"
+    tags: [promotion, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/consumer TestErasureConsumerParksMalformed. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: promotion.pro-6-a-store-error-is-retried-and-leaves-no-partial-erasure
+    title: "PRO-6 A store error is retried and leaves no partial erasure"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-6 A store error is retried and leaves no partial erasure"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given the promotion database fails after the voucher update but before the commit"
+      - "When a `UserErased` event for U is consumed"
+      - "Then the transaction rolls back (voucher still active, state row still present), the record is retried, and after recovery both are applied and the DLQ is empty"
+    tags: [promotion, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserRollsBack. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: promotion.pro-7-the-existing-identity-consumer-is-not-disturbed
+    title: "PRO-7 The existing identity consumer is not disturbed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-7 The existing identity consumer is not disturbed"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "When a `UserRegistered` event is consumed after the erasure consumer was added"
+      - "Then the new-user voucher flow behaves as before (state row written) and the erasure consumer ignores that event"
+    tags: [promotion, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/consumer TestIdentityConsumerUnchangedByErasure. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: promotion.pro-8-a-deactivated-voucher-cannot-be-redeemed
+    title: "PRO-8 A deactivated voucher cannot be redeemed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-8 A deactivated voucher cannot be redeemed"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given U's owned voucher was deactivated by erasure"
+      - "When any caller reserves that voucher code at checkout"
+      - "Then the reservation is refused as an inactive voucher and no quota is consumed"
+    tags: [promotion, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in promotion/user_erasure.feature (red before implementation)."
+
+  - id: promotion.pro-9-a-voucher-owner-cannot-trigger-erasure-through-the-api
+    title: "PRO-9 A voucher owner cannot trigger erasure through the API"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PRO-9 A voucher owner cannot trigger erasure through the API"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "When a signed-in USER principal calls any `VoucherService` RPC naming another user's id, or a `UserErased` envelope is produced to `promotion.events`"
+      - "Then the voucher API denies the call with `PERMISSION_DENIED` where it is routed, nothing is erased, and only records read from `identity.events` ever drive erasure"
+    tags: [promotion, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/consumer TestErasureOnlyFromIdentityEvents. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."

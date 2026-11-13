@@ -3263,3 +3263,279 @@ features:
     - unit
     status: not-testable
     notes: "VERIFIED BY team-payment `internal/rpc` `TestWalletRPCAccess`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment.pay-1-balance-hold-and-pending-payouts-are-reported
+    title: "PAY-1 Balance, hold and pending payouts are reported"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-1 Balance, hold and pending payouts are reported"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given seller S has ledger credits of 500000, of which 200000 are inside the hold window, and 2 PENDING payout debits of 50000 each"
+      - "When a SERVICE principal with scope `payment.internal.read` calls `GetPayoutObligations` for S"
+      - "Then the response is `available_balance` 200000, `held_balance` 200000 and `pending_payouts` 2"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+
+  - id: payment.pay-2-a-buyer-with-no-wallet-reads-zeros
+    title: "PAY-2 A buyer with no wallet reads zeros"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-2 A buyer with no wallet reads zeros"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When the service calls `GetPayoutObligations` for a user with no ledger entries and no payout requests"
+      - "Then the response is OK with `available_balance` 0, `held_balance` 0, `pending_payouts` 0"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+
+  - id: payment.pay-3-completed-and-rejected-payouts-are-not-pending
+    title: "PAY-3 Completed and rejected payouts are not pending"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-3 Completed and rejected payouts are not pending"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given S has payout requests in COMPLETED and REJECTED status only"
+      - "When the service calls `GetPayoutObligations` for S"
+      - "Then `pending_payouts` is 0"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestPayoutObligationsBalances. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.pay-4-a-negative-balance-reads-as-no-available-money
+    title: "PAY-4 A negative balance reads as no available money"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-4 A negative balance reads as no available money"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given S's ledger sum is -50000 after a refund deduction"
+      - "When the service calls `GetPayoutObligations` for S"
+      - "Then `available_balance` is 0"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestPayoutObligationsBalances. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.pay-5-another-seller-s-money-is-not-included
+    title: "PAY-5 Another seller's money is not included"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-5 Another seller's money is not included"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given S has ledger credits of 100000 outside the hold window and T has ledger credits of 900000"
+      - "When the service calls `GetPayoutObligations` for S"
+      - "Then `available_balance` is 100000 and `held_balance` is 0"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestPayoutObligationsBalances. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.pay-6-an-empty-user-id-is-rejected
+    title: "PAY-6 An empty user id is rejected"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-6 An empty user id is rejected"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When the service calls `GetPayoutObligations` with `user_id` \"\""
+      - "Then the call fails with `INVALID_ARGUMENT`"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/rpc TestGetPayoutObligationsRejectsEmptyUserID. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.pay-7-a-user-principal-is-refused
+    title: "PAY-7 A user principal is refused"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-7 A user principal is refused"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a signed-in USER principal, including a seller reading its own wallet, calls `GetPayoutObligations`"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+
+  - id: payment.pay-8-a-service-principal-without-the-scope-is-refused
+    title: "PAY-8 A service principal without the scope is refused"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-8 A service principal without the scope is refused"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a SERVICE principal holding only `order.read` calls `GetPayoutObligations`"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+
+  - id: payment.pay-9-an-anonymous-caller-is-refused
+    title: "PAY-9 An anonymous caller is refused"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-9 An anonymous caller is refused"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a call without a principal reaches `GetPayoutObligations`"
+      - "Then the call fails with `UNAUTHENTICATED`"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+
+  - id: payment.pay-10-the-gateway-does-not-route-the-rpc
+    title: "PAY-10 The gateway does not route the RPC"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-10 The gateway does not route the RPC"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a browser client calls `PaymentService/GetPayoutObligations` through the gateway"
+      - "Then the gateway answers HTTP 501 and team-payment receives no request"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+
+  - id: payment.pay-11-a-store-failure-never-reads-as-zero-money
+    title: "PAY-11 A store failure never reads as zero money"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-11 A store failure never reads as zero money"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given the payment database is unreachable"
+      - "When the service calls `GetPayoutObligations` for S"
+      - "Then the call fails with a non-OK gRPC status and the response carries no balances"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/rpc TestGetPayoutObligationsStoreFailure. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-1-bank-details-are-masked-and-money-records-are-kept
+    title: "PER-1 Bank details are masked and money records are kept"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-1 Bank details are masked and money records are kept"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given seller S has 3 payout requests (PENDING, COMPLETED, REJECTED) with account number \"0123456789\" and account name \"NGUYEN VAN A\", and ledger entries summing to 400000"
+      - "When a `UserErased` event for S is consumed"
+      - "Then the 3 payout requests read `account_number` and `account_name` \"Đã xóa\", and their ids, `bank_code`, `amount`, `status`, `ledger_entry_id` and S's ledger sum of 400000 are unchanged"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."
+
+  - id: payment.per-2-another-seller-s-payouts-are-untouched
+    title: "PER-2 Another seller's payouts are untouched"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-2 Another seller's payouts are untouched"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given sellers S and T each have payout requests"
+      - "When a `UserErased` event for S is consumed"
+      - "Then T's `account_number` and `account_name` are unchanged"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."
+
+  - id: payment.per-3-a-redelivered-event-changes-nothing
+    title: "PER-3 A redelivered event changes nothing"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-3 A redelivered event changes nothing"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given a `UserErased` event for S was consumed"
+      - "When the same event, and then a second event with a new event id for S, are consumed"
+      - "Then both complete without error, no row differs from after the first handling, and the DLQ stays empty"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."
+
+  - id: payment.per-4-a-user-without-payouts-is-a-no-op
+    title: "PER-4 A user without payouts is a no-op"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-4 A user without payouts is a no-op"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a `UserErased` event for a buyer with payment transactions but no payout requests is consumed"
+      - "Then the handler completes OK and no payment transaction or ledger row changes"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestEraseSellerPayouts. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-5-a-malformed-event-is-parked-not-applied
+    title: "PER-5 A malformed event is parked, not applied"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-5 A malformed event is parked, not applied"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a `UserErased` event with an empty `user_id`, or an envelope that does not decode, is consumed"
+      - "Then no row changes and the record is written to `identity.events.payment.dlq`"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/app TestErasureConsumerParksMalformed. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-6-a-store-error-is-retried-and-leaves-no-partial-erasure
+    title: "PER-6 A store error is retried and leaves no partial erasure"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-6 A store error is retried and leaves no partial erasure"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given the payment database fails during the update"
+      - "When a `UserErased` event for S is consumed"
+      - "Then no payout request is masked until the database recovers, the record is retried, and afterwards all of S's payout requests are masked and the DLQ is empty"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestEraseSellerPayoutsRollsBack. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-7-other-identity-events-are-ignored
+    title: "PER-7 Other identity events are ignored"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-7 Other identity events are ignored"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a `UserRegistered` or `UserStatusChanged` event for S is consumed"
+      - "Then no payout request changes"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/app TestErasureConsumerIgnoresOtherEvents. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-8-payout-history-shows-the-mask
+    title: "PER-8 Payout history shows the mask"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-8 Payout history shows the mask"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given S's data was erased"
+      - "When an admin lists S's payout history"
+      - "Then each entry shows `account_number` and `account_name` \"Đã xóa\" with its original amount and status"
+    tags: [payment, user-erasure]
+    status: planned
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."

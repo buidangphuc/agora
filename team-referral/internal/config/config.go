@@ -23,6 +23,8 @@ type Referral struct {
 	OrderGroup          string        `env:"REFERRAL_ORDER_CONSUMER_GROUP" default:"team-referral-order"`
 	IdentityDLQTopic    string        `env:"REFERRAL_IDENTITY_DLQ_TOPIC" default:"referral.identity.dlq"`
 	OrderDLQTopic       string        `env:"REFERRAL_ORDER_DLQ_TOPIC" default:"referral.order.dlq"`
+	ErasureGroup        string        `env:"REFERRAL_ERASURE_CONSUMER_GROUP" default:"team-referral-erasure"`
+	ErasureDLQTopic     string        `env:"REFERRAL_ERASURE_DLQ_TOPIC" default:"identity.events.referral.dlq"`
 }
 
 func (r Referral) Location() (*time.Location, error) {
@@ -57,6 +59,8 @@ func (r Referral) Validate() error {
 		"REFERRAL_ORDER_CONSUMER_GROUP":    r.OrderGroup,
 		"REFERRAL_IDENTITY_DLQ_TOPIC":      r.IdentityDLQTopic,
 		"REFERRAL_ORDER_DLQ_TOPIC":         r.OrderDLQTopic,
+		"REFERRAL_ERASURE_CONSUMER_GROUP":  r.ErasureGroup,
+		"REFERRAL_ERASURE_DLQ_TOPIC":       r.ErasureDLQTopic,
 	} {
 		if strings.TrimSpace(val) == "" {
 			errs = append(errs, fmt.Errorf("%s is required", key))

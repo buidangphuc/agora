@@ -352,6 +352,28 @@ func (h *OrderHandler) HasCompletedOrder(ctx context.Context, req *orderv1.HasCo
 	return &orderv1.HasCompletedOrderResponse{HasCompleted: has}, nil
 }
 
+func (h *OrderHandler) GetUserObligations(ctx context.Context, req *orderv1.GetUserObligationsRequest) (*orderv1.GetUserObligationsResponse, error) {
+	principal, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !isServiceWithScope(principal, "order.internal.read") {
+		return nil, status.Error(codes.PermissionDenied, "order.internal.read service scope required")
+	}
+	if req.GetUserId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "user id is required")
+	}
+	o, err := h.svc.UserObligations(ctx, req.GetUserId())
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &orderv1.GetUserObligationsResponse{
+		OpenBuyerOrders:  o.OpenBuyerOrders,
+		OpenSellerOrders: o.OpenSellerOrders,
+		OpenReturns:      o.OpenReturns,
+	}, nil
+}
+
 func (h *OrderHandler) ListSellerOrders(ctx context.Context, req *orderv1.ListSellerOrdersRequest) (*orderv1.ListSellerOrdersResponse, error) {
 	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
