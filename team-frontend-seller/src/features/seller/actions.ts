@@ -15,9 +15,20 @@ import {
 } from "@/lib/gateway/listings";
 import { type ViewOrderReturn, updateReturnStatus } from "@/lib/gateway/orders";
 import { requestWalletPayout } from "@/lib/gateway/payment";
+import { Code, ConnectError } from "@connectrpc/connect";
+
 import {
+  DiscountType,
+  VoucherScope,
+} from "@/generated/platform/promotion/v1/promotion_pb.js";
+import {
+  type CreateCampaignInput,
   type ViewAdCampaign,
+  cancelMyCampaign,
   createAdCampaign,
+  createCampaign,
+  createVoucher,
+  deactivateMyShopVoucher,
   subscribe,
 } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
@@ -264,4 +275,92 @@ export async function searchMyListingsAction(
   } catch {
     return fail("Không tải được danh sách sản phẩm.");
   }
+}
+
+// ── Marketing hub (shop vouchers + flash-sale campaigns) ────────────────────
+
+const MARKETING_PATH = "/seller/marketing";
+
+function canWrite(): boolean {
+  return Boolean(getPrincipal()?.scopes.includes("listing.write"));
+}
+
+const NO_WRITE = "Bạn không có quyền thực hiện thao tác này.";
+
+export interface ShopVoucherInput {
+  code: string;
+  discountType: DiscountType;
+  discountValue: number;
+  minSpend: number;
+  maxDiscount: number;
+  quota: number;
+  startsAt: Date;
+  endsAt: Date;
+}
+
+export async function createShopVoucherAction(
+  input: ShopVoucherInput,
+): Promise<ActionResult> {
+  if (!canWrite()) return fail(NO_WRITE);
+  try {
+    await createVoucher({ ...input, scope: VoucherScope.SHOP });
+  } catch (err: unknown) {
+    if (err instanceof ConnectError && err.code === Code.AlreadyExists) {
+      return fail("Mã voucher đã tồn tại");
+    }
+    const msg =
+      err instanceof ConnectError ? err.rawMessage : messageOf(err, "");
+    return fail(msg || "Tạo voucher thất bại.");
+  }
+  revalidatePath(MARKETING_PATH);
+  return ok();
+}
+
+export async function deactivateShopVoucherAction(
+  voucherId: string,
+): Promise<ActionResult> {
+  if (!canWrite()) return fail(NO_WRITE);
+  const res = await deactivateMyShopVoucher(voucherId);
+  if (!res.ok) {
+    if (res.code === "denied" || res.code === "not_found") {
+      return fail("Không có quyền hoặc voucher không tồn tại");
+    }
+    return fail(res.message || "Tắt voucher thất bại.");
+  }
+  revalidatePath(MARKETING_PATH);
+  return ok();
+}
+
+export async function createCampaignAction(
+  input: CreateCampaignInput,
+): Promise<ActionResult> {
+  if (!canWrite()) return fail(NO_WRITE);
+  const res = await createCampaign(input);
+  if (!res.ok) {
+    if (res.code === "denied") {
+      return fail("Không có quyền tạo flash sale cho sản phẩm này");
+    }
+    return fail(res.message || "Tạo flash sale thất bại.");
+  }
+  revalidatePath(MARKETING_PATH);
+  return ok();
+}
+
+export async function cancelCampaignAction(
+  campaignId: string,
+): Promise<ActionResult> {
+  if (!canWrite()) return fail(NO_WRITE);
+  const res = await cancelMyCampaign(campaignId);
+  if (!res.ok) {
+    if (res.code === "denied" || res.code === "not_found") {
+      return fail("Không có quyền hoặc flash sale không tồn tại");
+    }
+    if (res.code === "failed_precondition") {
+      revalidatePath(MARKETING_PATH);
+      return fail("Flash sale đã bắt đầu, không thể huỷ");
+    }
+    return fail(res.message || "Huỷ flash sale thất bại.");
+  }
+  revalidatePath(MARKETING_PATH);
+  return ok();
 }
