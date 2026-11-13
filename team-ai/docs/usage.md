@@ -27,7 +27,7 @@ Served by the platform-core contract (vendored in `proto/`), always started once
 
 | Service | RPCs served |
 | --- | --- |
-| `platform.ai.v1.AIService` | `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews`, `ClassifyTags` and `ScreenListing` (internal: service principals with `ai.classify`) |
+| `platform.ai.v1.AIService` | `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews`, `ClassifyTags` and `ScreenListing` (internal: service principals with `ai.classify`); the `request_id` and `model_version` fields on the `ShoppingAssistant`, `MagicListing`, `ChatCopilot` and `SummarizeReviews` responses are contract only (docs-ai-data-contract, not built) and are left empty |
 | `platform.chat.v1.ChatService` | `StreamChat` (server stream) |
 | `platform.recommendation.v1.RecommendationService` | `Recommend` |
 | `platform.search.v1.SearchService` | `SearchListings` only (scope `search:read`, answers unavailable unless `RAG_ENABLED`; each response carries a random 32-hex `request_id` and `model_version` `semantic@<SEARCH_RANKER_VERSION>`, default `v1`); the other search RPCs return unimplemented |
