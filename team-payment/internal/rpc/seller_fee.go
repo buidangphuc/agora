@@ -12,6 +12,8 @@ import (
 	"github.com/buidangphuc/team-payment/internal/store"
 )
 
+const maxFeeReferenceLen = 64
+
 func (h *Handler) ChargeSellerFee(ctx context.Context, req *paymentv1.ChargeSellerFeeRequest) (*paymentv1.ChargeSellerFeeResponse, error) {
 	p, err := auth.RequireScopes(ctx, "payment:write")
 	if err != nil {
@@ -20,14 +22,17 @@ func (h *Handler) ChargeSellerFee(ctx context.Context, req *paymentv1.ChargeSell
 	if p.Type != auth.TypeService {
 		return nil, status.Error(codes.PermissionDenied, "service callers only")
 	}
-	if req.GetSellerId() == "" || req.GetReferenceId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "seller_id and reference_id are required")
+	if req.GetSellerId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "seller_id is required")
 	}
 	if req.GetAmount() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
 	}
 	if req.GetKind() != paymentv1.SellerFeeKind_SELLER_FEE_KIND_SUBSCRIPTION {
 		return nil, status.Error(codes.InvalidArgument, "unsupported fee kind")
+	}
+	if ref := req.GetReferenceId(); ref == "" || len(ref) > maxFeeReferenceLen {
+		return nil, status.Error(codes.InvalidArgument, "reference_id must be 1 to 64 characters")
 	}
 	entry, created, err := h.svc.ChargeSellerFee(ctx, req.GetSellerId(), req.GetAmount(), req.GetReferenceId())
 	if err != nil {
