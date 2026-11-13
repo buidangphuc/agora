@@ -84,12 +84,18 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
             raise AssertionError("unreachable") from exc  # abort raises
 
         request_id = uuid.uuid4().hex
+        model_version = (
+            f"{result.model_version}/{result.tier}/{result.ranker}/{result.arm}"
+        )
         # One line per response so impressions and clicks can be joined to what was served.
         # Ids only: no user id, no token.
         logger.bind(
             request_id=request_id,
             placement_id=result.placement_id,
-            model_version=result.model_version,
+            model_version=model_version,
+            tier=result.tier,
+            ranker=result.ranker,
+            arm=result.arm,
             listing_ids=[item.listing_id for item in result.items],
             fallback=result.fallback,
             context_count=len(request.context_listing_ids),
@@ -102,7 +108,7 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
                 )
                 for item in result.items
             ],
-            model_version=result.model_version,
+            model_version=model_version,
             placement_id=result.placement_id,
             request_id=request_id,
         )

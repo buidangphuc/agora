@@ -6,8 +6,10 @@ the floor. Dependencies fail open inside their adapters; any other failure takes
 path, the serving generation's popular list.
 """
 
+import asyncio
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from loguru import logger
 
@@ -18,7 +20,9 @@ from app.modules.business.recommendation.placements import (
     Strategy,
 )
 from app.modules.business.recommendation.ports import (
+    Assignment,
     CandidateSource,
+    ExperimentAssigner,
     FeatureStore,
     NearlineSignals,
     ServingCache,
@@ -41,6 +45,13 @@ from app.modules.business.recommendation.schemas import (
 from app.modules.business.recommendation.stock import RequestStock
 
 _RECHECK_S = 30.0
+_OVERRIDABLE_MODELS = ("cosine_rank", "gbdt")
+
+
+@dataclass(slots=True)
+class _Served:
+    tier: str = ""
+    ranker: str = "similarity"
 
 
 def _without_stock_filter(placement: Placement) -> Placement:
@@ -69,6 +80,7 @@ class RecommendationService:
         retrieve_timeout_s: float = 0.015,
         clock: Callable[[], float] = time.monotonic,
         recheck_s: float = _RECHECK_S,
+        assigner: ExperimentAssigner | None = None,
     ) -> None:
         self._source = source
         self._cache = cache
@@ -84,6 +96,7 @@ class RecommendationService:
         self._retrieve_timeout_s = retrieve_timeout_s
         self._clock = clock
         self._recheck_s = recheck_s
+        self._assigner = assigner
         self._ready = False
         self._checked_at: float | None = None
 
@@ -105,22 +118,40 @@ class RecommendationService:
     async def recommend(self, query: RecommendationQuery) -> RecommendationResult:
         """Serve a request. Only a failed contract check (a deployment error, not a runtime
         hiccup) raises ``ServiceUnavailableError``."""
-        if not await self.check_ready():
-            raise ServiceUnavailableError("recommendation collection contract mismatch")
-        # Fix the serving generation once: the Redis lists and the Qdrant collection of this
-        # request must come from the same generation even if the pointer moves mid-request.
-        generation = await self._cache.serving_generation()
         placement_id = self._placement_id(query)
         placement = self._placements.get(placement_id)
+        assignment_task = self._start_assignment(query, placement)
+        try:
+            if not await self.check_ready():
+                raise ServiceUnavailableError(
+                    "recommendation collection contract mismatch"
+                )
+            # Fix the serving generation once: the Redis lists and the Qdrant collection of this
+            # request must come from the same generation even if the pointer moves mid-request.
+            generation = await self._cache.serving_generation()
+            assignment = await assignment_task
+        finally:
+            if not assignment_task.done():
+                assignment_task.cancel()
+        arm = _arm_name(placement, assignment)
+        override = assignment.ranking_model
+        if override in _OVERRIDABLE_MODELS:
+            placement = placement.model_copy(
+                update={
+                    "ranking": placement.ranking.model_copy(update={"model": override})
+                }
+            )
         limit = query.limit or placement.result_limit or self._result_top_k
         stock = RequestStock(self._stock_lookup, self._retrieve_timeout_s)
+        served = _Served()
         try:
-            return await self._serve(
-                query, placement_id, placement, limit, generation, stock
+            result = await self._serve(
+                query, placement_id, placement, limit, generation, stock, served
             )
         except Exception as exc:
             logger.warning("recs.recommend.failed err={}", exc)
-            return await self._popular_result(
+            served = _Served(tier=SERVING_FALLBACK)
+            result = await self._popular_result(
                 query,
                 placement_id,
                 placement,
@@ -128,7 +159,20 @@ class RecommendationService:
                 generation,
                 SERVING_FALLBACK,
                 stock,
+                served,
             )
+        return result.model_copy(
+            update={"tier": served.tier, "ranker": served.ranker, "arm": arm}
+        )
+
+    def _start_assignment(
+        self, query: RecommendationQuery, placement: Placement
+    ) -> "asyncio.Task[Assignment]":
+        flag = placement.experiment.flag if placement.experiment else None
+        entity = query.user_id or query.anonymous_id
+        if self._assigner is None or flag is None:
+            return asyncio.ensure_future(_no_assignment())
+        return asyncio.ensure_future(self._assigner.assign(flag, entity))
 
     @staticmethod
     def _placement_id(query: RecommendationQuery) -> str:
@@ -148,6 +192,7 @@ class RecommendationService:
         limit: int,
         generation: str | None,
         stock: RequestStock,
+        served: _Served,
     ) -> RecommendationResult:
         model_version = self._model_version
         if model_version == SERVING_FALLBACK:
@@ -157,9 +202,12 @@ class RecommendationService:
             candidates = await self._candidates(step.strategy, query, generation)
             if len(candidates) < step.min_candidates:
                 continue
+            served.tier = (
+                "popular" if step.strategy == "global_popular" else step.strategy
+            )
             try:
                 items = await self._rank(
-                    candidates, query, placement, limit, generation, stock
+                    candidates, query, placement, limit, generation, stock, served
                 )
             except StockLookupError:
                 return RecommendationResult(
@@ -169,8 +217,16 @@ class RecommendationService:
                 return RecommendationResult(
                     items=items, model_version=model_version, placement_id=placement_id
                 )
+        served.tier = "popular"
         return await self._popular_result(
-            query, placement_id, placement, limit, generation, model_version, stock
+            query,
+            placement_id,
+            placement,
+            limit,
+            generation,
+            model_version,
+            stock,
+            served,
         )
 
     async def _candidates(
@@ -240,11 +296,16 @@ class RecommendationService:
         limit: int,
         generation: str | None,
         stock: RequestStock,
+        served: _Served,
     ) -> list[RecommendedItem]:
         if placement.filters.in_stock_only:
-            ranked = await self._rank_all(candidates, query, placement, generation)
+            ranked = await self._rank_all(
+                candidates, query, placement, generation, served
+            )
             return await stock.confirm(ranked, limit)
-        return await self._rank_all(candidates, query, placement, generation, limit)
+        return await self._rank_all(
+            candidates, query, placement, generation, served, limit
+        )
 
     async def _rank_all(
         self,
@@ -252,6 +313,7 @@ class RecommendationService:
         query: RecommendationQuery,
         placement: Placement,
         generation: str | None,
+        served: _Served,
         limit: int = 0,
     ) -> list[RecommendedItem]:
         placement = _without_stock_filter(placement)
@@ -268,7 +330,9 @@ class RecommendationService:
         if placement.ranking.model == "gbdt":
             nearline = await self._nearline_ctrs(ids)
             trained = await self._ranker_loader.get(generation)
+            served.ranker = "fixed_weights"
             if trained is not None and features:
+                served.ranker = "gbdt"
                 attributes = (
                     await self._attribute_store.item_features(list(set(ids)))
                     if self._attribute_store is not None
@@ -294,6 +358,7 @@ class RecommendationService:
                 cart_listing_ids=cart,
             )
         else:
+            served.ranker = "similarity"
             ranked = rank_by_similarity(
                 candidates,
                 seed,
@@ -317,8 +382,10 @@ class RecommendationService:
         generation: str | None,
         model_version: str,
         stock: RequestStock,
+        served: _Served,
     ) -> RecommendationResult:
         """The popular list in retrieval order: the floor of the ladder and the fallback."""
+        served.ranker = "similarity"
         popular = await self._cache.popular_candidates(generation)
         in_stock_only = placement.filters.in_stock_only
         items = rank_by_similarity(
@@ -339,3 +406,13 @@ class RecommendationService:
             placement_id=placement_id,
             fallback=True,
         )
+
+
+async def _no_assignment() -> Assignment:
+    return Assignment(None, None, "none")
+
+
+def _arm_name(placement: Placement, assignment: Assignment) -> str:
+    if placement.experiment is None or assignment.status == "none":
+        return "none"
+    return f"{placement.experiment.flag}:{assignment.variant or 'unassigned'}"

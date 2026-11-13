@@ -112,3 +112,27 @@ def test_models_forbid_unknown_keys():
         Filters.model_validate({"bogus": True})
     with pytest.raises(ValidationError, match="timeout_ms"):
         Placement.model_validate({"timeout_ms": 5})
+
+
+def test_home_feed_names_the_ranker_flag_placement_can_name_an_experiment_flag():
+    experiment = load_placements().get("home_feed").experiment
+    assert experiment is not None
+    assert experiment.flag == "recs-home-feed-ranker"
+
+
+def test_placements_without_experiment_have_none_placement_without_flag_makes_no_call():
+    placements = load_placements()
+    assert placements.get("similar_items").experiment is None
+    assert placements.get("cart_cross_sell").experiment is None
+
+
+def test_experiment_unknown_key_fails_at_load_placement_can_name_an_experiment_flag(
+    tmp_path,
+):
+    f = tmp_path / "p.yaml"
+    f.write_text(
+        "placements:\n  home_feed:\n    experiment:\n      flag: x\n      extra: 1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValidationError):
+        load_placements(f)

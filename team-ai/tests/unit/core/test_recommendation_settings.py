@@ -20,6 +20,9 @@ RECS_KEYS = (
     "RECS_NEARLINE_PREFIX",
     "RECS_NEARLINE_MIN_IMPRESSIONS",
     "RECS_NEARLINE_TIMEOUT_MS",
+    "RECS_FLIPT_URL",
+    "RECS_FLIPT_TIMEOUT_MS",
+    "RECS_EXPERIMENT_SALT",
 )
 
 # The RECS_* and REDIS_* values platform-gitops sets for team-ai in production,
@@ -39,6 +42,8 @@ GITOPS_VALUES = {
     "RECS_FEATURESTORE_REDIS_URL": "redis://valkey:6379/2",
     "RECS_NEARLINE_REDIS_URL": "redis://valkey:6379/0",
     "RECS_RETRIEVE_TIMEOUT_MS": 15,
+    "RECS_FLIPT_URL": "http://flipt:8080",
+    "RECS_EXPERIMENT_SALT": "s" * 16,
 }
 
 
@@ -82,3 +87,31 @@ def test_env_example_lists_the_recs_keys():
     keys = parse_env_keys(ENV_EXAMPLE_PATH.read_text(encoding="utf-8"))
 
     assert set(RECS_KEYS) <= keys
+
+
+def test_flipt_timeout_defaults_to_50_ms_flipt_never_sees_a_raw_id():
+    assert build_test_settings().RECS_FLIPT_TIMEOUT_MS == 50
+
+
+def test_flipt_timeout_must_be_positive_flipt_never_sees_a_raw_id():
+    with pytest.raises(ValidationError):
+        build_test_settings(RECS_FLIPT_TIMEOUT_MS=0)
+
+
+def test_local_environment_needs_no_experiment_salt_flipt_never_sees_a_raw_id():
+    settings = build_test_settings()
+
+    assert isinstance(settings.RECS_FLIPT_URL, str)
+    assert isinstance(settings.RECS_EXPERIMENT_SALT, str)
+
+
+def test_production_without_experiment_salt_is_rejected_flipt_never_sees_a_raw_id():
+    values = {k: v for k, v in GITOPS_VALUES.items() if k != "RECS_EXPERIMENT_SALT"}
+
+    with pytest.raises(ValidationError):
+        build_test_settings(**values)
+
+
+def test_production_with_empty_experiment_salt_is_rejected_flipt_never_sees_a_raw_id():
+    with pytest.raises(ValidationError):
+        build_test_settings(**{**GITOPS_VALUES, "RECS_EXPERIMENT_SALT": ""})

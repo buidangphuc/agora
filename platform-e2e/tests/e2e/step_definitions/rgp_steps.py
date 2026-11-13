@@ -82,7 +82,10 @@ def _version(world: World, which: str) -> str:
 
 def _gateway_version(world: World) -> str:
     data = world.service_factory.recommendation.recommend(context=CONTEXT_HOMEPAGE, limit=10)
-    return data.get("modelVersion", "")
+    version = data.get("modelVersion", "")
+    parts = version.split("/")
+    # <generation>/<tier>/<ranker>/<arm>: anything else is not the wire format of the spec
+    return parts[0] if len(parts) == 4 else version
 
 
 def _await_gateway_version(world: World, expected: str, timeout_s: float) -> float:
@@ -219,7 +222,7 @@ def rgp_gateway_reports(world: World, which: str) -> None:
 
 
 @then(
-    "within 10 seconds a buyer's recommendations through the gateway report the new model's version"
+    "within 10 seconds the generation segment of a buyer's model_version through the gateway is the new model's version"
 )
 def rgp_gateway_follows_within_10s(world: World) -> None:
     ctx = _ctx(world)

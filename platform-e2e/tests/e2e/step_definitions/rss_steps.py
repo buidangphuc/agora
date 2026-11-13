@@ -42,15 +42,17 @@ def rss_redis_outage(world: World) -> None:
     # response must settle on the fallback.
     _x(world)["response"] = rss.await_recommend(
         world,
-        lambda r: r.get("modelVersion") == rss.FALLBACK_VERSION,
+        lambda r: str(r.get("modelVersion", "")).startswith(rss.FALLBACK_PREFIX),
         "Recommend did not answer OK with serving-fallback while Redis is down",
         timeout_s=15,
     )
 
 
-@then(parsers.parse('the call succeeds with model_version "{version}"'))
-def rss_call_succeeds_with_version(world: World, version: str) -> None:
-    assert _x(world)["response"].get("modelVersion") == version, _x(world)["response"]
+@then(parsers.parse('the call succeeds with a model_version that starts with "{prefix}"'))
+def rss_call_succeeds_with_version(world: World, prefix: str) -> None:
+    assert str(_x(world)["response"].get("modelVersion", "")).startswith(prefix), _x(world)[
+        "response"
+    ]
 
 
 # ── Cold start ───────────────────────────────────────────────────────────
