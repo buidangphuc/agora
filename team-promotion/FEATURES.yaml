@@ -5711,7 +5711,7 @@ features:
       - "Catalog shows corrected prices (unit-verified)"
     tags: [promotion, unit]
     status: not-testable
-    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestMigrationCorrectsPlanPrices`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestMigrationCorrectsPlanPrices_CatalogShowsCorrectedPrices`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
 
   - id: promotion.ppb-unit-go-catalog-and-migrated-rows-agree
     title: "Go catalog and migrated rows agree"
@@ -5726,7 +5726,7 @@ features:
       - "Go catalog and migrated rows agree (unit-verified)"
     tags: [promotion, unit]
     status: not-testable
-    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestDefaultPlansMatchMigratedCatalog`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestDefaultPlansMatchMigratedCatalog_GoCatalogAndMigratedRowsAgree`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
 
   - id: promotion.ppb-unit-existing-paid-subscription-is-grandfathered-for-one-term
     title: "Existing paid subscription is grandfathered for one term"
@@ -5741,7 +5741,7 @@ features:
       - "Existing paid subscription is grandfathered for one term (unit-verified)"
     tags: [promotion, unit]
     status: not-testable
-    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestMigrationGrandfathersActiveSubscriptions`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestMigrationGrandfathersActiveSubscriptions_ActivePaidRowGetsOneTerm`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
 
   - id: promotion.ppb-unit-non-positive-term-is-rejected-by-the-schema
     title: "Non-positive term is rejected by the schema"
@@ -5756,7 +5756,7 @@ features:
       - "Non-positive term is rejected by the schema (unit-verified)"
     tags: [promotion, unit]
     status: not-testable
-    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestPlanTermDaysMustBePositive`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestPlanTermDaysMustBePositive_SchemaRejectsZero`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
 
   - id: promotion.ppb-unit-free-seller-subscribes-to-pro
     title: "FREE seller subscribes to PRO"
@@ -5876,7 +5876,7 @@ features:
       - "Concurrent subscribes charge once (unit-verified)"
     tags: [promotion, unit]
     status: not-testable
-    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestConcurrentSubscribeSingleCharge`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestConcurrentSubscribeSingleCharge_SubscriptionRowTwoCallsChargeOnce`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
 
   - id: promotion.ppb-unit-downgrade-is-deferred
     title: "Downgrade is deferred"
