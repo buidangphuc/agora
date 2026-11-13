@@ -162,3 +162,62 @@ describe("ShopHeaderCard hero (storefront)", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ShopHeaderCard hero theme", () => {
+  it("[A themed shop renders its theme] festive storefront sets data-theme=festive", () => {
+    render(
+      <ShopHeaderCard
+        variant="hero"
+        sellerId="seller-abcdef123"
+        storefront={storefront({ theme: "festive" })}
+        summary={rated}
+        productCount={1}
+      />,
+    );
+    expect(screen.getByTestId("shop-header-card")).toHaveAttribute(
+      "data-theme",
+      "festive",
+    );
+  });
+
+  it("[A themed shop renders its theme] unknown, empty and missing theme render data-theme=default", () => {
+    const { rerender } = render(
+      <ShopHeaderCard
+        variant="hero"
+        sellerId="seller-abcdef123"
+        storefront={storefront({ theme: "<script>" })}
+        summary={rated}
+      />,
+    );
+    const card = () => screen.getByTestId("shop-header-card");
+    expect(card()).toHaveAttribute("data-theme", "default");
+    expect(card().outerHTML).not.toContain("script");
+    rerender(
+      <ShopHeaderCard
+        variant="hero"
+        sellerId="seller-abcdef123"
+        storefront={null}
+        summary={rated}
+      />,
+    );
+    expect(card()).toHaveAttribute("data-theme", "default");
+  });
+
+  it("[A themed shop renders its theme] dark and festive differ in header classes from default", () => {
+    const cls = (theme: string) => {
+      const { unmount, container } = render(
+        <ShopHeaderCard
+          variant="hero"
+          sellerId="seller-abcdef123"
+          storefront={storefront({ theme, tagline: "x" })}
+          summary={rated}
+        />,
+      );
+      const html = container.innerHTML;
+      unmount();
+      return html;
+    };
+    expect(cls("festive")).not.toEqual(cls("default"));
+    expect(cls("dark")).not.toEqual(cls("default"));
+  });
+});
