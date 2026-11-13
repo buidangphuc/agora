@@ -130,6 +130,8 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `GA4_RELAY_CONSUMER_GROUP` | `team-analytics.ga4-relay` | Consumer group of the GA4 relay |
 | `GA4_RELAY_DLQ_TOPIC` | `analytics.ga4-relay.dlq` | Dead-letter topic of the GA4 relay |
 | `RECS_ATTRIBUTION_WINDOW_HOURS` | `24` | `GetRecommendationPerformance` and `GetSearchPerformance` credit an add-to-cart or purchase to a click made at most this many hours earlier; must be > 0 |
+| `FORECAST_REDIS_URL` | empty | Redis URL (DB 3) of the read-only forecast store (keys `fc:v1:seller:<seller>:listing:<listing>`); optional, unset means forecast reads return `Unavailable` |
+| `FORECAST_READ_TIMEOUT_MS` | `25` | Per-read timeout of the forecast store in milliseconds |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | |
 | `OTEL_SERVICE_NAME` | `team-analytics` | |
