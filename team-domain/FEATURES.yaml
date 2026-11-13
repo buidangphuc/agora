@@ -3272,7 +3272,8 @@ features:
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-other-event-types-are-ignored
-    title: "Other event types are ignored"
+    title: "Seller erasure: Other event types are ignored"
+    covered_by: "domain/seller_erasure.feature::Other event types are ignored"
     persona: seller
     priority: P1
     summary: "Scenario of change domain-seller-erasure: Other event types are ignored"
