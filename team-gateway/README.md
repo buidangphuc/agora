@@ -24,7 +24,7 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 | listing `ListingService` | team-domain (`UPSTREAM_LISTING_ADDR`) |
 | search `SearchService` | team-search (`UPSTREAM_SEARCH_ADDR`) |
 | engagement `EngagementService` | team-engagement (`UPSTREAM_ENGAGEMENT_ADDR`) |
-| order `CartService`, `OrderService` | team-order (`UPSTREAM_ORDER_ADDR`) |
+| order `CartService` (including `AddBundleToCart`, authenticated callers only), `OrderService` | team-order (`UPSTREAM_ORDER_ADDR`) |
 | payment `PaymentService` | team-payment (`UPSTREAM_PAYMENT_ADDR`) |
 | chat `ChatService` | team-chat (`UPSTREAM_CHAT_ADDR`); `StreamChat` goes to team-ai (`UPSTREAM_AI_ADDR`) |
 | ai `AIService` | team-ai (`UPSTREAM_AI_ADDR`) |
