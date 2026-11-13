@@ -1,11 +1,11 @@
 ## 1. Code track (team-analytics)
 
-- [ ] 1.1 Tests first: handler tests for scenarios "Reorder point and safety stock are derived from the stored points", "An invalid listing or seller id is rejected", "A key marked cold start carries no invented numbers", "Redis unreachable returns UNAVAILABLE", "An unset store address returns UNAVAILABLE"; `duckdb_test.go` "The DuckDB baseline is gone"; verify red on the current code
+- [x] 1.1 Tests first: handler tests for scenarios "Reorder point and safety stock are derived from the stored points", "An invalid listing or seller id is rejected", "A key marked cold start carries no invented numbers", "Redis unreachable returns UNAVAILABLE", "An unset store address returns UNAVAILABLE"; `duckdb_test.go` "The DuckDB baseline is gone"; verify red on the current code
 - [ ] 1.2 `internal/forecaststore`: Redis reader (`Get`), payload decode and validation, 25 ms timeout, 64 KiB cap, key built from validated ids; unit tests for the malformed cases of "A malformed payload returns UNAVAILABLE"
 - [ ] 1.3 `internal/config/config.go`: `FORECAST_REDIS_URL`, `FORECAST_READ_TIMEOUT_MS`; `.env.example` and README config table (drift gates)
-- [ ] 1.4 `handler.go`: inject the store, validate ids, map to response with `generated_at`, keep reorder-point math, return `UNAVAILABLE` on faults, cold start on no key ("A forecast key is served as written", "The horizon truncates and never pads", "No key means cold start without points")
-- [ ] 1.5 Delete `DemandForecast` from `query.Repository`, `DuckDBRepository` and `querytest/memory.go` (scenario "The DuckDB baseline is gone")
-- [ ] 1.6 Wire the store in `cmd/consumer`; add one Redis client to `go.mod`; `docker-compose.services.yaml` sets `FORECAST_REDIS_URL=redis://redis:6379/3` on `team-analytics`
+- [x] 1.4 `handler.go`: inject the store, validate ids, map to response with `generated_at`, keep reorder-point math, return `UNAVAILABLE` on faults, cold start on no key ("A forecast key is served as written", "The horizon truncates and never pads", "No key means cold start without points")
+- [x] 1.5 Delete `DemandForecast` from `query.Repository`, `DuckDBRepository` and `querytest/memory.go` (scenario "The DuckDB baseline is gone")
+- [x] 1.6 Wire the store in `cmd/consumer`; add one Redis client to `go.mod`; `docker-compose.services.yaml` sets `FORECAST_REDIS_URL=redis://redis:6379/3` on `team-analytics`
 - [ ] 1.7 `go test ./...`, lint, features-check, `openspec validate analytics-forecast-serving --strict`
 
 ## 2. e2e track (platform-e2e, team-analytics/FEATURES.yaml by the e2e-author)
