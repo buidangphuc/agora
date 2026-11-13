@@ -173,6 +173,14 @@ export enum EventType {
    * @generated from enum value: EVENT_TYPE_AI_INTERACTION = 21;
    */
   AI_INTERACTION = 21,
+
+  /**
+   * A visitor was exposed to a feature-flag variant. properties: exactly flag,
+   * variant (both allowlisted values, no free text).
+   *
+   * @generated from enum value: EVENT_TYPE_EXPERIMENT_EXPOSURE = 22;
+   */
+  EXPERIMENT_EXPOSURE = 22,
 }
 // Retrieve enum metadata with: proto3.getEnumType(EventType)
 proto3.util.setEnumType(EventType, "platform.analytics.v1.EventType", [
@@ -198,6 +206,7 @@ proto3.util.setEnumType(EventType, "platform.analytics.v1.EventType", [
   { no: 19, name: "EVENT_TYPE_DAILY_CHECK_IN" },
   { no: 20, name: "EVENT_TYPE_ALERT_SUBSCRIBE" },
   { no: 21, name: "EVENT_TYPE_AI_INTERACTION" },
+  { no: 22, name: "EVENT_TYPE_EXPERIMENT_EXPOSURE" },
 ]);
 
 /**
@@ -917,6 +926,13 @@ export class GetDemandForecastResponse extends Message<GetDemandForecastResponse
    */
   isColdStart = false;
 
+  /**
+   * The run time of the forecast; unset when is_cold_start is true (no model run).
+   *
+   * @generated from field: google.protobuf.Timestamp generated_at = 8;
+   */
+  generatedAt?: Timestamp;
+
   constructor(data?: PartialMessage<GetDemandForecastResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -932,6 +948,7 @@ export class GetDemandForecastResponse extends Message<GetDemandForecastResponse
     { no: 5, name: "safety_stock", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 6, name: "model_version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 7, name: "is_cold_start", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 8, name: "generated_at", kind: "message", T: Timestamp },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetDemandForecastResponse {
@@ -948,6 +965,475 @@ export class GetDemandForecastResponse extends Message<GetDemandForecastResponse
 
   static equals(a: GetDemandForecastResponse | PlainMessage<GetDemandForecastResponse> | undefined, b: GetDemandForecastResponse | PlainMessage<GetDemandForecastResponse> | undefined): boolean {
     return proto3.util.equals(GetDemandForecastResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.analytics.v1.GetRetentionCohortsRequest
+ */
+export class GetRetentionCohortsRequest extends Message<GetRetentionCohortsRequest> {
+  /**
+   * @generated from field: google.protobuf.Timestamp from = 1;
+   */
+  from?: Timestamp;
+
+  /**
+   * Number of weekly cohorts, 1..26; 0 = 12; values above 26 are rejected with INVALID_ARGUMENT.
+   *
+   * @generated from field: uint32 weeks = 2;
+   */
+  weeks = 0;
+
+  constructor(data?: PartialMessage<GetRetentionCohortsRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.GetRetentionCohortsRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "from", kind: "message", T: Timestamp },
+    { no: 2, name: "weeks", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetRetentionCohortsRequest {
+    return new GetRetentionCohortsRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetRetentionCohortsRequest {
+    return new GetRetentionCohortsRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetRetentionCohortsRequest {
+    return new GetRetentionCohortsRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetRetentionCohortsRequest | PlainMessage<GetRetentionCohortsRequest> | undefined, b: GetRetentionCohortsRequest | PlainMessage<GetRetentionCohortsRequest> | undefined): boolean {
+    return proto3.util.equals(GetRetentionCohortsRequest, a, b);
+  }
+}
+
+/**
+ * RetentionCohort is one signup week, starting on a UTC Monday. d1, d7, d30,
+ * weekly_active and repeat_purchase_30d are ratios in 0..1.
+ *
+ * @generated from message platform.analytics.v1.RetentionCohort
+ */
+export class RetentionCohort extends Message<RetentionCohort> {
+  /**
+   * @generated from field: string cohort_week = 1;
+   */
+  cohortWeek = "";
+
+  /**
+   * @generated from field: int64 cohort_size = 2;
+   */
+  cohortSize = protoInt64.zero;
+
+  /**
+   * @generated from field: double d1 = 3;
+   */
+  d1 = 0;
+
+  /**
+   * @generated from field: double d7 = 4;
+   */
+  d7 = 0;
+
+  /**
+   * @generated from field: double d30 = 5;
+   */
+  d30 = 0;
+
+  /**
+   * @generated from field: repeated double weekly_active = 6;
+   */
+  weeklyActive: number[] = [];
+
+  /**
+   * @generated from field: double repeat_purchase_30d = 7;
+   */
+  repeatPurchase30d = 0;
+
+  constructor(data?: PartialMessage<RetentionCohort>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.RetentionCohort";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "cohort_week", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "cohort_size", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "d1", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 4, name: "d7", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 5, name: "d30", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 6, name: "weekly_active", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, repeated: true },
+    { no: 7, name: "repeat_purchase_30d", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RetentionCohort {
+    return new RetentionCohort().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RetentionCohort {
+    return new RetentionCohort().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RetentionCohort {
+    return new RetentionCohort().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RetentionCohort | PlainMessage<RetentionCohort> | undefined, b: RetentionCohort | PlainMessage<RetentionCohort> | undefined): boolean {
+    return proto3.util.equals(RetentionCohort, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.analytics.v1.GetRetentionCohortsResponse
+ */
+export class GetRetentionCohortsResponse extends Message<GetRetentionCohortsResponse> {
+  /**
+   * @generated from field: repeated platform.analytics.v1.RetentionCohort cohorts = 1;
+   */
+  cohorts: RetentionCohort[] = [];
+
+  constructor(data?: PartialMessage<GetRetentionCohortsResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.GetRetentionCohortsResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "cohorts", kind: "message", T: RetentionCohort, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetRetentionCohortsResponse {
+    return new GetRetentionCohortsResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetRetentionCohortsResponse {
+    return new GetRetentionCohortsResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetRetentionCohortsResponse {
+    return new GetRetentionCohortsResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetRetentionCohortsResponse | PlainMessage<GetRetentionCohortsResponse> | undefined, b: GetRetentionCohortsResponse | PlainMessage<GetRetentionCohortsResponse> | undefined): boolean {
+    return proto3.util.equals(GetRetentionCohortsResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.analytics.v1.GetExperimentReadoutRequest
+ */
+export class GetExperimentReadoutRequest extends Message<GetExperimentReadoutRequest> {
+  /**
+   * @generated from field: string flag = 1;
+   */
+  flag = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp from = 2;
+   */
+  from?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp to = 3;
+   */
+  to?: Timestamp;
+
+  constructor(data?: PartialMessage<GetExperimentReadoutRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.GetExperimentReadoutRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "flag", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "from", kind: "message", T: Timestamp },
+    { no: 3, name: "to", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetExperimentReadoutRequest {
+    return new GetExperimentReadoutRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetExperimentReadoutRequest {
+    return new GetExperimentReadoutRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetExperimentReadoutRequest {
+    return new GetExperimentReadoutRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetExperimentReadoutRequest | PlainMessage<GetExperimentReadoutRequest> | undefined, b: GetExperimentReadoutRequest | PlainMessage<GetExperimentReadoutRequest> | undefined): boolean {
+    return proto3.util.equals(GetExperimentReadoutRequest, a, b);
+  }
+}
+
+/**
+ * ExperimentVariantRow is one variant of the flag. rate is converted / exposed in 0..1,
+ * with a 95% Wilson interval [ci_low, ci_high] also in 0..1.
+ *
+ * @generated from message platform.analytics.v1.ExperimentVariantRow
+ */
+export class ExperimentVariantRow extends Message<ExperimentVariantRow> {
+  /**
+   * @generated from field: string variant = 1;
+   */
+  variant = "";
+
+  /**
+   * @generated from field: int64 exposed = 2;
+   */
+  exposed = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 converted = 3;
+   */
+  converted = protoInt64.zero;
+
+  /**
+   * @generated from field: double rate = 4;
+   */
+  rate = 0;
+
+  /**
+   * @generated from field: double ci_low = 5;
+   */
+  ciLow = 0;
+
+  /**
+   * @generated from field: double ci_high = 6;
+   */
+  ciHigh = 0;
+
+  constructor(data?: PartialMessage<ExperimentVariantRow>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.ExperimentVariantRow";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "variant", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "exposed", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "converted", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 4, name: "rate", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 5, name: "ci_low", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 6, name: "ci_high", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ExperimentVariantRow {
+    return new ExperimentVariantRow().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ExperimentVariantRow {
+    return new ExperimentVariantRow().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ExperimentVariantRow {
+    return new ExperimentVariantRow().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ExperimentVariantRow | PlainMessage<ExperimentVariantRow> | undefined, b: ExperimentVariantRow | PlainMessage<ExperimentVariantRow> | undefined): boolean {
+    return proto3.util.equals(ExperimentVariantRow, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.analytics.v1.GetExperimentReadoutResponse
+ */
+export class GetExperimentReadoutResponse extends Message<GetExperimentReadoutResponse> {
+  /**
+   * @generated from field: repeated platform.analytics.v1.ExperimentVariantRow variants = 1;
+   */
+  variants: ExperimentVariantRow[] = [];
+
+  /**
+   * Conversion window: a paid order within 7 days after the first exposure.
+   *
+   * @generated from field: uint32 window_days = 2;
+   */
+  windowDays = 0;
+
+  constructor(data?: PartialMessage<GetExperimentReadoutResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.GetExperimentReadoutResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "variants", kind: "message", T: ExperimentVariantRow, repeated: true },
+    { no: 2, name: "window_days", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetExperimentReadoutResponse {
+    return new GetExperimentReadoutResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetExperimentReadoutResponse {
+    return new GetExperimentReadoutResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetExperimentReadoutResponse {
+    return new GetExperimentReadoutResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetExperimentReadoutResponse | PlainMessage<GetExperimentReadoutResponse> | undefined, b: GetExperimentReadoutResponse | PlainMessage<GetExperimentReadoutResponse> | undefined): boolean {
+    return proto3.util.equals(GetExperimentReadoutResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.analytics.v1.GetAiSurfaceReportRequest
+ */
+export class GetAiSurfaceReportRequest extends Message<GetAiSurfaceReportRequest> {
+  /**
+   * @generated from field: google.protobuf.Timestamp from = 1;
+   */
+  from?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp to = 2;
+   */
+  to?: Timestamp;
+
+  constructor(data?: PartialMessage<GetAiSurfaceReportRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.GetAiSurfaceReportRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "from", kind: "message", T: Timestamp },
+    { no: 2, name: "to", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetAiSurfaceReportRequest {
+    return new GetAiSurfaceReportRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetAiSurfaceReportRequest {
+    return new GetAiSurfaceReportRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetAiSurfaceReportRequest {
+    return new GetAiSurfaceReportRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetAiSurfaceReportRequest | PlainMessage<GetAiSurfaceReportRequest> | undefined, b: GetAiSurfaceReportRequest | PlainMessage<GetAiSurfaceReportRequest> | undefined): boolean {
+    return proto3.util.equals(GetAiSurfaceReportRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.analytics.v1.AiSurfaceRow
+ */
+export class AiSurfaceRow extends Message<AiSurfaceRow> {
+  /**
+   * @generated from field: string surface = 1;
+   */
+  surface = "";
+
+  /**
+   * @generated from field: string model_version = 2;
+   */
+  modelVersion = "";
+
+  /**
+   * @generated from field: int64 shown = 3;
+   */
+  shown = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 accepted = 4;
+   */
+  accepted = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 edited = 5;
+   */
+  edited = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 dismissed = 6;
+   */
+  dismissed = protoInt64.zero;
+
+  constructor(data?: PartialMessage<AiSurfaceRow>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.AiSurfaceRow";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "surface", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "model_version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "shown", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 4, name: "accepted", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 5, name: "edited", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 6, name: "dismissed", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AiSurfaceRow {
+    return new AiSurfaceRow().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AiSurfaceRow {
+    return new AiSurfaceRow().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AiSurfaceRow {
+    return new AiSurfaceRow().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AiSurfaceRow | PlainMessage<AiSurfaceRow> | undefined, b: AiSurfaceRow | PlainMessage<AiSurfaceRow> | undefined): boolean {
+    return proto3.util.equals(AiSurfaceRow, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.analytics.v1.GetAiSurfaceReportResponse
+ */
+export class GetAiSurfaceReportResponse extends Message<GetAiSurfaceReportResponse> {
+  /**
+   * @generated from field: repeated platform.analytics.v1.AiSurfaceRow rows = 1;
+   */
+  rows: AiSurfaceRow[] = [];
+
+  constructor(data?: PartialMessage<GetAiSurfaceReportResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.analytics.v1.GetAiSurfaceReportResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "rows", kind: "message", T: AiSurfaceRow, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetAiSurfaceReportResponse {
+    return new GetAiSurfaceReportResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetAiSurfaceReportResponse {
+    return new GetAiSurfaceReportResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetAiSurfaceReportResponse {
+    return new GetAiSurfaceReportResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetAiSurfaceReportResponse | PlainMessage<GetAiSurfaceReportResponse> | undefined, b: GetAiSurfaceReportResponse | PlainMessage<GetAiSurfaceReportResponse> | undefined): boolean {
+    return proto3.util.equals(GetAiSurfaceReportResponse, a, b);
   }
 }
 
