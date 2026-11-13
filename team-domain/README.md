@@ -12,10 +12,10 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 |---|---|---|
 | `GetListing`, `ListListings`, `ListCategories`, `GetCategory` | `listing.read` | `NotFound` for unknown id |
 | `ListMyListings` | `listing.write` | caller's own listings |
-| `CreateListing` | `listing.write` | seller id forced from the principal |
+| `CreateListing` | `listing.write` | seller id forced from the principal. Capped by the seller plan `max_listings` (team-promotion `GetEntitlements`; every status counts, `-1` = unlimited): at the cap `ResourceExhausted` with `ErrorInfo` reason `PLAN_LISTING_LIMIT`; entitlements down, slow or malformed is `Unavailable` (fail closed) |
 | `UpdateListing`, `DeleteListing` | `listing.write` + owner, or `admin` scope | `PermissionDenied` "not the listing owner"; delete is a hard `DELETE` |
 | `GetImageUploadUrl` | `listing.write` | `Unavailable` if no object store |
-| `UpsertStorefront` | `listing.write` | row keyed by the principal; `AlreadyExists` on slug clash |
+| `UpsertStorefront` | `listing.write` | row keyed by the principal; `AlreadyExists` on slug clash. Non-empty featured ids above the plan `featured_listings` are `ResourceExhausted` with reason `PLAN_FEATURED_LIMIT`; entitlements failure is `Unavailable`; no featured ids skips the plan lookup |
 | `GetStorefront`, `BatchGetStorefronts` | `listing.read` | batch max 100 ids, else `InvalidArgument` |
 | `CreateBundle` | `listing.write` | owner-scoped |
 | `GetBundle`, `ListBundlesBySeller` | `listing.read` | |
@@ -30,7 +30,7 @@ Reservation lifecycle (spec `inventory-reservations`, ADR-0008): `active → com
 
 Also serves gRPC health, and reflection when `GRPC_REFLECTION_ENABLED=true`.
 
-Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order`, `team-promotion` and `team-notification` (`UPSTREAM_DOMAIN_ADDR`). Upstream calls: team-audit (`UPSTREAM_AUDIT_ADDR`) and team-ai `ScreenListing` (`UPSTREAM_AI_ADDR`, fails safe to no verdict).
+Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order`, `team-promotion` and `team-notification` (`UPSTREAM_DOMAIN_ADDR`). Upstream calls: team-audit (`UPSTREAM_AUDIT_ADDR`), team-ai `ScreenListing` (`UPSTREAM_AI_ADDR`, fails safe to no verdict) and team-promotion `SubscriptionService/GetEntitlements` (`UPSTREAM_PROMOTION_ADDR`, service principal `service-team-domain`, scope `promotion.read`, fails closed).
 
 ## Events
 
