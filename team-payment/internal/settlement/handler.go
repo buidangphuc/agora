@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
@@ -21,6 +24,8 @@ const (
 	ReturnRefundedEventType = "platform.order.v1.ReturnRefunded"
 )
 
+var skippedNoBreakdown, _ = otel.Meter("team-payment/settlement").Int64Counter("payment_commission_skipped")
+
 const (
 	DefaultTopic    = "order.events"
 	DefaultGroup    = "team-payment.settlement"
@@ -31,6 +36,10 @@ type Applier interface {
 	CreditSettlement(ctx context.Context, orderID, sellerID string, eventTotal int64) error
 	RefundCancelledOrder(ctx context.Context, orderID string) error
 	RefundReturn(ctx context.Context, orderID, returnID string, amount int64) error
+}
+
+type BreakdownApplier interface {
+	CreditSettlementWithBreakdown(ctx context.Context, orderID, sellerID string, eventTotal int64, b payment.Breakdown) error
 }
 
 type Voider interface {
@@ -141,10 +150,23 @@ func (h *Handler) handlePaid(ctx context.Context, env *eventsv1.EventEnvelope) e
 	if err != nil {
 		return permanent("order %q: %v", paid.GetOrderId(), err)
 	}
-	if err := h.apply.CreditSettlement(ctx, paid.GetOrderId(), seller, paid.GetTotalAmount()); err != nil {
-		return classify(err, "credit settlement for order "+paid.GetOrderId())
+	what := "credit settlement for order " + paid.GetOrderId()
+	ba, ok := h.apply.(BreakdownApplier)
+	if !ok {
+		return classify(h.apply.CreditSettlement(ctx, paid.GetOrderId(), seller, paid.GetTotalAmount()), what)
 	}
-	return nil
+	if paid.ItemsSubtotal == nil || paid.ShippingFee == nil || paid.ShopDiscountAmount == nil || paid.PlatformDiscountAmount == nil {
+		skippedNoBreakdown.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", "no_breakdown")))
+		return classify(h.apply.CreditSettlement(ctx, paid.GetOrderId(), seller, paid.GetTotalAmount()), what)
+	}
+	b := payment.Breakdown{
+		ItemsSubtotal: paid.GetItemsSubtotal(), ShippingFee: paid.GetShippingFee(),
+		ShopDiscount: paid.GetShopDiscountAmount(), PlatformDiscount: paid.GetPlatformDiscountAmount(),
+	}
+	if b.ItemsSubtotal < 0 || b.ShippingFee < 0 || b.ShopDiscount < 0 || b.PlatformDiscount < 0 || b.ShopDiscount > b.ItemsSubtotal {
+		return permanent("order %q: inconsistent price breakdown", paid.GetOrderId())
+	}
+	return classify(ba.CreditSettlementWithBreakdown(ctx, paid.GetOrderId(), seller, paid.GetTotalAmount(), b), what)
 }
 
 func sellerOf(paid *orderv1.OrderPaidEvent) (string, error) {
@@ -166,6 +188,9 @@ func sellerOf(paid *orderv1.OrderPaidEvent) (string, error) {
 }
 
 func classify(err error, what string) error {
+	if err == nil {
+		return nil
+	}
 	if errors.Is(err, payment.ErrNotSettled) || errors.Is(err, payment.ErrInvalidAmount) {
 		return permanent("%s: %v", what, err)
 	}

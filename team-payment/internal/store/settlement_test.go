@@ -115,11 +115,11 @@ func TestCreditSettlement_DuplicateIsNoop(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
 		tx := paidTx(t, s, "o-dup", 500000)
-		r1, err := s.settle.CreditSettlement(ctx, "o-dup", "seller")
+		r1, err := s.settle.CreditSettlement(ctx, "o-dup", "seller", store.Commissionable{})
 		if err != nil || !r1.Credited {
 			t.Fatalf("first credit: %+v %v", r1, err)
 		}
-		r2, err := s.settle.CreditSettlement(ctx, "o-dup", "seller")
+		r2, err := s.settle.CreditSettlement(ctx, "o-dup", "seller", store.Commissionable{})
 		if err != nil || r2.Credited {
 			t.Fatalf("second credit must be a no-op: %+v %v", r2, err)
 		}
@@ -134,13 +134,13 @@ func TestCreditSettlement_DuplicateIsNoop(t *testing.T) {
 func TestCreditSettlement_NoSettledTransaction(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
-		if _, err := s.settle.CreditSettlement(ctx, "o-none", "seller"); !errors.Is(err, store.ErrNotSettled) {
+		if _, err := s.settle.CreditSettlement(ctx, "o-none", "seller", store.Commissionable{}); !errors.Is(err, store.ErrNotSettled) {
 			t.Fatalf("no tx: want ErrNotSettled, got %v", err)
 		}
 		if _, err := s.payments.CreateTransaction(ctx, store.PaymentTransaction{OrderID: "o-pending", BuyerID: "b", Amount: 10}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.settle.CreditSettlement(ctx, "o-pending", "seller"); !errors.Is(err, store.ErrNotSettled) {
+		if _, err := s.settle.CreditSettlement(ctx, "o-pending", "seller", store.Commissionable{}); !errors.Is(err, store.ErrNotSettled) {
 			t.Fatalf("pending tx: want ErrNotSettled, got %v", err)
 		}
 		if got, bal := ledgerOf(t, s, "seller"); len(got) != 0 || bal != 0 {
@@ -153,7 +153,7 @@ func TestCreditThenRefund_OneCreditOneDeduction(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
 		tx := paidTx(t, s, "o-cr", 500000)
-		if _, err := s.settle.CreditSettlement(ctx, "o-cr", "seller"); err != nil {
+		if _, err := s.settle.CreditSettlement(ctx, "o-cr", "seller", store.Commissionable{}); err != nil {
 			t.Fatal(err)
 		}
 		res, err := rpcRefund(ctx, s, tx.ID, "r1", 200000)
@@ -161,7 +161,7 @@ func TestCreditThenRefund_OneCreditOneDeduction(t *testing.T) {
 			t.Fatalf("refund: %+v %v", res, err)
 		}
 		// Redelivered credit after the refund writes nothing more.
-		if r, err := s.settle.CreditSettlement(ctx, "o-cr", "seller"); err != nil || r.Credited || r.Deducted {
+		if r, err := s.settle.CreditSettlement(ctx, "o-cr", "seller", store.Commissionable{}); err != nil || r.Credited || r.Deducted {
 			t.Fatalf("redelivered credit: %+v %v", r, err)
 		}
 		got, bal := ledgerOf(t, s, "seller")
@@ -187,11 +187,11 @@ func TestRefundThenCredit_OneCreditOneDeduction(t *testing.T) {
 		if got, bal := ledgerOf(t, s, "seller"); len(got) != 0 || bal != 0 {
 			t.Fatalf("refund without credit wrote %+v (%d)", got, bal)
 		}
-		r, err := s.settle.CreditSettlement(ctx, "o-rc", "seller")
+		r, err := s.settle.CreditSettlement(ctx, "o-rc", "seller", store.Commissionable{})
 		if err != nil || !r.Credited || !r.Deducted {
 			t.Fatalf("credit after refund: %+v %v", r, err)
 		}
-		if r, err := s.settle.CreditSettlement(ctx, "o-rc", "seller"); err != nil || r.Credited || r.Deducted {
+		if r, err := s.settle.CreditSettlement(ctx, "o-rc", "seller", store.Commissionable{}); err != nil || r.Credited || r.Deducted {
 			t.Fatalf("redelivered credit: %+v %v", r, err)
 		}
 		got, bal := ledgerOf(t, s, "seller")
@@ -224,7 +224,7 @@ func TestConcurrentRefunds_SameKeyWritesOnce(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
 		tx := paidTx(t, s, "o-race", 500000)
-		if _, err := s.settle.CreditSettlement(ctx, "o-race", "seller"); err != nil {
+		if _, err := s.settle.CreditSettlement(ctx, "o-race", "seller", store.Commissionable{}); err != nil {
 			t.Fatal(err)
 		}
 		var created atomic.Int32
@@ -271,7 +271,7 @@ func TestConcurrentCreditAndRefund(t *testing.T) {
 			wg.Add(2)
 			go func() {
 				defer wg.Done()
-				if _, err := s.settle.CreditSettlement(ctx, order, "seller-cr"); err != nil {
+				if _, err := s.settle.CreditSettlement(ctx, order, "seller-cr", store.Commissionable{}); err != nil {
 					t.Errorf("credit: %v", err)
 				}
 			}()
@@ -315,7 +315,7 @@ func TestLedgerStoreRejectsInvalidRows_Postgres(t *testing.T) {
 	s := postgresStores(t)
 	ctx := context.Background()
 	tx := paidTx(t, s, "o-store", 500)
-	if _, err := s.settle.CreditSettlement(ctx, "o-store", "seller"); err != nil {
+	if _, err := s.settle.CreditSettlement(ctx, "o-store", "seller", store.Commissionable{}); err != nil {
 		t.Fatal(err)
 	}
 	cases := []struct {

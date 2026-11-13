@@ -76,11 +76,21 @@ func (r *InMemoryLedgerRepository) heldCreditsLocked(sellerID string, h store.Ho
 		}
 		net := c.Amount
 		for _, d := range r.entries {
-			if c.ReferenceID == "" || d.Type != store.LedgerTypeRefundDeduction || r.refunds == nil {
+			if c.ReferenceID == "" {
 				continue
 			}
-			if pid, ok := r.refunds.paymentOf(d.ReferenceID); ok && pid == c.ReferenceID {
-				net += d.Amount
+			switch d.Type {
+			case store.LedgerTypeRefundDeduction, store.LedgerTypeCommissionReversal:
+				if r.refunds == nil {
+					continue
+				}
+				if pid, ok := r.refunds.paymentOf(d.ReferenceID); ok && pid == c.ReferenceID {
+					net += d.Amount
+				}
+			case store.LedgerTypeCommission:
+				if d.ReferenceID == c.ReferenceID {
+					net += d.Amount
+				}
 			}
 		}
 		out = append(out, store.HeldCredit{CreatedAt: c.CreatedAt, Net: net})
