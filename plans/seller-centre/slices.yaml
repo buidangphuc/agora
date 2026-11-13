@@ -1,0 +1,75 @@
+# plans/seller-centre/slices.yaml — one slice = one OpenSpec change (plan section 13).
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc/cross_change_check.py --slices plans/seller-centre/slices.yaml
+initiative: seller-centre
+slices:
+  - id: seller-centre-contract
+    owner: platform-core
+    depends_on: []
+    provides:
+      - FlashSaleService.ListMyCampaigns
+      - FlashSaleService.CancelMyCampaign
+      - VoucherService.ListMyShopVouchers
+      - VoucherService.DeactivateMyShopVoucher
+      - CartService.AddBundleToCart
+  - id: domain-storefront-customisation
+    owner: team-domain
+    depends_on: []
+    uses: [ListingService.UpsertStorefront]
+  - id: domain-my-listings-filter
+    owner: team-domain
+    depends_on: [seller-centre-contract]
+    uses: [ListingService.ListMyListings]
+  - id: domain-bundle-integrity
+    owner: team-domain
+    depends_on: []
+    uses: [ListingService.CreateBundle]
+  - id: seller-shop-customisation-ui
+    owner: team-frontend-seller
+    depends_on: [domain-storefront-customisation, domain-my-listings-filter]
+    uses: [ListingService.UpsertStorefront, ListingService.GetImageUploadUrl, ListingService.ListMyListings]
+  - id: shop-page-featured-theme
+    owner: team-frontend
+    depends_on: [domain-storefront-customisation]
+    uses: [ListingService.GetStorefront]
+  - id: promotion-seller-self-service
+    owner: team-promotion
+    depends_on: [seller-centre-contract]
+    uses:
+      - FlashSaleService.ListMyCampaigns
+      - FlashSaleService.CancelMyCampaign
+      - VoucherService.ListMyShopVouchers
+      - VoucherService.DeactivateMyShopVoucher
+  - id: seller-marketing-hub
+    owner: team-frontend-seller
+    depends_on: [promotion-seller-self-service, domain-my-listings-filter]
+    uses:
+      - FlashSaleService.ListMyCampaigns
+      - FlashSaleService.CreateCampaign
+      - FlashSaleService.CancelMyCampaign
+      - VoucherService.ListMyShopVouchers
+      - VoucherService.CreateVoucher
+      - VoucherService.DeactivateMyShopVoucher
+  - id: seller-getting-started
+    owner: team-frontend-seller
+    depends_on: [seller-marketing-hub, seller-shop-customisation-ui]
+    uses: [ListingService.GetStorefront, ListingService.ListMyListings, VoucherService.ListMyShopVouchers, FlashSaleService.ListMyCampaigns]
+  - id: order-bundle-checkout
+    owner: team-order
+    depends_on: [seller-centre-contract, domain-bundle-integrity]
+    uses: [CartService.AddBundleToCart, ListingService.GetBundle]
+  - id: shop-bundle-purchase-ui
+    owner: team-frontend
+    depends_on: [order-bundle-checkout, shop-page-featured-theme]
+    uses: [CartService.AddBundleToCart]
+  - id: order-seller-list-paging
+    owner: team-order
+    depends_on: [seller-centre-contract]
+    uses: [OrderService.ListSellerOrders]
+  - id: seller-server-paging-ui
+    owner: team-frontend-seller
+    depends_on: [order-seller-list-paging, domain-my-listings-filter]
+    uses: [OrderService.ListSellerOrders, ListingService.ListMyListings]
+  - id: seller-bulk-ship
+    owner: team-frontend-seller
+    depends_on: [seller-server-paging-ui]
+    uses: [OrderService.UpdateOrderStatus, OrderService.GetOrder]
