@@ -349,3 +349,8 @@ func (c stockChanges) listings() []string {
 	sort.Strings(out)
 	return out
 }
+
+// RED-STUB(T2-featured-batched-read): implementer replaces with a real lookup.
+func (r *InMemoryListingRepository) GetByIDs(_ context.Context, ids []string) ([]store.Listing, error) {
+	return nil, nil
+}

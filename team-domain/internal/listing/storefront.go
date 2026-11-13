@@ -142,3 +142,9 @@ func (s *StorefrontService) GetMany(ctx context.Context, sellerIDs []string) ([]
 	}
 	return s.repo.GetBySellers(ctx, ids)
 }
+
+// RED-STUB(T2-featured-batched-read): implementer wires the listing port used to
+// validate featured ids.
+func (s *StorefrontService) WithListings(repo store.ListingRepository) *StorefrontService {
+	return s
+}

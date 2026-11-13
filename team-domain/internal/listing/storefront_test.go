@@ -265,3 +265,121 @@ func TestUpsertValidationOrderTaglineBeforeTheme(t *testing.T) {
 		t.Fatalf("err = %v, want ErrBannerInvalid before theme", err)
 	}
 }
+
+type spyListings struct {
+	store.ListingRepository
+	batchCalls int
+	getCalls   int
+	failWith   error
+}
+
+func (s *spyListings) GetByIDs(ctx context.Context, ids []string) ([]store.Listing, error) {
+	s.batchCalls++
+	if s.failWith != nil {
+		return nil, s.failWith
+	}
+	return s.ListingRepository.GetByIDs(ctx, ids)
+}
+
+func (s *spyListings) Get(ctx context.Context, id string) (store.Listing, error) {
+	s.getCalls++
+	return s.ListingRepository.Get(ctx, id)
+}
+
+func ownedListings() []store.Listing {
+	var ls []store.Listing
+	for _, id := range []string{"A", "B", "C", "D", "E", "F", "G"} {
+		ls = append(ls, store.Listing{ID: id, Title: id, SellerID: "seller-a", Status: "published"})
+	}
+	ls = append(ls, store.Listing{ID: "X", Title: "X", SellerID: "seller-b", Status: "published"})
+	return ls
+}
+
+func newFeatured() (*listing.StorefrontService, *storetest.InMemoryStorefrontRepository, *spyListings) {
+	repo := storetest.NewInMemoryStorefrontRepository()
+	spy := &spyListings{ListingRepository: storetest.NewInMemoryListingRepository(ownedListings()...)}
+	return listing.NewStorefrontService(repo, sfBase).WithListings(spy), repo, spy
+}
+
+// Scenario: Six owned listings are saved in the given order
+func TestUpsertSixFeaturedSavedInOrder(t *testing.T) {
+	svc, repo, _ := newFeatured()
+	want := []string{"C", "A", "F", "B", "E", "D"}
+	if _, err := upsertSF(svc, store.Storefront{FeaturedListingIDs: want}); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	got := storedSF(t, repo).FeaturedListingIDs
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("stored %v, want %v", got, want)
+	}
+}
+
+// Scenario: A seventh featured listing is rejected
+func TestUpsertSevenFeaturedRejected(t *testing.T) {
+	svc, repo, _ := newFeatured()
+	_, err := upsertSF(svc, store.Storefront{FeaturedListingIDs: []string{"A", "B", "C", "D", "E", "F", "G"}})
+	if !errors.Is(err, listing.ErrTooManyFeatured) {
+		t.Fatalf("err = %v, want ErrTooManyFeatured", err)
+	}
+	assertNotStored(t, repo)
+}
+
+// Scenario: A listing owned by another seller is rejected
+func TestUpsertFeaturedForeignListingRejected(t *testing.T) {
+	svc, repo, _ := newFeatured()
+	_, err := upsertSF(svc, store.Storefront{FeaturedListingIDs: []string{"A", "X"}})
+	if !errors.Is(err, listing.ErrFeaturedInvalid) {
+		t.Fatalf("err = %v, want ErrFeaturedInvalid", err)
+	}
+	assertNotStored(t, repo)
+}
+
+// Scenario: Unknown and foreign listing ids give the same answer
+func TestUpsertFeaturedForeignAndUnknownSameError(t *testing.T) {
+	svc, _, _ := newFeatured()
+	_, errUnknown := upsertSF(svc, store.Storefront{FeaturedListingIDs: []string{"nope"}})
+	_, errForeign := upsertSF(svc, store.Storefront{FeaturedListingIDs: []string{"X"}})
+	if !errors.Is(errUnknown, listing.ErrFeaturedInvalid) || !errors.Is(errForeign, listing.ErrFeaturedInvalid) {
+		t.Fatalf("errs = %v / %v, want ErrFeaturedInvalid", errUnknown, errForeign)
+	}
+	if errUnknown.Error() != errForeign.Error() {
+		t.Fatalf("messages differ: %q vs %q", errUnknown, errForeign)
+	}
+}
+
+// Scenario: Duplicate or empty featured ids are rejected
+func TestUpsertFeaturedDuplicateOrEmptyRejected(t *testing.T) {
+	for _, ids := range [][]string{{"A", "A"}, {"A", ""}} {
+		svc, repo, _ := newFeatured()
+		_, err := upsertSF(svc, store.Storefront{FeaturedListingIDs: ids})
+		if !errors.Is(err, listing.ErrFeaturedInvalid) {
+			t.Fatalf("ids %q: err = %v, want ErrFeaturedInvalid", ids, err)
+		}
+		assertNotStored(t, repo)
+	}
+}
+
+// Scenario: Featured lookup uses one batched read
+func TestUpsertFeaturedSingleBatchedLookup(t *testing.T) {
+	svc, _, spy := newFeatured()
+	if _, err := upsertSF(svc, store.Storefront{FeaturedListingIDs: []string{"A", "B", "C", "D", "E", "F"}}); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	if spy.batchCalls != 1 || spy.getCalls != 0 {
+		t.Fatalf("batch calls = %d, single Get calls = %d; want 1 and 0", spy.batchCalls, spy.getCalls)
+	}
+}
+
+// Scenario: Lookup failure stores nothing
+func TestUpsertFeaturedLookupErrorStoresNothing(t *testing.T) {
+	svc, repo, spy := newFeatured()
+	spy.failWith = errors.New("db down")
+	_, err := upsertSF(svc, store.Storefront{FeaturedListingIDs: []string{"A"}})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if errors.Is(err, listing.ErrFeaturedInvalid) || errors.Is(err, listing.ErrTooManyFeatured) {
+		t.Fatalf("lookup failure must not be an invalid-argument error, got %v", err)
+	}
+	assertNotStored(t, repo)
+}

@@ -694,3 +694,8 @@ func parseQueueCursor(c string) (time.Time, string, error) {
 	}
 	return at, id, nil
 }
+
+// RED-STUB(T2-featured-batched-read): implementer replaces with one batched query.
+func (r *PostgresListingRepository) GetByIDs(ctx context.Context, ids []string) ([]Listing, error) {
+	return nil, nil
+}
