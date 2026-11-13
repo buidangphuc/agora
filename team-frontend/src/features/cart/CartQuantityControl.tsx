@@ -7,6 +7,8 @@ import { QuantityPicker } from "@/components/ui/QuantityPicker";
 import { useToast } from "@/components/ui/ToastProvider";
 import { removeFromCartAction, updateCartItemAction } from "./actions";
 
+const BUNDLE_DROPPED_NOTICE = "Combo đã bị huỷ, các sản phẩm tính giá thường";
+
 /**
  * Quantity stepper + remove for one cart row. The quantity shown is always the
  * server value (`quantity` prop): the action revalidates /cart and the RSC tree
@@ -17,10 +19,12 @@ export function CartQuantityControl({
   itemId,
   quantity,
   title,
+  bundleId = "",
 }: {
   itemId: string;
   quantity: number;
   title: string;
+  bundleId?: string;
 }) {
   const [pending, setPending] = useState<"update" | "remove" | null>(null);
   const toast = useToast();
@@ -34,7 +38,9 @@ export function CartQuantityControl({
     try {
       const res = await call();
       if (res.ok) {
-        if (successMessage) toast.info(successMessage);
+        if ("bundleDropped" in res && res.bundleDropped) {
+          toast.info(BUNDLE_DROPPED_NOTICE);
+        } else if (successMessage) toast.info(successMessage);
       } else {
         toast.error(res.error);
       }
@@ -58,7 +64,11 @@ export function CartQuantityControl({
         disabled={pending !== null}
         label={`Số lượng: ${title}`}
         onChange={(next) =>
-          run("update", () => updateCartItemAction(itemId, next))
+          run("update", () =>
+            bundleId
+              ? updateCartItemAction(itemId, next, bundleId)
+              : updateCartItemAction(itemId, next),
+          )
         }
       />
       <Button
@@ -70,7 +80,10 @@ export function CartQuantityControl({
         onClick={() =>
           run(
             "remove",
-            () => removeFromCartAction(itemId),
+            () =>
+              bundleId
+                ? removeFromCartAction(itemId, bundleId)
+                : removeFromCartAction(itemId),
             "Đã xóa sản phẩm khỏi giỏ hàng.",
           )
         }

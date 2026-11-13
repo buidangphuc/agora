@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { parseSort } from "@/features/listing/pdp";
+import { BundleCard } from "@/features/shop/BundleCard";
 import { ShopStorefrontView } from "@/features/shop/ShopStorefrontView";
 import { isFollowing } from "@/lib/gateway/engagement";
 import { getListing, listBundlesBySeller } from "@/lib/gateway/listings";
@@ -73,18 +74,12 @@ export default async function ShopPage(props: {
           </h2>
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {bundles.map((b) => (
-              <li
+              <BundleCard
                 key={b.id}
-                className="rounded-xs border border-border-subtle p-3 text-xs"
-              >
-                <p className="font-semibold text-text-primary">{b.title}</p>
-                <p className="mt-0.5 text-text-disabled">
-                  {b.listingIds.length} sản phẩm
-                </p>
-                <p className="mt-1 font-bold text-action-primary">
-                  {b.bundlePrice.toLocaleString("vi-VN")} VND
-                </p>
-              </li>
+                bundle={b}
+                shopListings={shop.items}
+                shopId={params.id}
+              />
             ))}
           </ul>
         </div>
