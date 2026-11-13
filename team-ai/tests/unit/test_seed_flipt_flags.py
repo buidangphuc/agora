@@ -38,7 +38,11 @@ class FakeFlipt:
         if request.method == "POST" and path == FLAGS_PATH:
             if body["key"] in self.flags:
                 return httpx.Response(409, json={"message": "exists"})
-            self.flags[body["key"]] = {**body, "enabled": bool(body.get("enabled", False)), "variants": []}
+            self.flags[body["key"]] = {
+                **body,
+                "enabled": bool(body.get("enabled", False)),
+                "variants": [],
+            }
             return httpx.Response(200, json=self.flags[body["key"]])
         return httpx.Response(404, json={"message": "unrouted"})
 
@@ -71,7 +75,9 @@ def test_similarity_variant_carries_the_ranker_attachment_and_control_none():
     seed_flags(fake.client())
 
     variants = {v["key"]: v for v in fake.flags[FLAG_KEY]["variants"]}
-    assert json.loads(variants["similarity"]["attachment"]) == {"ranking": {"model": "cosine_rank"}}
+    assert json.loads(variants["similarity"]["attachment"]) == {
+        "ranking": {"model": "cosine_rank"}
+    }
     assert not variants["control"].get("attachment")
 
 
@@ -118,7 +124,14 @@ def test_existing_flag_untouched():
 
 
 def test_existing_partial_flag_is_not_completed_or_modified():
-    existing = {FLAG_KEY: {"key": FLAG_KEY, "type": "VARIANT_FLAG_TYPE", "enabled": False, "variants": []}}
+    existing = {
+        FLAG_KEY: {
+            "key": FLAG_KEY,
+            "type": "VARIANT_FLAG_TYPE",
+            "enabled": False,
+            "variants": [],
+        }
+    }
     fake = FakeFlipt(copy.deepcopy(existing))
 
     seed_flags(fake.client())
@@ -129,9 +142,12 @@ def test_existing_partial_flag_is_not_completed_or_modified():
 
 def test_main_exits_zero_on_a_repeat_run(monkeypatch):
     fake = FakeFlipt()
-    monkeypatch.setattr("scripts.seed_flipt_flags.build_client", lambda url: httpx.Client(
-        base_url=url, transport=httpx.MockTransport(fake.handler)
-    ))
+    monkeypatch.setattr(
+        "scripts.seed_flipt_flags.build_client",
+        lambda url: httpx.Client(
+            base_url=url, transport=httpx.MockTransport(fake.handler)
+        ),
+    )
 
     assert main(["--url", BASE]) == 0
     assert main(["--url", BASE]) == 0

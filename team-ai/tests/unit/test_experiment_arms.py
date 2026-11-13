@@ -7,13 +7,12 @@ from collections.abc import Callable
 
 import httpx
 import pytest
-
-from app.modules.business.recommendation.adapters.flipt import FliptExperimentAssigner
-from app.modules.business.recommendation.placements import load_placements
 from fakeredis import aioredis
 
+from app.modules.business.recommendation.adapters.flipt import FliptExperimentAssigner
 from app.modules.business.recommendation.adapters.redis_cache import RedisServingCache
 from app.modules.business.recommendation.contract.keys import ServingKeys
+from app.modules.business.recommendation.placements import load_placements
 from app.modules.business.recommendation.ports import Assignment
 from app.modules.business.recommendation.schemas import RecommendationQuery
 from tests.unit.recs_support import FakeAssigner, FakeStock, Source, build_service, cand
@@ -167,9 +166,9 @@ async def test_unparsable_body_is_unassigned_flipt_unreachable_serves_default():
 
 
 async def test_disabled_flag_means_no_arm():
-    result = await _assigner(lambda r: httpx.Response(200, json={"match": False})).assign(
-        FLAG, "u1"
-    )
+    result = await _assigner(
+        lambda r: httpx.Response(200, json={"match": False})
+    ).assign(FLAG, "u1")
 
     assert result.status == "none"
     assert result.variant is None
@@ -275,7 +274,7 @@ async def test_unexpected_failure_reports_fallback_tier():
     await redis.set("recs:v1:serving", "g1")
     await redis.set("recs:v1:gen:g1:popular", _list("p1", "p2"))
     service = build_service(redis=redis)
-    service._cache = _BrokenUserCache(redis, ServingKeys("recs", "v1"))  # noqa: SLF001
+    service._cache = _BrokenUserCache(redis, ServingKeys("recs", "v1"))
 
     result = await service.recommend(
         RecommendationQuery(user_id="u1", placement_id="home_feed")

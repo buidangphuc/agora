@@ -100,9 +100,7 @@ def _service(case: dict[str, Any], redis: Any) -> RecommendationService:
     )
 
 
-def _wire(
-    result: RecommendationResult, expected: dict[str, Any]
-) -> dict[str, Any]:
+def _wire(result: RecommendationResult, expected: dict[str, Any]) -> dict[str, Any]:
     return {
         "items": [
             {"listing_id": i.listing_id, "score": round(i.score, 6), "rank": i.rank}
