@@ -67,6 +67,10 @@ message ShoppingAssistantResponse {
   string reply_text = 1;
   repeated ProductCardSnippet product_cards = 2;
   repeated string suggested_followups = 3;
+  // Opaque per-call id: a 32-character lowercase hex UUID (no dashes), unique per call. Empty when unset.
+  string request_id = 4;
+  // Which model produced this, as "<backend>:<prompt_version>", e.g. "mock:v1" or "rules-v1". Format: "<backend>:<prompt_version>|<search model_version>". Empty when unset.
+  string model_version = 5;
 }
 
 message MagicListingRequest {
@@ -82,6 +86,10 @@ message MagicListingResponse {
   int64 suggested_price_min = 4;
   int64 suggested_price_max = 5;
   repeated string highlight_tags = 6;
+  // Opaque per-call id: a 32-character lowercase hex UUID (no dashes), unique per call. Empty when unset.
+  string request_id = 7;
+  // Which model produced this, as "<backend>:<prompt_version>", e.g. "mock:v1" or "rules-v1". Empty when unset.
+  string model_version = 8;
 }
 
 message ChatCopilotRequest {
@@ -92,6 +100,10 @@ message ChatCopilotRequest {
 
 message ChatCopilotResponse {
   repeated string quick_replies = 1;
+  // Opaque per-call id: a 32-character lowercase hex UUID (no dashes), unique per call. Empty when unset.
+  string request_id = 2;
+  // Which model produced this, as "<backend>:<prompt_version>", e.g. "mock:v1" or "rules-v1". Empty when unset.
+  string model_version = 3;
 }
 
 message ReviewInput {
@@ -109,6 +121,10 @@ message SummarizeReviewsResponse {
   repeated string pros = 2;
   repeated string cons = 3;
   string sentiment = 4; // e.g. "positive", "mixed", "negative"
+  // Opaque per-call id: a 32-character lowercase hex UUID (no dashes), unique per call. Empty when unset.
+  string request_id = 5;
+  // Which model produced this, as "<backend>:<prompt_version>", e.g. "mock:v1" or "rules-v1". Empty when unset.
+  string model_version = 6;
 }
 
 // ── Tag classification (add-tag-classifier-filter-enrichment) ──
