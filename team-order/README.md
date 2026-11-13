@@ -37,6 +37,7 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 | `ListOrderReturns` | buyer or seller of the order, or admin (else `PermissionDenied`; unknown order `NotFound`). All returns of the order, newest first. |
 | `UpdateReturnStatus` | seller of the return or admin (the buyer gets `PermissionDenied`). PENDING -> APPROVED/REJECTED; APPROVED -> REFUNDED/REJECTED; REJECTED and REFUNDED are terminal (`FailedPrecondition`). Every transition is a compare-and-set on the status read (`TransitionReturn`): of concurrent transitions one wins, the others get `FailedPrecondition`. The won APPROVED -> REFUNDED writes `ReturnRefunded` to the outbox in the same transaction. A move to REFUNDED on an order with no `paid_at` (never paid online, e.g. cash on delivery) is refused with `FailedPrecondition: order was not paid online; cash-on-delivery refunds are handled outside the system`, keeps the return's status and writes nothing; approve and reject still work. team-order never calls team-payment to refund. |
 | `CreateShipment` | seller of the order or admin. Claims SHIPPED from PENDING or PAID first (else `FailedPrecondition`, no shipment), then creates the shipment. Defaults carrier to `SPX` and generates a tracking code. |
+| `GetUserObligations` | SERVICE principal with scope `order.internal.read` only (USER or other scopes `PermissionDenied`, no principal `Unauthenticated`, empty `user_id` `InvalidArgument`). Returns `open_buyer_orders` (buyer, PENDING/PAID/SHIPPED), `open_seller_orders` (seller, same statuses) and `open_returns` (buyer or seller, PENDING/APPROVED); zeros for an unknown user. A store failure returns an error and no counts. Not routed by the gateway (501). |
 | `GetShipmentTracking` | none; by `tracking_code`, `order_id` or `shipment_id` |
 
 The gRPC server also registers `grpc.health.v1` and, when `GRPC_REFLECTION_ENABLED=true`, reflection.
@@ -181,6 +182,8 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Dispute-resolution consumer topic |
 | `ORDER_DISPUTE_CONSUMER_GROUP` | `team-order.dispute` | |
 | `ENGAGEMENT_EVENTS_DLQ_TOPIC` | `engagement.events.order.dlq` | |
+| `ORDER_ERASURE_CONSUMER_GROUP` | `team-order.erasure` | `UserErased` consumer on `identity.events`: masks the buyer's `shipping_address` fields and return reasons as `Đã xóa` and deletes the cart, in one transaction; idempotent; malformed events go to the DLQ |
+| `ORDER_ERASURE_DLQ_TOPIC` | `identity.events.order.dlq` | |
 | `ORDER_EVENTS_TOPIC` | `order.events` | |
 | `OUTBOX_POLL_INTERVAL` | `1s` | Go duration; invalid or non-positive falls back to 1s |
 | `OUTBOX_BATCH_SIZE` | `100` | |
