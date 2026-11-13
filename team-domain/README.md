@@ -17,7 +17,7 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 | `GetImageUploadUrl` | `listing.write` | `Unavailable` if no object store |
 | `UpsertStorefront` | `listing.write` | row keyed by the principal; `AlreadyExists` on slug clash |
 | `GetStorefront`, `BatchGetStorefronts` | `listing.read` | batch max 100 ids, else `InvalidArgument` |
-| `CreateBundle` | `listing.write` | owner-scoped |
+| `CreateBundle` | `listing.write` | owner-scoped; 2 to 10 distinct own non-variant listings, price above 0 and below their sum (foreign or unknown listing: PermissionDenied; other rule breaks: InvalidArgument) |
 | `GetBundle`, `ListBundlesBySeller` | `listing.read` | |
 | `ModerateListing`, `ListModerationQueue` | `admin` scope (`PermissionDenied` with `missing scope` otherwise). `ModerateListing` writes a `listing.moderate` audit entry first (`Unavailable` with no change and the message `audit trail unavailable` if team-audit is down) |
 | `ReserveStock`, `ReleaseStock`, `CommitReservation` | **SERVICE principal** (type `service`) holding `listing.write` | internal RPCs; team-order calls them as `service-team-order`. A user, even a seller with the scope, gets `PermissionDenied` |
