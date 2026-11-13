@@ -5697,3 +5697,49 @@ features:
     tags: [promotion, unit]
     status: not-testable
     notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestUpdatePerUserFields. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  # promotion-ads-serving (e2e-author; planned until the feature scenarios run green)
+  - id: promotion.ads-search-slot-is-served-for-the-category
+    title: "Search slot is served for the category"
+    persona: buyer
+    priority: P1
+    summary: "Sponsored serving (promotion-ads-serving): a seller's ACTIVE ad campaign is served in the search and home slots with an impression token."
+    entry_route: /
+    services: [team-gateway, team-promotion, team-domain]
+    api:
+      exercised: [promotion.v1.SponsoredService.CreateAdCampaign, promotion.v1.SponsoredService.ListSponsoredSlots, promotion.v1.SponsoredService.ListMyAdCampaigns]
+    acceptance:
+      - "Search slot is served for the category"
+    tags: [promotion, ads]
+    status: planned
+    notes: "Target: ads/sponsored_serving.feature::Search slot is served for the category"
+
+  - id: promotion.ads-click-charges-the-bid-once
+    title: "Click charges the bid once"
+    persona: buyer
+    priority: P1
+    summary: "Sponsored click (promotion-ads-serving): a click charges the campaign bid once per impression token."
+    entry_route: /
+    services: [team-gateway, team-promotion, team-domain]
+    api:
+      exercised: [promotion.v1.SponsoredService.CreateAdCampaign, promotion.v1.SponsoredService.ListSponsoredSlots, promotion.v1.SponsoredService.RecordAdClick, promotion.v1.SponsoredService.ListMyAdCampaigns]
+    acceptance:
+      - "Click charges the bid once"
+    tags: [promotion, ads]
+    status: planned
+    notes: "Target: ads/sponsored_click.feature::Click charges the bid once"
+
+  - id: promotion.ads-exhausted-campaign-stops-being-served
+    title: "Exhausted campaign stops being served"
+    persona: buyer
+    priority: P1
+    summary: "Sponsored budget burn (promotion-ads-serving): a campaign that can no longer pay its bid is paused and not served."
+    entry_route: /
+    services: [team-gateway, team-promotion, team-domain]
+    api:
+      exercised: [promotion.v1.SponsoredService.CreateAdCampaign, promotion.v1.SponsoredService.ListSponsoredSlots, promotion.v1.SponsoredService.RecordAdClick, promotion.v1.SponsoredService.ListMyAdCampaigns]
+    acceptance:
+      - "Exhausted campaign stops being served"
+    tags: [promotion, ads]
+    status: planned
+    notes: "Target: ads/sponsored_click.feature::Exhausted campaign stops being served"
