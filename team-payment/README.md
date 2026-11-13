@@ -11,7 +11,7 @@ or card is ever contacted. `method` values (COD, MoMo, bank, card) are labels on
 ## Contract
 
 Proto: `proto/platform/payment/v1/payment.proto`, service `platform.payment.v1.PaymentService`
-(10 RPCs). Plus `grpc.health.v1.Health`, and gRPC reflection when `GRPC_REFLECTION_ENABLED=true`.
+(11 RPCs). Plus `grpc.health.v1.Health`, and gRPC reflection when `GRPC_REFLECTION_ENABLED=true`.
 
 The service does not verify tokens. The gateway verifies the JWT (ADR-0006) and forwards
 `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`) and `x-principal-scopes`
@@ -30,6 +30,7 @@ principal, id `anonymous` and type ANONYMOUS are rejected with `Unauthenticated`
 | `GetWalletBalance` | `sellerAccess`, admin read allowed | Ledger model: `SUM(wallet_ledger.amount)`. |
 | `ListLedgerEntries` | `sellerAccess`, admin read allowed | Ledger model, newest first, opaque offset cursor (`o:<offset>`, base64; the page size is clamped by `pagination.Clamp`), page size default 20 and max 100. `reference_id`: the payment id for an `ORDER_SETTLEMENT`, the refund id (`rpc:`/`return:`/`cancel:`/`legacy:` key) for a `REFUND_DEDUCTION`, empty for a payout. |
 | `RequestWalletPayout` | `sellerAccess`, owner only | Ledger model: appends a negative PENDING `PAYOUT` row. Balance check, hold check and debit are one atomic step (per-seller `pg_advisory_xact_lock` in one transaction). Above the balance: `FailedPrecondition` `insufficient wallet balance`; within the balance but above the withdrawable amount: `FailedPrecondition` `amount is held until <RFC3339 UTC> (refund window)` (see Payout hold-back). |
+| `GetPayoutObligations` | Service principal holding scope `payment.internal.read` only (`auth.RequireService`); a user principal or a service without the scope gets `PermissionDenied`, no principal `Unauthenticated`. Not routed at the gateway | Internal, for team-identity's erasure check. Empty `user_id` is `InvalidArgument`. Returns `available_balance` (withdrawable: balance minus held, never below 0), `held_balance` (proceeds inside the hold window, same split as payouts) and `pending_payouts` (payout requests PENDING or PROCESSING). A user with no wallet reads zeros. |
 
 `sellerAccess` (`internal/rpc/wallet_ledger.go`) never trusts the request `seller_id` alone:
 
@@ -51,6 +52,7 @@ call does not forward the caller's principal: `internal/upstream/order.go` sends
 |---|---|---|---|---|
 | Produces | `payment.events` | `platform.payment.v1.PaymentSettled` in an `EventEnvelope` | `order_id` | Emitted only when a payment is settled PAID. A failed or refunded payment emits nothing. |
 | Consumes | `order.events` | `platform.order.v1.OrderPaidEvent`, `platform.order.v1.OrderCancelled`, `platform.order.v1.ReturnRefunded` (others ignored) | `order_id` | Group `team-payment.settlement`; poison records go to `order.events.payment-settlement.dlq`. Credits the seller; refunds the remainder of a cancelled paid order; refunds an RMA return. |
+| Consumes | `identity.events` | `platform.identity.v1.UserErased` (others ignored) | `user_id` | Group `team-payment.erasure`; poison records (no `user_id`, undecodable) go to `identity.events.payment.dlq`. Masks `account_number` and `account_name` of every `payout_requests` row of the seller with `Đã xóa`; amounts, status and ledger rows are kept. Idempotent; logs the event id only. |
 
 - `event_id` (the outbox primary key) is the envelope `event_id`. Delivery is at-least-once, so
   consumers must dedupe on it. The consumer is `team-order`, which parks poison records on
@@ -263,6 +265,8 @@ Kafka, `team-order` and `team-audit` are required.
 | `ORDER_EVENTS_TOPIC` | `order.events` | Topic the settlement consumer reads |
 | `PAYMENT_SETTLEMENT_CONSUMER_GROUP` | `team-payment.settlement` | Consumer group (new group starts at the latest offset) |
 | `PAYMENT_SETTLEMENT_DLQ_TOPIC` | `order.events.payment-settlement.dlq` | Dead-letter topic (not `order.events.dlq`, which is team-notification's) |
+| `PAYMENT_ERASURE_CONSUMER_GROUP` | `team-payment.erasure` | Consumer group of the `UserErased` consumer on `identity.events` |
+| `PAYMENT_ERASURE_DLQ_TOPIC` | `identity.events.payment.dlq` | Dead-letter topic of the erasure consumer |
 | `OUTBOX_POLL_INTERVAL` | `1s` | Outbox relayer poll interval |
 | `OUTBOX_BATCH_SIZE` | `100` | Rows claimed per poll |
 | `OUTBOX_CLAIM_LOCK` | `60s` | How long a claimed row stays locked |

@@ -21,6 +21,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-payment/internal/config"
+	"github.com/buidangphuc/team-payment/internal/events"
 	"github.com/buidangphuc/team-payment/internal/payment"
 	"github.com/buidangphuc/team-payment/internal/rpc"
 	"github.com/buidangphuc/team-payment/internal/settlement"
@@ -31,7 +32,11 @@ import (
 const (
 	serviceName   = "team-payment"
 	purgeInterval = time.Hour
-	closeGrace    = 2 * time.Second
+
+	identityEventsTopic = "identity.events"
+	defaultErasureGroup = "team-payment.erasure"
+	defaultErasureDLQ   = "identity.events.payment.dlq"
+	closeGrace          = 2 * time.Second
 )
 
 func Run(ctx context.Context, s config.Settings) (err error) {
@@ -153,6 +158,24 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		return fmt.Errorf("consumer %s: %w", s.Events.ConsumerGroup, err)
 	}
 
+	erasureGroup, erasureDLQ := s.Events.ErasureGroup, s.Events.ErasureDLQ
+	if erasureGroup == "" {
+		erasureGroup = defaultErasureGroup
+	}
+	if erasureDLQ == "" {
+		erasureDLQ = defaultErasureDLQ
+	}
+	erasureClient, err := kafkax.NewConsumerClient(s.Kafka, erasureGroup, []string{identityEventsTopic}, kgo.AllowAutoTopicCreation())
+	if err != nil {
+		return fmt.Errorf("kafka: %w", err)
+	}
+	stack.Push(func(context.Context) error { erasureClient.Close(); return nil })
+	erasureConsumer, err := consume.NewConsumer(erasureClient, events.NewErasureConsumer(store.NewPostgresWalletRepository(pool), logger).Handle, producer,
+		consume.Options{DLQTopic: erasureDLQ, Logger: logger, KeyFP: fp})
+	if err != nil {
+		return fmt.Errorf("consumer %s: %w", erasureGroup, err)
+	}
+
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace + 2*closeGrace,
 		CloseGrace:    closeGrace,
@@ -160,5 +183,5 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, consumer))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, consumer, erasureConsumer))
 }
