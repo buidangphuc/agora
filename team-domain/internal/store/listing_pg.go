@@ -695,7 +695,51 @@ func parseQueueCursor(c string) (time.Time, string, error) {
 	return at, id, nil
 }
 
-// GetByIDs STUB (red-first): the implementer replaces this with one batched read.
-func (r *PostgresListingRepository) GetByIDs(_ context.Context, _ []string) (map[string]Listing, error) {
-	return nil, nil
+// GetByIDs loads the listings with the given ids, variants included, in two
+// queries. Unknown ids are omitted from the result without error.
+func (r *PostgresListingRepository) GetByIDs(ctx context.Context, ids []string) (map[string]Listing, error) {
+	out := make(map[string]Listing, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	const q = `SELECT ` + listingColumns + ` FROM listings WHERE id = ANY($1)`
+	rows, err := r.pool.Query(ctx, q, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get listings by ids: %w", err)
+	}
+	for rows.Next() {
+		var l Listing
+		if err := scanListing(rows, &l); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan listing: %w", err)
+		}
+		out[l.ID] = l
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get listings by ids: %w", err)
+	}
+	if len(out) == 0 {
+		return out, nil
+	}
+	found := make([]string, 0, len(out))
+	for id := range out {
+		found = append(found, id)
+	}
+	const vq = `SELECT id, listing_id, name, sku, price, stock, image_url FROM listing_variants WHERE listing_id = ANY($1) ORDER BY created_at, id`
+	vrows, err := r.pool.Query(ctx, vq, found)
+	if err != nil {
+		return nil, fmt.Errorf("load variants by ids: %w", err)
+	}
+	defer vrows.Close()
+	for vrows.Next() {
+		var v Variant
+		if err := vrows.Scan(&v.ID, &v.ListingID, &v.Name, &v.SKU, &v.Price, &v.Stock, &v.ImageURL); err != nil {
+			return nil, fmt.Errorf("scan variant: %w", err)
+		}
+		l := out[v.ListingID]
+		l.Variants = append(l.Variants, v)
+		out[v.ListingID] = l
+	}
+	return out, vrows.Err()
 }

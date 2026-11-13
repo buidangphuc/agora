@@ -350,7 +350,15 @@ func (c stockChanges) listings() []string {
 	return out
 }
 
-// GetByIDs STUB (red-first): the implementer replaces this.
-func (r *InMemoryListingRepository) GetByIDs(_ context.Context, _ []string) (map[string]store.Listing, error) {
-	return nil, nil
+// GetByIDs returns the known listings among ids; unknown ids are omitted.
+func (r *InMemoryListingRepository) GetByIDs(_ context.Context, ids []string) (map[string]store.Listing, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[string]store.Listing, len(ids))
+	for _, id := range ids {
+		if l, ok := r.byID[id]; ok {
+			out[id] = l
+		}
+	}
+	return out, nil
 }
