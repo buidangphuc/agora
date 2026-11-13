@@ -12754,3 +12754,51 @@ features:
     tags: [buyer, shop, unit]
     status: not-testable
     notes: "shop-page-featured-theme: VERIFIED BY team-frontend/src/features/shop/shopTheme.test.ts `every theme meets AA contrast`. Token arithmetic, not a browser-observable behaviour."
+
+  - id: seller-marketing-hub.seller-visiting-the-buyer-voucher-page-sees-no-create-form
+    title: "Seller visiting the buyer voucher page sees no create form"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /vouchers
+    services: [team-frontend, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a signed-in seller with scope `listing.write` opens `/vouchers` on the buyer app"
+      - "Then the page shows the voucher catalogue and no create-voucher form"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.buyer-voucher-wallet-still-renders
+    title: "Buyer voucher wallet still renders"
+    persona: buyer
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /vouchers
+    services: [team-frontend, team-gateway, team-promotion]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer who holds a voucher opens `/vouchers`"
+      - "Then the voucher appears in the buyer's vouchers section"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.create-form-is-not-rendered-even-when-the-page-cannot-load-vouchers
+    title: "Create form is not rendered even when the page cannot load vouchers"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /vouchers
+    services: [team-frontend, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `ListVouchers` fails with UNAVAILABLE and a seller opens `/vouchers`"
+      - "Then the page shows its empty catalogue state and no create-voucher form"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/app/(shop)/vouchers/page.test.tsx renders no create form when ListVouchers is unavailable. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."

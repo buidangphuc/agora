@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildListHref, parseListParams, slicePage } from "./listParams";
+import {
+  buildListHref,
+  parseListParams,
+  parseMarketingParams,
+  slicePage,
+} from "./listParams";
 
 const STATUSES = ["published", "draft"] as const;
 
@@ -54,5 +59,48 @@ describe("slicePage", () => {
     expect(slicePage(items, 2, 20)[0]).toBe(21);
     expect(slicePage(items, 3, 20)).toHaveLength(5);
     expect(slicePage(items, 9, 20)).toEqual([]);
+  });
+});
+
+describe("parseMarketingParams", () => {
+  it("Tab is kept in the URL: flashsale tab, cursor and status are read", () => {
+    expect(
+      parseMarketingParams({
+        tab: "flashsale",
+        cursor: "c20",
+        status: "cancelled",
+      }),
+    ).toEqual({ tab: "flashsale", cursor: "c20", status: "cancelled" });
+  });
+
+  it("Unknown tab value falls back to the default: missing or bogus tab is voucher", () => {
+    expect(parseMarketingParams({}).tab).toBe("voucher");
+    expect(parseMarketingParams({ tab: "bogus" }).tab).toBe("voucher");
+    expect(parseMarketingParams({ tab: ["flashsale", "x"] }).tab).toBe(
+      "flashsale",
+    );
+  });
+
+  it("Hub status filter narrows the list: only scheduled, active, ended, cancelled are accepted", () => {
+    for (const s of ["scheduled", "active", "ended", "cancelled"]) {
+      expect(parseMarketingParams({ status: s }).status).toBe(s);
+    }
+    expect(parseMarketingParams({ status: "bogus" }).status).toBe("all");
+    expect(parseMarketingParams({}).status).toBe("all");
+  });
+
+  it("Unknown cursor shows the retry state: the cursor is passed through opaque and defaults to empty", () => {
+    expect(parseMarketingParams({}).cursor).toBe("");
+    expect(parseMarketingParams({ cursor: "!!bad" }).cursor).toBe("!!bad");
+  });
+
+  it("Tab is kept in the URL: buildListHref keeps tab and cursor and drops status=all", () => {
+    expect(
+      buildListHref("/seller/marketing", {
+        tab: "flashsale",
+        status: "all",
+        cursor: "c1",
+      }),
+    ).toBe("/seller/marketing?tab=flashsale&cursor=c1");
   });
 });
