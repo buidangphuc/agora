@@ -14,6 +14,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
+from src.models import Listing
 from src.pages import SellerMarketingPage, SellerNewListingPage, SellerShopPage
 from src.pages.seller_getting_started_card import (
     CARD_TITLE,
@@ -22,7 +23,6 @@ from src.pages.seller_getting_started_card import (
     STEPS,
     SellerGettingStartedPage,
 )
-from src.models import Listing
 from tests.e2e.support import admin_campaigns_support as ac
 from tests.e2e.support import admin_vouchers_support as av
 from tests.e2e.support import seller_marketing_hub_support as sh
@@ -56,9 +56,7 @@ def _assert_state(world: World, index: int, done: bool) -> None:
 def seller_flash_sale_only(world: World) -> None:
     st = sh.state(world)
     listing_id, _ = sh.make_listing(world, st["token"], "gs")
-    ac.seller_campaign(
-        st["token"], listing_id, starts_in_s=86400 * 2, ends_in_s=86400 * 4
-    )
+    ac.seller_campaign(st["token"], listing_id, starts_in_s=86400 * 2, ends_in_s=86400 * 4)
 
 
 @when("the seller opens the seller centre")
@@ -68,9 +66,7 @@ def open_centre(world: World) -> None:
     page.goto(page.url())
 
 
-@when(
-    parsers.parse('the seller saves the shop name "{name}" and a banner on the shop page')
-)
+@when(parsers.parse('the seller saves the shop name "{name}" and a banner on the shop page'))
 def save_shop(world: World, name: str) -> None:
     page = SellerShopPage(world.page)
     page.goto(page.url())
@@ -113,7 +109,7 @@ def create_voucher(world: World) -> None:
 
 @then(
     parsers.parse(
-        'the getting-started card shows exactly four steps, all not done, with links '
+        "the getting-started card shows exactly four steps, all not done, with links "
         '"{a}", "{b}", "{c}", "{d}"'
     )
 )
@@ -131,7 +127,9 @@ def four_not_done(world: World, a: str, b: str, c: str, d: str) -> None:
 
 @then("no getting-started step mentions KYC")
 def no_kyc(world: World) -> None:
-    expect(_centre(world).card.get_by_text(re.compile("kyc|xác minh danh tính", re.I))).to_have_count(0)
+    expect(
+        _centre(world).card.get_by_text(re.compile("kyc|xác minh danh tính", re.I))
+    ).to_have_count(0)
 
 
 @then("getting-started steps 1 and 2 are done and steps 3 and 4 are not done")
@@ -170,9 +168,7 @@ def kpi_present(world: World) -> None:
 
 @then(parsers.parse('the onboarding button "{label}" is shown'))
 def onboarding_shown(world: World, label: str) -> None:
-    expect(world.page.get_by_role("button", name=label)).to_be_visible(
-        timeout=timeouts.NAVIGATION
-    )
+    expect(world.page.get_by_role("button", name=label)).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
 @then("no getting-started card text is shown")
