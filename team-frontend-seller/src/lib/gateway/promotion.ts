@@ -8,7 +8,7 @@
 import "server-only";
 
 import { Timestamp } from "@bufbuild/protobuf";
-import { createPromiseClient } from "@connectrpc/connect";
+import { ConnectError, createPromiseClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-node";
 
 import {
@@ -23,6 +23,7 @@ import {
   DiscountType,
   type FlashSaleCampaign,
   type Plan,
+  type SellerSubscription,
   PlanTier,
   type Voucher,
   VoucherScope,
@@ -274,6 +275,14 @@ export interface ViewPlan {
   tierText: string;
   price: number;
   features: string[];
+  termDays: number;
+}
+
+export interface ViewSubscription {
+  tier: PlanTier;
+  tierText: string;
+  currentPeriodEnd: string;
+  autoRenew: boolean;
 }
 
 export interface ViewEntitlements {
@@ -302,7 +311,35 @@ function mapPlan(p: Plan): ViewPlan {
     tierText: planTierText(p.name),
     price: Number(p.price),
     features: p.features ?? [],
+    termDays: Number(p.termDays),
   };
+}
+
+function mapSubscription(sub?: SellerSubscription): ViewSubscription {
+  if (!sub) {
+    return {
+      tier: PlanTier.FREE,
+      tierText: planTierText(PlanTier.FREE),
+      currentPeriodEnd: "",
+      autoRenew: false,
+    };
+  }
+  return {
+    tier: sub.tier,
+    tierText: planTierText(sub.tier),
+    currentPeriodEnd: tsToString(sub.currentPeriodEnd),
+    autoRenew: sub.autoRenew,
+  };
+}
+
+export async function getMySubscription(): Promise<ViewSubscription> {
+  const res = await promotion().subscription.getMySubscription({});
+  return mapSubscription(res.subscription);
+}
+
+export async function cancelSubscription(): Promise<ViewSubscription> {
+  const res = await promotion().subscription.cancelSubscription({});
+  return mapSubscription(res.subscription);
 }
 
 export async function listPlans(): Promise<ViewPlan[]> {
@@ -321,6 +358,7 @@ export async function subscribe(
     const res = await promotion().subscription.subscribe({ planId });
     return { ok: true, tier: res.subscription?.tier };
   } catch (err) {
+    if (err instanceof ConnectError) throw err;
     return {
       ok: false,
       message: err instanceof Error ? err.message : "Đăng ký gói thất bại.",
