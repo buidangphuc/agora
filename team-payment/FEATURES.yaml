@@ -3626,3 +3626,757 @@ features:
     - unit
     status: not-testable
     notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment.psc-a-paid-order-books-5-on-subtotal-minus-shop-voucher
+    title: "A paid order books 5% on subtotal minus shop voucher"
+    persona: seller
+    priority: P1
+    summary: "A paid order books 5% on subtotal minus shop voucher"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A paid order books 5% on subtotal minus shop voucher"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-the-platform-voucher-and-shipping-are-outside-the-base
+    title: "The platform voucher and shipping are outside the base"
+    persona: seller
+    priority: P1
+    summary: "The platform voucher and shipping are outside the base"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "The platform voucher and shipping are outside the base"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.commission-rounds-half-up-to-whole-vnd
+    title: "Commission rounds half up to whole VND"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Commission rounds half up to whole VND"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_commission_test.go` `TestCommissionAmount`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-a-redelivered-paid-event-books-no-second-commission
+    title: "A redelivered paid event books no second commission"
+    persona: seller
+    priority: P1
+    summary: "A redelivered paid event books no second commission"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A redelivered paid event books no second commission"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.concurrent-settlements-of-one-order-book-one-commission
+    title: "Concurrent settlements of one order book one commission"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Concurrent settlements of one order book one commission"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestCreditSettlementConcurrentCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.an-event-without-the-breakdown-books-no-commission
+    title: "An event without the breakdown books no commission"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An event without the breakdown books no commission"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/settlement/handler_commission_test.go` `TestHandlePaidWithoutBreakdown`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.a-zero-commission-writes-no-row
+    title: "A zero commission writes no row"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A zero commission writes no row"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestCreditSettlementZeroCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.an-inconsistent-breakdown-is-parked-and-writes-nothing
+    title: "An inconsistent breakdown is parked and writes nothing"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An inconsistent breakdown is parked and writes nothing"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/settlement/handler_commission_test.go` `TestHandlePaidInconsistentBreakdownParked`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.a-failed-commission-insert-rolls-back-the-credit
+    title: "A failed commission insert rolls back the credit"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A failed commission insert rolls back the credit"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestCreditSettlementCommissionFailureRollsBack`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-a-client-cannot-set-or-forge-a-commission
+    title: "A client cannot set or forge a commission"
+    persona: seller
+    priority: P1
+    summary: "A client cannot set or forge a commission"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A client cannot set or forge a commission"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.commission-adds-at-most-5-ms-p95-to-settlement
+    title: "Commission adds at most 5 ms p95 to settlement"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Commission adds at most 5 ms p95 to settlement"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_bench_test.go` `TestCommissionOverheadP95`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-a-40-partial-refund-returns-40-of-the-commission
+    title: "A 40% partial refund returns 40% of the commission"
+    persona: seller
+    priority: P1
+    summary: "A 40% partial refund returns 40% of the commission"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A 40% partial refund returns 40% of the commission"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-a-full-refund-returns-exactly-the-commission
+    title: "A full refund returns exactly the commission"
+    persona: seller
+    priority: P1
+    summary: "A full refund returns exactly the commission"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A full refund returns exactly the commission"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.cumulative-rounding-never-exceeds-the-commission
+    title: "Cumulative rounding never exceeds the commission"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Cumulative rounding never exceeds the commission"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_commission_test.go` `TestReversalTargetCumulative`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-a-tiny-refund-whose-share-rounds-to-zero-books-no-reversal
+    title: "A tiny refund whose share rounds to zero books no reversal"
+    persona: seller
+    priority: P1
+    summary: "A tiny refund whose share rounds to zero books no reversal"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A tiny refund whose share rounds to zero books no reversal"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-cancelling-a-paid-order-returns-the-whole-commission
+    title: "Cancelling a paid order returns the whole commission"
+    persona: buyer
+    priority: P1
+    summary: "Cancelling a paid order returns the whole commission"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "Cancelling a paid order returns the whole commission"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.a-refund-that-landed-before-the-credit-still-gets-its-revers
+    title: "A refund that landed before the credit still gets its reversal"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A refund that landed before the credit still gets its reversal"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestCreditSettlementReversesEarlierRefunds`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-a-refund-by-a-seller-who-is-not-the-order-s-seller-is-denied
+    title: "A refund by a seller who is not the order's seller is denied and reverses nothing"
+    persona: seller
+    priority: P1
+    summary: "A refund by a seller who is not the order's seller is denied and reverses nothing"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A refund by a seller who is not the order's seller is denied and reverses nothing"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.a-replayed-refund-writes-no-second-reversal
+    title: "A replayed refund writes no second reversal"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A replayed refund writes no second reversal"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestApplyRefundReplayWritesNoSecondReversal`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.a-payment-without-commission-is-refunded-without-a-reversal
+    title: "A payment without commission is refunded without a reversal"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A payment without commission is refunded without a reversal"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestApplyRefundWithoutCommissionNoReversal`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.concurrent-refunds-never-reverse-more-than-the-commission
+    title: "Concurrent refunds never reverse more than the commission"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Concurrent refunds never reverse more than the commission"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestConcurrentRefundsReverseAtMostCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.the-ledger-reconciles-after-any-order-of-events
+    title: "The ledger reconciles after any order of events"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The ledger reconciles after any order of events"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_property_test.go` `TestLedgerReconcilesAfterShuffledEvents`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-the-store-refuses-a-second-commission-for-one-payment
+    title: "The store refuses a second commission for one payment"
+    persona: seller
+    priority: P1
+    summary: "The store refuses a second commission for one payment"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "The store refuses a second commission for one payment"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-the-store-refuses-a-commission-that-is-not-negative
+    title: "The store refuses a commission that is not negative"
+    persona: seller
+    priority: P1
+    summary: "The store refuses a commission that is not negative"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "The store refuses a commission that is not negative"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-the-store-refuses-a-reversal-that-is-not-positive
+    title: "The store refuses a reversal that is not positive"
+    persona: seller
+    priority: P1
+    summary: "The store refuses a reversal that is not positive"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "The store refuses a reversal that is not positive"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-the-store-refuses-a-commission-without-a-reference
+    title: "The store refuses a commission without a reference"
+    persona: seller
+    priority: P1
+    summary: "The store refuses a commission without a reference"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "The store refuses a commission without a reference"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.the-migration-keeps-existing-ledger-rows-valid
+    title: "The migration keeps existing ledger rows valid"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The migration keeps existing ledger rows valid"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_commission_integration_test.go` `TestMigration0018KeepsExistingRows`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.an-invalid-rate-refuses-to-start
+    title: "An invalid rate refuses to start"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An invalid rate refuses to start"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/config/config_commission_test.go` `TestCommissionRateInvalidRefusesStart`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.the-boundary-rates-are-accepted
+    title: "The boundary rates are accepted"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The boundary rates are accepted"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/config/config_commission_test.go` `TestCommissionRateBoundaries`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.a-rate-change-does-not-alter-earlier-orders
+    title: "A rate change does not alter earlier orders"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A rate change does not alter earlier orders"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestRateChangeKeepsRecordedRate`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-the-seller-reads-the-breakdown-of-a-settled-order
+    title: "The seller reads the breakdown of a settled order"
+    persona: seller
+    priority: P1
+    summary: "The seller reads the breakdown of a settled order"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "The seller reads the breakdown of a settled order"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.the-breakdown-reflects-a-partial-refund
+    title: "The breakdown reflects a partial refund"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The breakdown reflects a partial refund"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/order_settlement_test.go` `TestGetOrderSettlementAfterPartialRefund`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment-settlement-commission.an-order-settled-without-commission-reports-zero-commission
+    title: "An order settled without commission reports zero commission"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An order settled without commission reports zero commission"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/order_settlement_test.go` `TestGetOrderSettlementWithoutCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-another-seller-gets-not-found
+    title: "Another seller gets NOT_FOUND"
+    persona: seller
+    priority: P1
+    summary: "Another seller gets NOT_FOUND"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "Another seller gets NOT_FOUND"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-a-buyer-gets-not-found
+    title: "A buyer gets NOT_FOUND"
+    persona: buyer
+    priority: P1
+    summary: "A buyer gets NOT_FOUND"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A buyer gets NOT_FOUND"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-an-admin-can-read-any-settlement
+    title: "An admin can read any settlement"
+    persona: admin
+    priority: P1
+    summary: "An admin can read any settlement"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "An admin can read any settlement"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-an-unsettled-order-is-not-found
+    title: "An unsettled order is not found"
+    persona: seller
+    priority: P1
+    summary: "An unsettled order is not found"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "An unsettled order is not found"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-a-missing-order-id-is-rejected
+    title: "A missing order id is rejected"
+    persona: seller
+    priority: P1
+    summary: "A missing order id is rejected"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A missing order id is rejected"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-an-unauthenticated-call-is-refused
+    title: "An unauthenticated call is refused"
+    persona: seller
+    priority: P1
+    summary: "An unauthenticated call is refused"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "An unauthenticated call is refused"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-reading-the-settlement-writes-nothing
+    title: "Reading the settlement writes nothing"
+    persona: seller
+    priority: P1
+    summary: "Reading the settlement writes nothing"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "Reading the settlement writes nothing"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment.psc-a-platform-voucher-is-credited-to-the-seller-on-top-of-the-p
+    title: "A platform voucher is credited to the seller on top of the paid amount"
+    persona: seller
+    priority: P1
+    summary: "A platform voucher is credited to the seller on top of the paid amount"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A platform voucher is credited to the seller on top of the paid amount"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+
+  - id: payment-settlement-commission.an-event-without-the-price-breakdown-credits-the-paid-amount
+    title: "An event without the price breakdown credits the paid amount only"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-settlement-commission.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An event without the price breakdown credits the paid amount only"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/settlement/handler_commission_test.go` `TestHandlePaidWithoutBreakdownCreditsPaidOnly`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+
+  - id: payment.psc-a-held-sale-is-held-net-of-its-commission
+    title: "A held sale is held net of its commission"
+    persona: seller
+    priority: P1
+    summary: "A held sale is held net of its commission"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s), listing and vouchers through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries, payment.v1.RefundPayment]
+    acceptance:
+      - "A held sale is held net of its commission"
+    tags: [fintech, monetization]
+    status: planned
+    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
