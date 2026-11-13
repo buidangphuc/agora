@@ -857,10 +857,14 @@ features:
       - Then the order status becomes PAID
       - And exactly one OrderPaidEvent envelope for the order is published to the order.events topic
       - And its payload carries the order id as the key and the order's line items
+      - Scenario "Paid order event carries its price breakdown" - When a buyer completes the demo payment for a pending order with a shipping fee and a voucher Then the single OrderPaidEvent on the order.events topic has items_subtotal, shipping_fee, shop_discount_amount and platform_discount_amount equal to the order's items_subtotal, shipping_fee, discount_amount minus platform_discount_amount and platform_discount_amount
+      - Scenario "Paid order without voucher reports zero discounts" - When a buyer completes the demo payment for a pending order without any voucher Then the OrderPaidEvent on the order.events topic has shop_discount_amount 0 and platform_discount_amount 0 with presence true
     tags: [order, outbox, integration]
     status: automated
     covered_by: "order/order_events_published.feature::Paying an order publishes an OrderPaidEvent with its line items"
     notes: >
+      Change order-paid-price-breakdown: the two breakdown scenarios are red until the
+      implementation lands; covered_by points at the original scenario only.
       Ran green against the agora stack (2026-10-05): the paid order's outbox row is
       published and the envelope is read back from order.events. Needs team-order (the relayer and
       consumers always run) and the order.events topic.
