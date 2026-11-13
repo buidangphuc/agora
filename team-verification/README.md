@@ -22,6 +22,10 @@ Identity comes from gateway-forwarded metadata (`x-principal-id`, `x-principal-t
 |---|---|---|---|
 | `SubmitKyc` | `doc_type`, `doc_ref` -> `id`, `status` (`PENDING`) | USER principal. Owner is the principal id, never the body. | `Unauthenticated` (none/anonymous), `PermissionDenied` (service principal), `InvalidArgument` (blank `doc_type`/`doc_ref`) |
 | `GetVerificationStatus` | `user_id` -> `status`, `badge` | Empty or own `user_id`: USER principal only. Any other `user_id`: `admin` scope. | `Unauthenticated`, `PermissionDenied` |
+| `CreateKycUploadUrl` | `content_type`, `size_bytes` -> presigned PUT `upload_url`, `doc_ref` | USER principal; at most 3 open grants | `Unauthenticated`, `PermissionDenied`, `InvalidArgument`, `ResourceExhausted` |
+| `ListKycSubmissions` | `status`, cursor, page size -> submissions (oldest first) | `admin` scope | `PermissionDenied`, `InvalidArgument` |
+| `GetKycDocumentUrl` | `submission_id`, `index` -> presigned GET (5 min) | `admin` scope; audited before the URL is issued | `PermissionDenied`, `NotFound`, `InvalidArgument`, `Unavailable` |
+| `GetPublicBadges` | 1..50 `user_ids` -> badges | Any caller, including anonymous | `InvalidArgument` |
 | `ReviewKyc` | `id`, `decision` -> `status` | `admin` scope, and a reviewer cannot review their own submission. | `Unauthenticated`, `PermissionDenied` (missing scope / own submission), `InvalidArgument` (empty id, bad decision), `NotFound`, `FailedPrecondition` (already reviewed) |
 
 Behavior notes:
@@ -43,13 +47,21 @@ Submit and status do not depend on team-audit.
 
 ## Events
 
-None. No Kafka or RabbitMQ in this service.
+Consumes `identity.events` (group `team-verification-identity`): `UserErased` deletes the user's
+KYC objects first, then their submissions, documents and upload grants in one transaction. A
+storage outage returns a retryable error; a malformed event is permanent. Dead letters go to
+`identity.events.team-verification.dlq`. Other event types are ignored. Publishes nothing.
+
+A retention sweeper runs hourly: documents of a `REJECTED` submission 90 days after review, and of
+a superseded submission 90 days after `superseded_at`, are deleted from storage first and then marked
+`deleted_at`; a failed object delete is retried on the next run.
 
 ## Data
 
 Database `verification_db` (role `verification_svc`), table `kyc_submissions`:
 `id`, `user_id`, `doc_type`, `doc_ref`, `status` (`PENDING|VERIFIED|REJECTED`, CHECK),
-`reviewed_at`, `created_at`. A user may have many submissions. Index
+`reviewed_at`, `created_at`, `reason_code`, `superseded_at`; plus `kyc_upload_grants` and
+`kyc_documents` (migration `002_kyc_documents`). A user may have many submissions. Index
 `idx_kyc_submissions_user_id (user_id, created_at DESC)` serves the latest-submission lookup.
 
 Migrations: `migrations/001_create_kyc_submissions.{up,down}.sql` (golang-migrate). In compose
@@ -74,6 +86,12 @@ The binary embeds the migrations: `server migrate up` (reads `DATABASE_URL`) app
 | `DB_MAX_CONNS` | `10` | Postgres pool size |
 | `UPSTREAM_AUDIT_ADDR` | none | Required. team-audit gRPC address |
 | `MOCK_DATA` | empty | Mock-data adapters; the service has none, so any value fails boot (refused in strict ENV) |
+| `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | none | Required. MinIO bucket holding KYC documents |
+| `STORAGE_REGION`, `STORAGE_USE_SSL` | `us-east-1`, `false` | Storage region and TLS |
+| `KAFKA_BROKERS` | none | Kafka brokers (go-sdk `Kafka` group) |
+| `KAFKA_IDENTITY_TOPIC` | `identity.events` | UserErased source topic |
+| `KAFKA_IDENTITY_DLQ_TOPIC` | `identity.events.team-verification.dlq` | Dead-letter topic |
+| `KAFKA_IDENTITY_GROUP` | `team-verification-identity` | Consumer group |
 | `OTEL_ENABLED` | `false` | Enable OpenTelemetry export |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTLP endpoint |
 | `OTEL_SERVICE_NAME` | `team-verification` | OTel service name |

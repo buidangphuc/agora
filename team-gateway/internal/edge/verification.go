@@ -88,3 +88,84 @@ func requireAdmin(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (f *VerificationForwarder) CreateKycUploadUrl(
+	ctx context.Context,
+	req *connect.Request[verificationv1.CreateKycUploadUrlRequest],
+) (*connect.Response[verificationv1.CreateKycUploadUrlResponse], error) {
+	if err := requireUser(ctx); err != nil {
+		return nil, err
+	}
+	var out *verificationv1.CreateKycUploadUrlResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.CreateKycUploadUrl(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *VerificationForwarder) ListKycSubmissions(
+	ctx context.Context,
+	req *connect.Request[verificationv1.ListKycSubmissionsRequest],
+) (*connect.Response[verificationv1.ListKycSubmissionsResponse], error) {
+	if err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	var out *verificationv1.ListKycSubmissionsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListKycSubmissions(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *VerificationForwarder) GetKycDocumentUrl(
+	ctx context.Context,
+	req *connect.Request[verificationv1.GetKycDocumentUrlRequest],
+) (*connect.Response[verificationv1.GetKycDocumentUrlResponse], error) {
+	if err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	var out *verificationv1.GetKycDocumentUrlResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetKycDocumentUrl(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *VerificationForwarder) GetPublicBadges(
+	ctx context.Context,
+	req *connect.Request[verificationv1.GetPublicBadgesRequest],
+) (*connect.Response[verificationv1.GetPublicBadgesResponse], error) {
+	var out *verificationv1.GetPublicBadgesResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetPublicBadges(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func requireUser(ctx context.Context) error {
+	p, ok := principalFrom(ctx)
+	if !ok || p.ptype == "anonymous" || p.id == "" {
+		return connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+	return nil
+}
