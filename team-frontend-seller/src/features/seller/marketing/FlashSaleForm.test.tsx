@@ -110,7 +110,7 @@ describe("FlashSaleForm", () => {
     render(<FlashSaleForm />);
     fill();
     await act(async () => submit());
-    expect((await screen.findAllByRole("alert")).length).toBeGreaterThan(0);
+    expect((screen.getAllByRole("alert")).length).toBeGreaterThan(0);
     expect(createCampaignAction).not.toHaveBeenCalled();
   });
 
