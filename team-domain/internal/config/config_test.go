@@ -19,7 +19,7 @@ var managedKeys = []string{
 	"ENV", "LOG_LEVEL", "LOG_JSON", "GRPC_HOST", "GRPC_PORT", "SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY",
 	"GRPC_REFLECTION_ENABLED", "DATABASE_URL", "DB_MAX_CONNS", "KAFKA_BROKERS", "LOG_KEY_FP_SECRET",
 	"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OUTBOX_POLL_INTERVAL",
-	"OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK", "UPSTREAM_AUDIT_ADDR", "UPSTREAM_AI_ADDR",
+	"OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK", "UPSTREAM_AUDIT_ADDR", "UPSTREAM_AI_ADDR", "UPSTREAM_PROMOTION_ADDR",
 	"UPSTREAM_AI_TIMEOUT_SECONDS", "KAFKA_LISTING_TOPIC", "KAFKA_IDENTITY_TOPIC", "KAFKA_IDENTITY_GROUP",
 	"STORAGE_ENDPOINT", "STORAGE_BUCKET", "STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY", "STORAGE_REGION",
 	"STORAGE_USE_SSL", "STORAGE_PUBLIC_BASE_URL", "RESERVATION_TTL", "RESERVATION_SWEEP_INTERVAL",
@@ -45,6 +45,7 @@ func localEnv(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit-svc:50066")
 	t.Setenv("UPSTREAM_AI_ADDR", "team-ai:50051")
+	t.Setenv("UPSTREAM_PROMOTION_ADDR", "team-promotion:50061")
 }
 
 func strictEnv(t *testing.T, env string) {
@@ -229,7 +230,7 @@ func TestStrictEnvReportsSDKRefusalsWithoutDatabaseURL(t *testing.T) {
 
 func TestUpstreamAddressesRequiredInEveryEnv(t *testing.T) {
 	for _, env := range []string{"local", "test"} {
-		for _, key := range []string{"UPSTREAM_AI_ADDR", "UPSTREAM_AUDIT_ADDR"} {
+		for _, key := range []string{"UPSTREAM_AI_ADDR", "UPSTREAM_AUDIT_ADDR", "UPSTREAM_PROMOTION_ADDR"} {
 			localEnv(t)
 			t.Setenv("ENV", env)
 			unset(t, key)
@@ -474,5 +475,34 @@ func TestAIUpstreamFromEnv(t *testing.T) {
 	}
 	if got := valueByEnv(t, s, "UPSTREAM_AI_TIMEOUT_SECONDS"); got != 1.5 {
 		t.Errorf("UPSTREAM_AI_TIMEOUT_SECONDS = %v, want 1.5", got)
+	}
+}
+
+func TestPromotionAddrRequired(t *testing.T) {
+	localEnv(t)
+	unset(t, "UPSTREAM_PROMOTION_ADDR")
+	_, err := config.Load()
+	mustContain(t, err, "UPSTREAM_PROMOTION_ADDR")
+
+	for _, blank := range []string{"", "   "} {
+		localEnv(t)
+		t.Setenv("UPSTREAM_PROMOTION_ADDR", blank)
+		_, err = config.Load()
+		mustContain(t, err, "UPSTREAM_PROMOTION_ADDR")
+	}
+}
+
+func TestPromotionAddrLoaded(t *testing.T) {
+	localEnv(t)
+	t.Setenv("UPSTREAM_PROMOTION_ADDR", "team-promotion:50061")
+	s, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := valueByEnv(t, s, "UPSTREAM_PROMOTION_ADDR"); got != "team-promotion:50061" {
+		t.Errorf("UPSTREAM_PROMOTION_ADDR = %v, want team-promotion:50061", got)
+	}
+	if !contains(sdkconfig.DeclaredEnvKeys(config.Settings{}), "UPSTREAM_PROMOTION_ADDR") {
+		t.Error("Settings does not declare UPSTREAM_PROMOTION_ADDR")
 	}
 }
