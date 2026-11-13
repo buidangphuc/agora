@@ -287,6 +287,10 @@ describe("moderation messages", () => {
 class ErrorInfo extends Message<ErrorInfo> {
   reason = "";
   domain = "";
+  constructor(data?: Partial<ErrorInfo>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
   static readonly runtime = proto3;
   static readonly typeName = "google.rpc.ErrorInfo";
   static readonly fields = proto3.util.newFieldList(() => [
