@@ -37,13 +37,17 @@ class FakeChannel:
 
 def _search(channel: FakeChannel) -> GrpcListingSearch:
     return GrpcListingSearch(
-        channel, principal_id="team-ai", principal_scopes=["search:read"]  # type: ignore[arg-type]
+        channel,
+        principal_id="team-ai",
+        principal_scopes=["search:read"],  # type: ignore[arg-type]
     )
 
 
 def _reader(channel: FakeChannel) -> GrpcListingReader:
     return GrpcListingReader(
-        channel, principal_id="team-ai", principal_scopes=["listing.read"]  # type: ignore[arg-type]
+        channel,
+        principal_id="team-ai",
+        principal_scopes=["listing.read"],  # type: ignore[arg-type]
     )
 
 
@@ -95,9 +99,7 @@ async def test_search_without_a_budget_leaves_max_price_unset():
 
 async def test_search_unavailable_raises_a_typed_retrieval_error():
     """Scenario: Search is down."""
-    channel = FakeChannel(
-        {"SearchListings": _RpcError(grpc.StatusCode.UNAVAILABLE)}
-    )
+    channel = FakeChannel({"SearchListings": _RpcError(grpc.StatusCode.UNAVAILABLE)})
 
     with pytest.raises(RetrievalError):
         await _search(channel).search("x", max_price=None, page_size=5, timeout_s=0.8)
@@ -194,9 +196,7 @@ async def test_listing_reader_unavailable_raises_a_typed_retrieval_error():
 
 async def test_listing_reader_deadline_exceeded_raises_timeout():
     """Scenario: Search is down (domain deadline)."""
-    channel = FakeChannel(
-        {"GetListing": _RpcError(grpc.StatusCode.DEADLINE_EXCEEDED)}
-    )
+    channel = FakeChannel({"GetListing": _RpcError(grpc.StatusCode.DEADLINE_EXCEEDED)})
 
     with pytest.raises(TimeoutError):
         await _reader(channel).get("l-1", timeout_s=0.5)

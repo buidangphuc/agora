@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
 from app.modules.business.ai_assistant.factory import (
     AIAssistantServices,
     build_ai_assistant_services,
@@ -17,9 +18,7 @@ from app.modules.business.ai_assistant.schemas import (
 
 FIXTURE = Path(__file__).parents[3] / "fixtures" / "ai_assistant_golden.json"
 GOLDEN: dict[str, Any] = json.loads(FIXTURE.read_text(encoding="utf-8"))
-CASES: list[dict[str, Any]] = [
-    c for c in GOLDEN["cases"] if c["flow"] != "shopping"
-]
+CASES: list[dict[str, Any]] = [c for c in GOLDEN["cases"] if c["flow"] != "shopping"]
 
 
 def _services(rag: dict[str, Any] | None) -> AIAssistantServices:

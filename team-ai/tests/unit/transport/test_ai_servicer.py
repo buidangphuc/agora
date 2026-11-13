@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-
-import re
 
 import grpc
 import pytest
@@ -100,7 +99,10 @@ def test_only_shopping_assistant_is_rate_limited():
 async def test_shopping_assistant_maps_cards_and_followups():
     cards = [
         ProductCard(
-            listing_id=f"l-{i}", title=f"Tai nghe {i}", price=100000 + i, rating_text="4.5/5 (3 đánh giá)"
+            listing_id=f"l-{i}",
+            title=f"Tai nghe {i}",
+            price=100000 + i,
+            rating_text="4.5/5 (3 đánh giá)",
         )
         for i in range(2)
     ]

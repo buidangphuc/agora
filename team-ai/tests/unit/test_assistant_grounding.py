@@ -29,13 +29,13 @@ from app.modules.business.ai_assistant.grounding import (
     ListingGrounding,
     parse_max_price,
 )
+from app.modules.business.ai_assistant.schemas import ShoppingAssistantRequest
 from app.modules.business.ai_assistant.shopping import (
     RAG_UNAVAILABLE_REPLY,
     LLMAssistantReplier,
     MockAssistantReplier,
     ShoppingAssistantService,
 )
-from app.modules.business.ai_assistant.schemas import ShoppingAssistantRequest
 
 REDACTION = RedactionPolicy(mode="redacted")
 BUYER = "buyer-7f3a9c2e"
@@ -120,9 +120,7 @@ class FakeLLM:
         self.prompts: list[str] = []
 
     async def ainvoke(self, messages: Any) -> Any:
-        self.prompts.append(
-            "\n".join(str(getattr(m, "content", m)) for m in messages)
-        )
+        self.prompts.append("\n".join(str(getattr(m, "content", m)) for m in messages))
         if self.hang:
             await asyncio.Event().wait()
         if self.fail:
@@ -154,9 +152,7 @@ async def test_published_in_stock_listing_becomes_a_card():
 async def test_unpublished_listing_is_not_returned():
     """Scenario: Unpublished listing is not returned."""
     search = FakeSearch([_hit(0), _hit(1)])
-    listing = FakeListing(
-        {"l-0": _fact(0, published=False), "l-1": _fact(1)}
-    )
+    listing = FakeListing({"l-0": _fact(0, published=False), "l-1": _fact(1)})
     result = await _grounding(search, listing).ground("tai nghe")
     assert [c.listing_id for c in result.cards] == ["l-1"]
 
@@ -284,9 +280,7 @@ async def test_mock_reply_is_deterministic_over_real_cards():
     second = await service.answer(request)
     assert first.reply_text == second.reply_text
     assert "Tai nghe Model 0" in first.reply_text
-    assert any(
-        s in first.reply_text for s in ("350.000", "350,000", "350000")
-    )
+    assert any(s in first.reply_text for s in ("350.000", "350,000", "350000"))
 
 
 async def test_llm_reply_with_invented_price_falls_back():
@@ -294,7 +288,9 @@ async def test_llm_reply_with_invented_price_falls_back():
     search, listing = _world(1)
     llm = FakeLLM("Mình gợi ý **Tai nghe Model 0** giá chỉ 1.000đ thôi!")
     service = _service(
-        search, listing, LLMAssistantReplier(llm, timeout_seconds=1.0)  # type: ignore[arg-type]
+        search,
+        listing,
+        LLMAssistantReplier(llm, timeout_seconds=1.0),  # type: ignore[arg-type]
     )
     result = await service.answer(ShoppingAssistantRequest(message="tai nghe"))
     template = await _service(search, listing).answer(
@@ -309,7 +305,9 @@ async def test_llm_reply_naming_only_card_facts_is_kept():
     search, listing = _world(1)
     text = "Mình gợi ý **Tai nghe Model 0** giá 350.000đ nhé!"
     service = _service(
-        search, listing, LLMAssistantReplier(FakeLLM(text), timeout_seconds=1.0)  # type: ignore[arg-type]
+        search,
+        listing,
+        LLMAssistantReplier(FakeLLM(text), timeout_seconds=1.0),  # type: ignore[arg-type]
     )
     result = await service.answer(ShoppingAssistantRequest(message="tai nghe"))
     assert result.reply_text == text
@@ -407,12 +405,12 @@ async def test_prompt_is_redacted_and_id_free():
     search, listing = _world(1)
     llm = FakeLLM("ok")
     service = _service(
-        search, listing, LLMAssistantReplier(llm, timeout_seconds=1.0)  # type: ignore[arg-type]
+        search,
+        listing,
+        LLMAssistantReplier(llm, timeout_seconds=1.0),  # type: ignore[arg-type]
     )
     await service.answer(
-        ShoppingAssistantRequest(
-            message="tai nghe, mail an@example.com", user_id=BUYER
-        )
+        ShoppingAssistantRequest(message="tai nghe, mail an@example.com", user_id=BUYER)
     )
     prompt = llm.prompts[0]
     assert "an@example.com" not in prompt
@@ -437,7 +435,9 @@ async def test_description_excluded_from_prompt():
     listing = FakeListing({"l-0": WithDescription()})
     llm = FakeLLM("ok")
     service = _service(
-        search, listing, LLMAssistantReplier(llm, timeout_seconds=1.0)  # type: ignore[arg-type]
+        search,
+        listing,
+        LLMAssistantReplier(llm, timeout_seconds=1.0),  # type: ignore[arg-type]
     )
     await service.answer(ShoppingAssistantRequest(message="tai nghe"))
     prompt = llm.prompts[0]
