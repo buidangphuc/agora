@@ -163,8 +163,8 @@ func TestLoopEvents_LoopEventTypesExistWithFixedNumbers(t *testing.T) {
 			t.Errorf("%s = %d, want %d", pinned[i], n, i)
 		}
 	}
-	if len(e.Value) != len(pinned) {
-		t.Errorf("EventType has %d values, want exactly %d", len(e.Value), len(pinned))
+	if len(e.Value) != len(pinned)+1 {
+		t.Errorf("EventType has %d values, want exactly %d (0-21 plus EXPERIMENT_EXPOSURE at 22)", len(e.Value), len(pinned)+1)
 	}
 }
 
@@ -223,8 +223,8 @@ func TestLoopEvents_MaxValueRoundTripsWithEmptyProperties(t *testing.T) {
 			max = v.Number
 		}
 	}
-	if num != 21 || max != 21 {
-		t.Fatalf("AI_INTERACTION = %d, highest value = %d, want both 21", num, max)
+	if num != 21 || max != 22 {
+		t.Fatalf("AI_INTERACTION = %d, highest value = %d, want 21 and 22", num, max)
 	}
 	b := encodeEvent(f, te, num, nil)
 	got := f.decode(t, te.Field, b)
@@ -254,13 +254,13 @@ func TestLoopEvents_OldBytesAndUnknownValueStillParse(t *testing.T) {
 			t.Errorf("field %s = %v, want %v", k, got[k], v)
 		}
 	}
-	// Unknown value 22 is not defined yet must survive as a number.
-	if e.valueIndex(22) != -1 {
-		t.Fatalf("value 22 must stay undefined in this change")
+	// Unknown value 23 is not defined yet must survive as a number.
+	if e.valueIndex(23) != -1 {
+		t.Fatalf("value 23 must stay undefined in this change")
 	}
-	unk := f.decode(t, te.Field, encodeEvent(f, te, 22, nil))
-	if unk["event_type"] != 22 {
-		t.Errorf("unknown event_type = %v, want 22 preserved", unk["event_type"])
+	unk := f.decode(t, te.Field, encodeEvent(f, te, 23, nil))
+	if unk["event_type"] != 23 {
+		t.Errorf("unknown event_type = %v, want 23 preserved", unk["event_type"])
 	}
 	if unk["listing_id"] != "L-1" {
 		t.Errorf("listing_id = %v, want L-1", unk["listing_id"])
