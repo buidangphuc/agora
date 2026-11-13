@@ -2,6 +2,10 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  DiscountType,
+  VoucherScope,
+} from "@/generated/platform/promotion/v1/promotion_pb.js";
 import { ListingStatus } from "@/generated/platform/listing/v1/listing_pb.js";
 import {
   createBundle,
@@ -10,11 +14,22 @@ import {
   upsertStorefront,
 } from "@/lib/gateway/listings";
 import { requestWalletPayout } from "@/lib/gateway/payment";
-import { createAdCampaign, subscribe } from "@/lib/gateway/promotion";
+import {
+  cancelMyCampaign,
+  createAdCampaign,
+  createCampaign,
+  createVoucher,
+  deactivateMyShopVoucher,
+  subscribe,
+} from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 import {
+  cancelCampaignAction,
   createAdCampaignAction,
   createBundleAction,
+  createCampaignAction,
+  createShopVoucherAction,
+  deactivateShopVoucherAction,
   requestWalletPayoutAction,
   searchMyListingsAction,
   subscribeAction,
@@ -31,6 +46,10 @@ vi.mock("@/lib/gateway/payment", () => ({ requestWalletPayout: vi.fn() }));
 vi.mock("@/lib/gateway/promotion", () => ({
   createAdCampaign: vi.fn(),
   subscribe: vi.fn(),
+  createVoucher: vi.fn(),
+  createCampaign: vi.fn(),
+  cancelMyCampaign: vi.fn(),
+  deactivateMyShopVoucher: vi.fn(),
 }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 
@@ -396,5 +415,181 @@ describe("searchMyListingsAction", () => {
     });
     expect((await searchMyListingsAction("áo")).ok).toBe(false);
     expect(listMyListings).not.toHaveBeenCalled();
+  });
+});
+
+describe("marketing actions", () => {
+  const voucherInput = {
+    code: "GIAM10",
+    discountType: DiscountType.PERCENT,
+    discountValue: 10,
+    minSpend: 0,
+    maxDiscount: 0,
+    quota: 100,
+    startsAt: new Date("2026-06-16T00:00:00Z"),
+    endsAt: new Date("2026-06-30T00:00:00Z"),
+  };
+  const campaignInput = {
+    listingId: "l1",
+    salePrice: 50000,
+    stockCap: 10,
+    startsAt: new Date("2026-06-16T00:00:00Z"),
+    endsAt: new Date("2026-06-17T00:00:00Z"),
+    idempotencyKey: "key-12345678",
+  };
+
+  it("marketing actions answer denied without listing.write", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "buyer",
+      name: "B",
+      scopes: [],
+    });
+    const results = [
+      await createShopVoucherAction(voucherInput),
+      await deactivateShopVoucherAction("v1"),
+      await createCampaignAction(campaignInput),
+      await cancelCampaignAction("c1"),
+    ];
+    for (const r of results) expect(r.ok).toBe(false);
+    expect(createVoucher).not.toHaveBeenCalled();
+    expect(deactivateMyShopVoucher).not.toHaveBeenCalled();
+    expect(createCampaign).not.toHaveBeenCalled();
+    expect(cancelMyCampaign).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("marketing actions answer denied for an anonymous principal", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null as never);
+    expect((await deactivateShopVoucherAction("v1")).ok).toBe(false);
+    expect(deactivateMyShopVoucher).not.toHaveBeenCalled();
+  });
+
+  it("createShopVoucherAction creates a SHOP voucher without a seller id and revalidates the hub", async () => {
+    vi.mocked(createVoucher).mockResolvedValue({ id: "v1" } as never);
+    const res = await createShopVoucherAction(voucherInput);
+    expect(res.ok).toBe(true);
+    expect(createVoucher).toHaveBeenCalledTimes(1);
+    const arg = vi.mocked(createVoucher).mock.calls[0][0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(arg.scope).toBe(VoucherScope.SHOP);
+    expect(arg.code).toBe("GIAM10");
+    expect(arg).not.toHaveProperty("sellerId");
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/marketing");
+  });
+
+  it("Duplicate code shows the server error: ALREADY_EXISTS answers Mã voucher đã tồn tại", async () => {
+    vi.mocked(createVoucher).mockRejectedValue(
+      new ConnectError("dup", Code.AlreadyExists),
+    );
+    expect(await createShopVoucherAction(voucherInput)).toEqual({
+      ok: false,
+      error: "Mã voucher đã tồn tại",
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("deactivateShopVoucherAction deactivates and revalidates the hub", async () => {
+    vi.mocked(deactivateMyShopVoucher).mockResolvedValue({
+      ok: true,
+      voucher: { id: "v1" },
+    } as never);
+    expect((await deactivateShopVoucherAction("v1")).ok).toBe(true);
+    expect(deactivateMyShopVoucher).toHaveBeenCalledWith("v1");
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/marketing");
+  });
+
+  it("deactivating an already deactivated voucher is accepted", async () => {
+    vi.mocked(deactivateMyShopVoucher).mockResolvedValue({
+      ok: true,
+      voucher: { id: "v1", active: false },
+    } as never);
+    expect(await deactivateShopVoucherAction("v1")).toEqual({ ok: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/marketing");
+  });
+
+  it("Another seller's voucher id is denied: message shown and nothing revalidated", async () => {
+    vi.mocked(deactivateMyShopVoucher).mockResolvedValue({
+      ok: false,
+      code: "denied",
+      message: "perm",
+    } as never);
+    expect(await deactivateShopVoucherAction("v-foreign")).toEqual({
+      ok: false,
+      error: "Không có quyền hoặc voucher không tồn tại",
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("createCampaignAction forwards the input and revalidates the hub", async () => {
+    vi.mocked(createCampaign).mockResolvedValue({
+      ok: true,
+      campaign: { id: "c1" },
+    } as never);
+    const res = await createCampaignAction(campaignInput);
+    expect(res.ok).toBe(true);
+    expect(createCampaign).toHaveBeenCalledWith(campaignInput);
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/marketing");
+  });
+
+  it("createCampaignAction maps PERMISSION_DENIED for a foreign listing", async () => {
+    vi.mocked(createCampaign).mockResolvedValue({
+      ok: false,
+      code: "denied",
+      message: "perm",
+    } as never);
+    const res = await createCampaignAction(campaignInput);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.length).toBeGreaterThan(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("createCampaignAction shows the server message for a rejected price", async () => {
+    vi.mocked(createCampaign).mockResolvedValue({
+      ok: false,
+      code: "invalid",
+      message: "sale price must be below listing price",
+    } as never);
+    expect(await createCampaignAction(campaignInput)).toEqual({
+      ok: false,
+      error: "sale price must be below listing price",
+    });
+  });
+
+  it("cancelCampaignAction cancels and revalidates the hub", async () => {
+    vi.mocked(cancelMyCampaign).mockResolvedValue({
+      ok: true,
+      campaign: { id: "c1" },
+    } as never);
+    expect((await cancelCampaignAction("c1")).ok).toBe(true);
+    expect(cancelMyCampaign).toHaveBeenCalledWith("c1");
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/marketing");
+  });
+
+  it("Cancelling a campaign that started meanwhile is refused: shows Flash sale đã bắt đầu, không thể huỷ and still revalidates", async () => {
+    vi.mocked(cancelMyCampaign).mockResolvedValue({
+      ok: false,
+      code: "failed_precondition",
+      message: "not scheduled",
+    } as never);
+    expect(await cancelCampaignAction("c1")).toEqual({
+      ok: false,
+      error: "Flash sale đã bắt đầu, không thể huỷ",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/marketing");
+  });
+
+  it("Another seller's campaign id is denied: message shown and nothing revalidated", async () => {
+    vi.mocked(cancelMyCampaign).mockResolvedValue({
+      ok: false,
+      code: "denied",
+      message: "perm",
+    } as never);
+    expect(await cancelCampaignAction("c-foreign")).toEqual({
+      ok: false,
+      error: "Không có quyền hoặc flash sale không tồn tại",
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
