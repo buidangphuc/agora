@@ -18,6 +18,7 @@ from .register_page import RegisterPage
 from .search_page import SearchPage
 from .seller_analytics_page import SellerAnalyticsPage
 from .seller_edit_listing_page import SellerEditListingPage
+from .seller_getting_started_card import SellerGettingStartedPage
 from .seller_listings_page import SellerListingsPage
 from .seller_marketing_page import SellerMarketingPage
 from .seller_new_listing_page import SellerNewListingPage
@@ -49,6 +50,7 @@ __all__ = [
     "VouchersPage",
     "AssistantPage",
     "SellerListingsPage",
+    "SellerGettingStartedPage",
     "SellerMarketingPage",
     "SellerNewListingPage",
     "SellerOrdersPage",

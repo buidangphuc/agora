@@ -3007,3 +3007,213 @@ features:
     tags: [seller, promo]
     status: planned
     covered_by: null
+
+  - id: seller-getting-started.a-new-seller-sees-all-four-steps-not-done
+    title: "Getting started: a new seller sees all four steps not done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When a seller with no display name, no banner, no listing, no voucher and no campaign opens `/seller`"
+      - "Then the card \"Bắt đầu bán hàng\" shows exactly four steps, all not done, with links `/seller/shop`, `/seller/shop`, `/seller/new`, `/seller/marketing`, and no step mentions KYC"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts all steps not done for an empty shop. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.done-steps-are-marked-from-the-shop-data
+    title: "Getting started: done steps are marked from the shop data"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When the seller has display name \"Shop An\", an empty banner URL, one DRAFT listing, no voucher and one SCHEDULED campaign"
+      - "Then steps 1, 3 and 4 are done, step 2 is not done, and the card is still shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts marks steps from storefront, listing and promotion data. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-voucher-alone-completes-the-marketing-step
+    title: "Getting started: a voucher alone completes the marketing step"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When the seller has one deactivated shop voucher and no campaign"
+      - "Then step 4 is done"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts a voucher of any state completes step 4. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-seller-without-a-storefront-row-sees-steps-1-and-2-not-done
+    title: "Getting started: a seller without a storefront row sees steps 1 and 2 not done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `GetStorefront` answers NOT_FOUND for the seller"
+      - "Then steps 1 and 2 are not done (not \"chưa rõ\") and steps 3 and 4 are evaluated from their own sources"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts missing storefront is not done not unknown. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.the-seller-id-comes-from-the-session-not-the-request
+    title: "Getting started: the seller id comes from the session, not the request"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `/seller` is requested with the query string `?sellerId=s-other`"
+      - "Then `GetStorefront` is called with the principal's seller id and never with `s-other`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/(dashboard)/page.test.tsx getting started uses the principal seller id. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-visitor-without-listing-write-never-reaches-the-card
+    title: "Getting started: a visitor without listing.write never reaches the card"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `/seller` renders for an anonymous visitor, and again for a signed-in principal without `listing.write`"
+      - "Then the anonymous visitor is redirected to login, the other principal gets no card, and none of the four data sources is called in either case"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/(dashboard)/page.test.tsx no card and no calls without seller scope. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.the-card-hides-once-all-steps-are-done
+    title: "Getting started: the card hides once all steps are done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When the seller has a display name, a banner, one listing and one voucher"
+      - "Then the card \"Bắt đầu bán hàng\" is absent from `/seller` and the KPI row is present"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/GettingStartedCard.test.tsx renders nothing when all steps are done. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.an-unavailable-source-shows-chua-ro-and-keeps-the-dashboard
+    title: "Getting started: an unavailable source shows chưa rõ and keeps the dashboard"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `ListMyListings` answers UNAVAILABLE while the other three sources answer normally"
+      - "Then step 3 shows \"chưa rõ\" with its link `/seller/new`, the card stays visible even if the other steps are done, and the dashboard still renders its KPI row, recent orders and product list"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/GettingStartedCard.test.tsx failed source shows chua ro and card stays. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.one-promotion-source-down-and-the-other-empty-is-unknown
+    title: "Getting started: one promotion source down and the other empty is unknown"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `ListMyShopVouchers` answers UNAVAILABLE and `ListMyCampaigns` returns no rows"
+      - "Then step 4 shows \"chưa rõ\""
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts step 4 unknown when one source fails and the other is empty. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.one-promotion-source-down-and-the-other-has-a-row-is-done
+    title: "Getting started: one promotion source down and the other has a row is done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `ListMyShopVouchers` answers UNAVAILABLE and `ListMyCampaigns` returns one campaign"
+      - "Then step 4 is done"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts step 4 done when one source has a row though the other fails. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-source-slower-than-3-s-times-out
+    title: "Getting started: a source slower than 3 s times out"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `GetStorefront` does not answer within 3 s"
+      - "Then steps 1 and 2 show \"chưa rõ\" at 3 s and the page response is not delayed beyond the other sections"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts a source slower than 3s becomes unknown. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.exactly-one-step-missing-keeps-the-card
+    title: "Getting started: exactly one step missing keeps the card"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When three steps are done and only the banner is missing"
+      - "Then the card is shown with step 2 not done and the other three done"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/GettingStartedCard.test.tsx one missing step keeps the card. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-new-seller-completes-the-steps-in-the-browser
+    title: "Getting started: a new seller completes the steps in the browser"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When a freshly granted seller opens `/seller`, saves a shop name and a banner on `/seller/shop`, creates a listing on `/seller/new`, creates a shop voucher on `/seller/marketing`, and returns to `/seller`"
+      - "Then the first visit shows four not-done steps, each completed step is done on the next visit, and after the last step the card \"Bắt đầu bán hàng\" is absent"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: seller-getting-started.a-seller-with-a-flash-sale-only-sees-the-marketing-step-done
+    title: "Getting started: a seller with a flash sale only sees the marketing step done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When a seller whose only activity is one flash-sale campaign on their own listing opens `/seller`"
+      - "Then step 3 and step 4 are done, steps 1 and 2 are not done, and the card is shown"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: seller-getting-started.a-buyer-without-the-seller-role-does-not-see-the-card
+    title: "Getting started: a buyer without the seller role does not see the card"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When a buyer without `listing.write` opens `/seller` on the seller app"
+      - "Then the page shows the onboarding button \"Đồng ý và trở thành Người Bán\" and no text \"Bắt đầu bán hàng\""
+    tags: [seller]
+    status: planned
+    covered_by: null
