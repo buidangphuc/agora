@@ -202,6 +202,22 @@ service OrderService {
   // NOT routed at the gateway, which answers 501. `service-team-promotion` must
   // be granted `order.read` in identity.
   rpc HasCompletedOrder(HasCompletedOrderRequest) returns (HasCompletedOrderResponse);
+  // GetUserObligations counts the open obligations of a user (open orders as
+  // buyer and as seller, open returns) so team-identity can decide whether an
+  // account may be erased. Internal: requires a service principal holding scope
+  // `order.internal.read`; every other principal gets PERMISSION_DENIED,
+  // enforced by the service itself. NOT routed at the gateway.
+  rpc GetUserObligations(GetUserObligationsRequest) returns (GetUserObligationsResponse);
+}
+
+message GetUserObligationsRequest {
+  string user_id = 1;
+}
+
+message GetUserObligationsResponse {
+  int32 open_buyer_orders = 1;
+  int32 open_seller_orders = 2;
+  int32 open_returns = 3;
 }
 
 message HasCompletedOrderRequest {

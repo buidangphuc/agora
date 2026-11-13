@@ -125,6 +125,10 @@ service PaymentService {
   rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
   rpc ProcessMockPayment(ProcessMockPaymentRequest) returns (ProcessMockPaymentResponse);
   rpc GetSellerWallet(GetSellerWalletRequest) returns (GetSellerWalletResponse);
+  // Gate: seller verification required. The call succeeds only when the seller's
+  // verification status is VERIFIED; otherwise FAILED_PRECONDITION. When the
+  // verification service cannot be reached the call fails closed with
+  // UNAVAILABLE.
   rpc RequestPayout(RequestPayoutRequest) returns (RequestPayoutResponse);
   rpc ListPayoutHistory(ListPayoutHistoryRequest) returns (ListPayoutHistoryResponse);
   rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
@@ -134,7 +138,28 @@ service PaymentService {
   rpc ListLedgerEntries(ListLedgerEntriesRequest) returns (ListLedgerEntriesResponse);
   // RequestWalletPayout books a payout ledger entry for the seller. Named to
   // avoid colliding with the existing bank-detail RequestPayout RPC above.
+  // Gate: seller verification required. The call succeeds only when the seller's
+  // verification status is VERIFIED; otherwise FAILED_PRECONDITION. When the
+  // verification service cannot be reached the call fails closed with
+  // UNAVAILABLE.
   rpc RequestWalletPayout(RequestWalletPayoutRequest) returns (RequestWalletPayoutResponse);
+  // GetPayoutObligations reports the money a user still has in flight
+  // (available and held balance, pending payouts) so team-identity can decide
+  // whether an account may be erased. Internal: requires a service principal
+  // holding scope `payment.internal.read`; every other principal gets
+  // PERMISSION_DENIED, enforced by the service itself. NOT routed at the
+  // gateway.
+  rpc GetPayoutObligations(GetPayoutObligationsRequest) returns (GetPayoutObligationsResponse);
+}
+
+message GetPayoutObligationsRequest {
+  string user_id = 1;
+}
+
+message GetPayoutObligationsResponse {
+  int64 available_balance = 1;
+  int64 held_balance = 2;
+  int32 pending_payouts = 3;
 }
 
 // A single wallet ledger movement (settlement, payout, refund, etc.).
