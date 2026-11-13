@@ -9,6 +9,7 @@ import { ShopRatingSummary } from "@/features/review/ShopRatingSummary";
 import type { ViewStorefront } from "@/lib/gateway/listings";
 import type { ViewShopRatingSummary } from "@/lib/gateway/reviews";
 import { shopLabel } from "@/lib/gateway/shops";
+import { resolveShopTheme } from "./shopTheme";
 
 /**
  * One shop header for the product page (`compact`) and the storefront
@@ -63,8 +64,9 @@ export function ShopHeaderCard({
   }
 
   const rated = summary.reviewCount > 0;
+  const theme = resolveShopTheme(storefront?.theme);
   return (
-    <Card data-testid="shop-header-card">
+    <Card data-testid="shop-header-card" data-theme={theme.key}>
       {storefront?.bannerUrl && (
         <Image
           src={storefront.bannerUrl}
@@ -75,7 +77,9 @@ export function ShopHeaderCard({
         />
       )}
       {storefront?.tagline && (
-        <p className="border-b border-border-subtle px-5 py-3 text-sm font-medium text-text-primary">
+        <p
+          className={`border-b border-border-subtle px-5 py-3 text-sm font-medium ${theme.headerBg} ${theme.headerText}`}
+        >
           {storefront.tagline}
         </p>
       )}

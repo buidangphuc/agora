@@ -1,3 +1,4 @@
+import { Link } from "@/components/ui/Link";
 import { Tabs } from "@/components/ui/Tabs";
 import { ChatWithSellerButton } from "@/features/chat/ChatWithSellerButton";
 import { FollowSellerButton } from "@/features/engagement/FollowSellerButton";
@@ -6,6 +7,7 @@ import type { StorefrontSort } from "@/features/listing/pdp";
 import type { ViewListing, ViewStorefront } from "@/lib/gateway/listings";
 import type { ViewShopRatingSummary } from "@/lib/gateway/reviews";
 import { ShopHeaderCard } from "./ShopHeaderCard";
+import { resolveFeatured } from "./featured";
 
 /** Listings in the order of the `?sort=` param (default: as returned). */
 export function sortListings(
@@ -47,7 +49,12 @@ export function ShopStorefrontView({
   summary: ViewShopRatingSummary;
   sort?: StorefrontSort;
 }) {
-  const sortedListings = sortListings(listings, sort);
+  const featured = resolveFeatured(storefront, listings, []);
+  const featuredIds = new Set(featured.map((l) => l.id));
+  const sortedListings = sortListings(
+    listings.filter((l) => !featuredIds.has(l.id)),
+    sort,
+  );
 
   return (
     <div className="space-y-6">
@@ -82,6 +89,23 @@ export function ShopStorefrontView({
           { id: "price_desc", label: "Giá: Cao đến Thấp" },
         ]}
       />
+
+      {featured.length > 0 && (
+        <div data-testid="featured-listings" className="space-y-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-text-primary">
+            SẢN PHẨM NỔI BẬT
+          </h2>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {featured.map((l) => (
+              <li key={l.id}>
+                <Link href={`/listing/${l.id}`} variant="outline" size="xs">
+                  {l.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-text-primary">
