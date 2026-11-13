@@ -178,7 +178,12 @@ message ListBundlesBySellerResponse {
   platform.common.v1.PageResponse page = 2;
 }
 
-// A seller's public storefront/shop page.
+// A seller's public storefront/shop page. Validation rules (enforced on
+// UpsertStorefront; a violation is INVALID_ARGUMENT and nothing is saved):
+// tagline is at most 120 characters with no control characters; banner_url
+// must be an https URL under the listing-images bucket, as returned by
+// GetImageUploadUrl; featured_listing_ids holds at most 6 ids, unique and
+// each owned by the caller; theme is one of default, dark, festive.
 message Storefront {
   string seller_id = 1;
   string slug = 2;
@@ -192,6 +197,9 @@ message Storefront {
   string display_name = 7;
 }
 
+// UpsertStorefrontRequest replaces the caller's storefront. It is a full
+// storefront replace, not a patch: unset fields are cleared. The rules on
+// Storefront apply; any violation is INVALID_ARGUMENT and nothing is saved.
 message UpsertStorefrontRequest {
   Storefront storefront = 1;
 }
@@ -365,8 +373,16 @@ message ListListingsResponse {
   platform.common.v1.PageResponse page = 2;
 }
 
+// ListMyListingsRequest optionally filters the caller's listings. An empty
+// statuses and an empty query mean no filter: all of the caller's listings are
+// returned, exactly as before these fields existed.
 message ListMyListingsRequest {
   platform.common.v1.PageRequest page = 1;
+  // Keep only listings whose status is in this set. An empty list means all statuses.
+  repeated ListingStatus statuses = 2;
+  // A case-insensitive substring match on the listing title. Trimmed; an empty
+  // means no text filter. At most 100 characters, longer is INVALID_ARGUMENT.
+  string query = 3;
 }
 
 message ListMyListingsResponse {
