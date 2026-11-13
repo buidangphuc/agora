@@ -9,6 +9,9 @@ import numpy as np
 import pandas as pd
 
 
+BASELINE_VERSION = "seasonal_naive_v1"
+
+
 class SeasonalNaiveQuantileForecaster:
     """Seasonal-Naive baseline: predicts future day t as day (t - 7) with empirical residual variance."""
 
