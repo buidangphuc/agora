@@ -1,6 +1,9 @@
+import json
 import sys
+import types
 from pathlib import Path
 
+import pytest
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "devenv"))
@@ -183,3 +186,83 @@ def test_down_removes_leftover_job_containers_and_volumes(monkeypatch, tmp_path)
     assert ["docker", "ps", "-aq", "--filter", label] in calls
     assert ["docker", "rm", "-f", "c1", "c2"] in calls
     assert ["docker", "volume", "rm", "recs_data"] in calls
+
+
+def _promote_env(monkeypatch, tmp_path, running, migrate_rc=0, build_fails=False):
+    monkeypatch.setattr(ae, "STATE_ROOT", tmp_path)
+    (tmp_path / "main").mkdir()
+    (tmp_path / "main" / "state.json").write_text(json.dumps({"env": "main", "deployed": "a" * 40}))
+    src = tmp_path / "src"
+    (src / "team-identity").mkdir(parents=True)
+    services = {
+        "postgres": SERVICES["postgres"],
+        "redpanda": SERVICES["redpanda"],
+        "redis": {"image": "redis:7"},
+        "team-identity-migrate": {"image": "team-identity:local"},
+        "team-identity": {"image": "team-identity:local", "build": {"context": str(src / "team-identity")}},
+    }
+    existing = {"postgres", "redpanda", "redis", "team-identity-migrate", "team-identity"}
+    calls = []
+
+    def fake_out(cmd, cwd=None):
+        if cmd[:3] == ["git", "rev-parse", "origin/main"]:
+            return "b" * 40 + "\n"
+        if cmd[:3] == ["docker", "ps", "-a"]:
+            return "\n".join(existing)
+        if cmd[:2] == ["docker", "ps"]:
+            return "\n".join(running)
+        return ""
+
+    def fake_run(cmd, cwd=None, check=True, capture=False, env=None):
+        calls.append(cmd)
+        rc = migrate_rc if "team-identity-migrate" in cmd else 0
+        if check and rc:
+            raise SystemExit(1)
+        return types.SimpleNamespace(returncode=rc, stdout="", stderr="")
+
+    def fake_build(st, svcs, owners):
+        if build_fails:
+            raise SystemExit("agora-env: failed: docker compose build")
+        return []
+
+    monkeypatch.setattr(ae, "out", fake_out)
+    monkeypatch.setattr(ae, "run", fake_run)
+    monkeypatch.setattr(ae, "export_main", lambda sha: src)
+    monkeypatch.setattr(ae, "config", lambda s, o: services)
+    monkeypatch.setattr(ae, "changed_files", lambda old, new: ["team-identity/main.go"])
+    monkeypatch.setattr(ae, "image_id", lambda ref: "sha256:x")
+    monkeypatch.setattr(ae, "build", fake_build)
+    monkeypatch.setattr(ae, "drop_unused", lambda ids: None)
+    args = types.SimpleNamespace(ref="origin/main", since=None, overlay=None, services=None, dry_run=False)
+    return args, calls, tmp_path / "main" / "state.json"
+
+
+def test_promote_keeps_deployed_when_build_fails(monkeypatch, tmp_path):
+    args, _, state = _promote_env(monkeypatch, tmp_path, running={"postgres", "redpanda", "redis"}, build_fails=True)
+    with pytest.raises(SystemExit):
+        ae.cmd_promote(args)
+    assert json.loads(state.read_text())["deployed"] == "a" * 40
+
+
+def test_promote_fails_and_keeps_deployed_when_a_migrate_fails(monkeypatch, tmp_path):
+    args, _, state = _promote_env(monkeypatch, tmp_path, running={"postgres", "redpanda", "redis"}, migrate_rc=1)
+    with pytest.raises(SystemExit) as e:
+        ae.cmd_promote(args)
+    assert "team-identity-migrate" in str(e.value)
+    assert json.loads(state.read_text())["deployed"] == "a" * 40
+
+
+def test_promote_refuses_when_infra_is_down(monkeypatch, tmp_path):
+    args, calls, state = _promote_env(monkeypatch, tmp_path, running=set())
+    with pytest.raises(SystemExit) as e:
+        ae.cmd_promote(args)
+    msg = str(e.value)
+    assert "postgres" in msg and "redis" in msg and "redpanda" in msg and "start" in msg
+    assert not any("team-identity-migrate" in c for c in calls)
+    assert json.loads(state.read_text())["deployed"] == "a" * 40
+
+
+def test_promote_records_deployed_on_success(monkeypatch, tmp_path):
+    args, _, state = _promote_env(monkeypatch, tmp_path, running={"postgres", "redpanda", "redis", "team-identity"})
+    ae.cmd_promote(args)
+    assert json.loads(state.read_text())["deployed"] == "b" * 40

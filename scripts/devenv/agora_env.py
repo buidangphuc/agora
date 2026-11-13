@@ -21,6 +21,7 @@ MAIN_TAG = "local"
 MAIN_OVERLAYS = ["platform-e2e/compose/order-inventory.override.yaml", "platform-e2e/compose/rag-off.override.yaml"]
 FEATURE_OVERLAYS = list(MAIN_OVERLAYS)
 ENTRY = ["team-gateway"]
+MAIN_INFRA = ["postgres", "redpanda", "redis"]
 NOT_DEPS = {"TRUSTED_PROXIES", "CORS_ORIGINS", "JAEGER_UI_URL"}
 OPTIONAL_HOSTS = {"otel-collector", "jaeger", "prometheus", "grafana", "kafka-ui"}
 GATEWAY_FANOUT = re.compile(r"^UPSTREAM_")
@@ -562,12 +563,15 @@ def cmd_promote(a):
     print(f"promote {old[:8]}..{new[:8]}: build {' '.join(owners) or '-'}{'; compose changed' if compose_changed else ''}")
     if a.dry_run:
         return
-    save_state(st)
+    down = [x for x in MAIN_INFRA if x in services and x not in running]
+    if down:
+        sys.exit(f"agora-env: mainx infra not running: {' '.join(down)}; start it first: {state_dir(MAIN) / 'dc.sh'} up -d {' '.join(down)}")
     write_dc_wrapper(st)
     olds = build(st, services, owners) if owners else []
     touched = sorted({u for o in owners for u in image_users(services, o)} & existing)
-    for t in [x for x in touched if x.endswith("-migrate")]:
-        compose(st, "up", "--no-build", "--no-deps", "--force-recreate", t, check=False)
+    failed = [t for t in touched if t.endswith("-migrate") and compose(st, "up", "--no-build", "--no-deps", "--force-recreate", t, check=False).returncode != 0]
+    if failed:
+        sys.exit(f"agora-env: migrate failed: {' '.join(failed)}; main stays at {old[:8]} (check `{state_dir(MAIN) / 'dc.sh'} logs {failed[0]}`)")
     up = [x for x in touched if not x.endswith("-migrate") and x in running]
     stopped = [x for x in touched if not x.endswith("-migrate") and x not in running]
     if up:
