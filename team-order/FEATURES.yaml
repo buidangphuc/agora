@@ -7553,16 +7553,6 @@ features:
     tags: [order, seller-centre]
     status: planned
     covered_by: null
-    persona: seller
-    priority: P1
-    summary: "Unit-verified scenario of change order-seller-list-paging (initiative seller-centre)."
-    entry_route: /
-    services: [team-order]
-    acceptance:
-      - "Migration applies and reverts"
-    tags: [order, seller-centre, unit]
-    status: not-testable
-    notes: "VERIFIED BY team-order migrations TestMigration0025_AppliesAndReverts. Not producible black box: needs a database migrated up and down."
 
   - id: order.slp-several-statuses-are-or-ed
     title: "Seller orders: Several statuses are OR-ed"
