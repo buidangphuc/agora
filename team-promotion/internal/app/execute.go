@@ -22,6 +22,8 @@ func Execute(ctx context.Context, args []string) error {
 			return err
 		}
 		return Migrate(ctx, ms)
+	case len(args) == 1 && args[0] == "backfill-campaign-sellers":
+		return runBackfillCampaignSellers(ctx)
 	default:
 		return fmt.Errorf("unknown subcommand %q", strings.Join(args, " "))
 	}
