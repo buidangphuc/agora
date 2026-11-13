@@ -75,7 +75,7 @@ def compose_business_services(
         ),
     )
     resources.ai_assistant = build_ai_assistant_services(
-        resources.rag_service, rag_min_score=settings.ASSISTANT_RAG_MIN_SCORE
+        resources.rag_service, rag_min_score=0.0
     )
     resources.chat = build_chat_service(
         settings,
