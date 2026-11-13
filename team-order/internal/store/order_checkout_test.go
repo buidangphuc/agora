@@ -147,10 +147,11 @@ func TestOrderCheckoutFieldsRoundTrip(t *testing.T) {
 			if len(buyerOrders) != 1 || buyerOrders[0].CheckoutID != chk || buyerOrders[0].PlatformDiscountAmount != 2500 {
 				t.Fatalf("ListBuyerOrders lost checkout fields: %+v", buyerOrders)
 			}
-			sellerOrders, err := repo.ListSellerOrders(ctx, created.SellerID, 0)
+			sellerRes, err := repo.ListSellerOrders(ctx, created.SellerID, store.SellerOrdersFilter{})
 			if err != nil {
 				t.Fatal(err)
 			}
+			sellerOrders := sellerRes.Orders
 			if len(sellerOrders) != 1 || sellerOrders[0].PlatformVoucherCode != "PLAT10" {
 				t.Fatalf("ListSellerOrders lost checkout fields: %+v", sellerOrders)
 			}
