@@ -32,35 +32,6 @@ func (s *Service) ListPlans(ctx context.Context) ([]store.Plan, error) {
 	return s.repo.ListPlans(ctx)
 }
 
-// Subscribe records that a seller has taken a plan. MOCK: no charge — it validates
-// the plan exists and upserts an active subscription (one per seller; re-subscribing
-// switches the plan). Returns the stored subscription with its tier populated.
-func (s *Service) Subscribe(ctx context.Context, sellerID, planID string) (store.SellerSubscription, error) {
-	if strings.TrimSpace(sellerID) == "" {
-		return store.SellerSubscription{}, ErrInvalidSubscription
-	}
-	if strings.TrimSpace(planID) == "" {
-		return store.SellerSubscription{}, ErrInvalidSubscription
-	}
-	plan, err := s.repo.GetPlanByID(ctx, planID)
-	if err != nil {
-		return store.SellerSubscription{}, err
-	}
-	sub, err := s.repo.UpsertSubscription(ctx, store.SellerSubscription{
-		SellerID:  sellerID,
-		PlanID:    plan.ID,
-		Tier:      plan.Tier,
-		Status:    store.SubscriptionStatusActive,
-		CreatedAt: s.nowFn(),
-	})
-	if err != nil {
-		return store.SellerSubscription{}, err
-	}
-	// Ensure the returned tier reflects the plan even if the repo left it unset.
-	sub.Tier = plan.Tier
-	return sub, nil
-}
-
 // GetEntitlements returns a seller's current plan tier and entitlement limits.
 // A seller with no active subscription (or an empty seller id) defaults to FREE —
 // never panics, never errors on the "unsubscribed" path.

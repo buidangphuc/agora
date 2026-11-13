@@ -122,6 +122,11 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 
 	holds := store.NewPostgresFlashHoldRepository(pool)
 	campaigns := store.NewPostgresFlashSaleRepository(pool, outStore)
+	payments, err := upstream.NewPaymentClient(s.Upstream.PaymentAddr, s.Upstream.PaymentTimeout)
+	if err != nil {
+		return err
+	}
+	stack.Push(func(context.Context) error { return payments.Close() })
 	var orders voucher.OrderClient
 	if s.Upstream.OrderAddr != "" {
 		orderClient, err := upstream.NewOrderClient(s.Upstream.OrderAddr, s.Upstream.OrderTimeout)
@@ -135,7 +140,12 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		WithOrderClient(orders).
 		WithReservationTTL(s.NewUser.ReservationTTL)
 	flashSvc := flashsale.New(campaigns, holds, evaluator, listings, gate, campaignEvent, logger)
-	subSvc := subscription.New(store.NewPostgresSubscriptionRepository(pool), logger)
+	subRepo := store.NewPostgresSubscriptionRepository(pool)
+	subSvc := subscription.New(subRepo, logger).WithPayment(payments)
+	renewalSweeper := consumer.NewRenewalSweeper(subRepo, payments, consumer.RenewalConfig{
+		RetryWindow: s.Subscription.RenewalRetryWindow,
+		Logger:      logger,
+	})
 	adSvc := sponsored.New(store.NewPostgresAdCampaignRepository(pool), listings, gate, logger).WithLimits(s.Ads.MaxBid, s.Ads.MaxBudget)
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
@@ -228,7 +238,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, outboxPurge, holdPurge, idemPurge, identityConsumer, referralConsumer, verdictSweeper, newUserPurge))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, outboxPurge, holdPurge, idemPurge, identityConsumer, referralConsumer, verdictSweeper, renewalSweeper, newUserPurge))
 }
 
 func newConsumer(s config.Settings, stack *lifecycle.Stack, dlq consume.DLQProducer, logger *slog.Logger, group, topic, dlqTopic string, handler consume.Handler) (*consume.Consumer, error) {

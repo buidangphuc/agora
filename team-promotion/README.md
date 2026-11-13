@@ -147,6 +147,9 @@ Startup fails when a required key is missing or invalid.
 | `UPSTREAM_DOMAIN_ADDR` | none | required. team-domain gRPC address (`team-domain-svc:50051` in compose) |
 | `UPSTREAM_ORDER_ADDR` | none | team-order gRPC address (`team-order-svc:50055` in compose). Unset does not stop boot; `new_user_only` checks then fail closed with `Unavailable` |
 | `UPSTREAM_ORDER_TIMEOUT` | `500ms` | per-call bound for `HasCompletedOrder` |
+| `UPSTREAM_PAYMENT_ADDR` | none | required. team-payment gRPC address (`team-payment-svc:50056` in compose). `SubscriptionService/Subscribe` and the renewal sweeper charge the seller wallet through `PaymentService/ChargeSellerFee` (service principal `service-team-promotion`, scope `payment:write`, key `sub:<id>:<period_seq+1>:<plan_id>`); a blank value stops boot |
+| `UPSTREAM_PAYMENT_TIMEOUT` | `2s` | per-call bound for `ChargeSellerFee`, must be > 0; a timeout is `Unavailable` and changes nothing |
+| `SUBSCRIPTION_RENEWAL_RETRY_WINDOW` | `1h` | how long after `current_period_end` a transient renewal charge error is retried before the seller lapses to FREE, must be > 0 |
 | `NEW_USER_WELCOME_AMOUNT` | `20000` | welcome voucher discount, must be > 0 |
 | `NEW_USER_INVITED_AMOUNT` | `30000` | invited voucher discount, must be > 0 |
 | `NEW_USER_MIN_SPEND` | `100000` | minimum subtotal of new-user vouchers, >= 0 |
