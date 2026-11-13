@@ -30,7 +30,7 @@ var (
 	// ErrListingNotReservable: a new reservation targeted a held listing.
 	ErrListingNotReservable = errors.New("listing not reservable")
 
-	// STUB(T2 red): replaced by the implementer.
+	// ErrListingCapReached: the seller is at or over the plan listing cap.
 	ErrListingCapReached = errors.New("seller listing cap reached")
 )
 

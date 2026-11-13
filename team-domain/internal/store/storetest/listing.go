@@ -2,7 +2,6 @@ package storetest
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"sync"
 	"time"
@@ -351,17 +350,28 @@ func (c stockChanges) listings() []string {
 	return out
 }
 
-// STUB(T2 red): replaced by the implementer.
-func (r *InMemoryListingRepository) CountBySeller(_ context.Context, _ string) (int64, error) {
-	return 0, errors.New("not implemented")
+func (r *InMemoryListingRepository) countSellerLocked(sellerID string) int64 {
+	var n int64
+	for _, l := range r.byID {
+		if l.SellerID == sellerID {
+			n++
+		}
+	}
+	return n
 }
 
-// STUB(T2 red): replaced by the implementer.
-func (r *InMemoryListingRepository) CreateCapped(_ context.Context, _ store.Listing, _ int64) (store.Listing, error) {
-	return store.Listing{}, errors.New("not implemented")
+func (r *InMemoryListingRepository) CountBySeller(_ context.Context, sellerID string) (int64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.countSellerLocked(sellerID), nil
 }
 
-// STUB(T2 red): replaced by the implementer.
-func (w *InMemoryTxWriter) CreateCappedTx(_ context.Context, _ store.Listing, _ int64, _ store.EnqueueFn) (store.Listing, error) {
-	return store.Listing{}, errors.New("not implemented")
+func (r *InMemoryListingRepository) CreateCapped(_ context.Context, l store.Listing, limit int64) (store.Listing, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if limit >= 0 && r.countSellerLocked(l.SellerID) >= limit {
+		return store.Listing{}, store.ErrListingCapReached
+	}
+	r.byID[l.ID] = l
+	return l, nil
 }

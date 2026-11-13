@@ -118,11 +118,11 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	}
 	stack.Push(func(context.Context) error { return promoConn.Close() })
 	entitlements := listing.NewGRPCEntitlements(promotionv1.NewSubscriptionServiceClient(promoConn))
-	_ = entitlements
 
 	repo := store.NewPostgresListingRepository(pool).WithStockEvents(outStore, rpc.NewStockEventBuilder())
 	svc := listing.NewListingServiceWithOutbox(repo, store.NewPgTxWriter(pool, outStore)).
 		WithAudit(gate).
+		WithEntitlements(entitlements).
 		WithScreener(kw, aiClient).
 		WithReservationTTL(s.ReservationTTL(logger))
 	sweeper := listing.NewReservationSweeper(svc, s.ReservationSweepInterval(logger), logger)

@@ -41,6 +41,17 @@ func (w *InMemoryTxWriter) CreateTx(ctx context.Context, l store.Listing, ev sto
 	return w.enqueue(out, ev)
 }
 
+func (w *InMemoryTxWriter) CreateCappedTx(ctx context.Context, l store.Listing, limit int64, ev store.EnqueueFn) (store.Listing, error) {
+	if w.FailWrite {
+		return store.Listing{}, errors.New("simulated write failure")
+	}
+	out, err := w.repo.CreateCapped(ctx, l, limit)
+	if err != nil {
+		return store.Listing{}, err
+	}
+	return w.enqueue(out, ev)
+}
+
 func (w *InMemoryTxWriter) UpdateTx(ctx context.Context, l store.Listing, ev store.EnqueueFn) (store.Listing, error) {
 	if w.FailWrite {
 		return store.Listing{}, errors.New("simulated write failure")
