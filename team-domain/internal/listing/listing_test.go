@@ -153,7 +153,7 @@ func TestListingService(t *testing.T) {
 			t.Errorf("expected at least 3 items, got %d", len(page.Items))
 		}
 
-		minePage, err := svc.ListMine(ctx, "seller_a", "", 10)
+		minePage, err := svc.ListMine(ctx, "seller_a", store.ListingFilter{}, "", 10)
 		if err != nil {
 			t.Fatalf("unexpected error listing mine: %v", err)
 		}
@@ -921,5 +921,36 @@ func TestRestoreSellerListingsPendingReturnsToQueueWithoutScreen(t *testing.T) {
 	}
 	if ai.calls != 0 {
 		t.Fatalf("screen calls = %d, want 0 during restore", ai.calls)
+	}
+}
+
+func TestListMineFilterPassesStatusesAndQuery(t *testing.T) {
+	ctx := context.Background()
+	repo := storetest.NewInMemoryListingRepository()
+	svc := listing.NewListingService(repo)
+	for _, l := range []store.Listing{
+		{Title: "Áo thun", Status: "published"},
+		{Title: "Áo thun", Status: "draft"},
+		{Title: "Quần jean", Status: "draft"},
+	} {
+		if _, err := svc.Create(ctx, l, "seller_a"); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+	}
+	if _, err := svc.Create(ctx, store.Listing{Title: "Áo thun", Status: "draft"}, "seller_b"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	page, err := svc.ListMine(ctx, "seller_a", store.ListingFilter{Statuses: []string{"draft"}, Query: "áo"}, "", 10)
+	if err != nil {
+		t.Fatalf("ListMine: %v", err)
+	}
+	if len(page.Items) != 1 || page.Total != 1 || page.Items[0].Status != "draft" || page.Items[0].SellerID != "seller_a" {
+		t.Fatalf("filtered page = %+v, want the one own draft Áo listing", page)
+	}
+
+	all, err := svc.ListMine(ctx, "seller_a", store.ListingFilter{}, "", 10)
+	if err != nil || len(all.Items) != 3 || all.Total != 3 {
+		t.Fatalf("empty filter = %d items total %d err %v, want 3", len(all.Items), all.Total, err)
 	}
 }

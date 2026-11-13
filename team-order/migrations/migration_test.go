@@ -434,6 +434,11 @@ func TestMigration0023_BackfilledOrderCancelledLaterIsSubtractedOnce(t *testing.
 	m.line("o1", "L", 2)
 	m.runUp()
 	m.wantSold("L", 2)
+	body, err := fs.ReadFile(migrations.FS, "0025_bundle_lines.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.exec(string(body))
 
 	ob, err := outbox.NewStore(m.pool, "order_outbox_events")
 	if err != nil {

@@ -127,24 +127,52 @@ func (r *PostgresListingRepository) List(ctx context.Context, cursor string, pag
 	return Page{Items: items, NextCursor: next, Total: total}, nil
 }
 
-// ListByOwner returns a keyset page of the owner's listings.
-func (r *PostgresListingRepository) ListByOwner(ctx context.Context, ownerID, cursor string, pageSize int32) (Page, error) {
+// ListByOwner returns a keyset page of the owner's listings, narrowed by filter.
+func (r *PostgresListingRepository) ListByOwner(ctx context.Context, ownerID string, filter ListingFilter, cursor string, pageSize int32) (Page, error) {
 	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
+	statuses := filter.Statuses
+	if statuses == nil {
+		statuses = []string{}
+	}
+	pattern := ""
+	if filter.Query != "" {
+		pattern = "%" + likeEscaper.Replace(filter.Query) + "%"
+	}
+	const where = `seller_id = $1 AND (cardinality($2::text[]) = 0 OR status = ANY($2::text[])) AND ($3 = '' OR title ILIKE $3)`
 	const q = `SELECT ` + listingColumns + `
 		FROM listings
-		WHERE seller_id = $3 AND ($1 = '' OR id > $1)
+		WHERE ` + where + ` AND ($4 = '' OR id > $4)
 		ORDER BY id
-		LIMIT $2`
-	items, next, err := r.queryPage(ctx, q, cursor, limit, ownerID)
+		LIMIT $5`
+	rows, err := r.pool.Query(ctx, q, ownerID, statuses, pattern, cursor, limit+1)
 	if err != nil {
-		return Page{}, err
+		return Page{}, fmt.Errorf("list listings: %w", err)
 	}
-	total, err := r.count(ctx, `SELECT count(*) FROM listings WHERE seller_id = $1`, ownerID)
-	if err != nil {
-		return Page{}, err
+	defer rows.Close()
+	items := make([]Listing, 0, limit)
+	for rows.Next() {
+		var l Listing
+		if err := scanListing(rows, &l); err != nil {
+			return Page{}, fmt.Errorf("scan listing: %w", err)
+		}
+		items = append(items, l)
+	}
+	if err := rows.Err(); err != nil {
+		return Page{}, fmt.Errorf("iterate listings: %w", err)
+	}
+	var next string
+	if len(items) > limit {
+		items = items[:limit]
+		next = items[len(items)-1].ID
+	}
+	var total int64
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM listings WHERE `+where, ownerID, statuses, pattern).Scan(&total); err != nil {
+		return Page{}, fmt.Errorf("count listings: %w", err)
 	}
 	return Page{Items: items, NextCursor: next, Total: total}, nil
 }
+
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 // queryPage runs a keyset query that takes (cursor, limit+1, arg) and returns the
 // page items (dropping the probe row) + next cursor.

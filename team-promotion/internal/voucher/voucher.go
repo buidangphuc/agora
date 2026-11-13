@@ -371,6 +371,54 @@ func (s *Service) ListVouchers(ctx context.Context, sellerID, cursor string, pag
 	return items, next, nil
 }
 
+const maxPageSize = 200
+
+func (s *Service) ListMyShopVouchers(ctx context.Context, sellerID, cursor string, pageSize int32) ([]store.Voucher, string, error) {
+	if sellerID == "" {
+		return nil, "", nil
+	}
+	limit := int(pageSize)
+	if limit <= 0 {
+		limit = defaultPageSize
+	}
+	if limit > maxPageSize {
+		limit = maxPageSize
+	}
+	offset := 0
+	if cursor != "" {
+		if n, err := strconv.Atoi(cursor); err == nil && n >= 0 {
+			offset = n
+		}
+	}
+	items, err := s.vouchers.List(ctx, sellerID, limit+1, offset)
+	if err != nil {
+		return nil, "", err
+	}
+	next := ""
+	if len(items) > limit {
+		items = items[:limit]
+		next = strconv.Itoa(offset + limit)
+	}
+	return items, next, nil
+}
+
+func (s *Service) DeactivateMyShopVoucher(ctx context.Context, voucherID, sellerID string) (store.Voucher, error) {
+	if voucherID == "" || sellerID == "" {
+		return store.Voucher{}, store.ErrNotOwner
+	}
+	cur, err := s.vouchers.GetByID(ctx, voucherID)
+	if err != nil {
+		if errors.Is(err, store.ErrVoucherNotFound) {
+			return store.Voucher{}, store.ErrNotOwner
+		}
+		return store.Voucher{}, err
+	}
+	if cur.Scope != voucherScopeShop || cur.SellerID != sellerID || cur.OwnerUserID != "" {
+		return store.Voucher{}, store.ErrNotOwner
+	}
+	return s.vouchers.Deactivate(ctx, cur.ID, s.nowFn())
+}
+
 // ReserveResult is the outcome of ValidateAndReserve.
 type ReserveResult struct {
 	Valid          bool

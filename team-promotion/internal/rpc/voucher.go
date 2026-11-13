@@ -159,6 +159,37 @@ func (h *VoucherHandler) ListVouchers(ctx context.Context, req *promotionv1.List
 	return &promotionv1.ListVouchersResponse{Vouchers: out, Page: pageResponse(next)}, nil
 }
 
+func (h *VoucherHandler) ListMyShopVouchers(ctx context.Context, req *promotionv1.ListMyShopVouchersRequest) (*promotionv1.ListMyShopVouchersResponse, error) {
+	p, err := auth.RequireScopes(ctx, scopeListingWrite)
+	if err != nil {
+		return nil, err
+	}
+	items, next, err := h.svc.ListMyShopVouchers(ctx, p.ID, req.GetPage().GetCursor(), req.GetPage().GetPageSize())
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	out := make([]*promotionv1.Voucher, 0, len(items))
+	for _, v := range items {
+		out = append(out, voucherToProto(v))
+	}
+	return &promotionv1.ListMyShopVouchersResponse{Vouchers: out, Page: pageResponse(next)}, nil
+}
+
+func (h *VoucherHandler) DeactivateMyShopVoucher(ctx context.Context, req *promotionv1.DeactivateMyShopVoucherRequest) (*promotionv1.DeactivateMyShopVoucherResponse, error) {
+	p, err := auth.RequireScopes(ctx, scopeListingWrite)
+	if err != nil {
+		return nil, err
+	}
+	v, err := h.svc.DeactivateMyShopVoucher(ctx, req.GetVoucherId(), p.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotOwner) {
+			return nil, status.Error(codes.PermissionDenied, "voucher not found or not owned by the caller")
+		}
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.DeactivateMyShopVoucherResponse{Voucher: voucherToProto(v)}, nil
+}
+
 func (h *VoucherHandler) ValidateAndReserve(ctx context.Context, req *promotionv1.ValidateAndReserveRequest) (*promotionv1.ValidateAndReserveResponse, error) {
 	p, err := auth.RequirePrincipal(ctx)
 	if err != nil {

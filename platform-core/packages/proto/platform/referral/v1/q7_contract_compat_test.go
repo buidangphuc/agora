@@ -867,7 +867,7 @@ func TestQ7_VoucherUserBoundFieldsHaveFixedNumbers(t *testing.T) {
 // Scenario: Q7 referral welcome contract: ListMyVouchers exists on VoucherService
 func TestQ7_ListMyVouchersExistsOnVoucherService(t *testing.T) {
 	f := loadFile(t, promotionFile)
-	assertRPCs(t, f, "VoucherService", voucherExisting, "ListMyVouchers")
+	assertRPCs(t, f, "VoucherService", voucherExisting, "ListMyVouchers", "ListMyShopVouchers", "DeactivateMyShopVoucher")
 	assertMessageFields(t, f, map[string]map[string]string{
 		"ListMyVouchersRequest":  {},
 		"ListMyVouchersResponse": {"vouchers": "1 TYPE_MESSAGE .platform.promotion.v1.Voucher repeated"},

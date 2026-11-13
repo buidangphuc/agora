@@ -1,6 +1,6 @@
 # team-domain
 
-Go gRPC service that owns the marketplace **listing write-model**: listings and variants, categories, seller storefronts (shop display name), bundles, and stock reservations. It is the bounded context behind `platform.listing.v1.ListingService` (CQRS write side, ADR-0005). Every listing write also records a `ListingChanged` event in a transactional outbox (ADR-0002) that a background relayer publishes to Kafka for read models such as `team-search`.
+Go gRPC service that owns the marketplace **listing write-model**: listings and variants, categories, seller storefronts (shop display name, tagline, banner, theme, featured listings), bundles, and stock reservations. It is the bounded context behind `platform.listing.v1.ListingService` (CQRS write side, ADR-0005). Every listing write also records a `ListingChanged` event in a transactional outbox (ADR-0002) that a background relayer publishes to Kafka for read models such as `team-search`.
 
 Status: deployed service (root `docker-compose.services.yaml`, `team-domain-svc:50051`). Only this service connects to its Postgres `listing_db`.
 
@@ -11,11 +11,11 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 | RPC | Authorization | Notes |
 |---|---|---|
 | `GetListing`, `ListListings`, `ListCategories`, `GetCategory` | `listing.read` | `NotFound` for unknown id |
-| `ListMyListings` | `listing.write` | caller's own listings |
+| `ListMyListings` | `listing.write` | caller's own listings; optional `statuses` (OR-ed; `LISTING_STATUS_UNSPECIFIED` gives `InvalidArgument`) and `query` (trimmed, case-insensitive title match, blank ignored, over 100 runes gives `InvalidArgument`, never logged) |
 | `CreateListing` | `listing.write` | seller id forced from the principal |
 | `UpdateListing`, `DeleteListing` | `listing.write` + owner, or `admin` scope | `PermissionDenied` "not the listing owner"; delete is a hard `DELETE` |
 | `GetImageUploadUrl` | `listing.write` | `Unavailable` if no object store |
-| `UpsertStorefront` | `listing.write` | row keyed by the principal; `AlreadyExists` on slug clash |
+| `UpsertStorefront` | `listing.write` | row keyed by the principal (body `seller_id` ignored); `AlreadyExists` on slug clash. `InvalidArgument` for: tagline over 120 runes or with a control character; theme not `default`/`dark`/`festive` (empty = default); `banner_url` not under `STORAGE_PUBLIC_BASE_URL` or with `?`/`#` (a stored legacy banner resent unchanged is kept); more than 6 featured ids, duplicate/empty ids, or an id not owned by the caller (unknown and foreign ids give the same answer, checked with one batched read) |
 | `GetStorefront`, `BatchGetStorefronts` | `listing.read` | batch max 100 ids, else `InvalidArgument` |
 | `CreateBundle` | `listing.write` | owner-scoped; 2 to 10 distinct own non-variant listings, price above 0 and below their sum (foreign or unknown listing: PermissionDenied; other rule breaks: InvalidArgument) |
 | `GetBundle`, `ListBundlesBySeller` | `listing.read` | |
@@ -85,7 +85,7 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | `minioadmin` / `minioadmin` |
 | `STORAGE_REGION` | `us-east-1` |
 | `STORAGE_USE_SSL` | `false` |
-| `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/listing-images` |
+| `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/listing-images` (also the only accepted prefix for storefront `banner_url`; empty falls back to `<scheme>://STORAGE_ENDPOINT/STORAGE_BUCKET`) |
 | `KAFKA_BROKERS` | `localhost:9092`, comma-separated |
 | `KAFKA_LISTING_TOPIC` | `listing.events` |
 | `KAFKA_IDENTITY_TOPIC` | `identity.events` |
