@@ -1,3 +1,4 @@
+import { Message, proto3 } from "@bufbuild/protobuf";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -280,5 +281,82 @@ describe("moderation messages", () => {
     vi.mocked(deleteListing).mockRejectedValue(new Error("db exploded"));
     const res = await deleteListingAction("l1");
     expect(res).toEqual({ ok: false, error: "Xoá sản phẩm thất bại." });
+  });
+});
+
+class ErrorInfo extends Message<ErrorInfo> {
+  reason = "";
+  domain = "";
+  static readonly runtime = proto3;
+  static readonly typeName = "google.rpc.ErrorInfo";
+  static readonly fields = proto3.util.newFieldList(() => [
+    { no: 1, name: "reason", kind: "scalar", T: 9 },
+    { no: 2, name: "domain", kind: "scalar", T: 9 },
+  ]);
+}
+
+function refusal(code: Code, reason?: string): ConnectError {
+  return new ConnectError(
+    "refused",
+    code,
+    undefined,
+    reason ? [new ErrorInfo({ reason, domain: "listing.platform" })] : undefined,
+  );
+}
+
+describe("saveListingAction plan cap", () => {
+  it("plan listing limit returns an upgrade url", async () => {
+    vi.mocked(createListing).mockRejectedValue(
+      refusal(Code.ResourceExhausted, "PLAN_LISTING_LIMIT"),
+    );
+    const res = await saveListingAction(initial, form(validListing));
+    expect(res.ok).toBe(false);
+    expect(res.message).toBe(
+      "Bạn đã đạt giới hạn số tin đăng của gói hiện tại.",
+    );
+    expect(res.error).toBe(res.message);
+    expect((res as SellState & { upgradeUrl?: string }).upgradeUrl).toBe(
+      "/seller/plans",
+    );
+  });
+
+  it("other resource exhausted has no upgrade url", async () => {
+    vi.mocked(createListing).mockRejectedValue(
+      refusal(Code.ResourceExhausted, "RATE_LIMITED"),
+    );
+    const res = await saveListingAction(initial, form(validListing));
+    expect(res.ok).toBe(false);
+    expect(res.message).not.toContain("giới hạn số tin đăng");
+    expect(
+      (res as SellState & { upgradeUrl?: string }).upgradeUrl,
+    ).toBeUndefined();
+  });
+
+  it("resource exhausted without details has no upgrade url", async () => {
+    vi.mocked(createListing).mockRejectedValue(refusal(Code.ResourceExhausted));
+    const res = await saveListingAction(initial, form(validListing));
+    expect(res.ok).toBe(false);
+    expect(
+      (res as SellState & { upgradeUrl?: string }).upgradeUrl,
+    ).toBeUndefined();
+  });
+
+  it("permission denied has no upgrade url", async () => {
+    vi.mocked(createListing).mockRejectedValue(refusal(Code.PermissionDenied));
+    const res = await saveListingAction(initial, form(validListing));
+    expect(res.ok).toBe(false);
+    expect(
+      (res as SellState & { upgradeUrl?: string }).upgradeUrl,
+    ).toBeUndefined();
+  });
+
+  it("unavailable has no upgrade url", async () => {
+    vi.mocked(createListing).mockRejectedValue(refusal(Code.Unavailable));
+    const res = await saveListingAction(initial, form(validListing));
+    expect(res.ok).toBe(false);
+    expect(res.message).not.toContain("giới hạn số tin đăng");
+    expect(
+      (res as SellState & { upgradeUrl?: string }).upgradeUrl,
+    ).toBeUndefined();
   });
 });

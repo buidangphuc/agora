@@ -8,9 +8,14 @@ import {
   upsertStorefront,
 } from "@/lib/gateway/listings";
 import { requestWalletPayout } from "@/lib/gateway/payment";
-import { createAdCampaign, subscribe } from "@/lib/gateway/promotion";
+import {
+  cancelSubscription,
+  createAdCampaign,
+  subscribe,
+} from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 import {
+  cancelSubscriptionAction,
   createAdCampaignAction,
   createBundleAction,
   requestWalletPayoutAction,
@@ -27,6 +32,7 @@ vi.mock("@/lib/gateway/payment", () => ({ requestWalletPayout: vi.fn() }));
 vi.mock("@/lib/gateway/promotion", () => ({
   createAdCampaign: vi.fn(),
   subscribe: vi.fn(),
+  cancelSubscription: vi.fn(),
 }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 
@@ -202,5 +208,52 @@ describe("upsertStorefrontAction", () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     expect((await upsertStorefrontAction("A")).ok).toBe(false);
     expect(upsertStorefront).not.toHaveBeenCalled();
+  });
+});
+
+describe("subscribeAction gateway refusals", () => {
+  it("Insufficient balance is explained and nothing changes: FAILED_PRECONDITION", async () => {
+    vi.mocked(subscribe).mockRejectedValue(
+      new ConnectError("balance", Code.FailedPrecondition),
+    );
+    expect(await subscribeAction("p-pro")).toEqual({
+      ok: false,
+      error: "Số dư có thể rút không đủ để trả gói này.",
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("Subscribe denied by the gateway shows an error and no change", async () => {
+    for (const code of [Code.PermissionDenied, Code.Unauthenticated]) {
+      vi.mocked(subscribe).mockRejectedValue(new ConnectError("x", code));
+      expect(await subscribeAction("p-pro")).toEqual({
+        ok: false,
+        error: "Đăng ký gói thất bại.",
+      });
+    }
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("cancelSubscriptionAction", () => {
+  it("Confirmed cancel calls CancelSubscription once", async () => {
+    vi.mocked(cancelSubscription).mockResolvedValue({} as never);
+    expect(await cancelSubscriptionAction()).toEqual({ ok: true });
+    expect(cancelSubscription).toHaveBeenCalledTimes(1);
+    expect(cancelSubscription).toHaveBeenCalledWith();
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/plans");
+  });
+
+  it("Cancel denied by the gateway shows an error", async () => {
+    for (const code of [Code.PermissionDenied, Code.NotFound, Code.Unavailable]) {
+      vi.mocked(cancelSubscription).mockRejectedValue(
+        new ConnectError("x", code),
+      );
+      expect(await cancelSubscriptionAction()).toEqual({
+        ok: false,
+        error: "Hủy gia hạn thất bại.",
+      });
+    }
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
