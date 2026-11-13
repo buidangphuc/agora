@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -108,7 +109,7 @@ type OrderRepository interface {
 	CreateOrder(ctx context.Context, order Order) (Order, error)
 	GetOrder(ctx context.Context, id string) (Order, error)
 	ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]Order, error)
-	ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]Order, error)
+	ListSellerOrders(ctx context.Context, sellerID string, f SellerOrdersFilter) (SellerOrdersResult, error)
 	HasCompletedOrder(ctx context.Context, buyerID string) (bool, error)
 	// UpdateOrderStatusFrom is the only status write: a compare-and-set that moves
 	// the order to `to` only if its status at the moment of the write is one of
@@ -485,43 +486,160 @@ func (r *PostgresOrderRepository) HasCompletedOrder(ctx context.Context, buyerID
 	return has, nil
 }
 
-func (r *PostgresOrderRepository) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]Order, error) {
-	var q string
-	var args []any
-	if statusFilter > 0 {
-		q = `SELECT ` + orderColumns + ` FROM orders WHERE seller_id = $1 AND status = $2 ORDER BY created_at DESC`
-		args = []any{sellerID, statusFilter}
-	} else {
-		q = `SELECT ` + orderColumns + ` FROM orders WHERE seller_id = $1 ORDER BY created_at DESC`
-		args = []any{sellerID}
+type SellerOrdersCursor struct {
+	CreatedAt time.Time
+	ID        string
+}
+
+type SellerOrdersFilter struct {
+	Statuses []OrderStatus
+	Query    string
+	Paged    bool
+	PageSize int32
+	Cursor   *SellerOrdersCursor
+}
+
+type StatusCount struct {
+	Status OrderStatus
+	Count  int64
+}
+
+type SellerOrdersResult struct {
+	Orders []Order
+	Next   *SellerOrdersCursor
+	Total  int64
+	Counts []StatusCount
+}
+
+const (
+	DefaultSellerPageSize = 20
+	MaxSellerPageSize     = 100
+)
+
+func SellerPageSize(n int32) int {
+	switch {
+	case n <= 0:
+		return DefaultSellerPageSize
+	case n > MaxSellerPageSize:
+		return MaxSellerPageSize
+	}
+	return int(n)
+}
+
+var sellerStatusOrder = []OrderStatus{OrderStatusPending, OrderStatusPaid, OrderStatusShipped, OrderStatusCompleted, OrderStatusCancelled}
+
+func escapeLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+}
+
+func (r *PostgresOrderRepository) ListSellerOrders(ctx context.Context, sellerID string, f SellerOrdersFilter) (SellerOrdersResult, error) {
+	var res SellerOrdersResult
+	base := `seller_id = $1`
+	args := []any{sellerID}
+	if f.Query != "" {
+		args = append(args, "%"+escapeLike(f.Query)+"%")
+		p := len(args)
+		args = append(args, escapeLike(f.Query)+"%")
+		base += fmt.Sprintf(` AND (id ILIKE $%d ESCAPE '\' OR EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = orders.id AND i.title ILIKE $%d ESCAPE '\'))`, p+1, p)
 	}
 
+	countRows, err := r.pool.Query(ctx, `SELECT status, count(*) FROM orders WHERE `+base+` GROUP BY status`, args...)
+	if err != nil {
+		return res, fmt.Errorf("count seller orders: %w", err)
+	}
+	byStatus := map[OrderStatus]int64{}
+	for countRows.Next() {
+		var st int32
+		var n int64
+		if err := countRows.Scan(&st, &n); err != nil {
+			countRows.Close()
+			return res, err
+		}
+		byStatus[OrderStatus(st)] = n
+	}
+	countRows.Close()
+	if err := countRows.Err(); err != nil {
+		return res, err
+	}
+	for _, st := range sellerStatusOrder {
+		res.Counts = append(res.Counts, StatusCount{Status: st, Count: byStatus[st]})
+	}
+
+	where := base
+	if len(f.Statuses) > 0 {
+		args = append(args, statusInts(f.Statuses))
+		where += fmt.Sprintf(` AND status = ANY($%d)`, len(args))
+		for _, st := range f.Statuses {
+			res.Total += byStatus[st]
+		}
+	} else {
+		for _, n := range byStatus {
+			res.Total += n
+		}
+	}
+
+	q := `SELECT ` + orderColumns + ` FROM orders WHERE ` + where
+	size := 0
+	if f.Paged {
+		size = SellerPageSize(f.PageSize)
+		if f.Cursor != nil {
+			args = append(args, f.Cursor.CreatedAt, f.Cursor.ID)
+			q += fmt.Sprintf(` AND (created_at, id) < ($%d, $%d)`, len(args)-1, len(args))
+		}
+	}
+	q += ` ORDER BY created_at DESC, id DESC`
+	if f.Paged {
+		args = append(args, size+1)
+		q += fmt.Sprintf(` LIMIT $%d`, len(args))
+	}
 	rows, err := r.pool.Query(ctx, q, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list seller orders: %w", err)
+		return res, fmt.Errorf("list seller orders: %w", err)
 	}
 	defer rows.Close()
-
 	var orders []Order
 	for rows.Next() {
 		var o Order
 		if err := scanOrder(rows, &o); err != nil {
-			return nil, err
+			return res, err
 		}
 		orders = append(orders, o)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return res, err
+	}
+	if f.Paged && len(orders) > size {
+		orders = orders[:size]
+		last := orders[size-1]
+		res.Next = &SellerOrdersCursor{CreatedAt: last.CreatedAt, ID: last.ID}
 	}
 
-	for i := range orders {
-		items, err := r.loadItems(ctx, orders[i].ID)
-		if err != nil {
-			return nil, err
+	if len(orders) > 0 {
+		ids := make([]string, len(orders))
+		idx := make(map[string]int, len(orders))
+		for i, o := range orders {
+			ids[i] = o.ID
+			idx[o.ID] = i
 		}
-		orders[i].Items = items
+		itemRows, err := r.pool.Query(ctx, `SELECT `+orderItemColumns+` FROM order_items WHERE order_id = ANY($1)`, ids)
+		if err != nil {
+			return res, fmt.Errorf("load seller order items: %w", err)
+		}
+		defer itemRows.Close()
+		for itemRows.Next() {
+			var item OrderItem
+			if err := itemRows.Scan(&item.ID, &item.OrderID, &item.ListingID, &item.VariantID, &item.Title, &item.VariantName, &item.Quantity, &item.UnitPrice, &item.ImageURL); err != nil {
+				return res, err
+			}
+			i := idx[item.OrderID]
+			orders[i].Items = append(orders[i].Items, item)
+		}
+		if err := itemRows.Err(); err != nil {
+			return res, err
+		}
 	}
-	return orders, nil
+	res.Orders = orders
+	return res, nil
 }
 
 func statusInts(st []OrderStatus) []int32 {
