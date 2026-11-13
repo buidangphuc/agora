@@ -18,6 +18,7 @@ type EnqueueFn func(written Listing) (OutboxRow, error)
 type TxWriter interface {
 	CreateTx(ctx context.Context, l Listing, ev EnqueueFn) (Listing, error)
 	UpdateTx(ctx context.Context, l Listing, ev EnqueueFn) (Listing, error)
+	CreateCappedTx(ctx context.Context, l Listing, limit int64, ev EnqueueFn) (Listing, error)
 	DeleteTx(ctx context.Context, id string, ev EnqueueFn) (Listing, error)
 }
 

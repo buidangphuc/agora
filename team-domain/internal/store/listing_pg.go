@@ -694,3 +694,51 @@ func parseQueueCursor(c string) (time.Time, string, error) {
 	}
 	return at, id, nil
 }
+
+func (r *PostgresListingRepository) CountBySeller(ctx context.Context, sellerID string) (int64, error) {
+	return countSeller(ctx, r.pool, sellerID)
+}
+
+func countSeller(ctx context.Context, q DBTX, sellerID string) (int64, error) {
+	var n int64
+	if err := q.QueryRow(ctx, `SELECT count(*) FROM listings WHERE seller_id = $1`, sellerID).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count seller listings: %w", err)
+	}
+	return n, nil
+}
+
+func createListingCapped(ctx context.Context, tx pgx.Tx, l Listing, limit int64) (Listing, error) {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "listing-cap:"+l.SellerID); err != nil {
+		return Listing{}, fmt.Errorf("lock seller: %w", err)
+	}
+	if limit >= 0 {
+		n, err := countSeller(ctx, tx, l.SellerID)
+		if err != nil {
+			return Listing{}, err
+		}
+		if n >= limit {
+			return Listing{}, ErrListingCapReached
+		}
+	}
+	return createListing(ctx, tx, l)
+}
+
+func (r *PostgresListingRepository) CreateCapped(ctx context.Context, l Listing, limit int64) (Listing, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return Listing{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	out, err := createListingCapped(ctx, tx, l, limit)
+	if err != nil {
+		return Listing{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Listing{}, fmt.Errorf("commit tx: %w", err)
+	}
+	return out, nil
+}
+
+func (w *PgTxWriter) CreateCappedTx(ctx context.Context, l Listing, limit int64, ev EnqueueFn) (Listing, error) {
+	return w.run(ctx, ev, func(tx pgx.Tx) (Listing, error) { return createListingCapped(ctx, tx, l, limit) })
+}
