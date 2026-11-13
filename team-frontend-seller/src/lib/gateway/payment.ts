@@ -1,5 +1,7 @@
 import "server-only";
 
+import { Code, ConnectError } from "@connectrpc/connect";
+
 import {
   PaymentMethod,
   type PaymentRefund,
@@ -234,4 +236,36 @@ export async function requestWalletPayout(
     amount: BigInt(Math.max(0, Math.round(amount))),
   });
   return res.entry ? mapWalletEntry(res.entry) : null;
+}
+
+export interface ViewOrderSettlement {
+  credited: number;
+  commission: number;
+  commissionRatePercent: number;
+  commissionReversed: number;
+  refundDeducted: number;
+  net: number;
+}
+
+/** Resolves null when the order is not settled yet; any other failure rejects. */
+export async function getOrderSettlement(
+  orderId: string,
+): Promise<ViewOrderSettlement | null> {
+  try {
+    const res = await gateway().payment.getOrderSettlement(
+      { orderId },
+      { timeoutMs: 2000 },
+    );
+    return {
+      credited: Number(res.credited),
+      commission: Number(res.commission),
+      commissionRatePercent: res.commissionRateBps / 100,
+      commissionReversed: Number(res.commissionReversed),
+      refundDeducted: Number(res.refundDeducted),
+      net: Number(res.net),
+    };
+  } catch (err) {
+    if (err instanceof ConnectError && err.code === Code.NotFound) return null;
+    throw err;
+  }
 }
