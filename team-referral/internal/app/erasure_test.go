@@ -75,12 +75,12 @@ func TestErasureConsumerWiredOnIdentityTopic(t *testing.T) {
 	testkit.Eventually(t, 90*time.Second, func() bool {
 		testkit.Produce(t, brokers, "identity.events", "U", envelopeBytes(t, "evt-erase-u", "platform.identity.v1.UserErased",
 			&identityv1.UserErased{UserId: "U", ErasedAt: timestamppb.Now()}))
-		return !hasRow(t, pool, `SELECT 1 FROM referral_codes WHERE user_id = 'U'`)
+		return !hasRow(t, pool, `SELECT count(*) FROM referral_codes WHERE user_id = 'U'`)
 	})
-	if hasRow(t, pool, `SELECT 1 FROM referral_accounts WHERE user_id = 'U'`) {
+	if hasRow(t, pool, `SELECT count(*) FROM referral_accounts WHERE user_id = 'U'`) {
 		t.Error("REF-1 the account row of U remains")
 	}
-	if !hasRow(t, pool, `SELECT 1 FROM referral_codes WHERE user_id = 'W'`) || !hasRow(t, pool, `SELECT 1 FROM referral_accounts WHERE user_id = 'W'`) {
+	if !hasRow(t, pool, `SELECT count(*) FROM referral_codes WHERE user_id = 'W'`) || !hasRow(t, pool, `SELECT count(*) FROM referral_accounts WHERE user_id = 'W'`) {
 		t.Error("REF-3 another user's rows were deleted")
 	}
 	if strings.Contains(topicText(t, brokers, "referral.identity.dlq"), "evt-erase-u") {
