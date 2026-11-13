@@ -17,6 +17,7 @@ as "Marketing".
 #### Scenario: Unknown tab value falls back to the default
 - **WHEN** a seller opens `/seller/marketing?tab=bogus`
 - **THEN** the "Voucher của shop" tab is shown and no error state is rendered
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/marketing/page.test.tsx` `falls back to the voucher tab for an unknown tab value`
 
 #### Scenario: Buyer account is denied the hub
 - **WHEN** a signed-in buyer without scope `listing.write` opens `/seller/marketing`
@@ -29,6 +30,7 @@ as "Marketing".
 #### Scenario: One tab's dependency outage does not blank the other
 - **WHEN** `ListMyCampaigns` fails with UNAVAILABLE while the seller opens the "Flash sale" tab
 - **THEN** that tab shows a retry state, the navigation stays visible, and the "Voucher của shop" tab still lists vouchers
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/marketing/page.test.tsx` `keeps the other tab usable when ListMyCampaigns is unavailable`
 
 ### Requirement: Seller lists own shop vouchers
 
@@ -55,10 +57,12 @@ and a state label derived from `active`, `starts_at` and `ends_at`.
 #### Scenario: Principal without listing.write gets no vouchers
 - **WHEN** a principal without scope `listing.write` requests the voucher tab data
 - **THEN** access is denied and `ListMyShopVouchers` is not called
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/marketing/page.test.tsx` `does not call ListMyShopVouchers without listing.write`
 
 #### Scenario: Unknown cursor shows the retry state
 - **WHEN** a seller opens the tab with a malformed `cursor` in the URL and the RPC answers INVALID_ARGUMENT
 - **THEN** the retry state is shown and no rows are shown
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/marketing/page.test.tsx` `shows the retry state for a malformed cursor`
 
 ### Requirement: Seller creates a shop voucher
 
@@ -72,10 +76,12 @@ and SHALL show the new voucher in the list after success.
 #### Scenario: Empty code is rejected before any call
 - **WHEN** a seller submits the form with an empty code
 - **THEN** an inline error "Vui lòng nhập mã voucher" is shown and no RPC is called
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/marketing/ShopVoucherForm.test.tsx` `rejects an empty code before any call`
 
 #### Scenario: Window ending before it starts is rejected
 - **WHEN** a seller submits an end time earlier than the start time
 - **THEN** an inline error is shown and no RPC is called
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/marketing/ShopVoucherForm.test.tsx` `rejects an end before the start before any call`
 
 #### Scenario: Duplicate code shows the server error
 - **WHEN** a seller submits a code that already exists and the RPC answers ALREADY_EXISTS
@@ -84,6 +90,7 @@ and SHALL show the new voucher in the list after success.
 #### Scenario: Seller without listing.write cannot submit
 - **WHEN** a principal without scope `listing.write` posts the create-voucher server action
 - **THEN** the action answers a denied result and `CreateVoucher` is not called
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/actions.test.ts` `marketing actions answer denied without listing.write`
 
 ### Requirement: Seller deactivates own shop voucher
 
@@ -97,10 +104,12 @@ with only the voucher id and then shows the row as Đã tắt.
 #### Scenario: Cancelling the confirmation changes nothing
 - **WHEN** a seller opens the confirmation and chooses "Huỷ bỏ"
 - **THEN** no RPC is called and the row state is unchanged
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/marketing/VoucherTab.test.tsx` `cancelling the deactivate confirmation calls nothing`
 
 #### Scenario: Deactivating twice is accepted
 - **WHEN** a seller deactivates a voucher that is already deactivated, for example from a stale tab
 - **THEN** the row shows Đã tắt and no error is shown
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/actions.test.ts` `deactivating an already deactivated voucher is accepted`
 
 #### Scenario: Another seller's voucher id is denied
 - **WHEN** a seller posts the deactivate action with a voucher id owned by another seller
@@ -115,6 +124,7 @@ each row showing listing title, sale price, status and sold/cap.
 #### Scenario: Campaigns are listed with status and sold over cap
 - **WHEN** a seller with a SCHEDULED campaign (cap 10) and an ACTIVE campaign (cap 20, sold 5) opens the tab
 - **THEN** two rows show Sắp diễn ra with `0/10` and Đang diễn ra with `5/20`
+- **VERIFIED BY**: `team-frontend-seller/src/lib/gateway/promotion.test.ts` `maps campaign status and sold over cap`
 
 #### Scenario: Hub status filter narrows the list
 - **WHEN** a seller selects the filter "Đã huỷ"
@@ -127,6 +137,7 @@ each row showing listing title, sale price, status and sold/cap.
 #### Scenario: Principal without listing.write gets no campaigns
 - **WHEN** a principal without scope `listing.write` requests the flash sale tab data
 - **THEN** access is denied and `ListMyCampaigns` is not called
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/marketing/page.test.tsx` `does not call ListMyCampaigns without listing.write`
 
 #### Scenario: Empty list shows an empty state
 - **WHEN** a seller with no campaigns opens the tab
@@ -135,6 +146,7 @@ each row showing listing title, sale price, status and sold/cap.
 #### Scenario: Listing title lookup failure does not hide the row
 - **WHEN** a campaign's listing title cannot be resolved because the listing service is unavailable
 - **THEN** the row is still shown with the listing id in place of the title
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/marketing/FlashSaleTab.test.tsx` `keeps the row with the listing id when the title lookup fails`
 
 ### Requirement: Seller creates a flash sale for own listing
 
@@ -153,22 +165,27 @@ with `FlashSaleService.CreateCampaign`, sending a per-form idempotency key and n
 #### Scenario: Double submit creates one campaign
 - **WHEN** a seller double-clicks the submit button
 - **THEN** exactly one campaign exists afterwards
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx` `double submit sends one CreateCampaign with one idempotency key`
 
 #### Scenario: Missing listing is rejected before any call
 - **WHEN** a seller submits the form without picking a listing
 - **THEN** an inline error is shown and no RPC is called
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx` `rejects a missing listing before any call`
 
 #### Scenario: Sale price of zero or cap below one is rejected
 - **WHEN** a seller submits sale price 0 or cap 0
 - **THEN** an inline error is shown and no RPC is called
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx` `rejects sale price 0 and cap 0 before any call`
 
 #### Scenario: Server rejection is shown and nothing is created
 - **WHEN** the RPC answers INVALID_ARGUMENT or FAILED_PRECONDITION, for example a sale price not below the listing price
 - **THEN** the server message is shown, the form keeps its values and the list is unchanged
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx` `shows the server message and keeps the form values`
 
 #### Scenario: Foreign listing id is denied
 - **WHEN** a seller posts the create-campaign action with a listing id owned by another seller
 - **THEN** the RPC answers PERMISSION_DENIED, an error is shown, and no campaign is created
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/actions.test.ts` `createCampaignAction maps PERMISSION_DENIED for a foreign listing`
 
 ### Requirement: Seller cancels a scheduled flash sale
 
@@ -207,3 +224,4 @@ voucher catalogue and the buyer's own vouchers.
 #### Scenario: Create form is not rendered even when the page cannot load vouchers
 - **WHEN** `ListVouchers` fails with UNAVAILABLE and a seller opens `/vouchers`
 - **THEN** the page shows its empty catalogue state and no create-voucher form
+- **VERIFIED BY**: `team-frontend/src/app/(shop)/vouchers/page.test.tsx` `renders no create form when ListVouchers is unavailable`

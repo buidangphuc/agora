@@ -2415,3 +2415,595 @@ features:
     tags: [seller, shop]
     status: planned
     covered_by: null
+
+  - id: seller-marketing-hub.seller-opens-the-hub-from-the-navigation
+    title: "Seller opens the hub from the navigation"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller clicks \"Marketing\" in the seller navigation"
+      - "Then the browser lands on `/seller/marketing` and the \"Voucher của shop\" tab is selected"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.tab-is-kept-in-the-url
+    title: "Tab is kept in the URL"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects the \"Flash sale\" tab and reloads the page"
+      - "Then the URL contains `tab=flashsale` and the \"Flash sale\" tab is selected after reload"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.unknown-tab-value-falls-back-to-the-default
+    title: "Unknown tab value falls back to the default"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens `/seller/marketing?tab=bogus`"
+      - "Then the \"Voucher của shop\" tab is shown and no error state is rendered"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx falls back to the voucher tab for an unknown tab value. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.buyer-account-is-denied-the-hub
+    title: "Buyer account is denied the hub"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a signed-in buyer without scope `listing.write` opens `/seller/marketing`"
+      - "Then the seller access-denied view is shown and no promotion RPC is called"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.anonymous-visitor-is-redirected-to-login
+    title: "Anonymous visitor is redirected to login"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When an anonymous visitor opens `/seller/marketing`"
+      - "Then the visitor is redirected to the login page"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.one-tab-s-dependency-outage-does-not-blank-the-other
+    title: "One tab's dependency outage does not blank the other"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `ListMyCampaigns` fails with UNAVAILABLE while the seller opens the \"Flash sale\" tab"
+      - "Then that tab shows a retry state, the navigation stays visible, and the \"Voucher của shop\" tab still lists vouchers"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx keeps the other tab usable when ListMyCampaigns is unavailable. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.vouchers-of-every-state-are-listed-with-used-and-quota
+    title: "Vouchers of every state are listed with used and quota"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller who owns one active, one scheduled, one ended and one deactivated shop voucher opens the tab"
+      - "Then four rows are shown with the labels Đang chạy, Sắp diễn ra, Đã kết thúc and Đã tắt and each row shows `used/quota`"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.other-sellers-vouchers-are-never-shown
+    title: "Other sellers' vouchers are never shown"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When seller A opens the tab while seller B owns a shop voucher and a platform voucher exists"
+      - "Then no row for seller B's or the platform voucher is shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.empty-list-shows-an-empty-state
+    title: "Empty list shows an empty state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with no shop vouchers opens the tab"
+      - "Then an empty state with a \"Tạo voucher\" call to action is shown and no error is shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.paging-boundary-at-21-vouchers
+    title: "Paging boundary at 21 vouchers"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with 21 shop vouchers opens the tab"
+      - "Then 20 rows are shown with a next-page control, and the next page shows 1 row"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.principal-without-listing-write-gets-no-vouchers
+    title: "Principal without listing.write gets no vouchers"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without scope `listing.write` requests the voucher tab data"
+      - "Then access is denied and `ListMyShopVouchers` is not called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx does not call ListMyShopVouchers without listing.write. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.unknown-cursor-shows-the-retry-state
+    title: "Unknown cursor shows the retry state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens the tab with a malformed `cursor` in the URL and the RPC answers INVALID_ARGUMENT"
+      - "Then the retry state is shown and no rows are shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx shows the retry state for a malformed cursor. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.valid-voucher-is-created-and-listed
+    title: "Valid voucher is created and listed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits code `GIAM10`, PERCENT 10, quota 100 and a window starting tomorrow"
+      - "Then `CreateVoucher` is called once with scope SHOP and no seller id, and a row `GIAM10` with label Sắp diễn ra appears in the list within 2 s"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.empty-code-is-rejected-before-any-call
+    title: "Empty code is rejected before any call"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits the form with an empty code"
+      - "Then an inline error \"Vui lòng nhập mã voucher\" is shown and no RPC is called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/ShopVoucherForm.test.tsx rejects an empty code before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.window-ending-before-it-starts-is-rejected
+    title: "Window ending before it starts is rejected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits an end time earlier than the start time"
+      - "Then an inline error is shown and no RPC is called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/ShopVoucherForm.test.tsx rejects an end before the start before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.duplicate-code-shows-the-server-error
+    title: "Duplicate code shows the server error"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits a code that already exists and the RPC answers ALREADY_EXISTS"
+      - "Then an error \"Mã voucher đã tồn tại\" is shown, the form keeps its values and the list is unchanged"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.seller-without-listing-write-cannot-submit
+    title: "Seller without listing.write cannot submit"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without scope `listing.write` posts the create-voucher server action"
+      - "Then the action answers a denied result and `CreateVoucher` is not called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts marketing actions answer denied without listing.write. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.deactivating-an-active-voucher
+    title: "Deactivating an active voucher"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller confirms \"Tắt voucher\" on an active voucher"
+      - "Then the row shows Đã tắt within 2 s and a buyer cannot apply that code at checkout preview"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.cancelling-the-confirmation-changes-nothing
+    title: "Cancelling the confirmation changes nothing"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens the confirmation and chooses \"Huỷ bỏ\""
+      - "Then no RPC is called and the row state is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/VoucherTab.test.tsx cancelling the deactivate confirmation calls nothing. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.deactivating-twice-is-accepted
+    title: "Deactivating twice is accepted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller deactivates a voucher that is already deactivated, for example from a stale tab"
+      - "Then the row shows Đã tắt and no error is shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts deactivating an already deactivated voucher is accepted. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.another-seller-s-voucher-id-is-denied
+    title: "Another seller's voucher id is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller posts the deactivate action with a voucher id owned by another seller"
+      - "Then the RPC answers PERMISSION_DENIED, the message \"Không có quyền hoặc voucher không tồn tại\" is shown, and the voucher stays active"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.campaigns-are-listed-with-status-and-sold-over-cap
+    title: "Campaigns are listed with status and sold over cap"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with a SCHEDULED campaign (cap 10) and an ACTIVE campaign (cap 20, sold 5) opens the tab"
+      - "Then two rows show Sắp diễn ra with `0/10` and Đang diễn ra with `5/20`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/lib/gateway/promotion.test.ts maps campaign status and sold over cap. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.hub-status-filter-narrows-the-list
+    title: "Hub status filter narrows the list"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects the filter \"Đã huỷ\""
+      - "Then the URL contains `status=cancelled`, `ListMyCampaigns` is called with `statuses=[CANCELLED]`, and only cancelled rows are shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.other-sellers-campaigns-are-never-shown
+    title: "Other sellers' campaigns are never shown"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When seller A opens the tab while seller B owns a campaign"
+      - "Then no row for seller B's campaign is shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.principal-without-listing-write-gets-no-campaigns
+    title: "Principal without listing.write gets no campaigns"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without scope `listing.write` requests the flash sale tab data"
+      - "Then access is denied and `ListMyCampaigns` is not called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx does not call ListMyCampaigns without listing.write. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.listing-title-lookup-failure-does-not-hide-the-row
+    title: "Listing title lookup failure does not hide the row"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a campaign's listing title cannot be resolved because the listing service is unavailable"
+      - "Then the row is still shown with the listing id in place of the title"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleTab.test.tsx keeps the row with the listing id when the title lookup fails. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.picker-searches-server-side
+    title: "Picker searches server-side"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller types \"ao\" in the listing picker"
+      - "Then one `ListMyListings` call is made with `query=\"ao\"` and `statuses=[PUBLISHED]`, no further pages are walked, and at most 20 options are shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.valid-campaign-is-created-and-listed
+    title: "Valid campaign is created and listed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller picks a published listing and submits sale price 50000, cap 10 and a future window"
+      - "Then `CreateCampaign` is called once and a SCHEDULED row appears in the list within 2 s"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.double-submit-creates-one-campaign
+    title: "Double submit creates one campaign"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller double-clicks the submit button"
+      - "Then exactly one campaign exists afterwards"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx double submit sends one CreateCampaign with one idempotency key. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.missing-listing-is-rejected-before-any-call
+    title: "Missing listing is rejected before any call"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits the form without picking a listing"
+      - "Then an inline error is shown and no RPC is called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx rejects a missing listing before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.sale-price-of-zero-or-cap-below-one-is-rejected
+    title: "Sale price of zero or cap below one is rejected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits sale price 0 or cap 0"
+      - "Then an inline error is shown and no RPC is called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx rejects sale price 0 and cap 0 before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.server-rejection-is-shown-and-nothing-is-created
+    title: "Server rejection is shown and nothing is created"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the RPC answers INVALID_ARGUMENT or FAILED_PRECONDITION, for example a sale price not below the listing price"
+      - "Then the server message is shown, the form keeps its values and the list is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx shows the server message and keeps the form values. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.foreign-listing-id-is-denied
+    title: "Foreign listing id is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller posts the create-campaign action with a listing id owned by another seller"
+      - "Then the RPC answers PERMISSION_DENIED, an error is shown, and no campaign is created"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts createCampaignAction maps PERMISSION_DENIED for a foreign listing. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.cancelling-a-scheduled-campaign
+    title: "Cancelling a scheduled campaign"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller confirms \"Huỷ\" on a SCHEDULED campaign"
+      - "Then the row shows Đã huỷ within 2 s and the campaign never becomes active for buyers"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.active-and-ended-campaigns-offer-no-cancel-control
+    title: "Active and ended campaigns offer no cancel control"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller views an ACTIVE, an ENDED and a CANCELLED campaign row"
+      - "Then none of the three rows has a \"Huỷ\" control"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.cancelling-a-campaign-that-started-meanwhile-is-refused
+    title: "Cancelling a campaign that started meanwhile is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller confirms \"Huỷ\" on a row that became ACTIVE since the page loaded and the RPC answers FAILED_PRECONDITION"
+      - "Then the message \"Flash sale đã bắt đầu, không thể huỷ\" is shown and the row refreshes to Đang diễn ra"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.another-seller-s-campaign-id-is-denied
+    title: "Another seller's campaign id is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller posts the cancel action with a campaign id owned by another seller"
+      - "Then the RPC answers PERMISSION_DENIED, the message \"Không có quyền hoặc flash sale không tồn tại\" is shown, and the campaign is unchanged"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
