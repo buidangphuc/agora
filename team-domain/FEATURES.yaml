@@ -3136,3 +3136,315 @@ features:
     tags: [seller, plan_cap]
     status: planned
     notes: "Change listing-plan-cap. Test: listing/listing_plan_cap.feature::Capped seller sees only their own listings"
+
+  - id: listing-plan-cap.unit.free-seller-at-the-cap-is-rejected
+    title: "FREE seller at the cap is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "FREE seller at the cap is rejected"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateRejectedAtPlanCap`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.create-just-under-the-cap-succeeds
+    title: "Create just under the cap succeeds"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Create just under the cap succeeds"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateAllowedBelowPlanCap`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.every-status-counts-toward-the-cap
+    title: "Every status counts toward the cap"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Every status counts toward the cap"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestCountSellerListingsAllStatuses`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.unlimited-plan-is-never-blocked
+    title: "Unlimited plan is never blocked"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Unlimited plan is never blocked"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateUnlimitedPlanNeverBlocked`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.concurrent-creates-cannot-overshoot-the-cap
+    title: "Concurrent creates cannot overshoot the cap"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Concurrent creates cannot overshoot the cap"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestConcurrentCreatesRespectPlanCap`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.cap-is-evaluated-for-the-caller-s-own-seller-id
+    title: "Cap is evaluated for the caller's own seller id"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Cap is evaluated for the caller's own seller id"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestCreateCapUsesPrincipalNotBodySeller`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.caller-without-listing-write-is-refused-before-any-entitlement-call
+    title: "Caller without listing.write is refused before any entitlement call"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Caller without listing.write is refused before any entitlement call"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestCreateWithoutScopeSkipsEntitlementLookup`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.team-promotion-down-blocks-create
+    title: "team-promotion down blocks create"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "team-promotion down blocks create"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateFailsClosedWhenPromotionUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.upstream-timeout-blocks-create
+    title: "Upstream timeout blocks create"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Upstream timeout blocks create"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateFailsClosedOnUpstreamTimeout`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.malformed-limits-are-not-unlimited
+    title: "Malformed limits are not unlimited"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Malformed limits are not unlimited"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateFailsClosedOnMalformedLimits`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.update-delete-and-read-work-while-team-promotion-is-down
+    title: "Update, delete and read work while team-promotion is down"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Update, delete and read work while team-promotion is down"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestNonCreatePathsIgnoreEntitlements`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.over-cap-seller-keeps-listings-and-can-edit-them
+    title: "Over-cap seller keeps listings and can edit them"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Over-cap seller keeps listings and can edit them"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestOverCapSellerKeepsListings`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.deleting-below-the-cap-re-enables-create
+    title: "Deleting below the cap re-enables create"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Deleting below the cap re-enables create"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestDeleteBelowCapReenablesCreate`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.zero-cap-blocks-every-create
+    title: "Zero cap blocks every create"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Zero cap blocks every create"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateZeroCapBlocks`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.over-cap-status-does-not-let-another-seller-touch-the-listings
+    title: "Over-cap status does not let another seller touch the listings"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Over-cap status does not let another seller touch the listings"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestOverCapListingsStillOwnerOnly`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.featured-ids-above-the-plan-cap-are-rejected
+    title: "Featured ids above the plan cap are rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Featured ids above the plan cap are rejected"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestStorefrontFeaturedAbovePlanCapRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.featured-ids-equal-to-the-cap-are-accepted
+    title: "Featured ids equal to the cap are accepted"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Featured ids equal to the cap are accepted"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestStorefrontFeaturedAtPlanCapAccepted`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.plan-cap-overrides-the-fixed-limit-of-6
+    title: "Plan cap overrides the fixed limit of 6"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Plan cap overrides the fixed limit of 6"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestStorefrontFeaturedPlanCapOverridesFixedLimit`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.free-seller-cannot-feature-listings
+    title: "FREE seller cannot feature listings"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "FREE seller cannot feature listings"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestStorefrontFreeSellerCannotFeature`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.another-seller-s-storefront-cannot-be-written-through-the-cap-path
+    title: "Another seller's storefront cannot be written through the cap path"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Another seller's storefront cannot be written through the cap path"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestStorefrontCapUsesPrincipalNotBodySeller`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.storefront-write-fails-closed
+    title: "Storefront write fails closed"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Storefront write fails closed"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestStorefrontFeaturedFailsClosed`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.storefront-without-featured-ids-does-not-need-the-plan
+    title: "Storefront without featured ids does not need the plan"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Storefront without featured ids does not need the plan"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestStorefrontWithoutFeaturedIgnoresEntitlements`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.missing-address-fails-startup
+    title: "Missing address fails startup"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Missing address fails startup"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestPromotionAddrRequired`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing-plan-cap.unit.configured-address-is-declared-in-settings
+    title: "Configured address is declared in settings"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change listing-plan-cap.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Configured address is declared in settings"
+    tags: [plan_cap, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestPromotionAddrLoaded`. Not producible end to end through the gateway (unit level)."
