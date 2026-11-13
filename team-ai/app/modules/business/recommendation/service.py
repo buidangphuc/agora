@@ -21,8 +21,8 @@ from app.modules.business.recommendation.placements import (
 )
 from app.modules.business.recommendation.ports import (
     Assignment,
-    ExperimentAssigner,
     CandidateSource,
+    ExperimentAssigner,
     FeatureStore,
     NearlineSignals,
     ServingCache,
