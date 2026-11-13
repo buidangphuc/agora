@@ -3060,3 +3060,79 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY team-domain `internal/app` `TestRunConsumesIdentityEvents`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.plan-cap.free-blocked-at-cap
+    title: FREE seller is blocked at the 11th listing
+    persona: seller
+    priority: P0
+    summary: A FREE seller who owns 10 listings is rejected with PLAN_LISTING_LIMIT on the 11th create.
+    entry_route: /seller
+    services: [team-domain, team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateListing, listing.v1.ListMyListings, promotion.v1.Subscribe]
+    acceptance:
+      - Given a seeded FREE seller owns 10 listings of mixed statuses
+      - When the seller creates an 11th listing through the gateway
+      - Then the response is RESOURCE_EXHAUSTED with reason PLAN_LISTING_LIMIT and the seller still has 10 listings
+    tags: [seller, plan_cap]
+    status: planned
+    notes: "Change listing-plan-cap. Test: listing/listing_plan_cap.feature::FREE seller is blocked at the 11th listing"
+
+  - id: listing.plan-cap.pro-beyond-free-cap
+    title: PRO seller can create beyond the FREE cap
+    persona: seller
+    priority: P0
+    summary: A PRO seller with 10 listings creates an 11th while a FREE seller at 10 is still rejected.
+    entry_route: /seller
+    services: [team-domain, team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateListing, listing.v1.ListMyListings, promotion.v1.Subscribe]
+    acceptance:
+      - Given a seeded PRO seller owns 10 listings
+      - When the seller creates an 11th listing through the gateway
+      - Then the create succeeds and the seller has 11 listings
+    tags: [seller, plan_cap]
+    status: planned
+    notes: "Change listing-plan-cap. Test: listing/listing_plan_cap.feature::PRO seller can create beyond the FREE cap"
+
+  - id: listing.plan-cap.downgrade-keeps-listings
+    title: Downgraded seller keeps existing listings
+    persona: seller
+    priority: P0
+    summary: A seller downgraded to FREE with 12 listings keeps all of them and only new creates are blocked.
+    entry_route: /seller
+    services: [team-domain, team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateListing, listing.v1.ListMyListings, promotion.v1.Subscribe]
+    acceptance:
+      - Given a seller owns 12 listings and is moved to FREE
+      - When the seller opens their listings
+      - Then all 12 are returned and a new create is rejected with PLAN_LISTING_LIMIT
+    tags: [seller, plan_cap]
+    status: planned
+    notes: "Change listing-plan-cap. Test: listing/listing_plan_cap.feature::Downgraded seller keeps existing listings"
+
+  - id: listing.plan-cap.capped-seller-own-listings-only
+    title: Capped seller sees only their own listings
+    persona: seller
+    priority: P0
+    summary: A capped seller lists only their own listings, never another seller's.
+    entry_route: /seller
+    services: [team-domain, team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateListing, listing.v1.ListMyListings, promotion.v1.Subscribe]
+    acceptance:
+      - Given seller A is at the cap and seller B owns 3 listings
+      - When seller A lists their listings
+      - Then only A's listings are returned and none of B's
+    tags: [seller, plan_cap]
+    status: planned
+    notes: "Change listing-plan-cap. Test: listing/listing_plan_cap.feature::Capped seller sees only their own listings"
