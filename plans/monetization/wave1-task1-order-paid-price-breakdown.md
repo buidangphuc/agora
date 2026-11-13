@@ -23,6 +23,11 @@ Implement OpenSpec change `order-paid-price-breakdown` test-first per its tasks.
 - platform-e2e/tests/e2e/support/order_events_published_support.py
 - platform-e2e/tests/e2e/step_definitions/test_order_events_published.py
 
+### widened (P1)
+- platform-e2e/tests/e2e/flows/order_events_flow.py (e2e support flow: decode OrderPaidEvent breakdown fields 9-12)
+- platform-e2e/tests/e2e/step_definitions/order_paid_breakdown_steps.py (e2e step file for the breakdown scenarios)
+- platform-e2e/tests/e2e/step_definitions/test_order_events.py (e2e step module import of the breakdown steps)
+
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-order` (equivalent: `cd team-order && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)
 - `cd team-order && make check`
