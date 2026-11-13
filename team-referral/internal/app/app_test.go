@@ -64,6 +64,8 @@ func settings(port int, env string, db sdkconfig.Postgres) config.Settings {
 			OrderGroup:          "team-referral-order",
 			IdentityDLQTopic:    "referral.identity.dlq",
 			OrderDLQTopic:       "referral.order.dlq",
+			ErasureGroup:        "team-referral-erasure",
+			ErasureDLQTopic:     "identity.events.referral.dlq",
 		},
 	}
 }
