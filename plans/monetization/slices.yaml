@@ -1,0 +1,50 @@
+initiative: monetization
+slices:
+  - id: monetization-contract
+    owner: platform-core
+    depends_on: []
+    provides: [PaymentService.GetOrderSettlement, PaymentService.ChargeSellerFee, SubscriptionService.GetMySubscription, SubscriptionService.CancelSubscription, SponsoredService.ListMyAdCampaigns, SponsoredService.PauseAdCampaign, SponsoredService.ResumeAdCampaign, SponsoredService.RecordAdClick]
+  - id: order-paid-price-breakdown
+    owner: team-order
+    depends_on: [monetization-contract]
+    uses: [order.events/OrderPaidEvent]
+  - id: payment-settlement-commission
+    owner: team-payment
+    depends_on: [order-paid-price-breakdown]
+    uses: [order.events/OrderPaidEvent, order.events/ReturnRefunded, order.events/OrderCancelled, PaymentService.GetOrderSettlement]
+  - id: payment-seller-fee-charge
+    owner: team-payment
+    depends_on: [monetization-contract]
+    uses: [PaymentService.ChargeSellerFee]
+  - id: seller-fee-breakdown-ui
+    owner: team-frontend-seller
+    depends_on: [payment-settlement-commission]
+    uses: [PaymentService.GetOrderSettlement]
+  - id: promotion-plan-billing
+    owner: team-promotion
+    depends_on: [payment-seller-fee-charge]
+    uses: [PaymentService.ChargeSellerFee, SubscriptionService.GetMySubscription, SubscriptionService.CancelSubscription]
+  - id: listing-plan-cap
+    owner: team-domain
+    depends_on: [monetization-contract]
+    uses: [SubscriptionService.GetEntitlements]
+  - id: seller-plan-ui
+    owner: team-frontend-seller
+    depends_on: [promotion-plan-billing, listing-plan-cap]
+    uses: [SubscriptionService.GetMySubscription, SubscriptionService.CancelSubscription, SubscriptionService.GetEntitlements]
+  - id: promotion-ads-serving
+    owner: team-promotion
+    depends_on: [monetization-contract]
+    uses: [SponsoredService.ListSponsoredSlots, SponsoredService.RecordAdClick]
+  - id: promotion-ads-campaign-mgmt
+    owner: team-promotion
+    depends_on: [promotion-ads-serving]
+    uses: [SponsoredService.ListMyAdCampaigns, SponsoredService.PauseAdCampaign, SponsoredService.ResumeAdCampaign]
+  - id: buyer-sponsored-slots
+    owner: team-frontend
+    depends_on: [promotion-ads-serving]
+    uses: [SponsoredService.ListSponsoredSlots, SponsoredService.RecordAdClick]
+  - id: seller-ads-ui
+    owner: team-frontend-seller
+    depends_on: [promotion-ads-campaign-mgmt]
+    uses: [SponsoredService.ListMyAdCampaigns, SponsoredService.PauseAdCampaign, SponsoredService.ResumeAdCampaign]
