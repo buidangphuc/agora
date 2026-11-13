@@ -385,7 +385,7 @@ describe("/seller getting started card", () => {
 
     vi.mocked(hasScope).mockReturnValue(false);
     const ui = await SellerPage({ searchParams: Promise.resolve({}) });
-    render(<>{ui}</>);
+    render(ui);
     expect(screen.queryByText("Bắt đầu bán hàng")).toBeNull();
     expect(getStorefront).not.toHaveBeenCalled();
     expect(listMyListings).not.toHaveBeenCalled();
@@ -417,7 +417,9 @@ describe("/seller getting started card", () => {
       within(step as HTMLElement).getByRole("link", { name: "Thực hiện" }),
     ).toHaveAttribute("href", "/seller/new");
     expect(screen.getByTestId("kpi-row")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Sản phẩm 1" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Sản phẩm 1" }),
+    ).toBeInTheDocument();
   });
 
   it("a hanging source does not block the dashboard and the card sits above the KPI row", async () => {
