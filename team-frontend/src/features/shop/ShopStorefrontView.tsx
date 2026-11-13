@@ -40,6 +40,7 @@ export function ShopStorefrontView({
   storefront = null,
   summary,
   sort = "all",
+  fetchedFeatured = [],
 }: {
   sellerId: string;
   listings: ViewListing[];
@@ -48,8 +49,9 @@ export function ShopStorefrontView({
   storefront?: ViewStorefront | null;
   summary: ViewShopRatingSummary;
   sort?: StorefrontSort;
+  fetchedFeatured?: (ViewListing | null)[];
 }) {
-  const featured = resolveFeatured(storefront, listings, []);
+  const featured = resolveFeatured(storefront, listings, fetchedFeatured);
   const featuredIds = new Set(featured.map((l) => l.id));
   const sortedListings = sortListings(
     listings.filter((l) => !featuredIds.has(l.id)),

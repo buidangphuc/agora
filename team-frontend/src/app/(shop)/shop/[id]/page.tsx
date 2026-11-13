@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { parseSort } from "@/features/listing/pdp";
 import { ShopStorefrontView } from "@/features/shop/ShopStorefrontView";
 import { isFollowing } from "@/lib/gateway/engagement";
-import { listBundlesBySeller } from "@/lib/gateway/listings";
+import { getListing, listBundlesBySeller } from "@/lib/gateway/listings";
 import { getShopRatingSummary } from "@/lib/gateway/reviews";
 import { searchListings } from "@/lib/gateway/search";
 import { getPrincipal } from "@/lib/gateway/session";
@@ -44,6 +44,14 @@ export default async function ShopPage(props: {
     getShopRatingSummary(params.id),
   ]);
 
+  const listed = new Set(shop.items.map((l) => l.id));
+  const missing = [...new Set(storefront?.featuredListingIds ?? [])].filter(
+    (id) => !listed.has(id),
+  );
+  const fetchedFeatured = (
+    await Promise.all(missing.map((id) => getListing(id).catch(() => null)))
+  ).filter((l) => l !== null);
+
   return (
     <section className="py-2">
       <ShopStorefrontView
@@ -54,6 +62,7 @@ export default async function ShopPage(props: {
         storefront={storefront}
         summary={summary}
         sort={parseSort(searchParams.sort)}
+        fetchedFeatured={fetchedFeatured}
       />
 
       {/* ── Bundles / combos offered by this shop ── */}
