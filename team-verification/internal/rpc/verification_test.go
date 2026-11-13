@@ -191,7 +191,7 @@ func TestBuyerCannotReview(t *testing.T) {
 func TestAdminCanReviewSomeoneElse(t *testing.T) {
 	h := newHandler()
 	id := submit(buyer("alice"), t, h)
-	rev, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
+	rev, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject", ReasonCode: "document_expired"})
 	if err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestReviewIsFinal(t *testing.T) {
 	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("first review: %v", err)
 	}
-	_, err := h.ReviewKyc(admin("admin_2"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
+	_, err := h.ReviewKyc(admin("admin_2"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject", ReasonCode: "document_expired"})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("second review: want FailedPrecondition, got %v", err)
 	}
