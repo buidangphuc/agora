@@ -2,6 +2,7 @@ package storetest
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 	"time"
@@ -348,4 +349,19 @@ func (c stockChanges) listings() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// STUB(T2 red): replaced by the implementer.
+func (r *InMemoryListingRepository) CountBySeller(_ context.Context, _ string) (int64, error) {
+	return 0, errors.New("not implemented")
+}
+
+// STUB(T2 red): replaced by the implementer.
+func (r *InMemoryListingRepository) CreateCapped(_ context.Context, _ store.Listing, _ int64) (store.Listing, error) {
+	return store.Listing{}, errors.New("not implemented")
+}
+
+// STUB(T2 red): replaced by the implementer.
+func (w *InMemoryTxWriter) CreateCappedTx(_ context.Context, _ store.Listing, _ int64, _ store.EnqueueFn) (store.Listing, error) {
+	return store.Listing{}, errors.New("not implemented")
 }

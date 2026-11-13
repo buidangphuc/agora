@@ -694,3 +694,18 @@ func parseQueueCursor(c string) (time.Time, string, error) {
 	}
 	return at, id, nil
 }
+
+// STUB(T2 red): replaced by the implementer.
+func (r *PostgresListingRepository) CountBySeller(_ context.Context, _ string) (int64, error) {
+	return 0, errors.New("not implemented")
+}
+
+// STUB(T2 red): replaced by the implementer.
+func (r *PostgresListingRepository) CreateCapped(_ context.Context, _ Listing, _ int64) (Listing, error) {
+	return Listing{}, errors.New("not implemented")
+}
+
+// STUB(T2 red): replaced by the implementer.
+func (w *PgTxWriter) CreateCappedTx(_ context.Context, _ Listing, _ int64, _ EnqueueFn) (Listing, error) {
+	return Listing{}, errors.New("not implemented")
+}

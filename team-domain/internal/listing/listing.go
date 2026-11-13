@@ -59,6 +59,8 @@ type ListingService struct {
 	// kw and ai screen listings on publish / content edit; either may be nil.
 	kw KeywordMatcher
 	ai Screener
+	// ent is the plan entitlements port (STUB(T2 red): unused until implemented).
+	ent EntitlementsPort
 }
 
 // WithScreener wires the keyword matcher and the AI screener (either may be nil;
