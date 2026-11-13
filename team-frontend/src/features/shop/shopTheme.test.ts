@@ -28,13 +28,25 @@ function contrast(a: string, b: string): number {
 
 describe("shopTheme", () => {
   it("closed table holds exactly default, dark, festive (scenario: A themed shop renders its theme)", () => {
-    expect(Object.keys(SHOP_THEMES).sort()).toEqual(["dark", "default", "festive"]);
+    expect(Object.keys(SHOP_THEMES).sort()).toEqual([
+      "dark",
+      "default",
+      "festive",
+    ]);
     expect(resolveShopTheme("festive").key).toBe("festive");
     expect(resolveShopTheme("dark").key).toBe("dark");
   });
 
   it("unknown key resolves to default (scenario: An unknown theme key falls back to default)", () => {
-    for (const bad of ["", "neon", "Dark", "__proto__", "constructor", undefined, null]) {
+    for (const bad of [
+      "",
+      "neon",
+      "Dark",
+      "__proto__",
+      "constructor",
+      undefined,
+      null,
+    ]) {
       const t = resolveShopTheme(bad as string);
       expect(t.key).toBe("default");
       expect(t).toEqual(resolveShopTheme("default"));
@@ -47,7 +59,9 @@ describe("shopTheme", () => {
   });
 
   it("themes differ in header colour (scenario: A themed shop renders its theme)", () => {
-    const bgs = Object.keys(SHOP_THEMES).map((k) => resolveShopTheme(k).headerBg);
+    const bgs = Object.keys(SHOP_THEMES).map(
+      (k) => resolveShopTheme(k).headerBg,
+    );
     expect(new Set(bgs).size).toBe(3);
   });
 

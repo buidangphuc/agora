@@ -85,10 +85,7 @@ describe("ShopPage", () => {
       status: "published",
     }));
     const props = await renderPage();
-    expect(getListing.mock.calls.map((c) => c[0]).sort()).toEqual([
-      "l2",
-      "l3",
-    ]);
+    expect(getListing.mock.calls.map((c) => c[0]).sort()).toEqual(["l2", "l3"]);
     expect(props.fetchedFeatured).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "l2" }),

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { ViewListing, ViewStorefront } from "@/lib/gateway/listings";
+import { describe, expect, it } from "vitest";
 import { resolveFeatured } from "./featured";
 
 const SHOP = "seller-1";
@@ -53,16 +53,19 @@ describe("resolveFeatured", () => {
 
   it("skips unpublished and missing listings (scenario: A listing unpublished after being featured is skipped)", () => {
     const shop = [listing("A"), listing("C")];
-    const out = resolveFeatured(
-      storefront(["A", "B", "C", "GONE"]),
-      shop,
-      [listing("B", { status: "draft" }), null],
-    );
+    const out = resolveFeatured(storefront(["A", "B", "C", "GONE"]), shop, [
+      listing("B", { status: "draft" }),
+      null,
+    ]);
     expect(ids(out)).toEqual(["A", "C"]);
   });
 
   it("treats an unset status as published (scenario: A listing unpublished after being featured is skipped)", () => {
-    const out = resolveFeatured(storefront(["A"]), [listing("A", { status: "" })], []);
+    const out = resolveFeatured(
+      storefront(["A"]),
+      [listing("A", { status: "" })],
+      [],
+    );
     expect(ids(out)).toEqual(["A"]);
   });
 
