@@ -22,6 +22,8 @@ const (
 	msgListingCap    = "listing limit of the current plan reached"
 	msgEntitlements  = "plan entitlements unavailable"
 	reasonListingCap = "PLAN_LISTING_LIMIT"
+	msgFeaturedCap   = "featured listings limit of the current plan exceeded"
+	reasonFeatured   = "PLAN_FEATURED_LIMIT"
 	errorDomain      = "team-domain"
 	msgReusedID      = "reservation_id already used for a different listing, variant or quantity"
 )
@@ -61,6 +63,13 @@ func fail(ctx context.Context, err error) error {
 		slog.InfoContext(ctx, "listing create rejected at plan cap")
 		st := status.New(codes.ResourceExhausted, msgListingCap)
 		if withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Reason: reasonListingCap, Domain: errorDomain}); derr == nil {
+			st = withInfo
+		}
+		return st.Err()
+	}
+	if errors.Is(err, listing.ErrFeaturedLimit) {
+		st := status.New(codes.ResourceExhausted, msgFeaturedCap)
+		if withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Reason: reasonFeatured, Domain: errorDomain}); derr == nil {
 			st = withInfo
 		}
 		return st.Err()
