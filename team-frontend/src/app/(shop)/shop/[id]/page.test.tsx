@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const searchListings = vi.hoisted(() => vi.fn());
@@ -7,11 +7,16 @@ const view = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/gateway/search", () => ({ searchListings }));
 const getStorefront = vi.hoisted(() => vi.fn());
 const getListing = vi.hoisted(() => vi.fn());
+const listBundlesBySeller = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/gateway/listings", () => ({
   getStorefront,
   getListing,
-  listBundlesBySeller: vi.fn().mockResolvedValue([]),
+  listBundlesBySeller,
 }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
+vi.mock("@/features/cart/actions", () => ({ addBundleToCartAction: vi.fn() }));
 vi.mock("@/lib/gateway/engagement", () => ({ isFollowing: vi.fn() }));
 vi.mock("@/lib/gateway/reviews", () => ({
   getShopRatingSummary: vi.fn().mockResolvedValue(null),
@@ -29,6 +34,7 @@ import ShopPage from "./page";
 beforeEach(() => {
   vi.clearAllMocks();
   getStorefront.mockResolvedValue(null);
+  listBundlesBySeller.mockResolvedValue([]);
 });
 
 const sf = (ids: string[]) => ({
@@ -131,5 +137,37 @@ describe("ShopPage", () => {
     getStorefront.mockResolvedValue(null);
     await renderPage();
     expect(getListing).not.toHaveBeenCalled();
+  });
+
+  const combo = {
+    id: "b1",
+    sellerId: "s1",
+    title: "Combo hè",
+    listingIds: ["l1", "l2"],
+    bundlePrice: 120000,
+    createdAt: "",
+  };
+
+  it("[C7] renders the combo card with the saving and an add button when all listings are published", async () => {
+    searchListings.mockResolvedValue({
+      items: [
+        { id: "l1", sellerId: "s1", title: "Áo thun", price: 100000 },
+        { id: "l2", sellerId: "s1", title: "Quần short", price: 50000 },
+      ],
+    });
+    listBundlesBySeller.mockResolvedValue([combo]);
+    await renderPage();
+    expect(screen.getByText(/Tiết kiệm 30\.000 VND/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Thêm combo vào giỏ" })).toBeInTheDocument();
+  });
+
+  it("[C2] renders the combo as unavailable without a button when a listing is unpublished", async () => {
+    searchListings.mockResolvedValue({
+      items: [{ id: "l1", sellerId: "s1", title: "Áo thun", price: 100000 }],
+    });
+    listBundlesBySeller.mockResolvedValue([combo]);
+    await renderPage();
+    expect(screen.getByText("Combo tạm không khả dụng")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Thêm combo vào giỏ" })).toBeNull();
   });
 });
