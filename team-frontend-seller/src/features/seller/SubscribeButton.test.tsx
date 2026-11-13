@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SubscribeButton } from "./SubscribeButton";
@@ -27,8 +33,7 @@ const openUpgrade = () => {
   fireEvent.click(screen.getByRole("button", { name: "Nâng cấp" }));
 };
 
-const confirm = () =>
-  screen.getByRole("button", { name: "Xác nhận đăng ký" });
+const confirm = () => screen.getByRole("button", { name: "Xác nhận đăng ký" });
 
 beforeEach(() => vi.clearAllMocks());
 

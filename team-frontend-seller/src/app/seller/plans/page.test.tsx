@@ -2,10 +2,10 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  PlanTier,
   getEntitlements,
   getMySubscription,
   listPlans,
-  PlanTier,
 } from "@/lib/gateway/promotion";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 import SellerPlansPage from "./page";
@@ -25,9 +25,9 @@ vi.mock("@/lib/gateway/session", () => ({
   hasScope: vi.fn(),
 }));
 vi.mock("@/lib/gateway/promotion", async () => {
-  const actual = await vi.importActual<object>("@/lib/gateway/promotion").catch(
-    () => ({}),
-  );
+  const actual = await vi
+    .importActual<object>("@/lib/gateway/promotion")
+    .catch(() => ({}));
   return {
     ...actual,
     PlanTier: { UNSPECIFIED: 0, FREE: 1, PRO: 2, PREMIUM: 3 },
@@ -45,9 +45,30 @@ vi.mock("@/components/ui/ToastProvider", () => ({
 }));
 
 const PLANS = [
-  { id: "p-free", tier: 1, tierText: "Miễn phí", price: 0, features: [], termDays: 30 },
-  { id: "p-pro", tier: 2, tierText: "Pro", price: 199000, features: [], termDays: 30 },
-  { id: "p-prem", tier: 3, tierText: "Premium", price: 499000, features: [], termDays: 30 },
+  {
+    id: "p-free",
+    tier: 1,
+    tierText: "Miễn phí",
+    price: 0,
+    features: [],
+    termDays: 30,
+  },
+  {
+    id: "p-pro",
+    tier: 2,
+    tierText: "Pro",
+    price: 199000,
+    features: [],
+    termDays: 30,
+  },
+  {
+    id: "p-prem",
+    tier: 3,
+    tierText: "Premium",
+    price: 499000,
+    features: [],
+    termDays: 30,
+  },
 ];
 const PERIOD_END = "2026-12-13T10:00:00+07:00";
 
@@ -101,7 +122,9 @@ describe("SellerPlansPage", () => {
     const prem = cardOf("Premium").textContent ?? "";
     expect(pro).toMatch(/₫199\.000\s*\/\s*30 ngày/);
     expect(prem).toMatch(/₫499\.000\s*\/\s*30 ngày/);
-    expect(document.body.textContent).not.toMatch(/₫(?:[5-9]\d\d|\d{4,})\.\d{3}/);
+    expect(document.body.textContent).not.toMatch(
+      /₫(?:[5-9]\d\d|\d{4,})\.\d{3}/,
+    );
   });
 
   it("shows period end and renewal for the current paid plan", async () => {
@@ -117,7 +140,9 @@ describe("SellerPlansPage", () => {
     expect(
       within(pro).getByRole("button", { name: "Gói hiện tại" }),
     ).toHaveAttribute("aria-disabled", "true");
-    expect(within(pro).getByText("Hết hạn ngày 13/12/2026")).toBeInTheDocument();
+    expect(
+      within(pro).getByText("Hết hạn ngày 13/12/2026"),
+    ).toBeInTheDocument();
     expect(within(pro).getByText("Tự động gia hạn: Bật")).toBeInTheDocument();
     expect(
       within(pro).getByRole("button", { name: "Hủy gia hạn" }),

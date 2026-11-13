@@ -14,9 +14,7 @@ vi.mock("@/components/ui/ToastProvider", () => ({
 const PERIOD_END = "2026-12-13T10:00:00+07:00";
 
 const open = () => {
-  render(
-    <CancelSubscriptionButton paid autoRenew periodEnd={PERIOD_END} />,
-  );
+  render(<CancelSubscriptionButton paid autoRenew periodEnd={PERIOD_END} />);
   fireEvent.click(screen.getByRole("button", { name: "Hủy gia hạn" }));
 };
 const confirm = () =>
@@ -100,6 +98,8 @@ describe("CancelSubscriptionButton", () => {
     await waitFor(() => expect(toastError).toHaveBeenCalled());
     expect(toastSuccess).not.toHaveBeenCalled();
     expect(screen.queryByText(/Sẽ chuyển về Miễn phí ngày/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Hủy gia hạn" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hủy gia hạn" }),
+    ).toBeInTheDocument();
   });
 });

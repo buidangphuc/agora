@@ -245,7 +245,11 @@ describe("cancelSubscriptionAction", () => {
   });
 
   it("Cancel denied by the gateway shows an error", async () => {
-    for (const code of [Code.PermissionDenied, Code.NotFound, Code.Unavailable]) {
+    for (const code of [
+      Code.PermissionDenied,
+      Code.NotFound,
+      Code.Unavailable,
+    ]) {
       vi.mocked(cancelSubscription).mockRejectedValue(
         new ConnectError("x", code),
       );

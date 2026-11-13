@@ -119,7 +119,13 @@ describe("listPlans", () => {
   it("Paid plan prices show as whole VND per term: termDays is mapped", async () => {
     subscriptionRpc.listPlans.mockResolvedValue({
       plans: [
-        { id: "p-pro", name: PlanTier.PRO, price: 199000n, features: [], termDays: 30 },
+        {
+          id: "p-pro",
+          name: PlanTier.PRO,
+          price: 199000n,
+          features: [],
+          termDays: 30,
+        },
       ],
     });
     const plans = await listPlans();

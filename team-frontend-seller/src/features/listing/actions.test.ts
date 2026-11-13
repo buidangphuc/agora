@@ -289,7 +289,7 @@ class ErrorInfo extends Message<ErrorInfo> {
   domain = "";
   constructor(data?: Partial<ErrorInfo>) {
     super();
-    proto3.util.initPartial(data, this);
+    proto3.util.initPartial(data, this as unknown as ErrorInfo);
   }
   static readonly runtime = proto3;
   static readonly typeName = "google.rpc.ErrorInfo";
@@ -304,7 +304,9 @@ function refusal(code: Code, reason?: string): ConnectError {
     "refused",
     code,
     undefined,
-    reason ? [new ErrorInfo({ reason, domain: "listing.platform" })] : undefined,
+    reason
+      ? [new ErrorInfo({ reason, domain: "listing.platform" })]
+      : undefined,
   );
 }
 
