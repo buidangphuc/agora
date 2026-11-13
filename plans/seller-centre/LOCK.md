@@ -13,7 +13,7 @@ spec: plans/seller-centre/00-spec.md (Locked 2026-11-13)
 | seller-shop-customisation-ui | team-frontend-seller | [domain-storefront-customisation, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | b5a0802622cc | [x] |
 | shop-page-featured-theme | team-frontend | [domain-storefront-customisation] | 1 | pass | pass | pass | ENGINE_DOWN | 670decbcf356 | [x] |
 | promotion-seller-self-service | team-promotion | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 88b5553a6c87 | [x] |
-| seller-marketing-hub | team-frontend-seller | [promotion-seller-self-service, domain-my-listings-filter] | 3 | pass | pass | pass | ENGINE_DOWN | e997b9518e3e | [x] |
+| seller-marketing-hub | team-frontend-seller | [promotion-seller-self-service, domain-my-listings-filter] | 3 | pass | pass | pass | ENGINE_DOWN | f847db14ecee | [x] |
 | seller-getting-started | team-frontend-seller | [seller-marketing-hub, seller-shop-customisation-ui] | 1 | pass | pass | pass | ENGINE_DOWN | fa2485d9f803 | [x] |
 | order-bundle-checkout | team-order | [seller-centre-contract, domain-bundle-integrity] | 1 | pass | pass | pass | ENGINE_DOWN | 0c3095790822 | [x] |
 | shop-bundle-purchase-ui | team-frontend | [order-bundle-checkout, shop-page-featured-theme] | 1 | pass | pass | pass | ENGINE_DOWN | b4e35900d5a9 | [x] |
