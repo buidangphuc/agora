@@ -136,7 +136,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		WithReservationTTL(s.NewUser.ReservationTTL)
 	flashSvc := flashsale.New(campaigns, holds, evaluator, listings, gate, campaignEvent, logger)
 	subSvc := subscription.New(store.NewPostgresSubscriptionRepository(pool), logger)
-	adSvc := sponsored.New(store.NewPostgresAdCampaignRepository(pool), listings, gate, logger).WithLimits(s.Ads.MaxBid, s.Ads.MaxBudget)
+	adSvc := sponsored.New(store.NewPostgresAdCampaignRepository(pool), listings, gate, logger).WithLimits(s.Ads.MaxBid, s.Ads.MaxBudget).WithMinBid(s.Ads.MinBid)
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv,

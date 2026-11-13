@@ -100,3 +100,45 @@ func (r *InMemoryAdCampaignRepository) ListActive(_ context.Context, limit int) 
 }
 
 func (r *InMemoryAdCampaignRepository) Ping(_ context.Context) error { return nil }
+
+func (r *InMemoryAdCampaignRepository) ListServable(_ context.Context, category string, limit int) ([]store.AdCampaign, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var all []store.AdCampaign
+	for _, c := range r.campaigns {
+		if c.Status != store.AdCampaignStatusActive || c.Budget-c.Spent < c.Bid {
+			continue
+		}
+		if category != "" && c.CategoryID != category {
+			continue
+		}
+		all = append(all, c)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].Bid != all[j].Bid {
+			return all[i].Bid > all[j].Bid
+		}
+		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
+			return all[i].CreatedAt.Before(all[j].CreatedAt)
+		}
+		return all[i].ID < all[j].ID
+	})
+	if limit > 0 && limit < len(all) {
+		all = all[:limit]
+	}
+	return all, nil
+}
+
+func (r *InMemoryAdCampaignRepository) IssueImpressions(_ context.Context, issues []store.ImpressionIssue) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, i := range issues {
+		c, ok := r.campaigns[i.CampaignID]
+		if !ok {
+			return store.ErrAdCampaignNotFound
+		}
+		c.Impressions++
+		r.campaigns[i.CampaignID] = c
+	}
+	return nil
+}

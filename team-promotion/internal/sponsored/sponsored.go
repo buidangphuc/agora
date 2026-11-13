@@ -2,10 +2,16 @@ package sponsored
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"log/slog"
 	"strconv"
 	"strings"
+
+	"google.golang.org/genproto/googleapis/rpc/code"
+	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/team-promotion/internal/listing"
@@ -37,7 +43,7 @@ func New(repo store.AdCampaignRepository, listings listing.Getter, audit *auditx
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{repo: repo, listings: listings, audit: audit, logger: logger, maxBid: DefaultMaxAdBid, maxBudget: DefaultMaxAdBudget}
+	return &Service{repo: repo, listings: listings, audit: audit, logger: logger, maxBid: DefaultMaxAdBid, maxBudget: DefaultMaxAdBudget, minBid: DefaultMinAdBid}
 }
 
 // WithLimits sets the bid and budget ceilings. A non-positive value keeps the
@@ -76,7 +82,7 @@ func (s *Service) CreateAdCampaign(ctx context.Context, p CreateAdCampaignParams
 	if strings.TrimSpace(p.ListingID) == "" {
 		return store.AdCampaign{}, ErrInvalidAdCampaign
 	}
-	if p.Budget < 0 || p.Bid < 0 || p.Budget > s.maxBudget || p.Bid > s.maxBid {
+	if p.Budget < 0 || p.Bid < 0 || p.Budget > s.maxBudget || p.Bid > s.maxBid || p.Bid < s.minBid || p.Budget < p.Bid {
 		return store.AdCampaign{}, ErrInvalidAdCampaign
 	}
 	listingID := strings.TrimSpace(p.ListingID)
@@ -95,9 +101,14 @@ func (s *Service) CreateAdCampaign(ctx context.Context, p CreateAdCampaignParams
 		return err
 	}
 	if !p.IsAdmin {
-		if err := listing.Owner(ctx, s.listings, s.logger, listingID, p.SellerID); err != nil {
+		l, err := listing.Get(ctx, s.listings, s.logger, listingID)
+		if err != nil {
 			return store.AdCampaign{}, err
 		}
+		if err := listing.CheckOwner(l, p.SellerID); err != nil {
+			return store.AdCampaign{}, err
+		}
+		c.CategoryID = l.GetCategoryId()
 		if err := insert(ctx); err != nil {
 			return store.AdCampaign{}, err
 		}
@@ -119,4 +130,122 @@ func (s *Service) CreateAdCampaign(ctx context.Context, p CreateAdCampaignParams
 		return store.AdCampaign{}, err
 	}
 	return created, nil
+}
+
+const (
+	DefaultMinAdBid  int64 = 500
+	defaultSlotLimit       = 2
+	maxSlotLimit           = 4
+	servableFetch          = 200
+)
+
+type SlotsParams struct {
+	ContextStr string
+	Placement  string
+	CategoryID string
+	Limit      int32
+}
+
+type Slot struct {
+	ListingID  string
+	CampaignID string
+	Token      string
+}
+
+type SlotsResult struct {
+	ListingIDs []string
+	Slots      []Slot
+}
+
+func (s *Service) WithMinBid(minBid int64) *Service {
+	if minBid > 0 {
+		s.minBid = minBid
+	}
+	return s
+}
+
+func (s *Service) ListSponsoredSlots(ctx context.Context, p SlotsParams) (SlotsResult, error) {
+	switch p.Placement {
+	case "":
+		return s.legacySlots(ctx)
+	case "search", "home":
+	default:
+		return SlotsResult{}, ErrInvalidAdCampaign
+	}
+	limit := int(p.Limit)
+	if limit < 0 || limit > maxSlotLimit {
+		return SlotsResult{}, ErrInvalidAdCampaign
+	}
+	if limit == 0 {
+		limit = defaultSlotLimit
+	}
+	category := ""
+	if p.Placement == "search" {
+		category = strings.TrimSpace(p.CategoryID)
+		if category == "" {
+			return SlotsResult{}, nil
+		}
+	}
+	rows, err := s.repo.ListServable(ctx, category, servableFetch)
+	if err != nil {
+		return SlotsResult{}, errSlotsUnavailable()
+	}
+	seen := map[string]bool{}
+	var slots []Slot
+	var issues []store.ImpressionIssue
+	for _, c := range rows {
+		if len(slots) == limit {
+			break
+		}
+		if seen[c.ListingID] {
+			continue
+		}
+		seen[c.ListingID] = true
+		token, err := newToken()
+		if err != nil {
+			return SlotsResult{}, errSlotsUnavailable()
+		}
+		slots = append(slots, Slot{ListingID: c.ListingID, CampaignID: c.ID, Token: token})
+		issues = append(issues, store.ImpressionIssue{Token: token, CampaignID: c.ID, ListingID: c.ListingID})
+	}
+	if len(slots) == 0 {
+		return SlotsResult{}, nil
+	}
+	if err := s.repo.IssueImpressions(ctx, issues); err != nil {
+		s.logger.WarnContext(ctx, "issue ad impressions failed", "err", err)
+		return SlotsResult{}, errSlotsUnavailable()
+	}
+	return SlotsResult{Slots: slots}, nil
+}
+
+func (s *Service) legacySlots(ctx context.Context) (SlotsResult, error) {
+	rows, err := s.repo.ListActive(ctx, servableFetch)
+	if err != nil {
+		return SlotsResult{}, err
+	}
+	seen := map[string]bool{}
+	var ids []string
+	for _, c := range rows {
+		if seen[c.ListingID] {
+			continue
+		}
+		seen[c.ListingID] = true
+		ids = append(ids, c.ListingID)
+		if len(ids) == defaultPageSize {
+			break
+		}
+	}
+	return SlotsResult{ListingIDs: ids}, nil
+}
+
+func newToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func errSlotsUnavailable() error {
+	return status.ErrorProto(&rpcstatus.Status{Code: int32(code.Code_UNAVAILABLE), Message: "sponsored slots unavailable"})
 }
