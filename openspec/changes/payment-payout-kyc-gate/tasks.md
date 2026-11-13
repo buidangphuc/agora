@@ -1,0 +1,23 @@
+## 1. Code track (team-payment, platform-core seed)
+
+Depends on slices trust-legal-contract (`NOT_SUBMITTED`, service-principal read) and verification-kyc-documents (service-principal `verification.read` accepted).
+
+- [ ] 1.1 Vendor `verification.proto` into `team-payment/proto/platform/verification/v1/` as a byte-identical copy of platform-core and regenerate (`make` target / buf.gen.yaml). The contract slice does not list team-payment among verification copies: see open issue
+- [ ] 1.2 Unit tests first (red): config requires `UPSTREAM_VERIFICATION_ADDR` in `internal/config/config_test.go` (scenario: Boot fails without the verification address)
+- [ ] 1.3 Config: add `VerificationAddr` to `Upstream` with `UPSTREAM_VERIFICATION_ADDR`, required in `ResolveFor`
+- [ ] 1.4 Tests first (red): `internal/upstream/verification_test.go` against a real in-process gRPC server: VERIFIED passes; PENDING, REJECTED, NOT_SUBMITTED, UNSPECIFIED give FAILED_PRECONDITION; transport error, `PermissionDenied`, `NotFound` give UNAVAILABLE; slow server gives UNAVAILABLE within 2.5 s with exactly one attempt; metadata carries `service-team-payment` and `verification.read` (scenarios: Seller who never submitted is refused, Seller with a rejected submission is refused, Verification service unreachable, Verification call exceeds the deadline, Verification rejects the service principal)
+- [ ] 1.5 `internal/upstream/verification.go`: `DialVerificationService`, `NewPayoutGate` (single attempt, 2 s deadline, no logging of ids); wire in `internal/app/app.go` and close the connection on shutdown
+- [ ] 1.6 Tests first (red): handler tests for both RPCs with a recording gate and ledger: gate runs after authz and validation and before `h.svc`; refusals leave ledger and payout tables untouched (scenarios: Invalid amount is rejected before the gate, Another seller's wallet is denied before the gate, Missing listing write scope is denied before the gate, Status comes from the principal not the request, Seller who loses verification is refused on the next call)
+- [ ] 1.7 `internal/rpc`: add `PayoutGate` to `NewHandler`, call it in `RequestPayout` and `RequestWalletPayout` after `requirePayoutScope` and amount/bank validation; update existing handler and app tests that build `Handler` (scenarios: Verified seller requests a bank payout, Verified seller requests a wallet payout, Gate recovers after the outage)
+- [ ] 1.8 `docker-compose.services.yaml`: `UPSTREAM_VERIFICATION_ADDR=team-verification-svc:50064` and `depends_on` team-verification for team-payment; same in `team-payment` local compose and the e2e payment-ledger overlay if it redefines the env (scenario: Boot fails without the verification address)
+- [ ] 1.9 `platform-core/tools/seed-marketplace.sh` (and seed-full scripts that create payout sellers): verify each seeded seller through `CreateKycUploadUrl`, presigned PUT, `SubmitKyc`, admin `ReviewKyc` approve; idempotent on re-run (scenario: Seeded demo seller can pay out). Hot file shared with seller-kyc-ui: serialise
+- [ ] 1.10 `team-payment/README.md`: contract rows for the two RPCs, the new upstream, the new env var, fail-closed behaviour
+- [ ] 1.11 Gates through `scripts/asdlc/gate_digest.py` for team-payment (`GO_SDK_REQUIRE_DOCKER=1`)
+
+## 2. E2E track (platform-e2e; FEATURES.yaml by e2e-author)
+
+- [ ] 2.1 Feature file `payment/payout_kyc_gate.feature` covering every scenario in `specs/payout-kyc-gate/spec.md`; replace each `VERIFIED BY: TBD` with its path and scenario title
+- [ ] 2.2 Flow helper `verify_seller` in `tests/e2e/flows/` doing the real KYC RPC sequence with an admin login; call it from the existing payout journeys (`fintech/seller_payout.feature`, `seller/fulfillment_and_payout.feature`, `payment/payout_scope.feature`, `payment/plp_payout_holdback.feature`, `payment/seller_wallet_access.feature`) so they keep passing (scenarios: Verified seller requests a bank payout, Verified seller requests a wallet payout)
+- [ ] 2.3 Steps for pending, rejected, never-submitted and lost-verification sellers (scenarios: Seller who never submitted is refused, Seller with a pending submission is refused, Seller with a rejected submission is refused, Seller who loses verification is refused on the next call, Freshly registered seller is blocked at rollout)
+- [ ] 2.4 Outage steps: stop and start team-verification in the stack, and a delayed-answer case using the existing slow-upstream tooling if present, else a unit-level proof from 1.4 (scenarios: Verification service unreachable, Gate recovers after the outage)
+- [ ] 2.5 `team-payment/FEATURES.yaml` entry `payment.payout-requires-kyc`; update `payment.payout` preconditions (e2e-author)

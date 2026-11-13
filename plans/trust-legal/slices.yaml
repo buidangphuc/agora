@@ -1,0 +1,97 @@
+# plans/trust-legal/slices.yaml — one slice = one OpenSpec change (plan section 13).
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc/cross_change_check.py --slices plans/trust-legal/slices.yaml
+initiative: trust-legal
+slices:
+  - id: trust-legal-contract
+    owner: platform-core
+    depends_on: []
+    provides:
+      - PrivacyService.RecordConsent
+      - PrivacyService.ListMyConsents
+      - PrivacyService.RequestAccountDeletion
+      - PrivacyService.CancelAccountDeletion
+      - PrivacyService.GetAccountDeletionStatus
+      - PrivacyService.ExportMyData
+      - identity.events/UserErased
+      - OrderService.GetUserObligations
+      - PaymentService.GetPayoutObligations
+      - VerificationService.CreateKycUploadUrl
+      - VerificationService.ListKycSubmissions
+      - VerificationService.GetKycDocumentUrl
+      - VerificationService.GetPublicBadges
+  - id: identity-legal-consent
+    owner: team-identity
+    depends_on: [trust-legal-contract]
+    uses: [AuthService.Register, PrivacyService.RecordConsent, PrivacyService.ListMyConsents]
+  - id: commerce-user-erasure
+    owner: team-order
+    depends_on: [trust-legal-contract]
+    uses: [OrderService.GetUserObligations, PaymentService.GetPayoutObligations, identity.events/UserErased]
+  - id: identity-account-deletion
+    owner: team-identity
+    depends_on: [identity-legal-consent, commerce-user-erasure]
+    uses:
+      - PrivacyService.RequestAccountDeletion
+      - PrivacyService.CancelAccountDeletion
+      - PrivacyService.GetAccountDeletionStatus
+      - OrderService.GetUserObligations
+      - PaymentService.GetPayoutObligations
+      - identity.events/UserErased
+  - id: identity-data-export
+    owner: team-identity
+    depends_on: [identity-account-deletion]
+    uses: [PrivacyService.ExportMyData]
+  - id: content-user-erasure
+    owner: team-engagement
+    depends_on: [trust-legal-contract]
+    uses: [identity.events/UserErased]
+  - id: domain-seller-erasure
+    owner: team-domain
+    depends_on: [trust-legal-contract]
+    uses: [identity.events/UserErased, listing.events/ListingChanged]
+  - id: analytics-user-erasure
+    owner: team-analytics
+    depends_on: [trust-legal-contract]
+    uses: [identity.events/UserErased]
+  - id: verification-kyc-documents
+    owner: team-verification
+    depends_on: [trust-legal-contract]
+    uses:
+      - VerificationService.CreateKycUploadUrl
+      - VerificationService.SubmitKyc
+      - VerificationService.ReviewKyc
+      - VerificationService.ListKycSubmissions
+      - VerificationService.GetKycDocumentUrl
+      - VerificationService.GetPublicBadges
+      - AuditService.WriteAuditEvent
+      - identity.events/UserErased
+  - id: payment-payout-kyc-gate
+    owner: team-payment
+    depends_on: [verification-kyc-documents]
+    uses: [VerificationService.GetVerificationStatus, PaymentService.RequestPayout, PaymentService.RequestWalletPayout]
+  - id: frontend-legal-pages
+    owner: team-frontend
+    depends_on: [identity-legal-consent]
+    uses: [AuthService.Register, PrivacyService.RecordConsent, PrivacyService.ListMyConsents]
+  - id: frontend-account-privacy
+    owner: team-frontend
+    depends_on: [identity-data-export, frontend-legal-pages]
+    uses:
+      - PrivacyService.ListMyConsents
+      - PrivacyService.RecordConsent
+      - PrivacyService.RequestAccountDeletion
+      - PrivacyService.CancelAccountDeletion
+      - PrivacyService.GetAccountDeletionStatus
+      - PrivacyService.ExportMyData
+  - id: seller-kyc-ui
+    owner: team-frontend-seller
+    depends_on: [verification-kyc-documents, payment-payout-kyc-gate]
+    uses:
+      - VerificationService.CreateKycUploadUrl
+      - VerificationService.SubmitKyc
+      - VerificationService.GetVerificationStatus
+      - VerificationService.GetPublicBadges
+  - id: admin-kyc-queue
+    owner: team-frontend-admin
+    depends_on: [verification-kyc-documents]
+    uses: [VerificationService.ListKycSubmissions, VerificationService.GetKycDocumentUrl, VerificationService.ReviewKyc]
