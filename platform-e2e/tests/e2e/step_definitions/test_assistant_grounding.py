@@ -1,4 +1,4 @@
-"""Binds ai/assistant_grounding.feature (change assistant-rag-grounding)."""
+"""Binds ai/assistant_grounding.feature (change ai-assistant-grounding)."""
 
 from pytest_bdd import scenarios
 
