@@ -1,6 +1,7 @@
 package store
 
 import (
+	"math"
 	"math/big"
 )
 
@@ -54,7 +55,7 @@ func (c Commissionable) CreditAmount(paid int64) int64 { return c.creditAmount(p
 
 func (c Commissionable) CommissionEntry(sellerID, paymentID string) (LedgerEntry, bool) {
 	amount, rate := c.commission()
-	if amount <= 0 {
+	if amount <= 0 || rate < 0 || rate > math.MaxInt32 {
 		return LedgerEntry{}, false
 	}
 	return LedgerEntry{
