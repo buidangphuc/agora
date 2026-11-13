@@ -17,9 +17,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 
 from app.core.config import get_settings
+from app.core.redaction import RedactionPolicy
 from app.modules.ai.evals.evaluators import (
+    CallableEvaluator,
     ContainsEvaluator,
     Evaluator,
     ExactMatchEvaluator,
@@ -31,6 +34,15 @@ from app.modules.ai.evals.runner import (
     evaluate_one,
     load_jsonl_cases,
 )
+from app.modules.business.ai_assistant.grounding import GroundedCards
+from app.modules.business.ai_assistant.schemas import (
+    ProductCard,
+    ShoppingAssistantRequest,
+)
+from app.modules.business.ai_assistant.shopping import (
+    MockAssistantReplier,
+    ShoppingAssistantService,
+)
 from app.modules.business.completions.handlers.echo import EchoCompletionHandler
 from app.modules.business.completions.schemas import CompletionRequest
 from app.modules.business.completions.service import CompletionService
@@ -41,7 +53,53 @@ DEFAULT_CASES = "evals/completions_smoke.jsonl"
 _completion_service = CompletionService(EchoCompletionHandler())
 
 
+class _CaseGrounding:
+    def __init__(self, cards: list[ProductCard]) -> None:
+        self._cards = cards
+
+    async def ground(self, query: str) -> GroundedCards:
+        return GroundedCards(cards=self._cards)
+
+
+async def _assistant_target(case: EvalCase) -> EvalTargetResult:
+    cards = [ProductCard(**c) for c in case.input.get("cards", [])]
+    service = ShoppingAssistantService(
+        _CaseGrounding(cards),  # type: ignore[arg-type]
+        MockAssistantReplier(),
+        redaction=RedactionPolicy(mode="redacted"),
+    )
+    answer = await service.answer(
+        ShoppingAssistantRequest(message=case.input["message"])
+    )
+    return EvalTargetResult(
+        output={
+            "reply_text": answer.reply_text,
+            "cards": [c.model_dump() for c in answer.product_cards],
+            "offered": [c.model_dump() for c in cards],
+        }
+    )
+
+
+def _is_grounded(output: dict, expected: object) -> bool:
+    cards = [ProductCard(**c) for c in output["cards"]]
+    if cards != [ProductCard(**c) for c in output["offered"]]:
+        return False
+    text = output["reply_text"]
+    if not cards:
+        return "**" not in text
+    titles = {c.title.casefold() for c in cards}
+    prices = {str(c.price) for c in cards}
+    for bold in re.findall(r"\*\*(.+?)\*\*", text):
+        key = bold.strip().casefold()
+        digits = re.sub(r"[.,đ₫]|vnđ|vnd", "", key)
+        if key not in titles and digits not in prices:
+            return False
+    return cards[0].title in text
+
+
 async def _target(case: EvalCase) -> EvalTargetResult:
+    if case.metadata.get("evaluator") == "grounded":
+        return await _assistant_target(case)
     result = await _completion_service.complete(CompletionRequest(**case.input))
     return EvalTargetResult(output=result.content)
 
@@ -54,6 +112,7 @@ def _build_evaluators(settings=None) -> dict[str, Evaluator | None]:
     return {
         "exact": ExactMatchEvaluator(),
         "contains": ContainsEvaluator(),
+        "grounded": CallableEvaluator(name="grounded", evaluate=_is_grounded),
         "judge": judge,
     }
 

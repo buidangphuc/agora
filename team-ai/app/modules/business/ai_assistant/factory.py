@@ -26,9 +26,7 @@ class _UngroundedSearch:
 
 
 def build_ai_assistant_services(
-    rag: object | None = None,
     *,
-    rag_min_score: float = 0.0,
     grounding: ListingGrounding | None = None,
     replier: AssistantReplier | None = None,
 ) -> AIAssistantServices:

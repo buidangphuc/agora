@@ -20,3 +20,11 @@ box on a fresh fork. Case format:
    return its output for `case.input`.
 3. Gate: `python -m scripts.run_eval --cases evals/<file>.jsonl --min-score 0.8`
    exits non-zero below the threshold — wire it into CI once your cases are in.
+
+## Assistant groundedness
+
+`assistant_grounding.jsonl` grades the shopping assistant reply over fixed
+cards (evaluator `grounded`): every bolded title and every price in the reply
+must be on the returned cards, and a no-card reply names no product.
+
+    python -m scripts.run_eval --cases evals/assistant_grounding.jsonl --min-score 0.8
