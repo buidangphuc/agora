@@ -27,6 +27,13 @@ Implement OpenSpec change `recs-experiment-arms` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_rgp_generation_publish.py
 - platform-e2e/tests/e2e/step_definitions/recommendations_steps.py
 - platform-e2e/tests/e2e/flows/flipt_flow.py
+- widened (P1):
+  - platform-e2e/tests/e2e/step_definitions/era_steps.py — e2e step file of this change (experiment_arms.feature), named differently from the packet
+  - platform-e2e/tests/e2e/step_definitions/test_era_experiment_arms.py — e2e scenario binding of this change, named differently from the packet
+  - platform-e2e/tests/e2e/step_definitions/rgp_steps.py — e2e steps of generation_publish.feature; the new model_version wire format `<generation>/<tier>/<ranker>/<arm>` breaks the old exact-match step
+  - platform-e2e/tests/e2e/step_definitions/rss_steps.py — e2e steps of serving_safeguards.feature; fallback model_version is now prefixed, the old exact-match step breaks
+  - platform-e2e/tests/e2e/support/rss_support.py — e2e support of serving_safeguards.feature; adds FALLBACK_PREFIX for the new model_version format
+  - team-ai/docs/usage.md — doc updated by docs-sync (Recommend model_version format)
 
 ## Verify
 - `cd team-ai && make ci` (ruff, env check, pyright, pytest)
