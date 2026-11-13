@@ -1,8 +1,8 @@
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
-import { formatPrice } from "@/components/ui/format";
 import { Link } from "@/components/ui/Link";
+import { formatPrice } from "@/components/ui/format";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { CartGroups } from "@/features/cart/CartGroups";
 import { CartSelection } from "@/features/cart/CartSelection";

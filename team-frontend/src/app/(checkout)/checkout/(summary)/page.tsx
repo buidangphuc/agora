@@ -1,5 +1,5 @@
-import { formatPrice } from "@/components/ui/format";
 import { Link } from "@/components/ui/Link";
+import { formatPrice } from "@/components/ui/format";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { redirect } from "next/navigation";
