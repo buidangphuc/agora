@@ -5133,3 +5133,362 @@ features:
     tags: [auth, unit]
     status: not-testable
     notes: "identity-user-registered: VERIFIED BY team-identity `internal/events` TestBuildUserRegisteredEnvelopeStableEventID. Not producible end to end: the relay cannot be made to publish one row twice black box."
+
+  # identity-legal-consent
+
+  - id: identity.register_consent
+    title: "Register with the current versions stores two consent records"
+    persona: buyer
+    priority: P1
+    summary: "Register with the current versions stores two consent records (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Register with the current versions stores two consent records"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Register with the current versions stores two consent records"
+
+  - id: identity.legal-consent-register-without-versions-is-rejected
+    title: "Register without versions is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Register without versions is rejected (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Register without versions is rejected"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Register without versions is rejected"
+
+  - id: identity.legal-consent-register-with-a-stale-version-is-rejected
+    title: "Register with a stale version is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Register with a stale version is rejected (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Register with a stale version is rejected"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Register with a stale version is rejected"
+
+  - id: identity.legal-consent-consent-insert-failure-rolls-back-the-account
+    title: "Consent insert failure rolls back the account"
+    persona: buyer
+    priority: P1
+    summary: "Consent insert failure rolls back the account (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Consent insert failure rolls back the account"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Consent insert failure rolls back the account"
+
+  - id: identity.legal-consent-registration-needs-no-prior-authentication
+    title: "Registration needs no prior authentication"
+    persona: buyer
+    priority: P1
+    summary: "Registration needs no prior authentication (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Registration needs no prior authentication"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Registration needs no prior authentication"
+
+  - id: identity.legal-consent-boot-fails-without-a-configured-version
+    title: "Boot fails without a configured version"
+    persona: buyer
+    priority: P1
+    summary: "Boot fails without a configured version (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Boot fails without a configured version"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Boot fails without a configured version"
+
+  - id: identity.legal-consent-first-entry-is-the-current-version
+    title: "First entry is the current version"
+    persona: buyer
+    priority: P1
+    summary: "First entry is the current version (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: First entry is the current version"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::First entry is the current version"
+
+  - id: identity.legal-consent-banner-choice-stores-one-row-per-changed-purpose
+    title: "Banner choice stores one row per changed purpose"
+    persona: buyer
+    priority: P1
+    summary: "Banner choice stores one row per changed purpose (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Banner choice stores one row per changed purpose"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Banner choice stores one row per changed purpose"
+
+  - id: identity.legal-consent-re-accepting-a-new-terms-version-appends-a-row
+    title: "Re-accepting a new Terms version appends a row"
+    persona: buyer
+    priority: P1
+    summary: "Re-accepting a new Terms version appends a row (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Re-accepting a new Terms version appends a row"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Re-accepting a new Terms version appends a row"
+
+  - id: identity.legal-consent-invalid-records-are-rejected-without-partial-writes
+    title: "Invalid records are rejected without partial writes"
+    persona: buyer
+    priority: P1
+    summary: "Invalid records are rejected without partial writes (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Invalid records are rejected without partial writes"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Invalid records are rejected without partial writes"
+
+  - id: identity.legal-consent-stale-or-withdrawn-legal-acceptance-is-rejected
+    title: "Stale or withdrawn legal acceptance is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Stale or withdrawn legal acceptance is rejected (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Stale or withdrawn legal acceptance is rejected"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Stale or withdrawn legal acceptance is rejected"
+
+  - id: identity.legal-consent-client-time-and-user-id-are-ignored
+    title: "Client time and user id are ignored"
+    persona: buyer
+    priority: P1
+    summary: "Client time and user id are ignored (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Client time and user id are ignored"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Client time and user id are ignored"
+
+  - id: identity.legal-consent-anonymous-and-service-principals-cannot-record-consent
+    title: "Anonymous and service principals cannot record consent"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous and service principals cannot record consent (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Anonymous and service principals cannot record consent"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Anonymous and service principals cannot record consent"
+
+  - id: identity.consent_ledger
+    title: "History is newest first and paged"
+    persona: buyer
+    priority: P1
+    summary: "History is newest first and paged (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: History is newest first and paged"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::History is newest first and paged"
+
+  - id: identity.legal-consent-a-user-never-sees-another-user-s-records
+    title: "A user never sees another user's records"
+    persona: buyer
+    priority: P1
+    summary: "A user never sees another user's records (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: A user never sees another user's records"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::A user never sees another user's records"
+
+  - id: identity.legal-consent-page-size-is-clamped-and-bad-cursors-are-rejected
+    title: "Page size is clamped and bad cursors are rejected"
+    persona: buyer
+    priority: P1
+    summary: "Page size is clamped and bad cursors are rejected (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Page size is clamped and bad cursors are rejected"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Page size is clamped and bad cursors are rejected"
+
+  - id: identity.legal-consent-anonymous-caller-cannot-list
+    title: "Anonymous caller cannot list"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous caller cannot list (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Anonymous caller cannot list"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Anonymous caller cannot list"
+
+  - id: identity.legal-consent-a-user-with-no-records-gets-an-empty-list
+    title: "A user with no records gets an empty list"
+    persona: buyer
+    priority: P1
+    summary: "A user with no records gets an empty list (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: A user with no records gets an empty list"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::A user with no records gets an empty list"
+
+  - id: identity.legal-consent-consent-is-reachable-through-the-gateway
+    title: "Consent is reachable through the gateway"
+    persona: buyer
+    priority: P1
+    summary: "Consent is reachable through the gateway (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent, identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Consent is reachable through the gateway"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Consent is reachable through the gateway"
+
+  - id: identity.legal-consent-anonymous-edge-call-is-refused
+    title: "Anonymous edge call is refused"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous edge call is refused (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent, identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Anonymous edge call is refused"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Anonymous edge call is refused"
+
+  - id: identity.legal-consent-later-slice-rpcs-are-not-exposed-yet
+    title: "Later-slice RPCs are not exposed yet"
+    persona: buyer
+    priority: P1
+    summary: "Later-slice RPCs are not exposed yet (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent, identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Later-slice RPCs are not exposed yet"
+    tags: [auth, buyer]
+    status: planned
+    covered_by: "identity/legal_consent.feature::Later-slice RPCs are not exposed yet"
