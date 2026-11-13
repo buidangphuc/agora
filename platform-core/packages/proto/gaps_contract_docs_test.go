@@ -118,8 +118,8 @@ func catalogueProblems(src string, actions []string) []string {
 		return []string{"audit catalogue: WriteAuditEventRequest not found"}
 	}
 	var problems []string
-	if !strings.Contains(c, "Action catalogue (25)") {
-		problems = append(problems, "audit catalogue: header is not 'Action catalogue (25)'")
+	if !strings.Contains(c, "Action catalogue (26)") {
+		problems = append(problems, "audit catalogue: header is not 'Action catalogue (26)'")
 	}
 	for _, a := range actions {
 		if !strings.Contains(c, a) {
@@ -225,8 +225,8 @@ func TestGapsContract_IdentityRPCsDocumented(t *testing.T) {
 		}
 	})
 
-	t.Run("audit_catalogue_lists_25_with_seven_new_actions", func(t *testing.T) {
-		all := []string{"voucher.deactivate", "voucher.update", "campaign.cancel", "campaign.update", "auth.handoff_mint", "auth.handoff_redeem", "auth.become_seller"}
+	t.Run("audit_catalogue_lists_26_with_eight_new_actions", func(t *testing.T) {
+		all := []string{"voucher.deactivate", "voucher.update", "campaign.cancel", "campaign.update", "auth.handoff_mint", "auth.handoff_redeem", "auth.become_seller", "kyc.document_view"}
 		for _, p := range catalogueProblems(audit, all) {
 			t.Error(p)
 		}
@@ -252,6 +252,26 @@ func TestGapsContract_IdentityRPCsDocumented(t *testing.T) {
 				t.Fatal(err)
 			}
 			requireProblemNaming(t, checkRules(readSrc(t, tmp), rules), c.rpc)
+		}
+	})
+}
+
+// Scenarios: Trust legal contract: Catalogue header counts 26 actions; Trust legal contract: Stale catalogue header is rejected
+func TestTrustLegalContract_AuditCatalogueCounts26(t *testing.T) {
+	audit := readSrc(t, auditPath)
+	t.Run("header_counts_26_and_lists_kyc_document_view", func(t *testing.T) {
+		for _, p := range catalogueProblems(audit, []string{"kyc.document_view"}) {
+			t.Error(p)
+		}
+		c, _ := leadingComment(audit, "message", "WriteAuditEventRequest")
+		if !strings.Contains(c, "Action catalogue (26)") {
+			t.Error("header does not read 'Action catalogue (26)'")
+		}
+	})
+	t.Run("stale_header_is_rejected", func(t *testing.T) {
+		stale := "// Action catalogue (25):\n//   review.hide, kyc.document_view\nmessage WriteAuditEventRequest {\n}\n"
+		if len(catalogueProblems(stale, []string{"kyc.document_view"})) == 0 {
+			t.Error("stale 25 header was not reported")
 		}
 	})
 }

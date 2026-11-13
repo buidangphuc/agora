@@ -46,7 +46,7 @@ func TestTrustContract_UserStatusMessagesHaveFixedNumbers(t *testing.T) {
 	fd, _ := tcFile(t, idProto)
 	tcEnum(t, fd, "UserStatus", map[string]int{
 		"USER_STATUS_UNSPECIFIED": 0, "USER_STATUS_ACTIVE": 1, "USER_STATUS_RESTRICTED": 2,
-		"USER_STATUS_SUSPENDED": 3, "USER_STATUS_BANNED": 4,
+		"USER_STATUS_SUSPENDED": 3, "USER_STATUS_BANNED": 4, "USER_STATUS_DELETED": 5,
 	})
 	tcShape(t, fd, "AdminUser", map[string]string{
 		"id": "1 string", "username": "2 string", "roles": "3 repeated string", "status": "4 " + idStatus,

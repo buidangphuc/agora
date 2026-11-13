@@ -485,6 +485,7 @@ func TestQ7_RegisterRequestCarriesAnOptionalReferralCode(t *testing.T) {
 	assertMessageFields(t, f, map[string]map[string]string{
 		"RegisterRequest": {
 			"username": "1 " + str, "password": "2 " + str, "role": "3 " + str, registerKey: "4 " + str,
+			"terms_version": "5 " + str, "privacy_version": "6 " + str,
 		},
 	})
 }
@@ -1000,7 +1001,7 @@ func TestQ7_MissingServerOwnedNoteIsCaught(t *testing.T) {
 var orderExisting = []string{"CreateOrder", "GetOrder", "ListBuyerOrders", "ListSellerOrders", "UpdateOrderStatus",
 	"CancelOrder", "ConfirmReceipt", "CalculateShippingFee", "PreviewCheckout", "GetSagaState", "ForceFailSaga",
 	"CreateReturnRequest", "GetReturnRequest", "UpdateReturnStatus", "ListOrderReturns", "CreateShipment",
-	"GetShipmentTracking"}
+	"GetShipmentTracking", "GetUserObligations"}
 
 // Scenario: Q7 referral welcome contract: HasCompletedOrder RPC exists
 func TestQ7_HasCompletedOrderRPCExists(t *testing.T) {

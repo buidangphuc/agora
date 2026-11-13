@@ -260,6 +260,8 @@ var catalogue = []string{
 	"shipment.admin_create", "payment.admin_refund", "voucher.platform_create",
 	"flash_sale.admin_create", "ad_campaign.admin_create",
 	"listing.moderate", "user.set_status", "report.resolve", "return.dispute_refund",
+	"voucher.admin_create", "voucher.deactivate", "voucher.update", "campaign.cancel", "campaign.update",
+	"auth.handoff_mint", "auth.handoff_redeem", "auth.become_seller", "kyc.document_view",
 }
 
 // checkCatalogue reports every catalogue action missing from the comment and a wrong heading count.
@@ -270,8 +272,8 @@ func checkCatalogue(c string) error {
 			missing = append(missing, s)
 		}
 	}
-	if !strings.Contains(c, "Action catalogue (17)") {
-		missing = append(missing, "heading 'Action catalogue (17)'")
+	if !strings.Contains(c, "Action catalogue (26)") {
+		missing = append(missing, "heading 'Action catalogue (26)'")
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("catalogue missing %s", strings.Join(missing, ", "))
@@ -281,8 +283,8 @@ func checkCatalogue(c string) error {
 
 // Scenario: Trust contract: Catalogue test rejects a missing action
 func TestWriteAuditEventRequest_Catalogue_Scenario_TrustContractCatalogueTestRejectsAMissingAction(t *testing.T) {
-	if len(catalogue) != 17 {
-		t.Fatalf("catalogue fixture has %d actions, want 17", len(catalogue))
+	if len(catalogue) != 26 {
+		t.Fatalf("catalogue fixture has %d actions, want 26", len(catalogue))
 	}
 	original13 := "Action catalogue (13): " + strings.Join(catalogue[:13], ", ")
 	err := checkCatalogue(original13)
@@ -292,7 +294,7 @@ func TestWriteAuditEventRequest_Catalogue_Scenario_TrustContractCatalogueTestRej
 	if !strings.Contains(err.Error(), "listing.moderate") {
 		t.Errorf("helper error must name listing.moderate, got %v", err)
 	}
-	if err := checkCatalogue("Action catalogue (17): " + strings.Join(catalogue, ", ")); err != nil {
+	if err := checkCatalogue("Action catalogue (26): " + strings.Join(catalogue, ", ")); err != nil {
 		t.Errorf("helper rejected a complete catalogue: %v", err)
 	}
 }

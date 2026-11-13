@@ -140,7 +140,7 @@ func TestCheckoutContract_PreviewCheckoutExistsOnOrderService(t *testing.T) {
 	for _, m := range svc.Method {
 		got[m.Name] = m
 	}
-	names := append(append([]string{}, existingOrderRPCs...), "ConfirmReceipt")
+	names := append(append([]string{}, existingOrderRPCs...), "ConfirmReceipt", "HasCompletedOrder", "GetUserObligations")
 	for _, n := range names {
 		m, ok := got[n]
 		if !ok {
