@@ -14,12 +14,13 @@ import (
 var ErrInvalidSubscription = errors.New("invalid subscription")
 
 type Service struct {
-	repo   store.SubscriptionRepository
-	logger *slog.Logger
-	nowFn  func() time.Time
+	repo    Repository
+	payment PaymentCharger
+	logger  *slog.Logger
+	nowFn   func() time.Time
 }
 
-func New(repo store.SubscriptionRepository, logger *slog.Logger) *Service {
+func New(repo Repository, logger *slog.Logger) *Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
