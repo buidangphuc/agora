@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
@@ -30,6 +31,7 @@ type Service struct {
 	maxBid    int64
 	minBid    int64
 	maxBudget int64
+	now       func() time.Time
 }
 
 // Default ceilings (minor units) used when none are configured; they match the
@@ -43,7 +45,7 @@ func New(repo store.AdCampaignRepository, listings listing.Getter, audit *auditx
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{repo: repo, listings: listings, audit: audit, logger: logger, maxBid: DefaultMaxAdBid, maxBudget: DefaultMaxAdBudget, minBid: DefaultMinAdBid}
+	return &Service{repo: repo, listings: listings, audit: audit, logger: logger, maxBid: DefaultMaxAdBid, maxBudget: DefaultMaxAdBudget, minBid: DefaultMinAdBid, now: time.Now}
 }
 
 // WithLimits sets the bid and budget ceilings. A non-positive value keeps the
@@ -248,4 +250,36 @@ func newToken() (string, error) {
 
 func errSlotsUnavailable() error {
 	return status.ErrorProto(&rpcstatus.Status{Code: int32(code.Code_UNAVAILABLE), Message: "sponsored slots unavailable"})
+}
+
+type RecordClickParams struct {
+	Token       string
+	PrincipalID string
+}
+
+type ClickResult struct {
+	ListingID string
+	Charged   bool
+}
+
+func (s *Service) WithClock(now func() time.Time) *Service {
+	if now != nil {
+		s.now = now
+	}
+	return s
+}
+
+func (s *Service) RecordAdClick(ctx context.Context, p RecordClickParams) (ClickResult, error) {
+	if strings.TrimSpace(p.Token) == "" {
+		return ClickResult{}, ErrInvalidAdCampaign
+	}
+	res, err := s.repo.RecordClick(ctx, p.Token, p.PrincipalID, s.now())
+	if err != nil {
+		if errors.Is(err, store.ErrImpressionNotFound) {
+			return ClickResult{}, err
+		}
+		s.logger.WarnContext(ctx, "record ad click failed", "err", err)
+		return ClickResult{}, errSlotsUnavailable()
+	}
+	return ClickResult{ListingID: res.ListingID, Charged: res.Charged}, nil
 }

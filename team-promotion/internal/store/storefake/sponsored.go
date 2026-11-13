@@ -14,10 +14,18 @@ import (
 type InMemoryAdCampaignRepository struct {
 	mu        sync.RWMutex
 	campaigns map[string]store.AdCampaign // keyed by id
+	tokens    map[string]*fakeImpression
+}
+
+type fakeImpression struct {
+	campaignID string
+	listingID  string
+	expiresAt  time.Time
+	clicked    bool
 }
 
 func NewInMemoryAdCampaignRepository() *InMemoryAdCampaignRepository {
-	return &InMemoryAdCampaignRepository{campaigns: make(map[string]store.AdCampaign)}
+	return &InMemoryAdCampaignRepository{campaigns: make(map[string]store.AdCampaign), tokens: make(map[string]*fakeImpression)}
 }
 
 func (r *InMemoryAdCampaignRepository) Create(_ context.Context, c store.AdCampaign) (store.AdCampaign, error) {
@@ -139,6 +147,39 @@ func (r *InMemoryAdCampaignRepository) IssueImpressions(_ context.Context, issue
 		}
 		c.Impressions++
 		r.campaigns[i.CampaignID] = c
+		r.tokens[i.Token] = &fakeImpression{campaignID: i.CampaignID, listingID: i.ListingID, expiresAt: time.Now().Add(store.ImpressionTTL)}
 	}
 	return nil
+}
+
+func (r *InMemoryAdCampaignRepository) RecordClick(_ context.Context, token, principalID string, now time.Time) (store.ClickResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	imp, ok := r.tokens[token]
+	if !ok {
+		return store.ClickResult{}, store.ErrImpressionNotFound
+	}
+	res := store.ClickResult{ListingID: imp.listingID}
+	if imp.clicked || now.After(imp.expiresAt) {
+		return res, nil
+	}
+	c, ok := r.campaigns[imp.campaignID]
+	if !ok {
+		return store.ClickResult{}, store.ErrAdCampaignNotFound
+	}
+	if principalID != "" && principalID == c.SellerID {
+		return res, nil
+	}
+	if c.Status != store.AdCampaignStatusActive || c.Budget-c.Spent < c.Bid {
+		return res, nil
+	}
+	c.Spent += c.Bid
+	c.Clicks++
+	if c.Budget-c.Spent < c.Bid {
+		c.Status = store.AdCampaignStatusPausedBudget
+	}
+	r.campaigns[c.ID] = c
+	imp.clicked = true
+	res.Charged = true
+	return res, nil
 }

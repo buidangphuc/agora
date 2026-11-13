@@ -25,6 +25,13 @@ const (
 
 const ImpressionTTL = 30 * time.Minute
 
+var ErrImpressionNotFound = errors.New("impression token not found")
+
+type ClickResult struct {
+	ListingID string
+	Charged   bool
+}
+
 type ImpressionIssue struct {
 	Token      string
 	CampaignID string
@@ -65,6 +72,10 @@ type AdCampaignRepository interface {
 	ListActive(ctx context.Context, limit int) ([]AdCampaign, error)
 	ListServable(ctx context.Context, category string, limit int) ([]AdCampaign, error)
 	IssueImpressions(ctx context.Context, issues []ImpressionIssue) error
+	// RecordClick consumes token at instant now and charges the campaign's bid in one
+	// transaction. principalID is the forwarded caller ("" when anonymous); a principal
+	// equal to the campaign's seller is never charged and leaves the token unconsumed.
+	RecordClick(ctx context.Context, token, principalID string, now time.Time) (ClickResult, error)
 	// Ping verifies the backing store is reachable.
 	Ping(ctx context.Context) error
 }
@@ -205,4 +216,58 @@ func (r *PostgresAdCampaignRepository) IssueImpressions(ctx context.Context, iss
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+func (r *PostgresAdCampaignRepository) RecordClick(ctx context.Context, token, principalID string, now time.Time) (ClickResult, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return ClickResult{}, fmt.Errorf("begin click: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var (
+		campaignID, listingID string
+		expiresAt             time.Time
+		clickedAt             *time.Time
+	)
+	err = tx.QueryRow(ctx, `SELECT campaign_id, listing_id, expires_at, clicked_at FROM ad_impressions
+		WHERE token = $1 FOR UPDATE`, token).Scan(&campaignID, &listingID, &expiresAt, &clickedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ClickResult{}, ErrImpressionNotFound
+	}
+	if err != nil {
+		return ClickResult{}, fmt.Errorf("read impression: %w", err)
+	}
+	res := ClickResult{ListingID: listingID}
+	if clickedAt != nil || now.After(expiresAt) {
+		return res, nil
+	}
+	var sellerID string
+	var budget, spent, bid int64
+	var status int32
+	if err := tx.QueryRow(ctx, `SELECT seller_id, budget, spent, bid, status FROM ad_campaigns
+		WHERE id = $1 FOR UPDATE`, campaignID).Scan(&sellerID, &budget, &spent, &bid, &status); err != nil {
+		return ClickResult{}, fmt.Errorf("lock campaign: %w", err)
+	}
+	if principalID != "" && principalID == sellerID {
+		return res, nil
+	}
+	if status != AdCampaignStatusActive || budget-spent < bid {
+		return res, nil
+	}
+	newStatus := status
+	if budget-spent-bid < bid {
+		newStatus = AdCampaignStatusPausedBudget
+	}
+	if _, err := tx.Exec(ctx, `UPDATE ad_campaigns SET spent = spent + $2, clicks = clicks + 1, status = $3 WHERE id = $1`,
+		campaignID, bid, newStatus); err != nil {
+		return ClickResult{}, fmt.Errorf("charge click: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE ad_impressions SET clicked_at = $2 WHERE token = $1`, token, now); err != nil {
+		return ClickResult{}, fmt.Errorf("consume impression: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return ClickResult{}, fmt.Errorf("commit click: %w", err)
+	}
+	res.Charged = true
+	return res, nil
 }
