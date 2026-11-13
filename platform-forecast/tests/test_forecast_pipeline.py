@@ -14,7 +14,6 @@ from forecast.evals.backtest import (
 )
 from forecast.extract import extract_daily_sales_dataframe, fill_missing_dates
 from forecast.models.baseline import SeasonalNaiveQuantileForecaster
-from forecast.models.quantile_lgbm import QuantileRegressor
 from forecast.pipeline import run_demand_forecast_pipeline
 
 
