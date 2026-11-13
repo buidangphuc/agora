@@ -128,7 +128,7 @@ func (r *PostgresListingRepository) List(ctx context.Context, cursor string, pag
 }
 
 // ListByOwner returns a keyset page of the owner's listings.
-func (r *PostgresListingRepository) ListByOwner(ctx context.Context, ownerID, cursor string, pageSize int32) (Page, error) {
+func (r *PostgresListingRepository) ListByOwner(ctx context.Context, ownerID string, _ ListingFilter, cursor string, pageSize int32) (Page, error) {
 	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	const q = `SELECT ` + listingColumns + `
 		FROM listings

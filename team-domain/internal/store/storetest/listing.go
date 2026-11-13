@@ -60,7 +60,7 @@ func (r *InMemoryListingRepository) List(_ context.Context, cursor string, pageS
 	}), nil
 }
 
-func (r *InMemoryListingRepository) ListByOwner(_ context.Context, ownerID, cursor string, pageSize int32) (store.Page, error) {
+func (r *InMemoryListingRepository) ListByOwner(_ context.Context, ownerID string, _ store.ListingFilter, cursor string, pageSize int32) (store.Page, error) {
 	return r.page(cursor, pageSize, func(l store.Listing) bool {
 		return l.SellerID == ownerID
 	}), nil
