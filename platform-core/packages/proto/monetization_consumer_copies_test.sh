@@ -65,11 +65,11 @@ renum() {
   else echo "FAIL renumbering $label: could not mutate scratch copy (element missing from source)"; fail=1; fi
 }
 renum "items_subtotal" "$ORDER" '/^message OrderPaidEvent /,/^}/ s/(items_subtotal = )9;/\119;/' "items_subtotal"
-renum "COMMISSION" "$PAYMENT" 's/(WALLET_TRANSACTION_TYPE_COMMISSION = )4;/\114;/' "COMMISSION"
+renum "COMMISSION" "$PAYMENT" 's/(WALLET_TRANSACTION_TYPE_COMMISSION = )4;/\114;/' "WalletTransactionType"
 renum "ChargeSellerFeeRequest.amount" "$PAYMENT" '/^message ChargeSellerFeeRequest /,/^}/ s/(amount = )2;/\119;/' "amount"
 renum "term_days" "$PROMOTION" '/^message Plan /,/^}/ s/(term_days = )5;/\119;/' "term_days"
 renum "impression_token" "$PROMOTION" '/^message SponsoredSlot /,/^}/ s/(impression_token = )3;/\119;/' "impression_token"
-renum "PAUSED_BUDGET" "$PROMOTION" 's/(AD_CAMPAIGN_STATUS_PAUSED_BUDGET = )4;/\114;/' "PAUSED_BUDGET"
+renum "PAUSED_BUDGET" "$PROMOTION" 's/(AD_CAMPAIGN_STATUS_PAUSED_BUDGET = )4;/\114;/' "AdCampaignStatus"
 
 built=""
 for r in $UNION; do
