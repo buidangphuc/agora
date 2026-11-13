@@ -20,7 +20,7 @@ import (
 // newStorefrontHandler builds a ListingHandler wired with an in-memory
 // storefront store (listing deps unused by the storefront RPCs).
 func newStorefrontHandler() *rpc.ListingHandler {
-	sfSvc := listing.NewStorefrontService(storetest.NewInMemoryStorefrontRepository())
+	sfSvc := listing.NewStorefrontService(storetest.NewInMemoryStorefrontRepository(), "http://localhost:9000/listing-images")
 	return rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
 		WithStorefront(sfSvc)
 }
@@ -265,7 +265,7 @@ func (c *countingRepo) GetBySellers(ctx context.Context, ids []string) ([]store.
 func TestBatchGetStorefronts(t *testing.T) {
 	repo := &countingRepo{InMemoryStorefrontRepository: storetest.NewInMemoryStorefrontRepository()}
 	h := rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
-		WithStorefront(listing.NewStorefrontService(repo))
+		WithStorefront(listing.NewStorefrontService(repo, "http://localhost:9000/listing-images"))
 	_ = upsertName(t, h, "seller_a", "shop-a", "Shop Alpha")
 	_ = upsertName(t, h, "seller_b", "shop-b", "Shop Beta")
 
