@@ -5,12 +5,16 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import re
+
 import grpc
 import pytest
 from loguru import logger
 
 from app.core.errors import ServiceUnavailableError
 from app.modules.business.ai_assistant.factory import build_ai_assistant_services
+from app.modules.business.ai_assistant.grounding import GroundedCards
+from app.modules.business.ai_assistant.schemas import ProductCard
 from app.modules.business.listing_screen.mock import MockScreenService
 from app.modules.business.listing_screen.ports import ScreenResult, ScreenVerdict
 from app.modules.business.tag_classifier.service import TagClassifierService
@@ -47,9 +51,12 @@ def _md(principal_id: str = "u1", *scopes: str, ptype: str = "user"):
 
 @asynccontextmanager
 async def _serving(
-    *, require_ai_use: bool = False, screen: object | None = None
+    *,
+    require_ai_use: bool = False,
+    screen: object | None = None,
+    grounding: object | None = None,
 ) -> AsyncIterator[ai_pb2_grpc.AIServiceStub]:
-    services = build_ai_assistant_services(None, rag_min_score=0.0)
+    services = build_ai_assistant_services(grounding=grounding)
     server = build_grpc_server(
         registrations=(
             ai_service_registration(
@@ -78,7 +85,7 @@ async def _fails(call) -> grpc.aio.AioRpcError:
 
 def test_only_shopping_assistant_is_rate_limited():
     registration = ai_service_registration(
-        build_ai_assistant_services(None, rag_min_score=0.0),
+        build_ai_assistant_services(),
         TagClassifierService(store=None),
         screen=_MARKER_SCREEN,
         require_ai_use=False,
@@ -91,7 +98,13 @@ def test_only_shopping_assistant_is_rate_limited():
 
 
 async def test_shopping_assistant_maps_cards_and_followups():
-    async with _serving() as stub:
+    cards = [
+        ProductCard(
+            listing_id=f"l-{i}", title=f"Tai nghe {i}", price=100000 + i, rating_text="4.5/5 (3 đánh giá)"
+        )
+        for i in range(2)
+    ]
+    async with _serving(grounding=_FakeGrounding(GroundedCards(cards=cards))) as stub:
         reply = await stub.ShoppingAssistant(
             ai_pb2.ShoppingAssistantRequest(
                 message="tai nghe bluetooth", user_id="b1", previous_context=["hi"]
@@ -100,7 +113,7 @@ async def test_shopping_assistant_maps_cards_and_followups():
         )
 
     assert reply.reply_text
-    assert 1 <= len(reply.product_cards) <= 4
+    assert [c.listing_id for c in reply.product_cards] == ["l-0", "l-1"]
     card = reply.product_cards[0]
     assert card.listing_id and card.title and card.price > 0
     assert card.currency == "VND"
@@ -442,3 +455,75 @@ async def test_screen_listing_does_not_log_listing_text():
     assert not any("SECRET-TITLE-123" in r or "SECRET-DESC-456" in r for r in rendered)
     mine = [r for r in rendered if "listing-789" in r]
     assert any("allow" in r.lower() and "mock" in r for r in mine)
+
+
+class _FakeGrounding:
+    """Fake ListingGrounding at the search/domain boundary."""
+
+    def __init__(self, result: GroundedCards) -> None:
+        self._result = result
+        self.calls = 0
+
+    async def ground(self, query: str) -> GroundedCards:
+        self.calls += 1
+        return self._result
+
+
+_HEX32 = re.compile(r"^[0-9a-f]{32}$")
+
+
+async def test_provenance_on_a_grounded_answer_is_mapped_to_proto():
+    """Scenario: Provenance on a grounded answer."""
+    card = ProductCard(listing_id="l-1", title="Tai nghe A", price=350000)
+    grounding = _FakeGrounding(GroundedCards(cards=[card], search_model_version="sv-9"))
+    async with _serving(grounding=grounding) as stub:
+        first = await stub.ShoppingAssistant(
+            ai_pb2.ShoppingAssistantRequest(message="tai nghe"), metadata=_md("b1")
+        )
+        second = await stub.ShoppingAssistant(
+            ai_pb2.ShoppingAssistantRequest(message="tai nghe"), metadata=_md("b1")
+        )
+
+    assert _HEX32.match(first.request_id)
+    assert first.request_id != second.request_id
+    assert first.model_version == "mock:assistant-v1|sv-9"
+    assert [c.listing_id for c in first.product_cards] == ["l-1"]
+
+
+async def test_provenance_when_search_failed_has_no_search_part():
+    """Scenario: Provenance when search failed."""
+    grounding = _FakeGrounding(GroundedCards(failed=True))
+    async with _serving(grounding=grounding) as stub:
+        reply = await stub.ShoppingAssistant(
+            ai_pb2.ShoppingAssistantRequest(message="tai nghe"), metadata=_md("b1")
+        )
+
+    assert _HEX32.match(reply.request_id)
+    assert reply.model_version == "mock:assistant-v1"
+    assert list(reply.product_cards) == []
+
+
+async def test_caller_without_the_shopper_scope_is_denied_before_grounding():
+    """Scenario: Caller without the shopper scope is denied."""
+    grounding = _FakeGrounding(GroundedCards(search_model_version="sv-9"))
+    async with _serving(require_ai_use=True, grounding=grounding) as stub:
+        error = await _fails(
+            stub.ShoppingAssistant(
+                ai_pb2.ShoppingAssistantRequest(message="tai nghe"),
+                metadata=_md("b1", "listing.read"),
+            )
+        )
+
+    assert error.code() == grpc.StatusCode.PERMISSION_DENIED
+    assert grounding.calls == 0
+
+
+async def test_no_demo_cards_when_nothing_is_grounded():
+    """Scenario: No demo cards with RAG disabled."""
+    async with _serving() as stub:
+        reply = await stub.ShoppingAssistant(
+            ai_pb2.ShoppingAssistantRequest(message="tai nghe bluetooth"),
+            metadata=_md("b1"),
+        )
+
+    assert list(reply.product_cards) == []
