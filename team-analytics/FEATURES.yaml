@@ -223,7 +223,7 @@ features:
       - "Then safety_stock is 3.3 and suggested_reorder_point is 15.3"
     tags: [analytics, forecast, unit]
     status: not-testable
-    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/handler_test.go TestGetDemandForecastReorderPoint. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastReorderPoint. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
 
   - id: analytics.demand-forecast-invalid-ids
     title: "An invalid listing or seller id is rejected"
@@ -239,7 +239,7 @@ features:
       - "Then the RPC returns InvalidArgument and issues no Redis read"
     tags: [analytics, forecast, unit]
     status: not-testable
-    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/handler_test.go TestGetDemandForecastRejectsBadIDs. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastRejectsBadIDs. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
 
   - id: analytics.demand-forecast-stored-cold-start
     title: "A key marked cold start carries no invented numbers"
@@ -255,7 +255,7 @@ features:
       - "Then the response echoes the stored baseline points with is_cold_start true and the stored model_version"
     tags: [analytics, forecast, unit]
     status: not-testable
-    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/handler_test.go TestGetDemandForecastStoredColdStart. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastStoredColdStart. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
 
   - id: analytics.demand-forecast-no-duckdb
     title: "The DuckDB baseline is gone"
@@ -287,7 +287,7 @@ features:
       - "Then the RPC returns UNAVAILABLE with no daily points and no reorder point"
     tags: [analytics, forecast, unit]
     status: not-testable
-    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/handler_test.go TestGetDemandForecastStoreDown. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastStoreDown. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
 
   - id: analytics.demand-forecast-store-unconfigured
     title: "An unset store address returns UNAVAILABLE"
@@ -303,7 +303,7 @@ features:
       - "Then the RPC returns UNAVAILABLE and the other query RPCs keep answering"
     tags: [analytics, forecast, unit]
     status: not-testable
-    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/handler_test.go TestGetDemandForecastStoreUnconfigured. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastStoreUnconfigured. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
 
   - id: analytics.seller-reads-own-funnel
     title: A seller reads their own funnel
