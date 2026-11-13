@@ -23,8 +23,8 @@ import {
   DiscountType,
   type FlashSaleCampaign,
   type Plan,
-  type SellerSubscription,
   PlanTier,
+  type SellerSubscription,
   type Voucher,
   VoucherScope,
 } from "@/generated/platform/promotion/v1/promotion_pb.js";

@@ -1,7 +1,7 @@
 "use server";
 
-import { Code, ConnectError } from "@connectrpc/connect";
 import { proto3 } from "@bufbuild/protobuf";
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, fail, ok } from "@/lib/action-result";
