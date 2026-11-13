@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
@@ -31,8 +32,8 @@ func (d *bundleDomain) GetListing(_ context.Context, req *listingv1.GetListingRe
 	if !ok {
 		return nil, status.Error(codes.NotFound, "listing not found")
 	}
-	cp := *l
-	return &listingv1.GetListingResponse{Listing: &cp}, nil
+	cp := proto.Clone(l).(*listingv1.Listing)
+	return &listingv1.GetListingResponse{Listing: cp}, nil
 }
 
 func (d *bundleDomain) GetBundle(_ context.Context, req *listingv1.GetBundleRequest, _ ...grpc.CallOption) (*listingv1.GetBundleResponse, error) {
@@ -40,8 +41,8 @@ func (d *bundleDomain) GetBundle(_ context.Context, req *listingv1.GetBundleRequ
 	if !ok {
 		return nil, status.Error(codes.NotFound, "bundle not found")
 	}
-	cp := *b
-	return &listingv1.GetBundleResponse{Bundle: &cp}, nil
+	cp := proto.Clone(b).(*listingv1.Bundle)
+	return &listingv1.GetBundleResponse{Bundle: cp}, nil
 }
 
 func bundleListing(id string, price int64) *listingv1.Listing {

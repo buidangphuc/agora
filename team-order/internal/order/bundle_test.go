@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
@@ -49,8 +50,8 @@ func (d *bundleDomain) GetListing(_ context.Context, req *listingv1.GetListingRe
 	if !ok {
 		return nil, status.Error(codes.NotFound, "listing not found")
 	}
-	cp := *l
-	return &listingv1.GetListingResponse{Listing: &cp}, nil
+	cp := proto.Clone(l).(*listingv1.Listing)
+	return &listingv1.GetListingResponse{Listing: cp}, nil
 }
 
 func (d *bundleDomain) GetBundle(_ context.Context, req *listingv1.GetBundleRequest, _ ...grpc.CallOption) (*listingv1.GetBundleResponse, error) {
@@ -63,8 +64,8 @@ func (d *bundleDomain) GetBundle(_ context.Context, req *listingv1.GetBundleRequ
 	if !ok {
 		return nil, status.Error(codes.NotFound, "bundle not found")
 	}
-	cp := *b
-	return &listingv1.GetBundleResponse{Bundle: &cp}, nil
+	cp := proto.Clone(b).(*listingv1.Bundle)
+	return &listingv1.GetBundleResponse{Bundle: cp}, nil
 }
 
 func (d *bundleDomain) setListing(id string, mut func(*listingv1.Listing)) {
@@ -99,12 +100,12 @@ func newBundleRig(t *testing.T) *bundleRig {
 	t.Helper()
 	pg := newPGOutbox(t.Context(), t)
 	r := &bundleRig{pg: pg, carts: store.NewPostgresCartRepository(pg.pool), orders: pg.orders(), logs: &bytes.Buffer{}}
-	stock := map[string]int32{"lst_a": 50, "lst_b": 50, "lst_c1": 50, "lst_c2": 50, "lst_c3": 50}
+	stock := map[string]int32{"lst_a": 100, "lst_b": 100, "lst_c1": 50, "lst_c2": 50, "lst_c3": 50}
 	r.domain = &bundleDomain{
 		Domain: upstreamtest.NewDomain(stock),
 		listings: map[string]*listingv1.Listing{
-			"lst_a":  pubListing("lst_a", "s1", 100000, 50),
-			"lst_b":  pubListing("lst_b", "s1", 50000, 50),
+			"lst_a":  pubListing("lst_a", "s1", 100000, 100),
+			"lst_b":  pubListing("lst_b", "s1", 50000, 100),
 			"lst_c1": pubListing("lst_c1", "s1", 10000, 50),
 			"lst_c2": pubListing("lst_c2", "s1", 10000, 50),
 			"lst_c3": pubListing("lst_c3", "s1", 10000, 50),
@@ -117,7 +118,7 @@ func newBundleRig(t *testing.T) *bundleRig {
 	}
 	logger := slog.New(slog.NewTextHandler(r.logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	r.cart = newCart(t, r.carts, r.orders, r.domain, logger)
-	r.svc = newSvc(t, r.orders, r.carts, nil, nil, r.domain, &pvAddr{addrs: []*identityv1.Address{pvHome()}}, logger)
+	r.svc = newSvc(t, r.orders, r.carts, nil, nil, r.domain, &pvAddr{addrs: []*identityv1.Address{pvHome()}}, logger, order.WithSagaRepository(pg.sagas()))
 	return r
 }
 
@@ -659,7 +660,7 @@ func TestBundleSellerCannotCheckOutOwnBundle(t *testing.T) {
 func TestBundleReturnRefundsOrderTotal(t *testing.T) {
 	r := newBundleRig(t)
 	returns := r.pg.returns()
-	svc := newSvc(t, r.orders, r.carts, returns, nil, r.domain, nil, nil)
+	svc := newSvc(t, r.orders, r.carts, returns, nil, r.domain, nil, nil, order.WithSagaRepository(r.pg.sagas()))
 	r.mustAddBundle(t, "buyer_1", "bnd_ab", 1)
 	orders, err := svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "")
 	if err != nil || len(orders) != 1 {
