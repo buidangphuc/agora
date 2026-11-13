@@ -21,8 +21,6 @@ type BundleService struct {
 	listings store.ListingRepository
 }
 
-// STUB (test-author): signature and sentinels only; the implementer replaces
-// the behaviour (task 1.2).
 var (
 	ErrBundleListingCount     = errors.New("a bundle needs 2 to 10 listings")
 	ErrBundleDuplicateListing = errors.New("a bundle cannot repeat a listing")
@@ -45,6 +43,34 @@ func (s *BundleService) Create(ctx context.Context, b store.Bundle, ownerID stri
 	}
 	if b.Title == "" {
 		return store.Bundle{}, ErrTitleRequired
+	}
+	if n := len(b.ListingIDs); n < 2 || n > 10 {
+		return store.Bundle{}, ErrBundleListingCount
+	}
+	seen := make(map[string]struct{}, len(b.ListingIDs))
+	for _, id := range b.ListingIDs {
+		if _, dup := seen[id]; dup {
+			return store.Bundle{}, ErrBundleDuplicateListing
+		}
+		seen[id] = struct{}{}
+	}
+	found, err := s.listings.GetByIDs(ctx, b.ListingIDs)
+	if err != nil {
+		return store.Bundle{}, err
+	}
+	var sum int64
+	for _, id := range b.ListingIDs {
+		l, ok := found[id]
+		if !ok || l.SellerID != ownerID {
+			return store.Bundle{}, ErrBundleListingNotOwned
+		}
+		if len(l.Variants) > 0 {
+			return store.Bundle{}, ErrBundleVariantListing
+		}
+		sum += l.Price
+	}
+	if b.BundlePrice <= 0 || b.BundlePrice >= sum {
+		return store.Bundle{}, ErrBundlePrice
 	}
 	b.SellerID = ownerID // owner is server-forced, never client-supplied
 	if b.ID == "" {
