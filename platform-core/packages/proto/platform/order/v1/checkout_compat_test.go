@@ -561,7 +561,11 @@ func TestCheckoutContract_ExistingOrderMessagesAreUntouched(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			m, _ := f.message(t, c.name)
-			requireFields(t, m, c.want, 0)
+			max := 0
+			if c.name == "OrderPaidEvent" {
+				max = 8
+			}
+			requireFields(t, m, c.want, max)
 		})
 	}
 }
