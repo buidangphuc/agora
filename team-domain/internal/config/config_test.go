@@ -20,7 +20,7 @@ var managedKeys = []string{
 	"GRPC_REFLECTION_ENABLED", "DATABASE_URL", "DB_MAX_CONNS", "KAFKA_BROKERS", "LOG_KEY_FP_SECRET",
 	"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OUTBOX_POLL_INTERVAL",
 	"OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK", "UPSTREAM_AUDIT_ADDR", "UPSTREAM_AI_ADDR",
-	"UPSTREAM_AI_TIMEOUT_SECONDS", "KAFKA_LISTING_TOPIC", "KAFKA_IDENTITY_TOPIC", "KAFKA_IDENTITY_GROUP",
+	"UPSTREAM_AI_TIMEOUT_SECONDS", "KAFKA_LISTING_TOPIC", "KAFKA_IDENTITY_TOPIC", "KAFKA_IDENTITY_GROUP", "KAFKA_ERASURE_GROUP",
 	"STORAGE_ENDPOINT", "STORAGE_BUCKET", "STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY", "STORAGE_REGION",
 	"STORAGE_USE_SSL", "STORAGE_PUBLIC_BASE_URL", "RESERVATION_TTL", "RESERVATION_SWEEP_INTERVAL",
 	"SCREEN_TERMS_FILE", "DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "IDENTITY_CONSUMER_ENABLED",
@@ -474,5 +474,34 @@ func TestAIUpstreamFromEnv(t *testing.T) {
 	}
 	if got := valueByEnv(t, s, "UPSTREAM_AI_TIMEOUT_SECONDS"); got != 1.5 {
 		t.Errorf("UPSTREAM_AI_TIMEOUT_SECONDS = %v, want 1.5", got)
+	}
+}
+
+func TestErasureGroupDefaultsToOwnGroup(t *testing.T) {
+	// scenario: A poison erasure event does not block seller hold
+	localEnv(t)
+	s, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := valueByEnv(t, s, "KAFKA_ERASURE_GROUP")
+	if got != "team-domain-erasure" {
+		t.Errorf("KAFKA_ERASURE_GROUP = %v, want team-domain-erasure", got)
+	}
+	if got == valueByEnv(t, s, "KAFKA_IDENTITY_GROUP") {
+		t.Error("erasure group must differ from the identity group")
+	}
+}
+
+func TestErasureGroupFromEnv(t *testing.T) {
+	// scenario: A poison erasure event does not block seller hold
+	localEnv(t)
+	t.Setenv("KAFKA_ERASURE_GROUP", "custom-erasure")
+	s, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := valueByEnv(t, s, "KAFKA_ERASURE_GROUP"); got != "custom-erasure" {
+		t.Errorf("KAFKA_ERASURE_GROUP = %v, want custom-erasure", got)
 	}
 }
