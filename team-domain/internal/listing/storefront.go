@@ -47,6 +47,7 @@ const (
 // return domain values, let the handler adapt to protobuf.
 type StorefrontService struct {
 	repo       store.StorefrontRepository
+	listings   store.ListingRepository
 	publicBase string
 }
 
@@ -102,6 +103,9 @@ func (s *StorefrontService) Upsert(ctx context.Context, sf store.Storefront, own
 	if !validTheme(sf.Theme) {
 		return store.Storefront{}, ErrThemeInvalid
 	}
+	if err := s.validateFeatured(ctx, sf.FeaturedListingIDs, ownerID); err != nil {
+		return store.Storefront{}, err
+	}
 	sf.SellerID = ownerID // owner is server-forced, never client-supplied
 	return s.repo.Upsert(ctx, sf)
 }
@@ -143,8 +147,42 @@ func (s *StorefrontService) GetMany(ctx context.Context, sellerIDs []string) ([]
 	return s.repo.GetBySellers(ctx, ids)
 }
 
-// RED-STUB(T2-featured-batched-read): implementer wires the listing port used to
-// validate featured ids.
 func (s *StorefrontService) WithListings(repo store.ListingRepository) *StorefrontService {
+	s.listings = repo
 	return s
+}
+
+func (s *StorefrontService) validateFeatured(ctx context.Context, ids []string, ownerID string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	if len(ids) > MaxFeatured {
+		return ErrTooManyFeatured
+	}
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if _, dup := seen[id]; dup || id == "" {
+			return ErrFeaturedInvalid
+		}
+		seen[id] = struct{}{}
+	}
+	if s.listings == nil {
+		return nil
+	}
+	found, err := s.listings.GetByIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	owned := make(map[string]struct{}, len(found))
+	for _, l := range found {
+		if l.SellerID == ownerID {
+			owned[l.ID] = struct{}{}
+		}
+	}
+	for _, id := range ids {
+		if _, ok := owned[id]; !ok {
+			return ErrFeaturedInvalid
+		}
+	}
+	return nil
 }

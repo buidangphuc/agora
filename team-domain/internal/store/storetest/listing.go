@@ -350,7 +350,19 @@ func (c stockChanges) listings() []string {
 	return out
 }
 
-// RED-STUB(T2-featured-batched-read): implementer replaces with a real lookup.
 func (r *InMemoryListingRepository) GetByIDs(_ context.Context, ids []string) ([]store.Listing, error) {
-	return nil, nil
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []store.Listing
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		if l, ok := r.byID[id]; ok {
+			out = append(out, l)
+		}
+	}
+	return out, nil
 }

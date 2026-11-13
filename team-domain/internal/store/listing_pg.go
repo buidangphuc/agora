@@ -695,7 +695,27 @@ func parseQueueCursor(c string) (time.Time, string, error) {
 	return at, id, nil
 }
 
-// RED-STUB(T2-featured-batched-read): implementer replaces with one batched query.
+// GetByIDs loads the listings with the given ids in one query; unknown ids are omitted.
 func (r *PostgresListingRepository) GetByIDs(ctx context.Context, ids []string) ([]Listing, error) {
-	return nil, nil
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	const q = `SELECT ` + listingColumns + ` FROM listings WHERE id = ANY($1)`
+	rows, err := r.pool.Query(ctx, q, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get listings by ids: %w", err)
+	}
+	defer rows.Close()
+	var out []Listing
+	for rows.Next() {
+		var l Listing
+		if err := scanListing(rows, &l); err != nil {
+			return nil, fmt.Errorf("scan listing: %w", err)
+		}
+		out = append(out, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get listings by ids: %w", err)
+	}
+	return out, nil
 }
