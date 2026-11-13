@@ -2,9 +2,11 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ListingStatus } from "@/generated/platform/listing/v1/listing_pb.js";
 import {
   createBundle,
   getStorefront,
+  listMyListings,
   upsertStorefront,
 } from "@/lib/gateway/listings";
 import { requestWalletPayout } from "@/lib/gateway/payment";
@@ -14,6 +16,7 @@ import {
   createAdCampaignAction,
   createBundleAction,
   requestWalletPayoutAction,
+  searchMyListingsAction,
   subscribeAction,
   upsertStorefrontAction,
 } from "./actions";
@@ -22,6 +25,7 @@ vi.mock("@/lib/gateway/listings", () => ({
   createBundle: vi.fn(),
   getStorefront: vi.fn(),
   upsertStorefront: vi.fn(),
+  listMyListings: vi.fn(),
 }));
 vi.mock("@/lib/gateway/payment", () => ({ requestWalletPayout: vi.fn() }));
 vi.mock("@/lib/gateway/promotion", () => ({
@@ -120,87 +124,277 @@ describe("createAdCampaignAction", () => {
   });
 });
 
+const current = {
+  sellerId: "Seller-ID-123",
+  slug: "tiem-hoa",
+  bannerUrl: "b.png",
+  tagline: "Hoa tươi",
+  featuredListingIds: ["a", "b", "c"],
+  theme: "festive",
+  displayName: "Tiệm Hoa",
+};
+
+const input = {
+  displayName: "Tiệm Hoa",
+  bannerUrl: "b.png",
+  tagline: "Hoa tươi",
+  featuredListingIds: ["a", "b", "c"],
+  theme: "festive",
+};
+
+function savedEcho() {
+  vi.mocked(upsertStorefront).mockImplementation(
+    async (sf) => ({ ...current, ...sf }) as never,
+  );
+}
+
 describe("upsertStorefrontAction", () => {
-  it("rejects blank and over-long names before any gateway call", async () => {
-    expect(await upsertStorefrontAction("   ")).toEqual({
-      ok: false,
-      error: "Nhập tên gian hàng.",
+  beforeEach(() => {
+    vi.mocked(getStorefront).mockResolvedValue(current);
+    savedEcho();
+  });
+
+  it("Seller shop UI: saving sends the full storefront once - upsertStorefrontAction keeps unchanged fields", async () => {
+    const res = await upsertStorefrontAction({ ...input, tagline: "Mới" });
+    expect(res.ok).toBe(true);
+    expect(getStorefront).toHaveBeenCalledWith("Seller-ID-123", {
+      throwOnError: true,
     });
-    expect(await upsertStorefrontAction("x".repeat(81))).toMatchObject({
-      ok: false,
-      error: "Tên gian hàng tối đa 80 ký tự.",
+    expect(upsertStorefront).toHaveBeenCalledTimes(1);
+    expect(upsertStorefront).toHaveBeenCalledWith({
+      sellerId: "Seller-ID-123",
+      slug: "tiem-hoa",
+      bannerUrl: "b.png",
+      tagline: "Mới",
+      featuredListingIds: ["a", "b", "c"],
+      theme: "festive",
+      displayName: "Tiệm Hoa",
     });
+    expect(revalidatePath).toHaveBeenCalledWith("/seller");
+    expect(revalidatePath).toHaveBeenCalledWith("/shop/Seller-ID-123");
+  });
+
+  it("Seller shop UI: saving sends the full storefront once - derives slug when no storefront exists", async () => {
+    vi.mocked(getStorefront).mockResolvedValue(null);
+    await upsertStorefrontAction(input);
+    expect(upsertStorefront).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sellerId: "Seller-ID-123",
+        slug: "shop-sellerid123",
+        tagline: "Hoa tươi",
+        theme: "festive",
+      }),
+    );
+  });
+
+  it("Seller shop UI: a tampered seller id is ignored - seller id comes from the session", async () => {
+    await upsertStorefrontAction({
+      ...input,
+      sellerId: "Other-Seller",
+    } as never);
+    expect(upsertStorefront).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(upsertStorefront).mock.calls[0]?.[0].sellerId).toBe(
+      "Seller-ID-123",
+    );
+    expect(JSON.stringify(vi.mocked(getStorefront).mock.calls)).not.toContain(
+      "Other-Seller",
+    );
+    expect(
+      JSON.stringify(vi.mocked(upsertStorefront).mock.calls),
+    ).not.toContain("Other-Seller");
+    expect(JSON.stringify(vi.mocked(revalidatePath).mock.calls)).not.toContain(
+      "Other-Seller",
+    );
+  });
+
+  it("Seller shop UI: a principal without listing.write cannot save - storefront save refused without scope", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    const anon = await upsertStorefrontAction(input);
+    expect(anon).toEqual({
+      ok: false,
+      error: "Bạn cần đăng nhập để cập nhật gian hàng.",
+    });
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "Seller-ID-123",
+      name: "S",
+      scopes: ["orders.read"],
+    });
+    const noScope = await upsertStorefrontAction(input);
+    expect(noScope.ok).toBe(false);
+    if (!noScope.ok) {
+      expect(noScope.error).not.toBe("");
+      expect(noScope.error).not.toBe(
+        "Bạn cần đăng nhập để cập nhật gian hàng.",
+      );
+    }
     expect(getStorefront).not.toHaveBeenCalled();
     expect(upsertStorefront).not.toHaveBeenCalled();
   });
 
-  it("keeps the rest of the existing storefront and trims the name", async () => {
-    vi.mocked(getStorefront).mockResolvedValue({
-      sellerId: "Seller-ID-123",
-      slug: "tiem-hoa",
-      bannerUrl: "b.png",
-      tagline: "Hoa tươi",
-      featuredListingIds: ["l1"],
-      theme: "warm",
-      displayName: "Cũ",
-    });
-    vi.mocked(upsertStorefront).mockResolvedValue({
-      displayName: "Nhà Sách An Nhiên",
-    } as never);
-    const res = await upsertStorefrontAction("  Nhà Sách An Nhiên  ");
-    expect(res).toEqual({
-      ok: true,
-      data: { displayName: "Nhà Sách An Nhiên" },
-    });
-    expect(getStorefront).toHaveBeenCalledWith("Seller-ID-123", {
-      throwOnError: true,
-    });
-    expect(upsertStorefront).toHaveBeenCalledWith({
-      sellerId: "Seller-ID-123",
-      slug: "tiem-hoa",
-      bannerUrl: "b.png",
-      tagline: "Hoa tươi",
-      featuredListingIds: ["l1"],
-      theme: "warm",
-      displayName: "Nhà Sách An Nhiên",
-    });
-    expect(revalidatePath).toHaveBeenCalledWith("/shop/Seller-ID-123");
-  });
-
-  it("derives the required slug from the session when there is no storefront", async () => {
-    vi.mocked(getStorefront).mockResolvedValue(null);
-    vi.mocked(upsertStorefront).mockResolvedValue({
-      displayName: "A",
-    } as never);
-    await upsertStorefrontAction("A");
-    expect(upsertStorefront).toHaveBeenCalledWith({
-      sellerId: "Seller-ID-123",
-      slug: "shop-sellerid123",
-      displayName: "A",
-    });
-  });
-
-  it("never overwrites the storefront when the current one cannot be read", async () => {
+  it("Seller shop UI: a failed read blocks the save - read failure blocks the save", async () => {
     vi.mocked(getStorefront).mockRejectedValue(
       new ConnectError("down", Code.Unavailable),
     );
-    const res = await upsertStorefrontAction("A");
+    expect(await upsertStorefrontAction(input)).toEqual({
+      ok: false,
+      error: "Không tải được hồ sơ gian hàng hiện tại. Vui lòng thử lại.",
+    });
+    expect(upsertStorefront).not.toHaveBeenCalled();
+  });
+
+  it("Seller shop UI: an empty tagline clears the tagline only - empty tagline keeps other fields", async () => {
+    await upsertStorefrontAction({ ...input, tagline: "" });
+    expect(upsertStorefront).toHaveBeenCalledWith({
+      sellerId: "Seller-ID-123",
+      slug: "tiem-hoa",
+      bannerUrl: "b.png",
+      tagline: "",
+      featuredListingIds: ["a", "b", "c"],
+      theme: "festive",
+      displayName: "Tiệm Hoa",
+    });
+  });
+
+  it("Seller shop UI: removing the banner clears it - remove banner sends empty url", async () => {
+    await upsertStorefrontAction({ ...input, bannerUrl: "" });
+    expect(upsertStorefront).toHaveBeenCalledWith({
+      sellerId: "Seller-ID-123",
+      slug: "tiem-hoa",
+      bannerUrl: "",
+      tagline: "Hoa tươi",
+      featuredListingIds: ["a", "b", "c"],
+      theme: "festive",
+      displayName: "Tiệm Hoa",
+    });
+  });
+
+  it("Seller shop UI: reordering changes the saved order - featured order is kept", async () => {
+    await upsertStorefrontAction({
+      ...input,
+      featuredListingIds: ["a", "c", "b"],
+    });
+    expect(
+      vi.mocked(upsertStorefront).mock.calls[0]?.[0].featuredListingIds,
+    ).toEqual(["a", "c", "b"]);
+  });
+
+  it("Seller shop UI: a 120-character tagline is accepted and 121 is refused - action re-validates", async () => {
+    expect(
+      (await upsertStorefrontAction({ ...input, tagline: "a".repeat(120) })).ok,
+    ).toBe(true);
+    vi.mocked(upsertStorefront).mockClear();
+    expect(
+      await upsertStorefrontAction({ ...input, tagline: "a".repeat(121) }),
+    ).toEqual({ ok: false, error: "Tagline tối đa 120 ký tự." });
+    expect(await upsertStorefrontAction({ ...input, tagline: "a\nb" })).toEqual(
+      {
+        ok: false,
+        error: "Tagline không được chứa ký tự điều khiển.",
+      },
+    );
+    expect(upsertStorefront).not.toHaveBeenCalled();
+  });
+
+  it("Seller shop UI: The seventh featured listing is refused - action refuses more than six ids", async () => {
+    const six = ["1", "2", "3", "4", "5", "6"];
+    expect(
+      (await upsertStorefrontAction({ ...input, featuredListingIds: six })).ok,
+    ).toBe(true);
+    vi.mocked(upsertStorefront).mockClear();
+    const res = await upsertStorefrontAction({
+      ...input,
+      featuredListingIds: [...six, "7"],
+    });
+    expect(res).toEqual({ ok: false, error: "Tối đa 6 sản phẩm nổi bật." });
+    expect(upsertStorefront).not.toHaveBeenCalled();
+  });
+
+  it("Seller shop UI: a theme outside the set is refused", async () => {
+    const res = await upsertStorefrontAction({ ...input, theme: "warm" });
     expect(res.ok).toBe(false);
     expect(upsertStorefront).not.toHaveBeenCalled();
   });
 
-  it("returns the gateway error", async () => {
-    vi.mocked(getStorefront).mockResolvedValue(null);
-    vi.mocked(upsertStorefront).mockRejectedValue(new Error("slug taken"));
-    expect(await upsertStorefrontAction("A")).toEqual({
+  it("Seller shop UI: a featured listing of another seller is rejected by the server - error mapping", async () => {
+    vi.mocked(upsertStorefront).mockRejectedValue(
+      new ConnectError(
+        "featured listing does not belong to seller",
+        Code.InvalidArgument,
+      ),
+    );
+    const res = await upsertStorefrontAction({
+      ...input,
+      featuredListingIds: ["foreign"],
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error).toContain("featured listing does not belong to seller");
+    }
+    expect(revalidatePath).not.toHaveBeenCalledWith("/shop/Seller-ID-123");
+  });
+});
+
+describe("searchMyListingsAction", () => {
+  const page = {
+    items: [{ id: "l1", title: "Áo thun" }],
+    nextCursor: "next-should-not-be-followed",
+    total: 1,
+  };
+
+  it("Seller shop UI: search runs on the server with the typed query - PUBLISHED, one page of 20", async () => {
+    vi.mocked(listMyListings).mockResolvedValue(page as never);
+    const res = await searchMyListingsAction("  áo ");
+    expect(listMyListings).toHaveBeenCalledTimes(1);
+    expect(listMyListings).toHaveBeenCalledWith({
+      statuses: [ListingStatus.PUBLISHED],
+      query: "áo",
+      pageSize: 20,
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(JSON.stringify(res.data)).toContain("Áo thun");
+  });
+
+  it("Seller shop UI: search runs on the server with the typed query - query is never logged", async () => {
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map(
+      (m) => vi.spyOn(console, m).mockImplementation(() => {}),
+    );
+    vi.mocked(listMyListings).mockResolvedValueOnce(page as never);
+    await searchMyListingsAction("secret-áo");
+    vi.mocked(listMyListings).mockRejectedValueOnce(
+      new ConnectError("down", Code.Unavailable),
+    );
+    await searchMyListingsAction("secret-áo");
+    for (const spy of spies) {
+      expect(JSON.stringify(spy.mock.calls)).not.toContain("secret-áo");
+      spy.mockRestore();
+    }
+  });
+
+  it("Seller shop UI: a search failure leaves the selection intact - failure becomes an error result", async () => {
+    vi.mocked(listMyListings).mockRejectedValue(
+      new ConnectError("down", Code.Unavailable),
+    );
+    expect(await searchMyListingsAction("áo")).toEqual({
       ok: false,
-      error: "slug taken",
+      error: "Không tải được danh sách sản phẩm.",
     });
   });
 
-  it("requires a signed-in seller", async () => {
+  it("Seller shop UI: search query over 100 characters is refused before any call", async () => {
+    const res = await searchMyListingsAction("a".repeat(101));
+    expect(res.ok).toBe(false);
+    expect(listMyListings).not.toHaveBeenCalled();
+  });
+
+  it("Seller shop UI: a principal without listing.write cannot search", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
-    expect((await upsertStorefrontAction("A")).ok).toBe(false);
-    expect(upsertStorefront).not.toHaveBeenCalled();
+    expect((await searchMyListingsAction("áo")).ok).toBe(false);
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "s",
+      name: "S",
+      scopes: [],
+    });
+    expect((await searchMyListingsAction("áo")).ok).toBe(false);
+    expect(listMyListings).not.toHaveBeenCalled();
   });
 });

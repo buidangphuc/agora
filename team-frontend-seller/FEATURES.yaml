@@ -2093,3 +2093,325 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: seller-shop-customisation-ui.the-form-is-pre-filled-from-the-storefront
+    title: "Seller shop UI: the form is pre-filled from the storefront"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When `/seller/shop` renders for a seller whose storefront has banner B, tagline \"Hoa tươi mỗi ngày\", featured ids [a, b] and theme `festive`"
+      - "Then the form shows B as the banner preview, \"Hoa tươi mỗi ngày\" in the tagline field, the titles of listings a and b in that order, and the theme `festive` selected"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopProfileForm.test.tsx is pre-filled with the current storefront. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.saving-sends-the-full-storefront-once
+    title: "Seller shop UI: saving sends the full storefront once"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller changes only the tagline and clicks \"Lưu thay đổi\""
+      - "Then `UpsertStorefront` is called exactly once with the unchanged slug, display name, banner, featured ids and theme and the new tagline, and the seller id equals the session principal id"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts upsertStorefrontAction keeps unchanged fields. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-tampered-seller-id-is-ignored
+    title: "Seller shop UI: a tampered seller id is ignored"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the action is invoked with a `sellerId` field of another seller in its input"
+      - "Then `UpsertStorefront` is called with the session principal id and the foreign id appears in no RPC"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts seller id comes from the session. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-principal-without-listing-write-cannot-save
+    title: "Seller shop UI: a principal without listing.write cannot save"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When `upsertStorefrontAction` runs with no session, and again with a session lacking `listing.write`"
+      - "Then both calls return the error \"Bạn cần đăng nhập để cập nhật gian hàng.\" or the access-denied error respectively and `UpsertStorefront` is called zero times"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts storefront save refused without scope. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-failed-read-blocks-the-save
+    title: "Seller shop UI: a failed read blocks the save"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the current storefront cannot be read because `GetStorefront` answers UNAVAILABLE"
+      - "Then the action returns \"Không tải được hồ sơ gian hàng hiện tại. Vui lòng thử lại.\" and `UpsertStorefront` is called zero times"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts read failure blocks the save. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-seller-brands-the-shop-in-the-browser-and-the-buyer-sees-it
+    title: "Seller shop UI: a seller brands the shop in the browser and the buyer sees it"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When a seller opens `/seller/shop`, uploads a banner, sets tagline \"Hoa tươi mỗi ngày\", picks two published listings and the theme `dark`, saves, and then reloads `/seller/shop`"
+      - "Then the reloaded form shows the same banner, tagline, the two listings in the chosen order and `dark`, and the buyer app `/shop/{sellerId}` shows the tagline \"Hoa tươi mỗi ngày\""
+    tags: [seller, shop]
+    status: planned
+    covered_by: null
+
+  - id: seller-shop-customisation-ui.a-120-character-tagline-is-accepted-and-121-is-refused
+    title: "Seller shop UI: a 120-character tagline is accepted and 121 is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller enters a tagline of exactly 120 characters and submits, then enters 121 characters and submits"
+      - "Then the first submit calls the action once; the second shows \"Tagline tối đa 120 ký tự.\" and calls the action zero more times"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/shopBranding.test.ts tagline boundary at 120. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-control-character-in-the-tagline-is-refused
+    title: "Seller shop UI: a control character in the tagline is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the tagline contains a newline or a NUL character and the seller submits"
+      - "Then the form shows \"Tagline không được chứa ký tự điều khiển.\" and the action is not called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/shopBranding.test.ts tagline control characters. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.an-empty-tagline-clears-the-tagline-only
+    title: "Seller shop UI: an empty tagline clears the tagline only"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller empties the tagline of a storefront with a banner and featured ids and saves"
+      - "Then `UpsertStorefront` is called with `tagline` empty and the banner, featured ids and theme unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts empty tagline keeps other fields. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-server-rejection-is-shown-and-the-input-kept
+    title: "Seller shop UI: a server rejection is shown and the input kept"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the action receives `INVALID_ARGUMENT` from `UpsertStorefront`"
+      - "Then the form shows an error alert with the server message, the typed tagline and the chosen featured listings stay in the form, and no success toast appears"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopProfileForm.test.tsx server rejection keeps the input. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.an-accepted-banner-is-uploaded-and-previewed
+    title: "Seller shop UI: an accepted banner is uploaded and previewed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller picks a 2 MB `image/png` file"
+      - "Then `getUploadUrlAction` is called once with `image/png`, the file is PUT once to the returned `uploadUrl`, and the preview shows the returned `publicUrl`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopBannerField.test.tsx uploads and previews. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-wrong-type-or-oversize-banner-is-refused-before-upload
+    title: "Seller shop UI: a wrong type or oversize banner is refused before upload"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller picks an `application/pdf` file, then an `image/png` of 10 MB + 1 byte"
+      - "Then each shows an error line (\"Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.\" and \"Kích thước file không vượt quá 10MB.\" respectively) and `getUploadUrlAction` is called zero times"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopBannerField.test.tsx type and size refused. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-file-of-exactly-10-mb-is-accepted
+    title: "Seller shop UI: a file of exactly 10 MB is accepted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller picks an `image/webp` file of exactly 10 MB"
+      - "Then `getUploadUrlAction` is called once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopBannerField.test.tsx 10 MB boundary accepted. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-failed-upload-keeps-the-previous-banner
+    title: "Seller shop UI: a failed upload keeps the previous banner"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the presigned PUT answers HTTP 500 for a seller who already has banner B"
+      - "Then the preview still shows B, an error line beginning \"Upload thất bại\" appears and Save still sends B"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopBannerField.test.tsx failed upload keeps previous banner. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.removing-the-banner-clears-it
+    title: "Seller shop UI: removing the banner clears it"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller clicks \"Xóa banner\" and saves"
+      - "Then `UpsertStorefront` is called with an empty `bannerUrl` and the other fields unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts remove banner sends empty url. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.search-runs-on-the-server-with-the-typed-query
+    title: "Seller shop UI: search runs on the server with the typed query"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller types \"áo\" in the picker and 300 ms pass"
+      - "Then exactly one `ListMyListings` call is made with `statuses = [PUBLISHED]`, `query = \"áo\"` and `pageSize = 20`, and no `ListMyListings` call carries a non-empty cursor"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx search is one filtered call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.the-seventh-featured-listing-is-refused
+    title: "Seller shop UI: the seventh featured listing is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When 6 listings are selected and the seller tries to add another"
+      - "Then the add control is disabled, the line \"Tối đa 6 sản phẩm nổi bật.\" is shown and the selection stays at 6"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx cap of six. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.the-sixth-featured-listing-is-accepted
+    title: "Seller shop UI: the sixth featured listing is accepted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When 5 listings are selected and the seller adds one more"
+      - "Then 6 are selected and Save sends 6 ids in the shown order"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx sixth accepted. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.reordering-changes-the-saved-order
+    title: "Seller shop UI: reordering changes the saved order"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller selects a, b, c and moves c up once, then saves"
+      - "Then `UpsertStorefront` receives `featuredListingIds` equal to [a, c, b]"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts featured order is kept. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.an-already-selected-listing-is-not-added-twice
+    title: "Seller shop UI: an already selected listing is not added twice"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When listing a is selected and the seller adds a again"
+      - "Then the selection still contains a once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx no duplicates. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-search-failure-leaves-the-selection-intact
+    title: "Seller shop UI: a search failure leaves the selection intact"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When `ListMyListings` answers UNAVAILABLE during a search"
+      - "Then the picker shows \"Không tải được danh sách sản phẩm.\" with a retry button and the current selection is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx search failure keeps selection. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.an-unavailable-featured-listing-can-be-removed
+    title: "Seller shop UI: an unavailable featured listing can be removed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the storefront holds featured id x whose listing is no longer found"
+      - "Then the picker shows \"Không còn khả dụng\" for x with a remove control, and after removing x and saving, `UpsertStorefront` receives the remaining ids without x"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx unavailable featured can be removed. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-featured-listing-of-another-seller-is-rejected-by-the-server
+    title: "Seller shop UI: a featured listing of another seller is rejected by the server"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the action sends a featured id that belongs to another seller and `UpsertStorefront` answers INVALID_ARGUMENT"
+      - "Then the form shows the error alert, the storefront returned by the next `GetStorefront` is unchanged, and the buyer shop page shows no listing of the other seller"
+    tags: [seller, shop]
+    status: planned
+    covered_by: null
