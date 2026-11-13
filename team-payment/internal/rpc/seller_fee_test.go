@@ -378,3 +378,96 @@ func TestChargeSellerFeeConcurrentWithPayout(t *testing.T) {
 		})
 	}
 }
+
+// seller-fee-charge req3: A zero or negative amount is rejected; The reserved ad-spend kind is
+// rejected; A missing reference or seller is rejected; A reference of 65 characters is
+// rejected and 64 is accepted.
+func TestChargeSellerFeeValidation(t *testing.T) {
+	ctx := svcCtx()
+	for _, backend := range feeBackends() {
+		t.Run(backend, func(t *testing.T) {
+			e := newFeeEnv(t, backend, 0)
+			e.seed(t, 500000, 0)
+
+			rejected := []struct {
+				name string
+				req  *paymentv1.ChargeSellerFeeRequest
+			}{
+				{"A zero amount is rejected", feeReq(0, "sub:v:zero")},
+				{"A negative amount is rejected", feeReq(-1, "sub:v:neg")},
+				{"The reserved ad-spend kind is rejected", &paymentv1.ChargeSellerFeeRequest{
+					SellerId: feeSeller, Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_AD_SPEND, ReferenceId: "sub:v:ad"}},
+				{"An unspecified kind is rejected", &paymentv1.ChargeSellerFeeRequest{
+					SellerId: feeSeller, Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_UNSPECIFIED, ReferenceId: "sub:v:unspec"}},
+				{"A missing reference is rejected", feeReq(1000, "")},
+				{"A missing seller is rejected", &paymentv1.ChargeSellerFeeRequest{
+					SellerId: "", Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_SUBSCRIPTION, ReferenceId: "sub:v:noseller"}},
+				{"A reference of 65 characters is rejected", feeReq(1000, strings.Repeat("r", 65))},
+			}
+			for _, tc := range rejected {
+				t.Run(tc.name, func(t *testing.T) {
+					_, err := e.h.ChargeSellerFee(ctx, tc.req)
+					if status.Code(err) != codes.InvalidArgument {
+						t.Fatalf("want InvalidArgument, got %v", err)
+					}
+				})
+			}
+			if n := len(e.feeEntries(t)); n != 0 {
+				t.Fatalf("rejected requests must write nothing, got %d fee entries", n)
+			}
+			if got := e.balance(t); got != 500000 {
+				t.Fatalf("balance: want 500000, got %d", got)
+			}
+
+			t.Run("A reference of 64 characters is accepted", func(t *testing.T) {
+				ref := strings.Repeat("r", 64)
+				res, err := e.h.ChargeSellerFee(ctx, feeReq(1000, ref))
+				if err != nil || !res.GetCreated() {
+					t.Fatalf("want created, got %+v err=%v", res, err)
+				}
+				fees := e.feeEntries(t)
+				if len(fees) != 1 || fees[0].GetReferenceId() != ref {
+					t.Fatalf("fee entries: %+v", fees)
+				}
+			})
+		})
+	}
+}
+
+// seller-fee-charge req4: A seller cannot charge a fee; An admin cannot charge a fee; An
+// unauthenticated call is rejected. The principal check precedes validation, and nothing is
+// written on denial.
+func TestChargeSellerFeeAuthz(t *testing.T) {
+	cases := []struct {
+		name string
+		ctx  context.Context
+		req  *paymentv1.ChargeSellerFeeRequest
+		want codes.Code
+	}{
+		{"A seller cannot charge a fee", sellerCtx(), feeReq(1000, "sub:z:seller"), codes.PermissionDenied},
+		{"An admin cannot charge a fee", principalCtx("admin-1", auth.TypeUser, "payment:write", "admin"), feeReq(1000, "sub:z:admin"), codes.PermissionDenied},
+		{"A seller with an invalid request is denied before validation", sellerCtx(), feeReq(0, ""), codes.PermissionDenied},
+		{"An unauthenticated call is rejected", context.Background(), feeReq(1000, "sub:z:anon"), codes.Unauthenticated},
+		{"A gateway anonymous principal is rejected", principalCtx("anonymous", auth.TypeAnonymous), feeReq(1000, "sub:z:anon2"), codes.Unauthenticated},
+	}
+	for _, backend := range feeBackends() {
+		t.Run(backend, func(t *testing.T) {
+			e := newFeeEnv(t, backend, 0)
+			e.seed(t, 500000, 0)
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					_, err := e.h.ChargeSellerFee(tc.ctx, tc.req)
+					if status.Code(err) != tc.want {
+						t.Fatalf("want %v, got %v", tc.want, err)
+					}
+				})
+			}
+			if n := len(e.feeEntries(t)); n != 0 {
+				t.Fatalf("denied calls must write nothing, got %d fee entries", n)
+			}
+			if got := e.balance(t); got != 500000 {
+				t.Fatalf("balance: want 500000, got %d", got)
+			}
+		})
+	}
+}
