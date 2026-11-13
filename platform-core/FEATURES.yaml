@@ -9116,3 +9116,393 @@ features:
     tags: [discovery-followups-contract, unit]
     status: not-testable
     notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'buf lint and breaking pass' (tasks 2.1)"
+
+  - id: aidata.contract-exposure-value-present-at-22
+    title: "Exposure value present at 22"
+    persona: guest
+    priority: P2
+    summary: "Exposure value present at 22"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Exposure value present at 22 (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExposureEventTypeIsTwentyTwo' (tasks 2.1)"
+
+  - id: aidata.contract-existing-event-types-keep-their-numbers
+    title: "Existing event types keep their numbers"
+    persona: guest
+    priority: P2
+    summary: "Existing event types keep their numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing event types keep their numbers (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExistingEventTypesUnchanged' (tasks 2.1)"
+
+  - id: aidata.contract-exposure-properties-are-documented-as-allowlisted
+    title: "Exposure properties are documented as allowlisted"
+    persona: guest
+    priority: P2
+    summary: "Exposure properties are documented as allowlisted"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Exposure properties are documented as allowlisted (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExposureDocumented' (tasks 2.1)"
+
+  - id: aidata.contract-old-consumer-meets-the-new-event-type
+    title: "Old consumer meets the new event type"
+    persona: guest
+    priority: P2
+    summary: "Old consumer meets the new event type"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old consumer meets the new event type (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_OldSchemaParsesExposure' (tasks 2.1)"
+
+  - id: aidata.contract-undefined-event-number-is-not-a-defined-value
+    title: "Undefined event number is not a defined value"
+    persona: guest
+    priority: P2
+    summary: "Undefined event number is not a defined value"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Undefined event number is not a defined value (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_NoUndefinedEventNumbers' (tasks 2.1)"
+
+  - id: aidata.contract-generated-at-present-at-8
+    title: "generated_at present at 8"
+    persona: guest
+    priority: P2
+    summary: "generated_at present at 8"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "generated_at present at 8 (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ForecastGeneratedAtShape' (tasks 2.1)"
+
+  - id: aidata.contract-unset-run-time-on-a-cold-start-is-distinct-from-a-set-one
+    title: "Unset run time on a cold start is distinct from a set one"
+    persona: guest
+    priority: P2
+    summary: "Unset run time on a cold start is distinct from a set one"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unset run time on a cold start is distinct from a set one (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_GeneratedAtPresenceRoundTrip' (tasks 2.1)"
+
+  - id: aidata.contract-cold-start-semantics-are-documented
+    title: "Cold-start semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Cold-start semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Cold-start semantics are documented (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_GeneratedAtDocumented' (tasks 2.1)"
+
+  - id: aidata.contract-forecast-fields-1-to-7-are-not-renumbered
+    title: "Forecast fields 1 to 7 are not renumbered"
+    persona: guest
+    priority: P2
+    summary: "Forecast fields 1 to 7 are not renumbered"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Forecast fields 1 to 7 are not renumbered (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ForecastExistingFieldsUnchanged' (tasks 2.1)"
+
+  - id: aidata.contract-three-rpcs-present-with-their-message-types
+    title: "Three RPCs present with their message types"
+    persona: guest
+    priority: P2
+    summary: "Three RPCs present with their message types"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Three RPCs present with their message types (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportRpcsShape' (tasks 2.1)"
+
+  - id: aidata.contract-message-fields-sit-at-the-specified-numbers
+    title: "Message fields sit at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Message fields sit at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Message fields sit at the specified numbers (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportMessagesShape' (tasks 2.1)"
+
+  - id: aidata.contract-existing-query-surface-is-untouched
+    title: "Existing query surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing query surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing query surface is untouched (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExistingQuerySurfaceUntouched' (tasks 2.1)"
+
+  - id: aidata.contract-admin-only-and-aggregate-only-are-documented
+    title: "Admin-only and aggregate-only are documented"
+    persona: guest
+    priority: P2
+    summary: "Admin-only and aggregate-only are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Admin-only and aggregate-only are documented (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportRpcsDocumentedAdminOnly' (tasks 2.1)"
+
+  - id: aidata.contract-window-and-interval-semantics-are-documented
+    title: "Window and interval semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Window and interval semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Window and interval semantics are documented (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportSemanticsDocumented' (tasks 2.1)"
+
+  - id: aidata.contract-empty-report-is-a-valid-response
+    title: "Empty report is a valid response"
+    persona: guest
+    priority: P2
+    summary: "Empty report is a valid response"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Empty report is a valid response (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_EmptyReportsRoundTrip' (tasks 2.1)"
+
+  - id: aidata.contract-wire-compatible-both-ways
+    title: "Wire compatible both ways"
+    persona: guest
+    priority: P2
+    summary: "Wire compatible both ways"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Wire compatible both ways (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_WireCompatible' (tasks 2.1)"
+
+  - id: aidata.contract-the-report-messages-carry-no-personal-data
+    title: "The report messages carry no personal data"
+    persona: guest
+    priority: P2
+    summary: "The report messages carry no personal data"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The report messages carry no personal data (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportsCarryNoPersonalData' (tasks 2.1)"
+
+  - id: aidata.contract-provenance-fields-present-at-the-specified-numbers
+    title: "Provenance fields present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Provenance fields present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Provenance fields present at the specified numbers (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ProvenanceFieldsShape' (tasks 2.1)"
+
+  - id: aidata.contract-existing-ai-surface-is-untouched
+    title: "Existing AI surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing AI surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing AI surface is untouched (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ExistingAiSurfaceUntouched' (tasks 2.1)"
+
+  - id: aidata.contract-provenance-format-is-documented
+    title: "Provenance format is documented"
+    persona: guest
+    priority: P2
+    summary: "Provenance format is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Provenance format is documented (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ProvenanceDocumented' (tasks 2.1)"
+
+  - id: aidata.contract-old-client-reads-a-new-response
+    title: "Old client reads a new response"
+    persona: guest
+    priority: P2
+    summary: "Old client reads a new response"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old client reads a new response (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_WireCompatible' (tasks 2.1)"
+
+  - id: aidata.contract-unset-provenance-is-an-empty-string-never-a-placeholder
+    title: "Unset provenance is an empty string, never a placeholder"
+    persona: guest
+    priority: P2
+    summary: "Unset provenance is an empty string, never a placeholder"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unset provenance is an empty string, never a placeholder (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_UnsetProvenanceIsEmpty' (tasks 2.1)"
+
+  - id: aidata.contract-copies-match-the-source
+    title: "Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Copies match the source (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'copies-match' (tasks 2.1)"
+
+  - id: aidata.contract-drifted-or-missing-copy-is-rejected
+    title: "Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Drifted or missing copy is rejected (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'drift-rejected' (tasks 2.1)"
+
+  - id: aidata.contract-renumbering-is-rejected
+    title: "Renumbering is rejected"
+    persona: guest
+    priority: P2
+    summary: "Renumbering is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Renumbering is rejected (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'breaking-rejected' (tasks 2.1)"
+
+  - id: aidata.contract-consumer-protos-still-build-and-lint
+    title: "Consumer protos still build and lint"
+    persona: guest
+    priority: P2
+    summary: "Consumer protos still build and lint"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Consumer protos still build and lint (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'lint-and-build' (tasks 2.1)"
