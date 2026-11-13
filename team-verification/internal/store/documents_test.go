@@ -332,11 +332,19 @@ func TestOpenGrantsAreCapped(t *testing.T) {
 		}
 	})
 	t.Run(sc+": used grants do not count", func(t *testing.T) {
-		if _, err := repo.SubmitWithDocuments(ctx, &store.Submission{ID: "kyc_1", UserID: "u-1", DocType: "national_id", Status: store.StatusPending},
-			[]string{"kyc/u-1/g0"}, t0, okVerify); err != nil {
+		for i := range 10 {
+			if err := repo.CreateGrant(ctx, grant("u-3", fmt.Sprintf("kyc/u-3/g%d", i), 10), 10, t0); err != nil {
+				t.Fatalf("u-3 grant %d: %v", i, err)
+			}
+		}
+		if err := repo.CreateGrant(ctx, grant("u-3", "kyc/u-3/over", 10), 10, t0); !errors.Is(err, store.ErrGrantCapReached) {
+			t.Fatalf("u-3 at cap: err = %v, want ErrGrantCapReached", err)
+		}
+		if _, err := repo.SubmitWithDocuments(ctx, &store.Submission{ID: "kyc_3", UserID: "u-3", DocType: "national_id", Status: store.StatusPending},
+			[]string{"kyc/u-3/g0"}, t0, okVerify); err != nil {
 			t.Fatal(err)
 		}
-		if err := repo.CreateGrant(ctx, grant("u-1", "kyc/u-1/after-use", 10), 10, t0); err != nil {
+		if err := repo.CreateGrant(ctx, grant("u-3", "kyc/u-3/after-use", 10), 10, t0); err != nil {
 			t.Errorf("after use: %v", err)
 		}
 	})
