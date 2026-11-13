@@ -55,7 +55,7 @@ func (f settlementFixture) refund(t *testing.T, paymentID, key string, amount in
 	}
 }
 
-func getSettlement(f settlementFixture, ctx context.Context, orderID string) (*paymentv1.GetOrderSettlementResponse, error) {
+func getSettlement(ctx context.Context, f settlementFixture, orderID string) (*paymentv1.GetOrderSettlementResponse, error) {
 	return f.h.GetOrderSettlement(ctx, &paymentv1.GetOrderSettlementRequest{OrderId: orderID})
 }
 
@@ -71,7 +71,7 @@ func wantBreakdown(t *testing.T, got *paymentv1.GetOrderSettlementResponse, cred
 func TestGetOrderSettlement_SellerReadsTheBreakdownOfASettledOrder(t *testing.T) {
 	f := newSettlementFixture(t)
 	f.commissioned(t, "order-S")
-	got, err := getSettlement(f, userCtx("seller-S"), "order-S")
+	got, err := getSettlement(userCtx("seller-S"), f, "order-S")
 	if err != nil {
 		t.Fatalf("seller read: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestGetOrderSettlement_BreakdownReflectsAPartialRefund(t *testing.T) {
 	f := newSettlementFixture(t)
 	tx := f.commissioned(t, "order-S")
 	f.refund(t, tx.ID, "R1", 124000)
-	got, err := getSettlement(f, userCtx("seller-S"), "order-S")
+	got, err := getSettlement(userCtx("seller-S"), f, "order-S")
 	if err != nil {
 		t.Fatalf("seller read: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestGetOrderSettlement_OrderSettledWithoutCommissionReportsZeroCommission(t
 	if _, err := f.st.settlement.CreditSettlement(context.Background(), "order-N", "seller-S", store.Commissionable{}); err != nil {
 		t.Fatal(err)
 	}
-	got, err := getSettlement(f, userCtx("seller-S"), "order-N")
+	got, err := getSettlement(userCtx("seller-S"), f, "order-N")
 	if err != nil {
 		t.Fatalf("seller read: %v", err)
 	}
@@ -112,11 +112,11 @@ func TestGetOrderSettlement_AnotherSellerAndABuyerGetNotFound(t *testing.T) {
 		"another seller": userCtx("seller-X"),
 		"buyer":          userCtx("buyer-S"),
 	} {
-		_, err := getSettlement(f, ctx, "order-S")
+		_, err := getSettlement(ctx, f, "order-S")
 		if status.Code(err) != codes.NotFound {
 			t.Fatalf("%s: want NotFound, got %v", name, err)
 		}
-		_, unknown := getSettlement(f, ctx, "order-unknown")
+		_, unknown := getSettlement(ctx, f, "order-unknown")
 		if status.Code(unknown) != codes.NotFound || status.Convert(unknown).Message() != status.Convert(err).Message() {
 			t.Fatalf("%s: must look the same as an unknown order: %v vs %v", name, err, unknown)
 		}
@@ -127,11 +127,11 @@ func TestGetOrderSettlement_AdminCanReadAnySettlement(t *testing.T) {
 	f := newSettlementFixture(t)
 	tx := f.commissioned(t, "order-S")
 	f.refund(t, tx.ID, "R1", 124000)
-	want, err := getSettlement(f, userCtx("seller-S"), "order-S")
+	want, err := getSettlement(userCtx("seller-S"), f, "order-S")
 	if err != nil {
 		t.Fatalf("seller read: %v", err)
 	}
-	got, err := getSettlement(f, adminCtx(), "order-S")
+	got, err := getSettlement(adminCtx(), f, "order-S")
 	if err != nil {
 		t.Fatalf("admin read: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestGetOrderSettlement_UnsettledOrderIsNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, id := range []string{"order-pending", "order-void"} {
-		if _, err := getSettlement(f, userCtx("seller-S"), id); status.Code(err) != codes.NotFound {
+		if _, err := getSettlement(userCtx("seller-S"), f, id); status.Code(err) != codes.NotFound {
 			t.Fatalf("%s: want NotFound, got %v", id, err)
 		}
 	}
@@ -158,7 +158,7 @@ func TestGetOrderSettlement_UnsettledOrderIsNotFound(t *testing.T) {
 
 func TestGetOrderSettlement_MissingOrderIDIsRejected(t *testing.T) {
 	f := newSettlementFixture(t)
-	if _, err := getSettlement(f, userCtx("seller-S"), ""); status.Code(err) != codes.InvalidArgument {
+	if _, err := getSettlement(userCtx("seller-S"), f, ""); status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("want InvalidArgument, got %v", err)
 	}
 }
@@ -181,7 +181,7 @@ func TestGetOrderSettlement_ReadingTheSettlementWritesNothing(t *testing.T) {
 	}
 	balBefore, nBefore := count()
 	for i := 0; i < 10; i++ {
-		got, err := getSettlement(f, ctx, "order-S")
+		got, err := getSettlement(ctx, f, "order-S")
 		if err != nil {
 			t.Fatalf("read %d: %v", i, err)
 		}

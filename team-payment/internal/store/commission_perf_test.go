@@ -17,9 +17,6 @@ func p95(d []time.Duration) time.Duration {
 
 func TestCommissionOverheadAtMostFiveMsP95(t *testing.T) {
 	// scenario: Commission adds at most 5 ms p95 to settlement
-	if testing.Short() {
-		t.Skip("timing run")
-	}
 	s, _ := commissionPostgres(t)
 	ctx := context.Background()
 	const n, runs = 200, 3
@@ -27,7 +24,13 @@ func TestCommissionOverheadAtMostFiveMsP95(t *testing.T) {
 		d := make([]time.Duration, 0, n)
 		for i := 0; i < n; i++ {
 			order := fmt.Sprintf("%s-%d", prefix, i)
-			paidTx(t, s, order, 310000)
+			tx, err := s.payments.CreateTransaction(ctx, store.PaymentTransaction{OrderID: order, BuyerID: "buyer", Amount: 310000})
+			if err != nil {
+				t.Fatalf("create tx %s: %v", order, err)
+			}
+			if _, err := s.payments.UpdateTransactionStatus(ctx, tx.ID, store.PaymentStatusPaid, "MOCK-REF"); err != nil {
+				t.Fatalf("pay tx %s: %v", order, err)
+			}
 			start := time.Now()
 			if _, err := s.settle.CreditSettlement(ctx, order, "seller-perf", c); err != nil {
 				t.Fatalf("credit %s: %v", order, err)
