@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { searchMyListingsAction } from "./actions";
 import { FEATURED_MAX, addFeatured, moveFeatured } from "./shopBranding";
@@ -24,7 +24,7 @@ export function FeaturedListingsPicker({
   const [known, setKnown] = useState<Record<string, string>>({});
   const seq = useRef(0);
 
-  async function search(q: string) {
+  const search = useCallback(async (q: string) => {
     const mine = ++seq.current;
     const res = await searchMyListingsAction(q);
     if (mine !== seq.current) return;
@@ -39,13 +39,13 @@ export function FeaturedListingsPicker({
     } else {
       setError(res.ok ? "Không tải được danh sách sản phẩm." : res.error);
     }
-  }
+  }, []);
 
   useEffect(() => {
     if (query.trim() === "") return;
     const t = setTimeout(() => void search(query), DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, search]);
 
   const full = value.length >= FEATURED_MAX;
 
