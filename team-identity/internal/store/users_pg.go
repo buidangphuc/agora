@@ -62,6 +62,12 @@ func (r *PostgresUserRepository) Create(ctx context.Context, u User) (User, erro
 // CreateRegistered inserts a user and its UserRegistered outbox row in one
 // transaction; a unique violation maps to ErrConflict and writes no row.
 func (r *PostgresUserRepository) CreateRegistered(ctx context.Context, u User, referralCode string, enqueue RegisteredEnqueueFn) (User, error) {
+	return r.CreateRegisteredWithConsents(ctx, u, referralCode, nil, enqueue)
+}
+
+// CreateRegisteredWithConsents inserts a user, its consent rows and its UserRegistered outbox row in one
+// transaction; a unique violation maps to ErrConflict and writes no row.
+func (r *PostgresUserRepository) CreateRegisteredWithConsents(ctx context.Context, u User, referralCode string, consents []ConsentInput, enqueue RegisteredEnqueueFn) (User, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return User{}, fmt.Errorf("begin tx: %w", err)
@@ -83,6 +89,9 @@ func (r *PostgresUserRepository) CreateRegistered(ctx context.Context, u User, r
 		return User{}, fmt.Errorf("build registered event: %w", err)
 	}
 	if err := enqueueTx(ctx, r.ob, tx, row); err != nil {
+		return User{}, err
+	}
+	if err := insertConsents(ctx, tx, out.ID, consents); err != nil {
 		return User{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
