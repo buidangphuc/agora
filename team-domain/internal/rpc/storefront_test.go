@@ -440,3 +440,33 @@ func TestUpsertStorefrontNewErrorsAreInvalidArgument(t *testing.T) {
 		})
 	}
 }
+
+// TestUpsertStorefrontRulesUnchangedOnSharedHandler: scenario "Existing display name and slug rules still apply";
+// one handler, so a rejected write must leave the previously stored row intact.
+func TestUpsertStorefrontRulesUnchangedOnSharedHandler(t *testing.T) {
+	h := newStorefrontHandler()
+	ctx := sellerCtx("seller_a")
+	if _, err := h.UpsertStorefront(ctx, &listingv1.UpsertStorefrontRequest{
+		Storefront: &listingv1.Storefront{Slug: "shop-a", DisplayName: strings.Repeat("ế", 80), Tagline: "keep", Theme: "dark"},
+	}); err != nil {
+		t.Fatalf("80-rune display name must be accepted: %v", err)
+	}
+	bad := []*listingv1.Storefront{
+		{Slug: "", DisplayName: "x", Tagline: "bad"},
+		{Slug: "other", DisplayName: strings.Repeat("a", 81), Tagline: "bad"},
+		{Slug: "other", Tagline: "bad", Theme: "neon"},
+	}
+	for i, sf := range bad {
+		if _, err := h.UpsertStorefront(ctx, &listingv1.UpsertStorefrontRequest{Storefront: sf}); status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("case %d: want InvalidArgument, got %v", i, err)
+		}
+	}
+	res, err := h.GetStorefront(ctx, &listingv1.GetStorefrontRequest{SellerId: "seller_a"})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	got := res.GetStorefront()
+	if got.GetSlug() != "shop-a" || got.GetTagline() != "keep" || got.GetTheme() != "dark" || len([]rune(got.GetDisplayName())) != 80 {
+		t.Errorf("rejected writes changed stored row: %+v", got)
+	}
+}
