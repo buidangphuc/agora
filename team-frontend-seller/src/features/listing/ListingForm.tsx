@@ -304,6 +304,9 @@ export function ListingForm({
       />
 
       {serverBanner && <Alert type="error" description={serverBanner} />}
+      {serverBanner && state.upgradeUrl && (
+        <Link href={state.upgradeUrl}>Nâng cấp gói</Link>
+      )}
       {state.ok && id && <Alert type="success" description={state.message} />}
 
       <MagicListingAssist

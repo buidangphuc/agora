@@ -1,5 +1,6 @@
 "use server";
 
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
 import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
@@ -14,6 +15,7 @@ import { type ViewOrderReturn, updateReturnStatus } from "@/lib/gateway/orders";
 import { requestWalletPayout } from "@/lib/gateway/payment";
 import {
   type ViewAdCampaign,
+  cancelSubscription,
   createAdCampaign,
   subscribe,
 } from "@/lib/gateway/promotion";
@@ -105,8 +107,25 @@ export async function refundReturnAction(
 // ── Plans ───────────────────────────────────────────────────────────────────
 
 export async function subscribeAction(planId: string): Promise<ActionResult> {
-  const res = await subscribe(planId);
-  if (!res.ok) return fail(res.message || "Đăng ký gói thất bại.");
+  try {
+    const res = await subscribe(planId);
+    if (!res.ok) return fail(res.message || "Đăng ký gói thất bại.");
+  } catch (err: unknown) {
+    if (err instanceof ConnectError && err.code === Code.FailedPrecondition) {
+      return fail("Số dư có thể rút không đủ để trả gói này.");
+    }
+    return fail("Đăng ký gói thất bại.");
+  }
+  revalidatePath("/seller/plans");
+  return ok();
+}
+
+export async function cancelSubscriptionAction(): Promise<ActionResult> {
+  try {
+    await cancelSubscription();
+  } catch {
+    return fail("Hủy gia hạn thất bại.");
+  }
   revalidatePath("/seller/plans");
   return ok();
 }
