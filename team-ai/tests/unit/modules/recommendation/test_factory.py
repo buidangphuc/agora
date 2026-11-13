@@ -179,3 +179,102 @@ def test_factory_builds_the_flipt_assigner_from_settings_flipt_unreachable_serve
 
 def test_factory_builds_no_assigner_without_a_flipt_url_flipt_unreachable_serves_default() -> None:
     assert build_experiment_assigner(RecsSettings(RECS_FLIPT_URL="")) is None
+
+
+def _flipt_assigner(handler: Any) -> FliptExperimentAssigner:
+    import httpx
+
+    return FliptExperimentAssigner(
+        httpx.AsyncClient(
+            base_url="http://flipt", transport=httpx.MockTransport(handler)
+        ),
+        salt="salt",
+        timeout_s=1.0,
+    )
+
+
+async def _home_feed_service(assigner: Any) -> Any:
+    serving = _fake()
+    await serving.set(
+        "recs:v1:user:u1",
+        json.dumps([{"listing_id": "a", "visible": True}]),
+    )
+    return build_recommendation_service(
+        RecsSettings(),
+        source=MemoryCandidateSource(),
+        serving_redis=serving,
+        clients=RecommendationClients(
+            qdrant=NO_QDRANT,
+            featurestore=None,
+            nearline=None,
+            stock=MemoryStockLookup({"a": 5}),
+            assigner=assigner,
+        ),
+    )
+
+
+async def test_service_built_with_flipt_assigner_reports_a_stable_arm_a_visitor_always_lands_in_the_same_arm() -> (
+    None
+):
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"match": True, "variantKey": "treatment"})
+
+    service = await _home_feed_service(_flipt_assigner(handler))
+    query = RecommendationQuery(user_id="u1", placement_id="home_feed")
+
+    first = await service.recommend(query)
+    second = await service.recommend(query)
+
+    assert first.arm != "none"
+    assert first.arm == "recs-home-feed-ranker:treatment"
+    assert second.arm == first.arm
+
+
+async def test_service_built_without_an_assigner_reports_no_arm_a_disabled_flag_means_no_arm() -> (
+    None
+):
+    service = await _home_feed_service(None)
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert result.arm == "none"
+
+
+async def test_service_built_with_a_disabled_flag_reports_no_arm_a_disabled_flag_means_no_arm() -> (
+    None
+):
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"match": False})
+
+    service = await _home_feed_service(_flipt_assigner(handler))
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert result.arm == "none"
+    assert [i.listing_id for i in result.items] == ["a"]
+
+
+async def test_service_built_with_unreachable_flipt_serves_default_ranker_unassigned_flipt_unreachable_serves_the_default_ranker_as_unassigned() -> (
+    None
+):
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("down", request=request)
+
+    service = await _home_feed_service(_flipt_assigner(handler))
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert result.arm == "recs-home-feed-ranker:unassigned"
+    assert [i.listing_id for i in result.items] == ["a"]
