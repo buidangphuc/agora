@@ -49,7 +49,10 @@ describe("AddBundleButton", () => {
     render(<AddBundleButton bundleId="b1" shopId="s1" />);
     await click();
     expect(await screen.findByText(/Đã thêm combo/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /giỏ/i })).toHaveAttribute("href", "/cart");
+    expect(screen.getByRole("link", { name: /giỏ/i })).toHaveAttribute(
+      "href",
+      "/cart",
+    );
   });
 
   it("[C3] flips to unavailable on failed precondition", async () => {
@@ -60,8 +63,12 @@ describe("AddBundleButton", () => {
     });
     render(<AddBundleButton bundleId="b1" shopId="s1" />);
     await click();
-    expect(await screen.findByText("Combo tạm không khả dụng")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Thêm combo vào giỏ" })).toBeNull();
+    expect(
+      await screen.findByText("Combo tạm không khả dụng"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Thêm combo vào giỏ" }),
+    ).toBeNull();
     expect(screen.queryByText(/Đã thêm combo/)).toBeNull();
   });
 
@@ -72,9 +79,13 @@ describe("AddBundleButton", () => {
     });
     render(<AddBundleButton bundleId="b1" shopId="s1" />);
     await click();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Thêm combo vào giỏ hàng thất bại.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Thêm combo vào giỏ hàng thất bại.",
+    );
     expect(screen.queryByText(/Đã thêm combo/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Thêm combo vào giỏ" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Thêm combo vào giỏ" }),
+    ).toBeEnabled();
   });
 
   it("[C4] sends a guest to login with a return path to the shop", async () => {

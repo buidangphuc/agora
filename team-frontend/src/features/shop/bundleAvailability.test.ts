@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { bundleAvailability } from "./bundleAvailability";
 
-const bundle = (over: Partial<Parameters<typeof bundleAvailability>[0]> = {}) => ({
+const bundle = (
+  over: Partial<Parameters<typeof bundleAvailability>[0]> = {},
+) => ({
   id: "b1",
   sellerId: "s1",
   title: "Combo",
@@ -12,11 +14,18 @@ const bundle = (over: Partial<Parameters<typeof bundleAvailability>[0]> = {}) =>
   ...over,
 });
 
-const listing = (id: string, price: number) => ({ id, price, title: `T-${id}` });
+const listing = (id: string, price: number) => ({
+  id,
+  price,
+  title: `T-${id}`,
+});
 
 describe("bundleAvailability", () => {
   it("[C7] is available with the saving when all listings are published and priced", () => {
-    const r = bundleAvailability(bundle(), [listing("l1", 100000), listing("l2", 50000)]);
+    const r = bundleAvailability(bundle(), [
+      listing("l1", 100000),
+      listing("l2", 50000),
+    ]);
     expect(r).toEqual({ available: true, saving: 30000 });
   });
 
@@ -30,7 +39,10 @@ describe("bundleAvailability", () => {
   });
 
   it("[C7] shows no saving when a listing price is unknown (0)", () => {
-    const r = bundleAvailability(bundle(), [listing("l1", 100000), listing("l2", 0)]);
+    const r = bundleAvailability(bundle(), [
+      listing("l1", 100000),
+      listing("l2", 0),
+    ]);
     expect(r).toEqual({ available: true, saving: null });
   });
 

@@ -12818,7 +12818,6 @@ features:
       - "Then the cart contains 2 lines, one per listing, each tagged with that bundle, and the page shows \"Đã thêm combo\" with a link to `/cart`"
     tags: [buyer]
     status: planned
-    covered_by: "frontend/shop_bundle_purchase_ui.feature::C1 Adding an available combo puts every listing in the cart"
 
   - id: shop-bundle-purchase-ui.c2
     title: "C2 A combo with an unpublished listing is shown unavailable"
@@ -12834,7 +12833,6 @@ features:
       - "Then that combo card shows \"Combo tạm không khả dụng\" and has no \"Thêm combo vào giỏ\" button"
     tags: [buyer]
     status: planned
-    covered_by: "frontend/shop_bundle_purchase_ui.feature::C2 A combo with an unpublished listing is shown unavailable"
 
   - id: shop-bundle-purchase-ui.c8
     title: "C8 Combo lines and the discount are shown in the cart"
@@ -12850,7 +12848,6 @@ features:
       - "Then both lines appear under one \"Combo\" label and the summary shows \"Giảm giá combo\" with 30.000 VND"
     tags: [buyer]
     status: planned
-    covered_by: "frontend/shop_bundle_purchase_ui.feature::C8 Combo lines and the discount are shown in the cart"
 
   - id: shop-bundle-purchase-ui.c10
     title: "C10 Removing one combo line shows the cancellation notice"
@@ -12866,7 +12863,6 @@ features:
       - "Then the cart shows \"Combo đã bị huỷ, các sản phẩm tính giá thường\" and no \"Combo\" label remains for the remaining lines"
     tags: [buyer]
     status: planned
-    covered_by: "frontend/shop_bundle_purchase_ui.feature::C10 Removing one combo line shows the cancellation notice"
 
   - id: shop-bundle-purchase-ui.c12
     title: "C12 The order total reflects the bundle price"
@@ -12882,7 +12878,6 @@ features:
       - "Then the summary shows \"Giảm giá combo\" 30.000 VND and a merchandise total of 120.000 VND"
     tags: [buyer]
     status: planned
-    covered_by: "frontend/shop_bundle_purchase_ui.feature::C12 The order total reflects the bundle price"
 
   - id: shop-bundle-purchase-ui.c3
     title: "C3 A refused add flips the card to unavailable"

@@ -22,6 +22,8 @@ function item(
     imageUrl: "",
     sellerId,
     sellerDisplayName,
+    bundleId: "",
+    bundleDiscount: 0,
   };
 }
 

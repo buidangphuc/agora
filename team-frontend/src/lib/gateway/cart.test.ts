@@ -240,21 +240,31 @@ describe("cart gateway wrapper", () => {
       ...sampleCart,
       bundleDiscountTotal: 30000n,
       items: [
-        { ...sampleCart.items[0], id: "a", bundleId: "b1", bundleDiscount: 20000n },
-        { ...sampleCart.items[0], id: "b", bundleId: "b1", bundleDiscount: 10000n },
+        {
+          ...sampleCart.items[0],
+          id: "a",
+          bundleId: "b1",
+          bundleDiscount: 20000n,
+        },
+        {
+          ...sampleCart.items[0],
+          id: "b",
+          bundleId: "b1",
+          bundleDiscount: 10000n,
+        },
         { ...sampleCart.items[0], id: "c", bundleId: "", bundleDiscount: 0n },
       ],
     };
     stubCart({ getCart: vi.fn().mockResolvedValue({ cart: bundled }) });
     const view = await getCart();
     expect(view.bundleDiscountTotal).toBe(30000);
-    expect(
-      view.items.map((i) => [i.id, i.bundleId, i.bundleDiscount]),
-    ).toEqual([
-      ["a", "b1", 20000],
-      ["b", "b1", 10000],
-      ["c", "", 0],
-    ]);
+    expect(view.items.map((i) => [i.id, i.bundleId, i.bundleDiscount])).toEqual(
+      [
+        ["a", "b1", 20000],
+        ["b", "b1", 10000],
+        ["c", "", 0],
+      ],
+    );
   });
 
   it("C11 getCart defaults missing bundle fields to empty id and zero discounts", async () => {
@@ -271,7 +281,9 @@ describe("cart gateway wrapper", () => {
         cart: {
           ...sampleCart,
           bundleDiscountTotal: 5000n,
-          items: [{ ...sampleCart.items[0], bundleId: "b1", bundleDiscount: 5000n }],
+          items: [
+            { ...sampleCart.items[0], bundleId: "b1", bundleDiscount: 5000n },
+          ],
         },
       }),
     });

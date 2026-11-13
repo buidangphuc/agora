@@ -109,7 +109,9 @@ describe("CartGroups combos", () => {
 
   it("C8 shows one Combo label and each line's discount", () => {
     render(
-      <CartGroups groups={groupByShop([combo("a", 10000), combo("b", 20000)])} />,
+      <CartGroups
+        groups={groupByShop([combo("a", 10000), combo("b", 20000)])}
+      />,
     );
     const card = screen.getByTestId("cart-shop-group");
     expect(within(card).getAllByText("Combo")).toHaveLength(1);

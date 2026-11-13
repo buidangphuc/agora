@@ -21,17 +21,29 @@ const l2 = { id: "l2", title: "Quần short", price: 50000 };
 
 describe("BundleCard", () => {
   it("[C7] shows the saving and lists both listing titles", () => {
-    render(<BundleCard bundle={bundle} shopListings={[l1, l2] as never} shopId="s1" />);
+    render(
+      <BundleCard
+        bundle={bundle}
+        shopListings={[l1, l2] as never}
+        shopId="s1"
+      />,
+    );
     expect(screen.getByText(/Tiết kiệm 30\.000 VND/)).toBeInTheDocument();
     expect(screen.getByText(/Áo thun/)).toBeInTheDocument();
     expect(screen.getByText(/Quần short/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Thêm combo vào giỏ" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Thêm combo vào giỏ" }),
+    ).toBeInTheDocument();
   });
 
   it("[C2] shows unavailable with no add button when a listing is missing from the shop listings", () => {
-    render(<BundleCard bundle={bundle} shopListings={[l1] as never} shopId="s1" />);
+    render(
+      <BundleCard bundle={bundle} shopListings={[l1] as never} shopId="s1" />,
+    );
     expect(screen.getByText("Combo tạm không khả dụng")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Thêm combo vào giỏ" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Thêm combo vào giỏ" }),
+    ).toBeNull();
     expect(screen.queryByText(/Tiết kiệm/)).toBeNull();
   });
 });

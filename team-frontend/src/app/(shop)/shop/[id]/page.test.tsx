@@ -158,7 +158,9 @@ describe("ShopPage", () => {
     listBundlesBySeller.mockResolvedValue([combo]);
     await renderPage();
     expect(screen.getByText(/Tiết kiệm 30\.000 VND/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Thêm combo vào giỏ" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Thêm combo vào giỏ" }),
+    ).toBeInTheDocument();
   });
 
   it("[C2] renders the combo as unavailable without a button when a listing is unpublished", async () => {
@@ -168,6 +170,8 @@ describe("ShopPage", () => {
     listBundlesBySeller.mockResolvedValue([combo]);
     await renderPage();
     expect(screen.getByText("Combo tạm không khả dụng")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Thêm combo vào giỏ" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Thêm combo vào giỏ" }),
+    ).toBeNull();
   });
 });
