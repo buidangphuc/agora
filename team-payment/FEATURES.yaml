@@ -3730,7 +3730,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/settlement/handler_commission_test.go` `TestHandlePaidWithoutBreakdown`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/settlement/breakdown_test.go` `TestConsumer_EventWithoutTheBreakdownBooksNoCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.a-zero-commission-writes-no-row
     title: "A zero commission writes no row"
@@ -3764,7 +3764,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/settlement/handler_commission_test.go` `TestHandlePaidInconsistentBreakdownParked`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/settlement/breakdown_test.go` `TestConsumer_InconsistentBreakdownIsParkedAndWritesNothing`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.a-failed-commission-insert-rolls-back-the-credit
     title: "A failed commission insert rolls back the credit"
@@ -4148,7 +4148,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestRateChangeKeepsRecordedRate`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/rpc/get_order_settlement_test.go` `TestGetOrderSettlement_RateChangeDoesNotAlterEarlierOrders`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-the-seller-reads-the-breakdown-of-a-settled-order
     title: "The seller reads the breakdown of a settled order"
@@ -4183,7 +4183,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/order_settlement_test.go` `TestGetOrderSettlementAfterPartialRefund`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/rpc/get_order_settlement_test.go` `TestGetOrderSettlement_BreakdownReflectsAPartialRefund`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.an-order-settled-without-commission-reports-zero-commission
     title: "An order settled without commission reports zero commission"
@@ -4200,7 +4200,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/order_settlement_test.go` `TestGetOrderSettlementWithoutCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/rpc/get_order_settlement_test.go` `TestGetOrderSettlement_OrderSettledWithoutCommissionReportsZeroCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-another-seller-gets-not-found
     title: "Another seller gets NOT_FOUND"
@@ -4361,7 +4361,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/settlement/handler_commission_test.go` `TestHandlePaidWithoutBreakdownCreditsPaidOnly`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/settlement/breakdown_test.go` `TestConsumer_EventWithoutThePriceBreakdownCreditsThePaidAmountOnly`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-a-held-sale-is-held-net-of-its-commission
     title: "A held sale is held net of its commission"

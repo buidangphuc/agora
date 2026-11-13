@@ -193,3 +193,19 @@ func TestGetOrderSettlement_ReadingTheSettlementWritesNothing(t *testing.T) {
 		t.Fatalf("ledger changed by reads: balance %d->%d entries %d->%d", balBefore, bal, nBefore, n)
 	}
 }
+
+func TestGetOrderSettlement_RateChangeDoesNotAlterEarlierOrders(t *testing.T) {
+	// scenario: A rate change does not alter earlier orders
+	f := newSettlementFixture(t)
+	tx := f.commissioned(t, "order-S")
+	changed := store.Commissionable{OK: true, Base: 280000, RateBps: 1000}
+	if _, err := f.st.settlement.CreditSettlement(context.Background(), "order-S", "seller-S", changed); err != nil {
+		t.Fatal(err)
+	}
+	f.refund(t, tx.ID, "R1", 310000)
+	got, err := getSettlement(userCtx("seller-S"), f, "order-S")
+	if err != nil {
+		t.Fatalf("seller read: %v", err)
+	}
+	wantBreakdown(t, got, 310000, 14000, 14000, 310000, 0, 500)
+}
