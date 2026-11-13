@@ -54,3 +54,33 @@ export function slicePage<T>(items: T[], page: number, pageSize: number): T[] {
   const start = (Math.max(1, page) - 1) * pageSize;
   return items.slice(start, start + pageSize);
 }
+
+export const MARKETING_TABS = ["voucher", "flashsale"] as const;
+export type MarketingTab = (typeof MARKETING_TABS)[number];
+export const CAMPAIGN_STATUSES = [
+  "scheduled",
+  "active",
+  "ended",
+  "cancelled",
+] as const;
+
+export interface MarketingParams {
+  tab: MarketingTab;
+  cursor: string;
+  status: string;
+}
+
+/** `?tab=&cursor=&status=` of the marketing hub; unknown values fall back. */
+export function parseMarketingParams(
+  searchParams: SearchParams = {},
+): MarketingParams {
+  const rawTab = first(searchParams.tab);
+  const tab = (MARKETING_TABS as readonly string[]).includes(rawTab)
+    ? (rawTab as MarketingTab)
+    : "voucher";
+  const rawStatus = first(searchParams.status);
+  const status = (CAMPAIGN_STATUSES as readonly string[]).includes(rawStatus)
+    ? rawStatus
+    : DEFAULT_STATUS;
+  return { tab, cursor: first(searchParams.cursor), status };
+}
