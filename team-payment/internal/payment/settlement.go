@@ -16,7 +16,7 @@ func (s *Service) CreditSettlement(ctx context.Context, orderID, sellerID string
 	if s.settle == nil {
 		return ErrSettlementNotConfigured
 	}
-	res, err := s.settle.CreditSettlement(ctx, orderID, sellerID)
+	res, err := s.settle.CreditSettlement(ctx, orderID, sellerID, store.Commissionable{})
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ import (
 func credited(t *testing.T, s stores, order string, amount int64) store.PaymentTransaction {
 	t.Helper()
 	tx := paidTx(t, s, order, amount)
-	if _, err := s.settle.CreditSettlement(context.Background(), order, "seller"); err != nil {
+	if _, err := s.settle.CreditSettlement(context.Background(), order, "seller", store.Commissionable{}); err != nil {
 		t.Fatalf("credit: %v", err)
 	}
 	return tx
@@ -324,11 +324,11 @@ func TestApplyRefund_TwoRefundsBeforeTheCredit(t *testing.T) {
 		if got, _ := ledgerOf(t, s, "seller"); len(got) != 0 {
 			t.Fatalf("refund before credit wrote %+v", got)
 		}
-		res, err := s.settle.CreditSettlement(ctx, "o-before", "seller")
+		res, err := s.settle.CreditSettlement(ctx, "o-before", "seller", store.Commissionable{})
 		if err != nil || !res.Credited || !res.Deducted || res.Transaction.Status != store.PaymentStatusPartiallyRefunded {
 			t.Fatalf("credit: %+v %v", res, err)
 		}
-		if res, err := s.settle.CreditSettlement(ctx, "o-before", "seller"); err != nil || res.Credited || res.Deducted {
+		if res, err := s.settle.CreditSettlement(ctx, "o-before", "seller", store.Commissionable{}); err != nil || res.Credited || res.Deducted {
 			t.Fatalf("redelivered credit: %+v %v", res, err)
 		}
 		got, bal := ledgerOf(t, s, "seller")
@@ -352,7 +352,7 @@ func TestCreditSettlement_SkipsAppliedZeroRefunds(t *testing.T) {
 		if res, err := returnRefund(ctx, s, tx.ID, "ret", 100000); err != nil || res.Refund.Amount != 0 {
 			t.Fatalf("return: %+v %v", res, err)
 		}
-		if _, err := s.settle.CreditSettlement(ctx, "o-zero", "seller"); err != nil {
+		if _, err := s.settle.CreditSettlement(ctx, "o-zero", "seller", store.Commissionable{}); err != nil {
 			t.Fatal(err)
 		}
 		wantDeductions(t, s, map[string]int64{"rpc:all": -500000})

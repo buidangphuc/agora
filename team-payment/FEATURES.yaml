@@ -3678,7 +3678,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/ledger_commission_test.go` `TestCommissionAmount`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_math_test.go` `TestCommissionAmount_RoundsHalfUpToWholeVND`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-a-redelivered-paid-event-books-no-second-commission
     title: "A redelivered paid event books no second commission"
@@ -3713,7 +3713,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestCreditSettlementConcurrentCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_settlement_test.go` `TestCommissionSettlement_ConcurrentSettlementsBookOneCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.an-event-without-the-breakdown-books-no-commission
     title: "An event without the breakdown books no commission"
@@ -3747,7 +3747,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestCreditSettlementZeroCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_settlement_test.go` `TestCommissionSettlement_ZeroCommissionWritesNoRow`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.an-inconsistent-breakdown-is-parked-and-writes-nothing
     title: "An inconsistent breakdown is parked and writes nothing"
@@ -3781,7 +3781,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestCreditSettlementCommissionFailureRollsBack`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_settlement_test.go` `TestCommissionSettlement_FailedCommissionInsertRollsBackTheCredit`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-a-client-cannot-set-or-forge-a-commission
     title: "A client cannot set or forge a commission"
@@ -3816,7 +3816,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_bench_test.go` `TestCommissionOverheadP95`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_perf_test.go` `TestCommissionOverheadAtMostFiveMsP95`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-a-40-partial-refund-returns-40-of-the-commission
     title: "A 40% partial refund returns 40% of the commission"
@@ -3869,7 +3869,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/ledger_commission_test.go` `TestReversalTargetCumulative`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_math_test.go` `TestReversalTarget_CumulativeNeverExceedsCommissionAndEndsExact`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-a-tiny-refund-whose-share-rounds-to-zero-books-no-reversal
     title: "A tiny refund whose share rounds to zero books no reversal"
@@ -3922,7 +3922,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestCreditSettlementReversesEarlierRefunds`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_settlement_test.go` `TestReversal_RefundBeforeCreditStillGetsItsReversal`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-a-refund-by-a-seller-who-is-not-the-order-s-seller-is-denied
     title: "A refund by a seller who is not the order's seller is denied and reverses nothing"
@@ -3957,7 +3957,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestApplyRefundReplayWritesNoSecondReversal`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_settlement_test.go` `TestReversal_ReplayedRefundWritesNoSecondReversal`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.a-payment-without-commission-is-refunded-without-a-reversal
     title: "A payment without commission is refunded without a reversal"
@@ -3974,7 +3974,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestApplyRefundWithoutCommissionNoReversal`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_settlement_test.go` `TestReversal_PaymentWithoutCommissionIsRefundedWithoutReversal`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.concurrent-refunds-never-reverse-more-than-the-commission
     title: "Concurrent refunds never reverse more than the commission"
@@ -3991,7 +3991,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_integration_test.go` `TestConcurrentRefundsReverseAtMostCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_settlement_test.go` `TestReversal_ConcurrentRefundsNeverReverseMoreThanTheCommission`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.the-ledger-reconciles-after-any-order-of-events
     title: "The ledger reconciles after any order of events"
@@ -4008,7 +4008,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/settlement_commission_property_test.go` `TestLedgerReconcilesAfterShuffledEvents`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/commission_reconcile_test.go` `TestReconcile_LedgerReconcilesAfterAnyOrderOfEvents`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment.psc-the-store-refuses-a-second-commission-for-one-payment
     title: "The store refuses a second commission for one payment"
@@ -4097,7 +4097,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/ledger_commission_integration_test.go` `TestMigration0018KeepsExistingRows`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/store/migration0019_pg_test.go` `TestMigration0019_ExistingLedgerRowsSurviveUpDownUp`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.an-invalid-rate-refuses-to-start
     title: "An invalid rate refuses to start"
@@ -4114,7 +4114,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/config/config_commission_test.go` `TestCommissionRateInvalidRefusesStart`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/config/config_test.go` `TestCommissionRateInvalidRefusesStart`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.the-boundary-rates-are-accepted
     title: "The boundary rates are accepted"
@@ -4131,7 +4131,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/config/config_commission_test.go` `TestCommissionRateBoundaries`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
+    notes: "VERIFIED BY `team-payment/internal/config/config_test.go` `TestCommissionRateBoundariesAccepted`. Not producible end to end through the gateway (unit, integration, config, parked event or timing level)."
 
   - id: payment-settlement-commission.a-rate-change-does-not-alter-earlier-orders
     title: "A rate change does not alter earlier orders"

@@ -103,7 +103,7 @@ type SettlementLedger interface {
 	// REFUND_DEDUCTION per refund of the payment with a positive applied amount, each
 	// referencing its refund (no-op when it exists). ErrNotSettled when there is no such
 	// transaction, ErrInvalidAmount for a non-positive amount.
-	CreditSettlement(ctx context.Context, orderID, sellerID string) (CreditResult, error)
+	CreditSettlement(ctx context.Context, orderID, sellerID string, c Commissionable) (CreditResult, error)
 	// ApplyRefund applies one refund of a payment in one transaction (design D1): lock the
 	// payment row; replay an existing key (same payment and requested amount, or any
 	// amount in remainder mode) or refuse it (ErrRefundIDConflict); apply the mode; write
@@ -261,7 +261,7 @@ func (s *PostgresSettlementLedger) ListRefunds(ctx context.Context, paymentID st
 	return listRefunds(ctx, s.pool, paymentID)
 }
 
-func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID, sellerID string) (CreditResult, error) {
+func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID, sellerID string, _ Commissionable) (CreditResult, error) {
 	if sellerID == "" {
 		return CreditResult{}, errors.New("seller id is required")
 	}

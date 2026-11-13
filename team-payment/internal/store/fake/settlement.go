@@ -103,7 +103,7 @@ func (s *InMemorySettlementLedger) ListRefunds(_ context.Context, paymentID stri
 	return s.refunds.list(paymentID), nil
 }
 
-func (s *InMemorySettlementLedger) CreditSettlement(_ context.Context, orderID, sellerID string) (store.CreditResult, error) {
+func (s *InMemorySettlementLedger) CreditSettlement(_ context.Context, orderID, sellerID string, _ store.Commissionable) (store.CreditResult, error) {
 	if sellerID == "" {
 		return store.CreditResult{}, errors.New("seller id is required")
 	}
