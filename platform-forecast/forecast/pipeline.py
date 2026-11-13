@@ -8,11 +8,9 @@ from typing import Any
 import pandas as pd
 
 from forecast.config import Settings
-from forecast.extract import extract_daily_sales_dataframe, fill_missing_dates
-from forecast.features import generate_time_features
-from forecast.models.baseline import SeasonalNaiveQuantileForecaster
-from forecast.models.quantile_lgbm import QuantileRegressor
-from forecast.publisher import format_forecast_payload, publish_to_redis
+from forecast.extract import extract_daily_sales_dataframe, fill_missing_dates, read_paid_series
+from forecast.publisher import publish_meta, publish_to_redis
+from forecast.selection import select_and_forecast
 
 
 def run_demand_forecast_pipeline(
@@ -28,51 +26,27 @@ def run_demand_forecast_pipeline(
 
     min_date = daily_df["date"].min()
     max_date = daily_df["date"].max()
-    forecast_start_date = (pd.to_datetime(max_date) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    forecast_start = pd.to_datetime(max_date) + pd.Timedelta(days=1)
+    forecast_start_date = forecast_start.strftime("%Y-%m-%d")
 
-    # Regularize daily series
     regular_df = fill_missing_dates(daily_df, min_date, max_date)
-    features_df = generate_time_features(regular_df)
-
-    baseline_model = SeasonalNaiveQuantileForecaster(season_length=7)
-    ml_model = QuantileRegressor(quantiles=settings.quantiles)
+    series = regular_df.rename(columns={"quantity": "units"})[
+        ["seller_id", "listing_id", "date", "units"]
+    ]
+    result = select_and_forecast(series, forecast_start.to_pydatetime(), settings)
 
     published_keys: list[str] = []
-    published_payloads: list[dict[str, Any]] = []
-
-    for (seller_id, listing_id), group in features_df.groupby(["seller_id", "listing_id"]):
-        n_obs = len(group)
-        is_cold_start = n_obs < settings.min_history_days_for_ml
-
-        if is_cold_start:
-            # Baseline forecast
-            series = group["quantity"]
-            q_preds = baseline_model.forecast_series(series, horizon=settings.horizon_days, quantiles=settings.quantiles)
-            model_ver = f"{settings.model_version}_baseline"
-        else:
-            # ML Quantile forecast
-            q_preds = ml_model.predict_quantiles(group, horizon=settings.horizon_days)
-            model_ver = settings.model_version
-
-        payload = format_forecast_payload(
-            seller_id=seller_id,
-            listing_id=listing_id,
-            start_date=forecast_start_date,
-            quantiles_dict=q_preds,
-            model_version=model_ver,
-            is_cold_start=is_cold_start,
-        )
-
+    published_payloads: list[dict[str, Any]] = result["payloads"]
+    for payload in published_payloads:
         key = publish_to_redis(
             redis_client=redis_client,
-            seller_id=seller_id,
-            listing_id=listing_id,
+            seller_id=payload["seller_id"],
+            listing_id=payload["listing_id"],
             payload=payload,
             prefix=settings.redis_prefix,
             ttl_seconds=settings.redis_ttl_seconds,
         )
         published_keys.append(key)
-        published_payloads.append(payload)
 
     return {
         "status": "success",
@@ -82,3 +56,52 @@ def run_demand_forecast_pipeline(
         "published_keys": published_keys,
         "payloads": published_payloads,
     }
+
+
+def run_forecast_job(
+    settings: Settings, as_of: datetime.datetime, redis_client: Any
+) -> dict[str, Any]:
+    """Reads the export, forecasts every listing, writes listing keys, then the meta key."""
+    series = read_paid_series(settings.input_dir, as_of, settings.history_days)
+    generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    base = {
+        "generated_at": generated_at,
+        "as_of": as_of.isoformat(),
+        "horizon_days": settings.horizon_days,
+    }
+    if series.empty:
+        return {
+            "model_version": settings.model_version,
+            **base,
+            "listings": 0,
+            "cold_starts": 0,
+            "wape": None,
+            "baseline_wape": None,
+            "status": "empty",
+        }
+
+    result = select_and_forecast(series, as_of, settings)
+    for payload in result["payloads"]:
+        publish_to_redis(
+            redis_client=redis_client,
+            seller_id=payload["seller_id"],
+            listing_id=payload["listing_id"],
+            payload=payload,
+            prefix=settings.redis_prefix,
+            ttl_seconds=settings.redis_ttl_seconds,
+        )
+
+    def _num(value: Any) -> float | None:
+        return None if value is None else float(value)
+
+    meta = {
+        "model_version": result["model_version"],
+        **base,
+        "listings": result["listings"],
+        "cold_starts": result["cold_starts"],
+        "wape": _num(result["wape"]),
+        "baseline_wape": _num(result["baseline_wape"]),
+        "status": "ok",
+    }
+    publish_meta(redis_client, meta, ttl_seconds=settings.redis_ttl_seconds)
+    return meta

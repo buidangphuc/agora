@@ -22,6 +22,14 @@ Implement OpenSpec change `forecast-nightly-job` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_nightly_forecast.py
 - platform-e2e/tests/e2e/step_definitions/nightly_forecast_steps.py
 - platform-e2e/tests/e2e/flows/forecast_flow.py
+- widened (P1):
+  - docs/agents/project.md — docs-sync: platform-forecast unit loop and CI job rows
+  - platform-core/README.md — docs-sync: ADR-0013 status Proposed to Accepted in the ADR table
+  - platform-gitops/README.md — docs-sync: forecast raw-manifest app and platform/forecast kustomization
+  - platform-e2e/tests/e2e/flows/fnj_job_driver.py — e2e support (flow driver) of this change under a different name
+  - platform-e2e/tests/e2e/flows/fnj_job_flow.py — e2e support (flow) of this change under a different name
+  - platform-e2e/tests/e2e/step_definitions/fnj_steps.py — e2e step file of this change under a different name
+  - platform-e2e/tests/e2e/step_definitions/test_fnj_nightly_forecast.py — e2e scenario binding of this change under a different name
 
 ## Verify
 - `cd platform-forecast && uv run pytest -q`

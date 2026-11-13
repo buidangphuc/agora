@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -73,3 +74,67 @@ def fill_missing_dates(
             })
 
     return pd.DataFrame(records)
+
+
+class ConfigError(Exception):
+    """Input data or configuration is unusable (exit code 2)."""
+
+
+_REQUIRED_COLUMNS = ("seller_id", "listing_id", "quantity", "occurred_at", "status")
+
+
+def read_paid_series(
+    input_dir: Any, as_of: datetime.datetime, history_days: int
+) -> pd.DataFrame:
+    """Per-listing daily paid units from first sale to the last complete day before as_of."""
+    import duckdb
+
+    path = Path(input_dir) / "order_facts.parquet"
+    if not path.is_file():
+        raise ConfigError(f"missing input file: {path.name} in {input_dir}")
+
+    last_day = as_of.date() - datetime.timedelta(days=1)
+    first_day = as_of.date() - datetime.timedelta(days=history_days)
+    con = duckdb.connect()
+    try:
+        try:
+            cols = {
+                r[0]
+                for r in con.execute(
+                    "DESCRIBE SELECT * FROM read_parquet(?)", [str(path)]
+                ).fetchall()
+            }
+        except duckdb.Error as exc:
+            raise ConfigError(f"unreadable {path.name}: {exc}") from exc
+        missing = [c for c in _REQUIRED_COLUMNS if c not in cols]
+        if missing:
+            raise ConfigError(f"{path.name} missing columns: {', '.join(missing)}")
+        daily = con.execute(
+            """
+            SELECT seller_id, listing_id, CAST(occurred_at AS DATE) AS date,
+                   CAST(SUM(quantity) AS BIGINT) AS units
+            FROM read_parquet(?)
+            WHERE status = 'PAID'
+              AND CAST(occurred_at AS DATE) BETWEEN ? AND ?
+            GROUP BY 1, 2, 3
+            """,
+            [str(path), first_day, last_day],
+        ).df()
+    finally:
+        con.close()
+
+    columns = ["seller_id", "listing_id", "date", "units"]
+    if daily.empty:
+        return pd.DataFrame(columns=columns)
+    daily["date"] = pd.to_datetime(daily["date"])
+    end = pd.Timestamp(last_day)
+    frames = []
+    for (seller, listing), g in daily.groupby(["seller_id", "listing_id"]):
+        idx = pd.date_range(g["date"].min(), end)
+        s = g.set_index("date")["units"].reindex(idx, fill_value=0)
+        frames.append(
+            pd.DataFrame(
+                {"seller_id": seller, "listing_id": listing, "date": idx, "units": s.to_numpy()}
+            )
+        )
+    return pd.concat(frames, ignore_index=True)[columns]

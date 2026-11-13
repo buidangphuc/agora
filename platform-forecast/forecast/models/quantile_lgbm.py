@@ -1,58 +1,65 @@
-"""Multi-quantile gradient boosting model for demand forecasting."""
+"""Global multi-quantile LightGBM model for demand forecasting."""
 
 from __future__ import annotations
 
-from typing import Any
+import datetime as dt
 
+import lightgbm as lgb
 import numpy as np
-import pandas as pd
+
+from forecast.features import feature_vector, training_rows
+
+MODEL_VERSION = "lgbm_quantile_v1"
+QUANTILES = (0.10, 0.50, 0.90)
+SEED = 42
 
 
-class QuantileRegressor:
-    """Predicts p10, p50, p90 using pinball-loss quantile regression."""
+class GlobalQuantileLGBM:
+    """One LightGBM model per quantile, trained on all listings pooled."""
 
-    def __init__(self, quantiles: list[float] | None = None) -> None:
-        self.quantiles = quantiles or [0.10, 0.50, 0.90]
-        # Feature column names
-        self.feature_cols = [
-            "lag_1",
-            "lag_7",
-            "lag_14",
-            "rolling_mean_7",
-            "rolling_std_7",
-            "rolling_mean_14",
-            "day_of_week",
-            "is_weekend",
-        ]
+    def __init__(self, min_history: int = 14) -> None:
+        self.min_history = min_history
+        self.models: dict[float, lgb.Booster] = {}
 
-    def predict_quantiles(
-        self,
-        features_df: pd.DataFrame,
-        horizon: int = 28,
+    def fit(self, histories: list[np.ndarray], end_date: dt.date) -> "GlobalQuantileLGBM":
+        rows: list[list[float]] = []
+        targets: list[float] = []
+        for history in histories:
+            r, y = training_rows(history, end_date, self.min_history)
+            rows.extend(r)
+            targets.extend(y)
+        x = np.asarray(rows, dtype=float)
+        y_arr = np.asarray(targets, dtype=float)
+        for q in QUANTILES:
+            params = {
+                "objective": "quantile",
+                "alpha": q,
+                "learning_rate": 0.05,
+                "num_leaves": 15,
+                "min_data_in_leaf": 5,
+                "seed": SEED,
+                "num_threads": 1,
+                "deterministic": True,
+                "force_row_wise": True,
+                "verbose": -1,
+            }
+            model = lgb.train(params, lgb.Dataset(x, label=y_arr), num_boost_round=100)
+            self.models[q] = model
+        return self
+
+    def forecast(
+        self, history: np.ndarray, start_date: dt.date, horizon: int
     ) -> dict[str, list[float]]:
-        """Generates multi-step quantile forecasts."""
-        if features_df.empty:
-            zeros = [0.0] * horizon
-            return {f"p{int(q*100)}": zeros for q in self.quantiles}
-
-        last_row = features_df.iloc[-1]
-        r_mean_7 = float(last_row.get("rolling_mean_7", 1.0))
-        r_std_7 = float(last_row.get("rolling_std_7", max(1.0, r_mean_7 * 0.3)))
-        lag_7 = float(last_row.get("lag_7", r_mean_7))
-
-        out: dict[str, list[float]] = {}
-        for q in self.quantiles:
-            preds = []
-            z = -1.28 if q == 0.10 else (1.28 if q == 0.90 else 0.0)
-            for h in range(horizon):
-                # Day-of-week seasonality weight (weekend boost)
-                dow = (int(last_row.get("day_of_week", 0)) + h + 1) % 7
-                dow_factor = 1.2 if dow in (5, 6) else 0.95
-                
-                # Base mean autoregressive decay
-                base = (0.7 * r_mean_7 + 0.3 * lag_7) * dow_factor
-                val = max(0.0, round(float(base + z * max(0.5, r_std_7)), 2))
-                preds.append(val)
-            out[f"p{int(q*100)}"] = preds
-
+        """Recursive multi-step forecast; the p50 is fed back as the next value."""
+        values = [float(v) for v in history]
+        out: dict[str, list[float]] = {"p10": [], "p50": [], "p90": []}
+        for h in range(horizon):
+            day = start_date + dt.timedelta(days=h)
+            x = np.asarray([feature_vector(np.asarray(values), day)], dtype=float)
+            preds = sorted(max(0.0, float(self.models[q].predict(x)[0])) for q in QUANTILES)
+            lo, mid, hi = (round(p, 2) for p in preds)
+            out["p10"].append(lo)
+            out["p50"].append(mid)
+            out["p90"].append(hi)
+            values.append(mid)
         return out

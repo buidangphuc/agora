@@ -6,6 +6,7 @@
 - **Frontend unit**: `(cd <app> && npx vitest run <file>)` for `team-frontend` (buyer :3000), `team-frontend-seller` (:3001) or `team-frontend-admin` (:3002) — colocated `*.test.ts(x)`; each app needs its own `npm ci` and `npm run proto` stubs (also in every fresh worktree). Iterate with `npx vitest run <paths>` + `npx tsc --noEmit`, then one `npm run check` and `npm run build` per touched app.
 - **fe-platform**: `(cd fe-platform && npm ci && npm run check)`; after a `tokens`/`ui`/`api-client`/`session` change run `npm run catalog` and `npm run vendor`, then rewrite the `integrity` of the `@fe-platform/*` entries in each app's `package-lock.json` from the new tarball (sha512 base64) and `npm ci` in each app; commit `vendor/` with the lock file. The targets are `vendor.targets` in `fe-platform/package.json`; `vendor:check` fails on a stale tarball in any app.
 - **platform-featurestore**: `(cd platform-featurestore && uv run --frozen --all-extras pytest -q)` — the per-repo `.venv` has no pytest.
+- **platform-forecast**: `make -C platform-forecast test` (`uv run --extra dev pytest`).
 - **platform-recsys**: from `platform-recsys/`: `uv venv <scratch> && uv pip install -p <scratch> -r requirements-dev.txt -e .` (pulls py-modelregistry from `../platform-core/packages/py-modelregistry`, so run it from that dir), then `make -C platform-recsys compile lint check-env test-host PY=<scratch>/bin/python` — CI uses Python 3.10; Spark tests (`make test`, `make eval`) need Java 17 on `PATH`.
 - **py-modelregistry**: `cd platform-core/packages/py-modelregistry && pip install -e '.[dev]' && pytest -q` — offline, local MLflow file store; CI also runs `ruff check .` and `mypy src` (py3.10).
 - **platform-finetune**: `cd platform-finetune && uv pip install -e '.[dev,cpu]' 'mlflow>=3.14,<3.15' && pytest -q` — CPU, no GPU, no dataset download; the mlflow pin matches py-modelregistry's mlflow-skinny (pip's resolver hangs on the `dev` extra — use uv).
@@ -31,8 +32,9 @@
   - platform-recsys (py3.10): `make compile lint check-env test-host eval` — lint/test
   - platform-modelserve (py3.12): `make lint test` — lint/test
   - py-modelregistry (py3.10): `pip install -e '.[dev]' && ruff check . && mypy src && pytest -q` — lint/types/test
+  - platform-forecast (py3.12): `uv pip install --system -e '.[dev]' && python -m pytest tests -q` — test
   - platform-finetune (py3.11): `uv pip install --system -e '.[dev,cpu]' 'mlflow>=3.14,<3.15' && python -m pytest tests -q` — test
-  - Path filter also covers `platform-finetune/**` and `platform-core/packages/py-modelregistry/**`.
+  - Path filter also covers `platform-forecast/**`, `platform-finetune/**` and `platform-core/packages/py-modelregistry/**`.
 - Frontend apps (path-filtered, one workflow each: `.github/workflows/team-frontend-ci.yml`, `team-frontend-seller-ci.yml`, `team-frontend-admin-ci.yml`): `npm ci --ignore-scripts && npm run proto && npm run check && npm run build` in the app (`check` = biome + tsc + `scripts/check-tokens.mjs` + vitest), plus `docker build <app>` from the app directory — lint/test/build
 - fe-platform (`.github/workflows/fe-platform-ci.yml`): `npm ci && npm run check && npm run build -w templates/app` in `fe-platform/` (`check` includes `vendor:check` against every app's `vendor/`), and `npm run release:status` with `BASE=<base>` on PRs — lint/test
 - platform-gitops (no CI job): `python3 -m unittest discover -s platform-gitops/tests` (needs `yq` and PyYAML) — test
