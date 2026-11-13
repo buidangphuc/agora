@@ -10,7 +10,13 @@ import pytest
 
 from app.modules.business.recommendation.adapters.flipt import FliptExperimentAssigner
 from app.modules.business.recommendation.placements import load_placements
+from fakeredis import aioredis
+
+from app.modules.business.recommendation.adapters.redis_cache import RedisServingCache
+from app.modules.business.recommendation.contract.keys import ServingKeys
 from app.modules.business.recommendation.ports import Assignment
+from app.modules.business.recommendation.schemas import RecommendationQuery
+from tests.unit.recs_support import FakeAssigner, FakeStock, Source, build_service, cand
 
 FLAG = "recs-home-feed-ranker"
 SALT = "pepper-salt-9f3"
@@ -181,3 +187,187 @@ async def test_matched_variant_without_attachment_has_no_ranking_model_visitor_a
     ).assign(FLAG, "u1")
 
     assert result == Assignment("control", None, "assigned")
+
+
+ARM_SIMILARITY = f"{FLAG}:similarity"
+
+
+def _list(*ids: str) -> str:
+    return json.dumps([{"listing_id": i, "visible": True} for i in ids])
+
+
+async def _redis_with_user_list(*ids: str, popular: tuple[str, ...] = ()):
+    redis = aioredis.FakeRedis(decode_responses=True)
+    await redis.set("recs:v1:serving", "g1")
+    await redis.set("recs:v1:gen:g1:user:u1", _list(*ids))
+    if popular:
+        await redis.set("recs:v1:gen:g1:popular", _list(*popular))
+    return redis
+
+
+async def test_attachment_cannot_change_ladder():
+    redis = await _redis_with_user_list("l1", "l2", "l3", popular=("p1", "p2"))
+    stock = FakeStock({"l2": 0})
+    assigner = FakeAssigner(Assignment("similarity", "cosine_rank", "assigned"))
+    service = build_service(redis=redis, stock_lookup=stock, assigner=assigner)
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert [i.listing_id for i in result.items] == ["l1", "l3"]
+    assert result.tier == "user_precomputed"
+    assert result.ranker == "similarity"
+    assert result.arm == ARM_SIMILARITY
+    assert not result.fallback
+    assert stock.looked_up
+
+
+async def test_unknown_ranking_model_ignored():
+    redis = await _redis_with_user_list("l1", "l2")
+    assigner = FakeAssigner(Assignment("similarity", "lambdamart", "assigned"))
+    service = build_service(redis=redis, assigner=assigner)
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert [i.listing_id for i in result.items] == ["l1", "l2"]
+    assert result.ranker == "fixed_weights"
+    assert result.arm == ARM_SIMILARITY
+
+
+async def test_floor_reports_popular_tier():
+    redis = aioredis.FakeRedis(decode_responses=True)
+    await redis.set("recs:v1:serving", "g1")
+    await redis.set("recs:v1:gen:g1:popular", _list("p1", "p2"))
+    service = build_service(redis=redis)
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="new", placement_id="home_feed")
+    )
+
+    assert [i.listing_id for i in result.items] == ["p1", "p2"]
+    assert result.tier == "popular"
+    assert result.model_version == "g1"
+    assert result.fallback
+
+
+async def test_untrained_gbdt_reports_fixed_weights():
+    redis = await _redis_with_user_list("l1", "l2")
+    service = build_service(redis=redis)
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert result.tier == "user_precomputed"
+    assert result.ranker == "fixed_weights"
+    assert result.arm == "none"
+
+
+class _BrokenUserCache(RedisServingCache):
+    async def user_candidates(self, user_id, generation):
+        raise RuntimeError("bug in the user read")
+
+
+async def test_unexpected_failure_reports_fallback_tier():
+    redis = aioredis.FakeRedis(decode_responses=True)
+    await redis.set("recs:v1:serving", "g1")
+    await redis.set("recs:v1:gen:g1:popular", _list("p1", "p2"))
+    service = build_service(redis=redis)
+    service._cache = _BrokenUserCache(redis, ServingKeys("recs", "v1"))  # noqa: SLF001
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert [i.listing_id for i in result.items] == ["p1", "p2"]
+    assert result.tier == "serving-fallback"
+    assert result.fallback
+
+
+async def test_similarity_arm_changes_the_ranker_segment_only():
+    redis = await _redis_with_user_list("l1", "l2")
+    default = await build_service(redis=redis).recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+    arm = await build_service(
+        redis=redis,
+        assigner=FakeAssigner(Assignment("similarity", "cosine_rank", "assigned")),
+    ).recommend(RecommendationQuery(user_id="u1", placement_id="home_feed"))
+
+    assert default.ranker == "fixed_weights"
+    assert arm.ranker == "similarity"
+    assert arm.tier == default.tier
+    assert arm.arm == ARM_SIMILARITY
+
+
+async def test_unassigned_names_the_default_ranker_and_unassigned_arm():
+    redis = await _redis_with_user_list("l1")
+    service = build_service(
+        redis=redis, assigner=FakeAssigner(Assignment(None, None, "unassigned"))
+    )
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert result.ranker == "fixed_weights"
+    assert result.arm == f"{FLAG}:unassigned"
+
+
+async def test_control_variant_without_attachment_keeps_default_ranker():
+    redis = await _redis_with_user_list("l1")
+    service = build_service(
+        redis=redis, assigner=FakeAssigner(Assignment("control", None, "assigned"))
+    )
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert result.ranker == "fixed_weights"
+    assert result.arm == f"{FLAG}:control"
+
+
+async def test_assignment_uses_the_placement_flag_and_the_bound_identity():
+    redis = await _redis_with_user_list("l1")
+    assigner = FakeAssigner(Assignment(None, None, "none"))
+    service = build_service(redis=redis, assigner=assigner)
+
+    await service.recommend(
+        RecommendationQuery(user_id="u1", anonymous_id="a1", placement_id="home_feed")
+    )
+    await service.recommend(
+        RecommendationQuery(anonymous_id="a1", placement_id="home_feed")
+    )
+
+    assert assigner.calls == [(FLAG, "u1"), (FLAG, "a1")]
+
+
+async def test_a_buyer_with_precomputed_recommendations_reports_the_user_tier():
+    redis = await _redis_with_user_list("l1")
+    result = await build_service(redis=redis).recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert result.tier == "user_precomputed"
+    assert result.model_version == "g1"
+
+
+async def test_a_similar_items_request_reports_the_seed_tier_and_similarity_ranker():
+    redis = aioredis.FakeRedis(decode_responses=True)
+    await redis.set("recs:v1:serving", "g1")
+    assigner = FakeAssigner(Assignment("control", None, "assigned"))
+    service = build_service(
+        Source({"seed": [cand("n1", 0.9)]}), redis, assigner=assigner
+    )
+
+    result = await service.recommend(
+        RecommendationQuery(seed_listing_id="seed", placement_id="similar_items")
+    )
+
+    assert result.tier == "seed_vector_similarity"
+    assert result.ranker == "similarity"
+    assert result.arm == "none"
