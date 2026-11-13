@@ -11,7 +11,7 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 | RPC | Authorization | Notes |
 |---|---|---|
 | `GetListing`, `ListListings`, `ListCategories`, `GetCategory` | `listing.read` | `NotFound` for unknown id |
-| `ListMyListings` | `listing.write` | caller's own listings |
+| `ListMyListings` | `listing.write` | caller's own listings; optional `statuses` (OR-ed; `LISTING_STATUS_UNSPECIFIED` gives `InvalidArgument`) and `query` (trimmed, case-insensitive title match, blank ignored, over 100 runes gives `InvalidArgument`, never logged) |
 | `CreateListing` | `listing.write` | seller id forced from the principal |
 | `UpdateListing`, `DeleteListing` | `listing.write` + owner, or `admin` scope | `PermissionDenied` "not the listing owner"; delete is a hard `DELETE` |
 | `GetImageUploadUrl` | `listing.write` | `Unavailable` if no object store |

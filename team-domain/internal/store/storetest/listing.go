@@ -2,7 +2,9 @@ package storetest
 
 import (
 	"context"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,9 +62,16 @@ func (r *InMemoryListingRepository) List(_ context.Context, cursor string, pageS
 	}), nil
 }
 
-func (r *InMemoryListingRepository) ListByOwner(_ context.Context, ownerID, cursor string, pageSize int32) (store.Page, error) {
+func (r *InMemoryListingRepository) ListByOwner(_ context.Context, ownerID string, filter store.ListingFilter, cursor string, pageSize int32) (store.Page, error) {
+	q := strings.ToLower(filter.Query)
 	return r.page(cursor, pageSize, func(l store.Listing) bool {
-		return l.SellerID == ownerID
+		if l.SellerID != ownerID {
+			return false
+		}
+		if len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, l.Status) {
+			return false
+		}
+		return q == "" || strings.Contains(strings.ToLower(l.Title), q)
 	}), nil
 }
 
