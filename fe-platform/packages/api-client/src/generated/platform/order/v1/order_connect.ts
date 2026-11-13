@@ -6,7 +6,7 @@
 // team-order (Go) owns this: shopping cart + order placement + order lifecycle.
 // It reserves and releases stock via gRPC to team-domain (Rule 3).
 
-import { AddToCartRequest, AddToCartResponse, CalculateShippingFeeRequest, CalculateShippingFeeResponse, CancelOrderRequest, CancelOrderResponse, ClearCartRequest, ClearCartResponse, ConfirmReceiptRequest, ConfirmReceiptResponse, CreateOrderRequest, CreateOrderResponse, CreateReturnRequestRequest, CreateReturnRequestResponse, CreateShipmentRequest, CreateShipmentResponse, ForceFailSagaRequest, ForceFailSagaResponse, GetCartRequest, GetCartResponse, GetOrderRequest, GetOrderResponse, GetReturnRequestRequest, GetReturnRequestResponse, GetSagaStateRequest, GetSagaStateResponse, GetShipmentTrackingRequest, GetShipmentTrackingResponse, HasCompletedOrderRequest, HasCompletedOrderResponse, ListBuyerOrdersRequest, ListBuyerOrdersResponse, ListOrderReturnsRequest, ListOrderReturnsResponse, ListSellerOrdersRequest, ListSellerOrdersResponse, PreviewCheckoutRequest, PreviewCheckoutResponse, RemoveFromCartRequest, RemoveFromCartResponse, ReorderRequest, ReorderResponse, UpdateCartItemRequest, UpdateCartItemResponse, UpdateOrderStatusRequest, UpdateOrderStatusResponse, UpdateReturnStatusRequest, UpdateReturnStatusResponse } from "./order_pb.js";
+import { AddBundleToCartRequest, AddBundleToCartResponse, AddToCartRequest, AddToCartResponse, CalculateShippingFeeRequest, CalculateShippingFeeResponse, CancelOrderRequest, CancelOrderResponse, ClearCartRequest, ClearCartResponse, ConfirmReceiptRequest, ConfirmReceiptResponse, CreateOrderRequest, CreateOrderResponse, CreateReturnRequestRequest, CreateReturnRequestResponse, CreateShipmentRequest, CreateShipmentResponse, ForceFailSagaRequest, ForceFailSagaResponse, GetCartRequest, GetCartResponse, GetOrderRequest, GetOrderResponse, GetReturnRequestRequest, GetReturnRequestResponse, GetSagaStateRequest, GetSagaStateResponse, GetShipmentTrackingRequest, GetShipmentTrackingResponse, HasCompletedOrderRequest, HasCompletedOrderResponse, ListBuyerOrdersRequest, ListBuyerOrdersResponse, ListOrderReturnsRequest, ListOrderReturnsResponse, ListSellerOrdersRequest, ListSellerOrdersResponse, PreviewCheckoutRequest, PreviewCheckoutResponse, RemoveFromCartRequest, RemoveFromCartResponse, ReorderRequest, ReorderResponse, UpdateCartItemRequest, UpdateCartItemResponse, UpdateOrderStatusRequest, UpdateOrderStatusResponse, UpdateReturnStatusRequest, UpdateReturnStatusResponse } from "./order_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -70,6 +70,22 @@ export const CartService = {
       name: "Reorder",
       I: ReorderRequest,
       O: ReorderResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * AddBundleToCart adds every listing of a bundle to the caller's cart as one cart line per
+     * bundle listing, each tagged with bundle_id, and returns the updated cart. The line
+     * quantity is quantity of the bundle. Fails with NOT_FOUND when bundle_id is unknown,
+     * INVALID_ARGUMENT when quantity is below 1, and FAILED_PRECONDITION when a bundle listing
+     * is unpublished, out of stock, not owned by the bundle seller, or has a variant (variant
+     * listings cannot be bundled).
+     *
+     * @generated from rpc platform.order.v1.CartService.AddBundleToCart
+     */
+    addBundleToCart: {
+      name: "AddBundleToCart",
+      I: AddBundleToCartRequest,
+      O: AddBundleToCartResponse,
       kind: MethodKind.Unary,
     },
   }
