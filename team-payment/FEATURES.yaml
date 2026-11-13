@@ -3263,3 +3263,366 @@ features:
     - unit
     status: not-testable
     notes: "VERIFIED BY team-payment `internal/rpc` `TestWalletRPCAccess`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-seller-fee-charge.a-fee-is-debited-from-the-wallet
+    title: "A fee is debited from the wallet"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A fee is debited from the wallet"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.replaying-a-reference-books-nothing
+    title: "Replaying a reference books nothing"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Replaying a reference books nothing"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.concurrent-charges-of-one-reference-book-once
+    title: "Concurrent charges of one reference book once"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Concurrent charges of one reference book once"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.a-replay-still-succeeds-after-the-balance-dropped
+    title: "A replay still succeeds after the balance dropped"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A replay still succeeds after the balance dropped"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.reusing-a-reference-with-a-different-amount-is-rejected
+    title: "Reusing a reference with a different amount is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Reusing a reference with a different amount is rejected"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.a-fee-above-the-balance-is-refused
+    title: "A fee above the balance is refused"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A fee above the balance is refused"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable`, `TestChargeSellerFeeConcurrentWithPayout`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.a-fee-against-funds-still-on-hold-is-refused
+    title: "A fee against funds still on hold is refused"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A fee against funds still on hold is refused"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable`, `TestChargeSellerFeeConcurrentWithPayout`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.a-fee-equal-to-the-withdrawable-balance-is-accepted
+    title: "A fee equal to the withdrawable balance is accepted"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A fee equal to the withdrawable balance is accepted"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable`, `TestChargeSellerFeeConcurrentWithPayout`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.concurrent-fees-and-payouts-cannot-overdraw
+    title: "Concurrent fees and payouts cannot overdraw"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Concurrent fees and payouts cannot overdraw"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable`, `TestChargeSellerFeeConcurrentWithPayout`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.a-zero-or-negative-amount-is-rejected
+    title: "A zero or negative amount is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A zero or negative amount is rejected"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.the-reserved-ad-spend-kind-is-rejected
+    title: "The reserved ad-spend kind is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The reserved ad-spend kind is rejected"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.a-missing-reference-or-seller-is-rejected
+    title: "A missing reference or seller is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A missing reference or seller is rejected"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.a-reference-of-65-characters-is-rejected-and-64-is-accepted
+    title: "A reference of 65 characters is rejected and 64 is accepted"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A reference of 65 characters is rejected and 64 is accepted"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.a-seller-cannot-charge-a-fee
+    title: "A seller cannot charge a fee"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A seller cannot charge a fee"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` (principal rules); the gateway scenario is covered by `platform-e2e/tests/e2e/features/payment/seller_fee_charge.feature` `The gateway does not expose the fee RPC`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.an-admin-cannot-charge-a-fee
+    title: "An admin cannot charge a fee"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An admin cannot charge a fee"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` (principal rules); the gateway scenario is covered by `platform-e2e/tests/e2e/features/payment/seller_fee_charge.feature` `The gateway does not expose the fee RPC`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.an-unauthenticated-call-is-rejected
+    title: "An unauthenticated call is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An unauthenticated call is rejected"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` (principal rules); the gateway scenario is covered by `platform-e2e/tests/e2e/features/payment/seller_fee_charge.feature` `The gateway does not expose the fee RPC`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.the-gateway-does-not-expose-the-fee-rpc
+    title: "The gateway does not expose the fee RPC"
+    persona: seller
+    priority: P1
+    kind: authz
+    summary: A seller token cannot reach the service-only ChargeSellerFee RPC through the gateway.
+    entry_route: /platform.payment.v1.PaymentService/ChargeSellerFee
+    services:
+    - team-payment
+    - team-gateway
+    preconditions:
+      login: seller
+      data: A seller with a credited wallet.
+    api:
+      exercised: [payment.v1.ChargeSellerFee]
+    acceptance:
+    - "The gateway does not expose the fee RPC"
+    tags:
+    - payment
+    - seller
+    status: planned
+    notes: "Scenario of change payment-seller-fee-charge; feature payment/seller_fee_charge.feature."
+
+  - id: payment-seller-fee-charge.the-store-refuses-a-positive-fee-row
+    title: "The store refuses a positive fee row"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The store refuses a positive fee row"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.the-store-refuses-a-fee-row-without-a-reference
+    title: "The store refuses a fee row without a reference"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The store refuses a fee row without a reference"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.the-store-refuses-a-second-fee-row-for-one-reference
+    title: "The store refuses a second fee row for one reference"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The store refuses a second fee row for one reference"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+
+  - id: payment-seller-fee-charge.existing-ledger-types-still-migrate-cleanly
+    title: "Existing ledger types still migrate cleanly"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change payment-seller-fee-charge.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Existing ledger types still migrate cleanly"
+    tags:
+    - payment
+    - monetization
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."

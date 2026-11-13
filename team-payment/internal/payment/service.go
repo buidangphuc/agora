@@ -30,6 +30,7 @@ var (
 	ErrPayoutNotFound          = store.ErrPayoutNotFound
 	ErrInsufficientBalance     = store.ErrInsufficientBalance
 	ErrInvalidAmount           = store.ErrInvalidAmount
+	ErrFeeReferenceConflict    = store.ErrFeeReferenceConflict
 	ErrInvalidRefund           = errors.New("cannot refund unpaid or already refunded transaction")
 	// ErrPaymentRefunded: a (partially) refunded payment can never be paid again;
 	// re-settling it would reopen it to further refunds of money already returned.

@@ -59,6 +59,8 @@ type ListingService struct {
 	// kw and ai screen listings on publish / content edit; either may be nil.
 	kw KeywordMatcher
 	ai Screener
+	// ent resolves the seller plan limits for the create cap.
+	ent EntitlementsPort
 }
 
 // WithScreener wires the keyword matcher and the AI screener (either may be nil;
@@ -126,7 +128,11 @@ func (s *ListingService) Create(ctx context.Context, l store.Listing, ownerID st
 	}
 	l.SellerID = ownerID
 	l.Status = createStatus(l.Status)
-	return s.repo.Create(ctx, l)
+	limit, err := s.createLimit(ctx, ownerID)
+	if err != nil {
+		return store.Listing{}, err
+	}
+	return s.repo.CreateCapped(ctx, l, limit)
 }
 
 // Update replaces an existing listing. Only the owner (or an admin) may update
@@ -170,10 +176,14 @@ func (s *ListingService) CreateWithEvent(ctx context.Context, l store.Listing, o
 	if l.Status == "published" {
 		s.applyScreen(ctx, &l)
 	}
-	if s.tx == nil {
-		return s.repo.Create(ctx, l)
+	limit, err := s.createLimit(ctx, ownerID)
+	if err != nil {
+		return store.Listing{}, err
 	}
-	return s.tx.CreateTx(ctx, l, enqueue)
+	if s.tx == nil {
+		return s.repo.CreateCapped(ctx, l, limit)
+	}
+	return s.tx.CreateCappedTx(ctx, l, limit, enqueue)
 }
 
 // UpdateWithEvent replaces an existing listing (owner or admin only) and records

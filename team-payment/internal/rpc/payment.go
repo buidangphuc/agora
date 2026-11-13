@@ -48,6 +48,7 @@ func NewHandler(svc *payment.Service, gate *auditx.Gate, logger *slog.Logger) (*
 		grpcx.Rule{Target: payment.ErrOrderServiceUnavailable, Code: codes.Unavailable},
 		grpcx.Rule{Target: payment.ErrInsufficientBalance, Code: codes.FailedPrecondition, Message: "insufficient wallet balance"},
 		grpcx.Rule{Target: payment.ErrInvalidAmount, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: payment.ErrFeeReferenceConflict, Code: codes.AlreadyExists, Message: "reference_id was already used with a different amount"},
 		grpcx.Rule{Target: payment.ErrExceedsRemainder, Code: codes.FailedPrecondition, Message: "refund amount exceeds the refundable remainder"},
 		grpcx.Rule{Target: payment.ErrInvalidRefund, Code: codes.FailedPrecondition},
 		grpcx.Rule{Target: payment.ErrRefundIDConflict, Code: codes.AlreadyExists, Message: "refund_id was already used for another payment or amount"},

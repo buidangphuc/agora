@@ -20,6 +20,14 @@ ORDER_PAID_TYPE = "platform.order.v1.OrderPaidEvent"
 # platform.events.v1.EventEnvelope field numbers.
 _ENV_EVENT_ID, _ENV_TYPE, _ENV_PAYLOAD = 1, 2, 7
 
+# OrderPaidEvent price breakdown (optional fields: the key is present only when set on the wire).
+_BREAKDOWN_FIELDS = {
+    9: "items_subtotal",
+    10: "shipping_fee",
+    11: "shop_discount_amount",
+    12: "platform_discount_amount",
+}
+
 
 def _text(value: bytes | int) -> str:
     return bytes(value).decode("utf-8") if isinstance(value, (bytes, bytearray)) else str(value)
@@ -50,6 +58,8 @@ def decode_order_paid_envelope(raw: bytes) -> dict[str, Any]:
             out["total_amount"] = int(value)  # type: ignore[arg-type]
         elif number == 5 and wire == 2:
             out["currency"] = _text(value)
+        elif number in _BREAKDOWN_FIELDS and wire == 0:
+            out[_BREAKDOWN_FIELDS[number]] = int(value)  # type: ignore[arg-type]
         elif number == 3 and wire == 2:  # OrderLineItemFact
             item: dict[str, Any] = {}
             names = {1: "listing_id", 2: "variant_id", 3: "seller_id", 6: "currency"}

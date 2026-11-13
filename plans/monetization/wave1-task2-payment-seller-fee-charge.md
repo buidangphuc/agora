@@ -25,6 +25,9 @@ Implement OpenSpec change `payment-seller-fee-charge` test-first per its tasks.m
 - platform-e2e/tests/e2e/support/seller_fee_charge_support.py
 - platform-e2e/tests/e2e/step_definitions/test_seller_fee_charge.py
 
+### widened (P1)
+- team-gateway/README.md (docs-sync README: ChargeSellerFee is service-to-service, not forwarded by the edge)
+
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-payment` (equivalent: `cd team-payment && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)
 - `cd team-payment && make check`

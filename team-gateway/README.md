@@ -34,7 +34,9 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 | analytics `AnalyticsQueryService` | team-analytics (`UPSTREAM_ANALYTICS_ADDR`) |
 | referral / verification / sharing / audit | team-referral / team-verification / team-sharing / team-audit (`UPSTREAM_*_ADDR`) |
 
-`PaymentService.GetOrderSettlement`, `ChargeSellerFee`, `SubscriptionService.GetMySubscription`, `CancelSubscription` and `SponsoredService.ListMyAdCampaigns`, `PauseAdCampaign`, `ResumeAdCampaign`, `RecordAdClick` are contract only (monetization-contract, not built): the forwarders embed `Unimplemented*Handler` (`internal/edge/payment.go:13`, `internal/edge/promotion.go:288`, `:348`), so the edge returns `Unimplemented`.
+`PaymentService.GetOrderSettlement`, `SubscriptionService.GetMySubscription`, `CancelSubscription` and `SponsoredService.ListMyAdCampaigns`, `PauseAdCampaign`, `ResumeAdCampaign`, `RecordAdClick` are contract only (monetization-contract, not built): the forwarders embed `Unimplemented*Handler` (`internal/edge/payment.go:13`, `internal/edge/promotion.go:288`, `:348`), so the edge returns `Unimplemented`.
+
+`PaymentService.ChargeSellerFee` is not forwarded: it is service-to-service only (built in team-payment by payment-seller-fee-charge), `PaymentForwarder` keeps the embedded `UnimplementedPaymentServiceHandler` (`internal/edge/payment.go:13`), so the edge answers `Unimplemented` (HTTP 404).
 
 `SearchService.GetListingStock` is not forwarded: `SearchForwarder` does not implement it, so the edge returns `Unimplemented` (service-to-service only, team-ai calls team-search directly).
 

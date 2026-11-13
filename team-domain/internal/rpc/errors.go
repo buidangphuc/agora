@@ -2,8 +2,12 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/team-domain/internal/listing"
@@ -15,6 +19,12 @@ const (
 	msgStatusChange  = "listing status does not allow this change"
 	msgStatusDecide  = "listing status does not allow this decision"
 	msgNotReservable = "listing is not reservable"
+	msgListingCap    = "listing limit of the current plan reached"
+	msgEntitlements  = "plan entitlements unavailable"
+	reasonListingCap = "PLAN_LISTING_LIMIT"
+	msgFeaturedCap   = "featured listings limit of the current plan exceeded"
+	reasonFeatured   = "PLAN_FEATURED_LIMIT"
+	errorDomain      = "team-domain"
 	msgReusedID      = "reservation_id already used for a different listing, variant or quantity"
 )
 
@@ -49,5 +59,24 @@ func newErrorTable() grpcx.ErrorTable {
 var errorTable = newErrorTable()
 
 func fail(ctx context.Context, err error) error {
+	if errors.Is(err, store.ErrListingCapReached) {
+		slog.InfoContext(ctx, "listing create rejected at plan cap")
+		st := status.New(codes.ResourceExhausted, msgListingCap)
+		if withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Reason: reasonListingCap, Domain: errorDomain}); derr == nil {
+			st = withInfo
+		}
+		return st.Err()
+	}
+	if errors.Is(err, listing.ErrFeaturedLimit) {
+		st := status.New(codes.ResourceExhausted, msgFeaturedCap)
+		if withInfo, derr := st.WithDetails(&errdetails.ErrorInfo{Reason: reasonFeatured, Domain: errorDomain}); derr == nil {
+			st = withInfo
+		}
+		return st.Err()
+	}
+	if errors.Is(err, listing.ErrEntitlementsUnavailable) {
+		slog.WarnContext(ctx, "plan entitlements unavailable", "err", err)
+		return status.Error(codes.Unavailable, msgEntitlements)
+	}
 	return grpcx.Status(ctx, nil, err, errorTable)
 }

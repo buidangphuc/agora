@@ -3,6 +3,7 @@ package listing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -34,6 +35,14 @@ const (
 // return domain values, let the handler adapt to protobuf.
 type StorefrontService struct {
 	repo store.StorefrontRepository
+	ent  EntitlementsPort
+}
+
+var ErrFeaturedLimit = errors.New("featured listings exceed plan limit")
+
+func (s *StorefrontService) WithEntitlements(p EntitlementsPort) *StorefrontService {
+	s.ent = p
+	return s
 }
 
 func NewStorefrontService(repo store.StorefrontRepository) *StorefrontService {
@@ -55,6 +64,20 @@ func (s *StorefrontService) Upsert(ctx context.Context, sf store.Storefront, own
 		return store.Storefront{}, ErrDisplayNameInvalid
 	}
 	sf.DisplayName = name
+	if n := len(sf.FeaturedListingIDs); n > 0 {
+		if s.ent != nil {
+			ent, err := s.ent.Get(ctx, ownerID)
+			if err != nil {
+				if errors.Is(err, ErrEntitlementsUnavailable) {
+					return store.Storefront{}, err
+				}
+				return store.Storefront{}, fmt.Errorf("%w: %w", ErrEntitlementsUnavailable, err)
+			}
+			if ent.FeaturedListings >= 0 && int64(n) > ent.FeaturedListings {
+				return store.Storefront{}, ErrFeaturedLimit
+			}
+		}
+	}
 	sf.SellerID = ownerID // owner is server-forced, never client-supplied
 	return s.repo.Upsert(ctx, sf)
 }

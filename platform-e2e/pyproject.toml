@@ -34,6 +34,7 @@ markers = [
     "smoke: critical golden-path scenarios (whole set stays fast)",
     "buyer: consumer/buyer persona journeys",
     "seller: seller persona journeys",
+    "plan_cap: seller plan listing cap (listing-plan-cap)",
     "auth: authentication flows driven through the real UI",
     "order: order tracking, fulfillment and RMA return journeys",
     "engagement: reviews, favorites, Q&A and disputes",

@@ -29,6 +29,9 @@ var (
 	ErrReservationIDRequired = errors.New("reservation id required")
 	// ErrListingNotReservable: a new reservation targeted a held listing.
 	ErrListingNotReservable = errors.New("listing not reservable")
+
+	// ErrListingCapReached: the seller is at or over the plan listing cap.
+	ErrListingCapReached = errors.New("seller listing cap reached")
 )
 
 // Reservation lifecycle (owned by team-domain): active -> committed | released,
@@ -119,6 +122,11 @@ type ListingRepository interface {
 	ListByOwner(ctx context.Context, ownerID, cursor string, pageSize int32) (Page, error)
 	// Create inserts a new listing (id must be set by the caller).
 	Create(ctx context.Context, l Listing) (Listing, error)
+	// CountBySeller counts every listing of the seller, any status.
+	CountBySeller(ctx context.Context, sellerID string) (int64, error)
+	// CreateCapped counts the seller's listings and inserts under a per-seller lock;
+	// ErrListingCapReached when count >= limit (limit -1 = unlimited).
+	CreateCapped(ctx context.Context, l Listing, limit int64) (Listing, error)
 	// Update replaces the listing identified by l.ID; ErrNotFound if absent.
 	Update(ctx context.Context, l Listing) (Listing, error)
 	// Delete removes the listing by id, returning the deleted row (for the
