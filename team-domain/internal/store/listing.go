@@ -119,7 +119,7 @@ type ListingRepository interface {
 	// List returns a page filtered by status (empty status = all).
 	List(ctx context.Context, cursor string, pageSize int32, status string) (Page, error)
 	// ListByOwner returns a page of listings owned by ownerID.
-	ListByOwner(ctx context.Context, ownerID, cursor string, pageSize int32) (Page, error)
+	ListByOwner(ctx context.Context, ownerID string, filter ListingFilter, cursor string, pageSize int32) (Page, error)
 	// Create inserts a new listing (id must be set by the caller).
 	Create(ctx context.Context, l Listing) (Listing, error)
 	// Update replaces the listing identified by l.ID; ErrNotFound if absent.

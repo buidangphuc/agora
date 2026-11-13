@@ -868,6 +868,9 @@ func toWireOrder(o store.Order) *orderv1.Order {
 			Quantity:    it.Quantity,
 			UnitPrice:   it.UnitPrice,
 			ImageUrl:    it.ImageURL,
+
+			BundleId:       it.BundleID,
+			BundleDiscount: it.BundleDiscount,
 		})
 	}
 

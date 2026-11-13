@@ -25,6 +25,9 @@ Implement OpenSpec change `order-bundle-checkout` test-first per its tasks.md; c
 - platform-e2e/src/api/services/cart_service.py
 - platform-e2e/src/api/services/order_service.py
 - platform-e2e/src/api/services/listing_service.py
+- widened (P1):
+  - platform-e2e/tests/e2e/step_definitions/order_bundle_checkout_steps.py — e2e step file for bundle_checkout.feature (named after the slice instead of bundle_checkout_steps.py)
+  - platform-e2e/tests/e2e/step_definitions/test_order_bundle_checkout.py — e2e pytest-bdd scenario binding for bundle_checkout.feature (named after the slice instead of test_bundle_checkout.py)
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-order --vet`
