@@ -65,14 +65,20 @@ describe("slicePage", () => {
 describe("parseMarketingParams", () => {
   it("Tab is kept in the URL: flashsale tab, cursor and status are read", () => {
     expect(
-      parseMarketingParams({ tab: "flashsale", cursor: "c20", status: "cancelled" }),
+      parseMarketingParams({
+        tab: "flashsale",
+        cursor: "c20",
+        status: "cancelled",
+      }),
     ).toEqual({ tab: "flashsale", cursor: "c20", status: "cancelled" });
   });
 
   it("Unknown tab value falls back to the default: missing or bogus tab is voucher", () => {
     expect(parseMarketingParams({}).tab).toBe("voucher");
     expect(parseMarketingParams({ tab: "bogus" }).tab).toBe("voucher");
-    expect(parseMarketingParams({ tab: ["flashsale", "x"] }).tab).toBe("flashsale");
+    expect(parseMarketingParams({ tab: ["flashsale", "x"] }).tab).toBe(
+      "flashsale",
+    );
   });
 
   it("Hub status filter narrows the list: only scheduled, active, ended, cancelled are accepted", () => {

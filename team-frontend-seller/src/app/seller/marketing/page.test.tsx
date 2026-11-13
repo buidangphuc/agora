@@ -66,7 +66,9 @@ const isSelected = (name: string) =>
   screen
     .getAllByText(name)
     .some((el) =>
-      el.closest('[aria-selected="true"],[aria-current="page"],[aria-current="true"]'),
+      el.closest(
+        '[aria-selected="true"],[aria-current="page"],[aria-current="true"]',
+      ),
     );
 
 beforeEach(() => {
@@ -98,7 +100,9 @@ describe("/seller/marketing page", () => {
     expect(isSelected("Flash sale")).toBe(true);
     expect(isSelected("Voucher của shop")).toBe(false);
     expect(
-      screen.getByRole("link", { name: "Voucher của shop" }).getAttribute("href"),
+      screen
+        .getByRole("link", { name: "Voucher của shop" })
+        .getAttribute("href"),
     ).toContain("tab=voucher");
     expect(listMyCampaigns).toHaveBeenCalledTimes(1);
     expect(listMyShopVouchers).not.toHaveBeenCalled();
@@ -129,7 +133,9 @@ describe("/seller/marketing page", () => {
 
   it("does not call ListMyCampaigns without listing.write", async () => {
     vi.mocked(getPrincipal).mockReturnValue(buyer as never);
-    await MarketingPage({ searchParams: Promise.resolve({ tab: "flashsale" }) });
+    await MarketingPage({
+      searchParams: Promise.resolve({ tab: "flashsale" }),
+    });
     expect(listMyCampaigns).not.toHaveBeenCalled();
   });
 
@@ -186,7 +192,9 @@ describe("/seller/marketing page", () => {
     const next = container.querySelector('a[href*="cursor=c20"]');
     expect(next).not.toBeNull();
     expect(next?.getAttribute("href")).toContain("tab=voucher");
-    expect(vi.mocked(listMyShopVouchers).mock.calls[0][0].cursor ?? "").toBe("");
+    expect(vi.mocked(listMyShopVouchers).mock.calls[0][0].cursor ?? "").toBe(
+      "",
+    );
 
     document.body.innerHTML = "";
     vi.mocked(listMyShopVouchers).mockResolvedValueOnce(vouchersOk(1, ""));
@@ -235,7 +243,9 @@ describe("/seller/marketing page", () => {
 
   it("Hub status filter narrows the list: no status sends no status filter", async () => {
     await renderPage({ tab: "flashsale" });
-    expect(vi.mocked(listMyCampaigns).mock.calls[0][0].statuses ?? []).toEqual([]);
+    expect(vi.mocked(listMyCampaigns).mock.calls[0][0].statuses ?? []).toEqual(
+      [],
+    );
   });
 
   it("Listing title lookup failure does not hide the row: the listing id stands in for the title", async () => {

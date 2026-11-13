@@ -42,9 +42,13 @@ describe("FlashSaleTab", () => {
         ]}
       />,
     );
-    expect(within(rowFor("Áo thun")).getByText("Sắp diễn ra")).toBeInTheDocument();
+    expect(
+      within(rowFor("Áo thun")).getByText("Sắp diễn ra"),
+    ).toBeInTheDocument();
     expect(within(rowFor("Áo thun")).getByText("0/10")).toBeInTheDocument();
-    expect(within(rowFor("Giày")).getByText("Đang diễn ra")).toBeInTheDocument();
+    expect(
+      within(rowFor("Giày")).getByText("Đang diễn ra"),
+    ).toBeInTheDocument();
     expect(within(rowFor("Giày")).getByText("5/20")).toBeInTheDocument();
   });
 
@@ -105,8 +109,16 @@ describe("FlashSaleTab", () => {
       <FlashSaleTab
         titles={{}}
         rows={[
-          campaignRow({ id: "a", listingId: "la", status: CampaignStatus.ACTIVE }),
-          campaignRow({ id: "e", listingId: "le", status: CampaignStatus.ENDED }),
+          campaignRow({
+            id: "a",
+            listingId: "la",
+            status: CampaignStatus.ACTIVE,
+          }),
+          campaignRow({
+            id: "e",
+            listingId: "le",
+            status: CampaignStatus.ENDED,
+          }),
           campaignRow({
             id: "x",
             listingId: "lx",

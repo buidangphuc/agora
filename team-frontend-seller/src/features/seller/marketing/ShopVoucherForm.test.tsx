@@ -93,7 +93,9 @@ describe("ShopVoucherForm", () => {
     render(<ShopVoucherForm />);
     fill();
     submit();
-    expect(await screen.findByText("Mã voucher đã tồn tại")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Mã voucher đã tồn tại"),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/Mã voucher/)).toHaveValue("GIAM10");
     expect(screen.getByLabelText(/Số lượt dùng/)).toHaveValue(100);
   });

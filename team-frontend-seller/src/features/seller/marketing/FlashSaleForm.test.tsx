@@ -65,7 +65,11 @@ describe("FlashSaleForm", () => {
     await act(async () => submit());
     expect(createCampaignAction).toHaveBeenCalledTimes(1);
     const arg = vi.mocked(createCampaignAction).mock.calls[0][0];
-    expect(arg).toMatchObject({ listingId: "l1", salePrice: 50000, stockCap: 10 });
+    expect(arg).toMatchObject({
+      listingId: "l1",
+      salePrice: 50000,
+      stockCap: 10,
+    });
     expect(arg.idempotencyKey).toEqual(expect.any(String));
     expect(arg.idempotencyKey).not.toBe("");
     expect(arg.startsAt).toBeInstanceOf(Date);
@@ -75,7 +79,10 @@ describe("FlashSaleForm", () => {
   it("double submit sends one CreateCampaign with one idempotency key", async () => {
     let release: (v: { ok: true }) => void = () => {};
     vi.mocked(createCampaignAction).mockImplementationOnce(
-      () => new Promise((r) => { release = r; }),
+      () =>
+        new Promise((r) => {
+          release = r;
+        }),
     );
     render(<FlashSaleForm />);
     await pick();
@@ -110,7 +117,7 @@ describe("FlashSaleForm", () => {
     render(<FlashSaleForm />);
     fill();
     await act(async () => submit());
-    expect((screen.getAllByRole("alert")).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
     expect(createCampaignAction).not.toHaveBeenCalled();
   });
 
