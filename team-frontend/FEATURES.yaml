@@ -12610,3 +12610,147 @@ features:
     status: automated
     covered_by: frontend/cart_cross_sell_ui.feature::Beacons carry the recommendation identity
     notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
+
+  - id: shop-page-featured-theme.featured-listings-appear-first-in-the-chosen-order
+    title: "Featured listings appear first in the chosen order"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: Featured listings appear first in the chosen order"
+    entry_route: "/shop/{id}"
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor opens `/shop/{id}` of a shop whose storefront features published listings B, A, C (in that order)"
+      - "Then the block `featured-listings` contains exactly the cards B, A, C in that order, and the main grid contains none of them"
+    tags: [buyer, shop]
+    status: planned
+    notes: "shop-page-featured-theme: frontend/shop_storefront_ui.feature. Red until the change is implemented."
+
+  - id: shop-page-featured-theme.a-listing-unpublished-after-being-featured-is-skipped
+    title: "A listing unpublished after being featured is skipped"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: A listing unpublished after being featured is skipped"
+    entry_route: "/shop/{id}"
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor opens `/shop/{id}` and one of the 3 featured listings has been unpublished since it was saved"
+      - "Then the page responds 200 with the 2 remaining featured cards, no error text, and the unpublished listing appears nowhere on the page"
+    tags: [buyer, shop]
+    status: planned
+    notes: "shop-page-featured-theme: frontend/shop_storefront_ui.feature. Red until the change is implemented."
+
+  - id: shop-page-featured-theme.a-shop-without-featured-listings-has-no-featured-block
+    title: "A shop without featured listings has no featured block"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: A shop without featured listings has no featured block"
+    entry_route: "/shop/{id}"
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor opens `/shop/{id}` of a shop with no featured ids"
+      - "Then the page has no `featured-listings` element and the main grid shows all the shop's published listings"
+    tags: [buyer, shop]
+    status: planned
+    notes: "shop-page-featured-theme: frontend/shop_storefront_ui.feature. Red until the change is implemented."
+
+  - id: shop-page-featured-theme.a-themed-shop-renders-its-theme
+    title: "A themed shop renders its theme"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: A themed shop renders its theme"
+    entry_route: "/shop/{id}"
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor opens `/shop/{id}` of a shop whose storefront theme is `festive`"
+      - "Then the `shop-header-card` has `data-theme='festive'` and its computed header background colour differs from the one of a `default` shop"
+    tags: [buyer, shop]
+    status: planned
+    notes: "shop-page-featured-theme: frontend/shop_storefront_ui.feature. Red until the change is implemented."
+
+  - id: shop-page-featured-theme.a-featured-id-of-another-shop-is-not-shown
+    title: "A featured id of another shop is not shown"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: A featured id of another shop is not shown"
+    entry_route: "/shop/{id}"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the stored storefront lists a published listing owned by a different seller"
+      - "Then that listing is not rendered in the `featured-listings` block"
+    tags: [buyer, shop, unit]
+    status: not-testable
+    notes: "shop-page-featured-theme: VERIFIED BY team-frontend/src/features/shop/featured.test.ts `drops a listing owned by another seller`. Not producible end to end: the gateway rejects featuring a foreign listing at save time, so the stored state cannot be built."
+
+  - id: shop-page-featured-theme.at-most-6-featured-listings-are-shown
+    title: "At most 6 featured listings are shown"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: At most 6 featured listings are shown"
+    entry_route: "/shop/{id}"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the stored storefront holds 8 valid featured ids"
+      - "Then the `featured-listings` block shows exactly the first 6, and duplicated ids show once"
+    tags: [buyer, shop, unit]
+    status: not-testable
+    notes: "shop-page-featured-theme: VERIFIED BY team-frontend/src/features/shop/featured.test.ts `caps at 6 and dedupes`. Pure resolution rule on a stored list; asserted at unit level."
+
+  - id: shop-page-featured-theme.a-storefront-outage-does-not-break-the-page
+    title: "A storefront outage does not break the page"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: A storefront outage does not break the page"
+    entry_route: "/shop/{id}"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `GetStorefront` fails for the shop"
+      - "Then the page still renders with the product grid, no featured block and the default theme"
+    tags: [buyer, shop, unit]
+    status: not-testable
+    notes: "shop-page-featured-theme: VERIFIED BY team-frontend/src/features/shop/ShopStorefrontView.test.tsx `renders without a storefront`. Failing the gateway call is not reproducible through the UI."
+
+  - id: shop-page-featured-theme.an-unknown-theme-key-falls-back-to-default
+    title: "An unknown theme key falls back to default"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: An unknown theme key falls back to default"
+    entry_route: "/shop/{id}"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the stored theme key is empty or not one of `default`, `dark`, `festive`"
+      - "Then `data-theme='default'` is rendered and the raw key is never placed in a class or style"
+    tags: [buyer, shop, unit]
+    status: not-testable
+    notes: "shop-page-featured-theme: VERIFIED BY team-frontend/src/features/shop/shopTheme.test.ts `unknown key resolves to default`. Pure fallback rule on a stored key; asserted at unit level."
+
+  - id: shop-page-featured-theme.theme-text-stays-readable
+    title: "Theme text stays readable"
+    persona: buyer
+    priority: P2
+    summary: "Scenario of change shop-page-featured-theme: Theme text stays readable"
+    entry_route: "/shop/{id}"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When any of the three themes is rendered"
+      - "Then header text on header background has contrast of at least 4.5:1"
+    tags: [buyer, shop, unit]
+    status: not-testable
+    notes: "shop-page-featured-theme: VERIFIED BY team-frontend/src/features/shop/shopTheme.test.ts `every theme meets AA contrast`. Token arithmetic, not a browser-observable behaviour."
