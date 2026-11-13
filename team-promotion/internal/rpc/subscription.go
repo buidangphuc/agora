@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
+	"github.com/buidangphuc/team-promotion/internal/store"
 	"github.com/buidangphuc/team-promotion/internal/subscription"
 )
 
@@ -67,4 +69,31 @@ func (h *SubscriptionHandler) GetEntitlements(ctx context.Context, req *promotio
 		return nil, fail(ctx, h.logger, err)
 	}
 	return &promotionv1.GetEntitlementsResponse{Plan: promotionv1.PlanTier(tier), Limits: limits}, nil
+}
+
+func (h *SubscriptionHandler) GetMySubscription(ctx context.Context, _ *promotionv1.GetMySubscriptionRequest) (*promotionv1.GetMySubscriptionResponse, error) {
+	principal, err := auth.RequireScopes(ctx, scopeListingWrite)
+	if err != nil {
+		return nil, err
+	}
+	sub, err := h.svc.GetMySubscription(ctx, principal.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrSubscriptionNotFound) {
+			return &promotionv1.GetMySubscriptionResponse{}, nil
+		}
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.GetMySubscriptionResponse{Subscription: subscriptionToProto(sub)}, nil
+}
+
+func (h *SubscriptionHandler) CancelSubscription(ctx context.Context, _ *promotionv1.CancelSubscriptionRequest) (*promotionv1.CancelSubscriptionResponse, error) {
+	principal, err := auth.RequireScopes(ctx, scopeListingWrite)
+	if err != nil {
+		return nil, err
+	}
+	sub, err := h.svc.Cancel(ctx, principal.ID)
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.CancelSubscriptionResponse{Subscription: subscriptionToProto(sub)}, nil
 }

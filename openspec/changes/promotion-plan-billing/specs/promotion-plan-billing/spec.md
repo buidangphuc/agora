@@ -9,22 +9,22 @@
 #### Scenario: Catalog shows corrected prices
 - **WHEN** a client calls `ListPlans` on a database migrated from the previous seed
 - **THEN** the plans are returned as (0, 30), (199000, 30) and (499000, 30) for price and term_days in tier order
-- **VERIFIED BY**: team-promotion `internal/store` `TestMigrationCorrectsPlanPrices`
+- **VERIFIED BY**: team-promotion `internal/store` `TestMigrationCorrectsPlanPrices_CatalogShowsCorrectedPrices`
 
 #### Scenario: Go catalog and migrated rows agree
 - **WHEN** `DefaultPlans()` is compared with the rows of `subscription_plans` after all migrations
 - **THEN** id, tier, price, term_days and limits are equal for all three plans
-- **VERIFIED BY**: team-promotion `internal/store` `TestDefaultPlansMatchMigratedCatalog`
+- **VERIFIED BY**: team-promotion `internal/store` `TestDefaultPlansMatchMigratedCatalog_GoCatalogAndMigratedRowsAgree`
 
 #### Scenario: Existing paid subscription is grandfathered for one term
 - **WHEN** the migration runs over an ACTIVE PRO row that has no period
 - **THEN** the row has `current_period_end` 30 days after migration time, `auto_renew` true and no `ChargeSellerFee` call is made
-- **VERIFIED BY**: team-promotion `internal/store` `TestMigrationGrandfathersActiveSubscriptions`
+- **VERIFIED BY**: team-promotion `internal/store` `TestMigrationGrandfathersActiveSubscriptions_ActivePaidRowGetsOneTerm`
 
 #### Scenario: Non-positive term is rejected by the schema
 - **WHEN** a plan row is inserted or updated with `term_days` 0
 - **THEN** the database rejects the write with a check-constraint violation and the catalog is unchanged
-- **VERIFIED BY**: team-promotion `internal/store` `TestPlanTermDaysMustBePositive`
+- **VERIFIED BY**: team-promotion `internal/store` `TestPlanTermDaysMustBePositive_SchemaRejectsZero`
 
 ### Requirement: Subscribing to a higher plan charges the wallet and starts a term
 
@@ -68,7 +68,7 @@ When a seller subscribes to a plan whose tier is higher than the seller's curren
 #### Scenario: Concurrent subscribes charge once
 - **WHEN** two `Subscribe(plan_pro)` calls for the same seller run concurrently against a real database
 - **THEN** one SUBSCRIPTION_FEE entry exists and both calls return an ACTIVE PRO subscription
-- **VERIFIED BY**: team-promotion `internal/store` `TestConcurrentSubscribeSingleCharge`
+- **VERIFIED BY**: team-promotion `internal/store` `TestConcurrentSubscribeSingleCharge_SubscriptionRowTwoCallsChargeOnce`
 
 ### Requirement: Downgrade, cancel and resume take effect at the period boundary
 
