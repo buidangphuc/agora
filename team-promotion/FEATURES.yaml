@@ -6178,7 +6178,6 @@ features:
       - "Seller upgrades to PRO and the wallet is debited"
     tags: [promotion, seller]
     status: planned
-    covered_by: "promotion/seller_plan_billing.feature::Seller upgrades to PRO and the wallet is debited"
     notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
 
   - id: promotion.ppb-seller-without-funds-cannot-upgrade
@@ -6196,7 +6195,6 @@ features:
       - "Seller without funds cannot upgrade"
     tags: [promotion, seller]
     status: planned
-    covered_by: "promotion/seller_plan_billing.feature::Seller without funds cannot upgrade"
     notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
 
   - id: promotion.ppb-cancelled-plan-lapses-at-period-end
@@ -6214,7 +6212,6 @@ features:
       - "Cancelled plan lapses at period end"
     tags: [promotion, seller]
     status: planned
-    covered_by: "promotion/seller_plan_billing.feature::Cancelled plan lapses at period end"
     notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
 
   - id: promotion.ppb-another-seller-cannot-cancel-my-plan
@@ -6232,5 +6229,4 @@ features:
       - "Another seller cannot cancel my plan"
     tags: [promotion, seller]
     status: planned
-    covered_by: "promotion/seller_plan_billing.feature::Another seller cannot cancel my plan"
     notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
