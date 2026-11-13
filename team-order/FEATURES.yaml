@@ -7390,3 +7390,446 @@ features:
     tags: [order, discovery-followups, unit]
     status: not-testable
     notes: "VERIFIED BY team-order migrations TestMigration0024_NoCodOrders. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.slp-pages-cover-the-seller-s-orders-exactly-once
+    title: "Pages cover the seller's orders exactly once"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Pages cover the seller's orders exactly once"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-default-page-size-is-20
+    title: "Default page size is 20"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Default page size is 20"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-page-size-above-the-maximum-is-clamped
+    title: "Seller orders: Page size above the maximum is clamped"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: Page size above the maximum is clamped"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-a-negative-page-size-is-rejected
+    title: "A negative page size is rejected"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A negative page size is rejected"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-an-unknown-cursor-is-rejected
+    title: "An unknown cursor is rejected"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "An unknown cursor is rejected"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-a-cursor-never-reaches-another-seller-s-orders
+    title: "A cursor never reaches another seller's orders"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A cursor never reaches another seller's orders"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-a-seller-with-no-orders-gets-an-empty-page
+    title: "A seller with no orders gets an empty page"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A seller with no orders gets an empty page"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-an-unauthenticated-caller-is-denied
+    title: "An unauthenticated caller is denied"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "An unauthenticated caller is denied"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-paged-latency-at-5-000-orders
+    title: "Paged latency at 5,000 orders"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Paged latency at 5,000 orders"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-migration-applies-and-reverts
+    title: "Migration applies and reverts"
+    persona: seller
+    priority: P1
+    summary: "Unit-verified scenario of change order-seller-list-paging (initiative seller-centre)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Migration applies and reverts"
+    tags: [order, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0025_AppliesAndReverts. Not producible black box: needs a database migrated up and down."
+
+  - id: order.slp-one-status-tab
+    title: "One status tab"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "One status tab"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+    persona: seller
+    priority: P1
+    summary: "Unit-verified scenario of change order-seller-list-paging (initiative seller-centre)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Migration applies and reverts"
+    tags: [order, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order migrations TestMigration0025_AppliesAndReverts. Not producible black box: needs a database migrated up and down."
+
+  - id: order.slp-several-statuses-are-or-ed
+    title: "Seller orders: Several statuses are OR-ed"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: Several statuses are OR-ed"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-statuses-wins-over-status-filter
+    title: "statuses wins over status_filter"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "statuses wins over status_filter"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-an-unspecified-status-is-rejected
+    title: "Seller orders: An unspecified status is rejected"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: An unspecified status is rejected"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-item-title-substring
+    title: "Item title substring"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Item title substring"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-order-id-prefix
+    title: "Order id prefix"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Order id prefix"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-query-and-status-combine
+    title: "Seller orders: Query and status combine"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: Query and status combine"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-like-wildcards-match-literally
+    title: "Seller orders: LIKE wildcards match literally"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: LIKE wildcards match literally"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-a-query-of-exactly-100-runes-is-accepted-101-is-rejected
+    title: "Seller orders: A query of exactly 100 runes is accepted, 101 is rejected"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: A query of exactly 100 runes is accepted, 101 is rejected"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-a-blank-query-is-ignored
+    title: "Seller orders: A blank query is ignored"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: A blank query is ignored"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-no-match-returns-an-empty-page
+    title: "Seller orders: No match returns an empty page"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: No match returns an empty page"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-another-seller-s-orders-are-never-returned
+    title: "Another seller's orders are never returned"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Another seller's orders are never returned"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-the-query-text-is-not-logged
+    title: "Seller orders: The query text is not logged"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: The query text is not logged"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-counts-ignore-the-selected-tab
+    title: "Counts ignore the selected tab"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Counts ignore the selected tab"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-counts-never-include-another-seller-s-orders
+    title: "Counts never include another seller's orders"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Counts never include another seller's orders"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-a-rejected-request-returns-no-counts
+    title: "A rejected request returns no counts"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A rejected request returns no counts"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-counts-follow-the-query
+    title: "Counts follow the query"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Counts follow the query"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-legacy-call-returns-the-full-list
+    title: "Legacy call returns the full list"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Legacy call returns the full list"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
+
+  - id: order.slp-legacy-call-without-any-field
+    title: "Legacy call without any field"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Legacy call without any field"
+    tags: [order, seller-centre]
+    status: planned
+    covered_by: null
