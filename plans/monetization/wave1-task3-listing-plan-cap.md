@@ -29,6 +29,12 @@ Implement OpenSpec change `listing-plan-cap` test-first per its tasks.md; contex
 - platform-e2e/tests/e2e/support/listing_plan_cap_support.py
 - platform-e2e/tests/e2e/step_definitions/test_listing_plan_cap.py
 
+### widened (P1)
+- platform-e2e/README.md (docs-sync README update for the plan_cap e2e marker/feature)
+- team-domain/proto/README.md (docs-sync README update listing the vendored promotion proto)
+- platform-e2e/pyproject.toml (pytest marker registration: plan_cap)
+- team-domain/proto/platform/promotion/v1/promotion.proto (vendored consumer proto copy, byte-identical to platform-core/packages/proto)
+
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-domain` (equivalent: `cd team-domain && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)
 - `cd team-domain && make check`
