@@ -8,10 +8,14 @@ import (
 	"google.golang.org/grpc/status"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
+	"github.com/buidangphuc/team-analytics/internal/rpc"
 )
 
 func TestSellerRPCAccess(t *testing.T) {
+	fc := startFakeRedis(t)
+	fc.set("fc:v1:seller:seller-1:lst-a", fcPayload("seasonal_naive_v1", false, fcPoints(14, 1, 3, 5)))
 	svc := mustHandler(newRepo())
+	fsvc := mustHandler(newRepo(), rpc.WithForecastStore(fc.store(t)))
 	calls := map[string]func(ctx context.Context, seller string) error{
 		"funnel": func(ctx context.Context, s string) error {
 			_, err := svc.GetSellerFunnel(ctx, &analyticsv1.GetSellerFunnelRequest{SellerId: s})
@@ -22,7 +26,7 @@ func TestSellerRPCAccess(t *testing.T) {
 			return err
 		},
 		"forecast": func(ctx context.Context, s string) error {
-			_, err := svc.GetDemandForecast(ctx, &analyticsv1.GetDemandForecastRequest{SellerId: s, ListingId: "lst-a"})
+			_, err := fsvc.GetDemandForecast(ctx, &analyticsv1.GetDemandForecastRequest{SellerId: s, ListingId: "lst-a"})
 			return err
 		},
 	}
