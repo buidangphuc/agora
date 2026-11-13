@@ -148,7 +148,7 @@ func startRig(t *testing.T, o rigOpts) *rig {
 	voucherSvc := voucher.New(o.vouchers, o.reservations, gate, o.voucherEvent, o.logger)
 	flashSvc := flashsale.New(cf, holds, nil, o.listings, gate, noCampaignEvent, o.logger)
 	subSvc := subscription.New(storefake.NewInMemorySubscriptionRepository(), o.logger)
-	adSvc := sponsored.New(storefake.NewInMemoryAdCampaignRepository(), o.listings, gate, o.logger).WithLimits(1000, 5000).WithMinBid(1)
+	adSvc := sponsored.New(storefake.NewInMemoryAdCampaignRepository(), o.listings, gate, o.logger).WithLimits(1000, 5000)
 
 	vh := rpc.NewVoucherHandler(voucherSvc, o.logger)
 	fh := rpc.NewFlashSaleHandler(flashSvc, o.logger)
