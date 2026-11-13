@@ -9761,3 +9761,33 @@ features:
     tags: [trust-legal-contract, contract]
     status: not-testable
     notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY grep over generated Go, Python, JVM and TS output"
+
+  - id: core.aue-33-end-to-end-across-the-stores
+    title: "AUE-33 End to end across the stores"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-33 End to end across the stores"
+    entry_route: /
+    services: [platform-core]
+    acceptance:
+      - "When a `UserErased` for a seeded user is produced, then one Parquet export cycle and one `materialize` run complete"
+      - "Then the warehouse, Parquet files, Redis (recs, nearline, featurestore, chat session) and Qdrant contain zero occurrences of the user id and the three DLQ topics have zero records"
+    tags: [user-erasure, analytics]
+    status: planned
+    covered_by: "analytics/user_erasure_stores.feature::AUE-33 End to end across the stores"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
+
+  - id: core.aue-34-a-missing-dlq-topic-stops-the-consumer
+    title: "AUE-34 A missing DLQ topic stops the consumer"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-34 A missing DLQ topic stops the consumer"
+    entry_route: /
+    services: [platform-core]
+    acceptance:
+      - "When a consumer starts and its DLQ topic is absent"
+      - "Then the topic-init job has created it before the consumer service becomes healthy, otherwise the service exits non-zero rather than running without a DLQ"
+    tags: [user-erasure, analytics]
+    status: planned
+    covered_by: "analytics/user_erasure_stores.feature::AUE-34 A missing DLQ topic stops the consumer"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
