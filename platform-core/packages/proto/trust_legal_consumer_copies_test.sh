@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Change trust-legal-contract, task 3.1. Scenarios:
-#   "Trust legal contract: Copies match the source"
-#   "Trust legal contract: Drifted or missing copy is rejected"
-#   "Trust legal contract: Consumer protos build"
-# Usage: [REPO_ROOT=...] bash platform-core/packages/proto/trust_legal_consumer_copies_test.sh
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${REPO_ROOT:-$(cd "$here/../../.." && pwd)}"
@@ -45,10 +40,8 @@ check_copies() {
 fail=0
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
-# Scenario: Copies match the source
 if out="$(check_copies "$ROOT")"; then echo "ok   copies match ($NPAIRS)"; else echo "$out"; fail=1; fi
 
-# Scenario: Drifted or missing copy is rejected
 mk() {
   rm -rf "$tmp/t"
   local rel r
@@ -65,7 +58,9 @@ if out="$(check_copies "$tmp/t")"; then echo "FAIL drift and missing copy accept
 elif echo "$out" | grep -q "team-order/proto/$ORDER" && echo "$out" | grep -q "team-verification/proto/$EVENTS"; then echo "ok   drifted and missing copy rejected and named"
 else echo "FAIL drift/missing rejected without naming both: $out"; fail=1; fi
 
-# Scenario: Consumer protos build
-if (cd "$ROOT/team-verification/proto" && buf build >"$tmp/build.err" 2>&1); then echo "ok   buf build team-verification"
-else echo "FAIL buf build team-verification: $(head -3 "$tmp/build.err" | tr '\n' ' ')"; fail=1; fi
+for r in $(echo "$IDENTITY_REPOS $VERIFICATION_REPOS $AUDIT_REPOS $EVENTS_REPOS" | tr ' ' '\n' | sort -u); do
+  [ -f "$ROOT/$r/proto/buf.yaml" ] || continue
+  if (cd "$ROOT/$r/proto" && buf build >"$tmp/build.err" 2>&1); then echo "ok   buf build $r"
+  else echo "FAIL buf build $r: $(head -3 "$tmp/build.err" | tr '\n' ' ')"; fail=1; fi
+done
 exit $fail
