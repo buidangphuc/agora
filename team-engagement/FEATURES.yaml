@@ -5097,7 +5097,6 @@ features:
       - "Then the review is still returned by `ListReviews` with rating 4 and comment \"Giao nhanh\" and author name \"Người dùng đã xóa\""
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::A review keeps rating and text under an anonymised author"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-a-question-and-its-answers-keep-their-text-under-an-anonymised-author
@@ -5112,7 +5111,6 @@ features:
       - "Then both texts are still listed on the product page and neither row carries the erased user id"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::A question and its answers keep their text under an anonymised author"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-the-listing-rating-is-unchanged
@@ -5127,7 +5125,6 @@ features:
       - "Then the listing's review count stays 3 and its average rating is the same as before"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::The listing rating is unchanged"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-the-moderation-reason-of-an-erased-author-is-cleared
@@ -5142,7 +5139,6 @@ features:
       - "Then the review's `hide_reason` is empty, `hidden_at` is still set and the review is still hidden from buyers"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::The moderation reason of an erased author is cleared"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-an-erased-moderator-no-longer-appears-as-hidden-by
@@ -5157,7 +5153,6 @@ features:
       - "Then `hidden_by` is empty on both reviews, `hide_reason` of those reviews is unchanged and both are still hidden"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::An erased moderator no longer appears as hidden_by"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-other-users-content-is-untouched
@@ -5172,7 +5167,6 @@ features:
       - "Then every row of user B is byte-identical to its state before the event"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::Other users' content is untouched"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-erasure-is-reachable-only-through-the-identity-topic
@@ -5187,7 +5181,6 @@ features:
       - "Then no data of the named user is erased or changed"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::Erasure is reachable only through the identity topic"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-favourites-follows-and-reports-filed-by-the-user-are-deleted
@@ -5202,7 +5195,6 @@ features:
       - "Then zero rows keyed by that user remain in `favorites`, `follows`, `reports` (as `reporter_id`) and `review_helpful_votes`"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::Favourites, follows and reports filed by the user are deleted"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-an-erased-seller-loses-their-followers
@@ -5217,7 +5209,6 @@ features:
       - "Then zero `follows` rows with that `seller_id` remain and each follower's other follows are unchanged"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::An erased seller loses their followers"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-collections-history-check-ins-and-loyalty-are-deleted
@@ -5232,7 +5223,6 @@ features:
       - "Then zero rows keyed by that user remain in `collections`, `collection_items`, `view_history`, `checkins` and `loyalty_accounts`"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::Collections, history, check-ins and loyalty are deleted"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-reports-about-the-erased-user-s-content-stay-open
@@ -5247,7 +5237,6 @@ features:
       - "Then that report row still exists with its status unchanged"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::Reports about the erased user's content stay open"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-an-event-without-a-user-id-deletes-nothing
@@ -5276,7 +5265,6 @@ features:
       - "Then the second delivery returns no error and the table contents equal the state after the first delivery"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::A replayed event changes nothing"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-a-malformed-event-goes-to-the-dlq
@@ -5291,7 +5279,6 @@ features:
       - "Then the record is published to `identity.events.engagement.dlq` without retry and no row changes"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::A malformed event goes to the DLQ"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-a-store-failure-rolls-back-and-is-retried
@@ -5334,7 +5321,6 @@ features:
       - "Then every row is erased or anonymised within 1 h and the store transaction takes at most 5 s"
     tags: [user-erasure, engagement]
     status: planned
-    covered_by: "engagement/user_erasure.feature::Erasure completes within one hour"
     notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
 
   - id: engagement.cue-the-erased-id-is-not-logged

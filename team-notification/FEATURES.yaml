@@ -1531,7 +1531,6 @@ features:
       - "Then zero rows for that user remain in `notifications`, `alert_subscriptions` and `notification_prefs`"
     tags: [user-erasure, notification]
     status: planned
-    covered_by: "notification/user_erasure.feature::The user's notification data is deleted"
     notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
 
   - id: notification.cue-other-users-notifications-are-untouched
@@ -1546,7 +1545,6 @@ features:
       - "Then every row of user B is unchanged and user B still lists their notifications"
     tags: [user-erasure, notification]
     status: planned
-    covered_by: "notification/user_erasure.feature::Other users' notifications are untouched"
     notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
 
   - id: notification.cue-a-user-with-no-notification-data-is-a-no-op
@@ -1575,7 +1573,6 @@ features:
       - "Then no notification of the named user is deleted"
     tags: [user-erasure, notification]
     status: planned
-    covered_by: "notification/user_erasure.feature::Erasure is reachable only through the identity topic"
     notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
 
   - id: notification.cue-a-replayed-event-changes-nothing
@@ -1590,7 +1587,6 @@ features:
       - "Then the second delivery returns no error and no row of the user exists"
     tags: [user-erasure, notification]
     status: planned
-    covered_by: "notification/user_erasure.feature::A replayed event changes nothing"
     notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
 
   - id: notification.cue-a-malformed-event-goes-to-the-dlq
@@ -1605,7 +1601,6 @@ features:
       - "Then the record is published to `identity.events.notification.dlq` without retry and no row changes"
     tags: [user-erasure, notification]
     status: planned
-    covered_by: "notification/user_erasure.feature::A malformed event goes to the DLQ"
     notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
 
   - id: notification.cue-a-store-failure-rolls-back-and-is-retried

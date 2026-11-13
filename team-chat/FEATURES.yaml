@@ -1211,7 +1211,6 @@ features:
       - "Then the buyer's 3 messages read \"Tin nhắn đã bị xóa\" with sender name \"Người dùng đã xóa\", the seller's 2 messages are unchanged and the thread still lists for the seller"
     tags: [user-erasure, chat]
     status: planned
-    covered_by: "chat/user_erasure.feature::The user's messages are replaced and the thread is kept"
     notes: "content-user-erasure: e2e in chat/user_erasure.feature (red before implementation)."
 
   - id: chat.cue-a-rich-message-payload-is-emptied
@@ -1226,7 +1225,6 @@ features:
       - "Then that message's payload is empty and its text is \"Tin nhắn đã bị xóa\""
     tags: [user-erasure, chat]
     status: planned
-    covered_by: "chat/user_erasure.feature::A rich message payload is emptied"
     notes: "content-user-erasure: e2e in chat/user_erasure.feature (red before implementation)."
 
   - id: chat.cue-the-thread-preview-no-longer-shows-erased-text
@@ -1241,7 +1239,6 @@ features:
       - "Then the thread's `last_message_text` is \"Tin nhắn đã bị xóa\" and, where the counterparty sent the last message, `last_message_text` is unchanged"
     tags: [user-erasure, chat]
     status: planned
-    covered_by: "chat/user_erasure.feature::The thread preview no longer shows erased text"
     notes: "content-user-erasure: e2e in chat/user_erasure.feature (red before implementation)."
 
   - id: chat.cue-other-users-messages-are-untouched
@@ -1256,7 +1253,6 @@ features:
       - "Then every message and thread of user B is unchanged"
     tags: [user-erasure, chat]
     status: planned
-    covered_by: "chat/user_erasure.feature::Other users' messages are untouched"
     notes: "content-user-erasure: e2e in chat/user_erasure.feature (red before implementation)."
 
   - id: chat.cue-erasure-is-reachable-only-through-the-identity-topic
@@ -1271,7 +1267,6 @@ features:
       - "Then no message of the named user is replaced or changed"
     tags: [user-erasure, chat]
     status: planned
-    covered_by: "chat/user_erasure.feature::Erasure is reachable only through the identity topic"
     notes: "content-user-erasure: e2e in chat/user_erasure.feature (red before implementation)."
 
   - id: chat.cue-a-replayed-event-changes-nothing
@@ -1286,7 +1281,6 @@ features:
       - "Then the second delivery returns no error and the messages equal the state after the first delivery"
     tags: [user-erasure, chat]
     status: planned
-    covered_by: "chat/user_erasure.feature::A replayed event changes nothing"
     notes: "content-user-erasure: e2e in chat/user_erasure.feature (red before implementation)."
 
   - id: chat.cue-a-malformed-event-goes-to-the-dlq
@@ -1301,7 +1295,6 @@ features:
       - "Then the record is published to `identity.events.chat.dlq` without retry and no message changes"
     tags: [user-erasure, chat]
     status: planned
-    covered_by: "chat/user_erasure.feature::A malformed event goes to the DLQ"
     notes: "content-user-erasure: e2e in chat/user_erasure.feature (red before implementation)."
 
   - id: chat.cue-a-store-failure-rolls-back-and-is-retried
