@@ -8,8 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 const tlPriv = "platform.identity.v1."
@@ -227,4 +229,236 @@ func TestTrustLegal_MissingIdempotencyNoteIsCaught(t *testing.T) {
 	if err := tcKeys(fixture, "identity.events", "outbox", "same transaction", "idempotent", "internal-only"); err == nil {
 		t.Errorf("helper did not report the missing idempotent note")
 	}
+}
+
+// ---- order, payment, verification, audit half (task T2) ----
+
+const (
+	tlOrderProto = "platform/order/v1/order.proto"
+	tlPayProto   = "platform/payment/v1/payment.proto"
+	tlVerProto   = "platform/verification/v1/verification.proto"
+	tlAuditProto = "platform/audit/v1/audit.proto"
+	tlVer        = "platform.verification.v1."
+	tlMaxInt64   = 9223372036854775807
+)
+
+func tlRPCMap(names ...string) map[string][2]string {
+	m := map[string][2]string{}
+	for _, n := range names {
+		m[n] = [2]string{n + "Request", n + "Response"}
+	}
+	return m
+}
+
+func tlJoin(a map[string][2]string, b map[string][2]string) map[string][2]string {
+	for k, v := range b {
+		a[k] = v
+	}
+	return a
+}
+
+// Scenario: Trust legal contract: GetUserObligations exists with fixed messages
+func TestTrustLegal_GetUserObligationsExistsWithFixedMessages(t *testing.T) {
+	fd, _ := tcFile(t, tlOrderProto)
+	tcRPCs(t, fd, "OrderService", tlRPCMap(
+		"CreateOrder", "GetOrder", "ListBuyerOrders", "ListSellerOrders", "UpdateOrderStatus", "CancelOrder",
+		"ConfirmReceipt", "CalculateShippingFee", "PreviewCheckout", "GetSagaState", "ForceFailSaga",
+		"CreateReturnRequest", "GetReturnRequest", "UpdateReturnStatus", "ListOrderReturns", "CreateShipment",
+		"GetShipmentTracking", "HasCompletedOrder", "GetUserObligations"))
+	tcShape(t, fd, "GetUserObligationsRequest", map[string]string{"user_id": "1 string"})
+	tcShape(t, fd, "GetUserObligationsResponse", map[string]string{
+		"open_buyer_orders": "1 int32", "open_seller_orders": "2 int32", "open_returns": "3 int32"})
+}
+
+// Scenario: Trust legal contract: GetPayoutObligations exists with fixed messages
+func TestTrustLegal_GetPayoutObligationsExistsWithFixedMessages(t *testing.T) {
+	fd, _ := tcFile(t, tlPayProto)
+	tcRPCs(t, fd, "PaymentService", tlRPCMap(
+		"CreatePayment", "GetPayment", "ProcessMockPayment", "GetSellerWallet", "RequestPayout", "ListPayoutHistory",
+		"RefundPayment", "GetWalletBalance", "ListLedgerEntries", "RequestWalletPayout", "GetPayoutObligations"))
+	tcShape(t, fd, "GetPayoutObligationsRequest", map[string]string{"user_id": "1 string"})
+	tcShape(t, fd, "GetPayoutObligationsResponse", map[string]string{
+		"available_balance": "1 int64", "held_balance": "2 int64", "pending_payouts": "3 int32"})
+}
+
+// Scenario: Trust legal contract: Obligation responses round-trip extreme values
+func TestTrustLegal_ObligationResponsesRoundTripExtremeValues(t *testing.T) {
+	pfd, _ := tcFile(t, tlPayProto)
+	pd := tcMsg(t, pfd, "GetPayoutObligationsResponse")
+	m := tcNew(t, pd, "available_balance", tlMaxInt64, "held_balance", 0, "pending_payouts", 7)
+	got := tcRoundEqual(t, m)
+	if got.Get(tcFld(t, pd, "available_balance")).Int() != tlMaxInt64 {
+		t.Errorf("available_balance changed")
+	}
+	ofd, _ := tcFile(t, tlOrderProto)
+	od := tcMsg(t, ofd, "GetUserObligationsResponse")
+	z := tcNew(t, od, "open_buyer_orders", 0, "open_seller_orders", 0, "open_returns", 0)
+	b, err := proto.Marshal(z)
+	if err != nil || len(b) != 0 {
+		t.Errorf("all-zero response should serialise empty, got %d bytes, err %v", len(b), err)
+	}
+	if !proto.Equal(tcRound(t, z), dynamicpb.NewMessage(od)) {
+		t.Errorf("zero response did not parse back as the empty message")
+	}
+}
+
+// Scenario: Trust legal contract: Obligation RPCs are documented as internal
+func TestTrustLegal_ObligationRPCsAreDocumentedAsInternal(t *testing.T) {
+	ofd, _ := tcFile(t, tlOrderProto)
+	tcCheck(t, "GetUserObligations", tcRPCComment(t, ofd, "OrderService", "GetUserObligations"),
+		"service principal", "order.internal.read", "PERMISSION_DENIED", "NOT routed at the gateway")
+	pfd, _ := tcFile(t, tlPayProto)
+	tcCheck(t, "GetPayoutObligations", tcRPCComment(t, pfd, "PaymentService", "GetPayoutObligations"),
+		"service principal", "payment.internal.read", "PERMISSION_DENIED", "NOT routed at the gateway")
+}
+
+// Scenario: Trust legal contract: Payout gate wording is documented
+func TestTrustLegal_PayoutGateWordingIsDocumented(t *testing.T) {
+	fd, _ := tcFile(t, tlPayProto)
+	for _, rpc := range []string{"RequestPayout", "RequestWalletPayout"} {
+		tcCheck(t, rpc, tcRPCComment(t, fd, "PaymentService", rpc),
+			"seller verification required", "VERIFIED", "FAILED_PRECONDITION", "UNAVAILABLE")
+	}
+}
+
+// Scenario: Trust legal contract: Payout request fields are unchanged
+func TestTrustLegal_PayoutRequestFieldsAreUnchanged(t *testing.T) {
+	fd, _ := tcFile(t, tlPayProto)
+	tcShape(t, fd, "RequestPayoutRequest", map[string]string{
+		"seller_id": "1 string", "amount": "2 int64", "bank_code": "3 string",
+		"account_number": "4 string", "account_name": "5 string"})
+	tcShape(t, fd, "RequestWalletPayoutRequest", map[string]string{"seller_id": "1 string", "amount": "2 int64"})
+}
+
+// Scenario: Trust legal contract: Missing internal note is caught
+func TestTrustLegal_MissingInternalNoteIsCaught(t *testing.T) {
+	fixture := "Internal, service principal with order.internal.read; others get PERMISSION_DENIED."
+	if err := tcKeys(fixture, "service principal", "order.internal.read", "PERMISSION_DENIED", "NOT routed at the gateway"); err == nil {
+		t.Errorf("helper did not report the missing NOT routed note")
+	}
+}
+
+// Scenario: Trust legal contract: NOT_SUBMITTED joins the status enum
+func TestTrustLegal_NotSubmittedJoinsTheStatusEnum(t *testing.T) {
+	fd, _ := tcFile(t, tlVerProto)
+	tcEnum(t, fd, "VerificationStatus", map[string]int{
+		"VERIFICATION_STATUS_UNSPECIFIED": 0, "VERIFICATION_STATUS_PENDING": 1, "VERIFICATION_STATUS_VERIFIED": 2,
+		"VERIFICATION_STATUS_REJECTED": 3, "VERIFICATION_STATUS_NOT_SUBMITTED": 4,
+	})
+}
+
+// Scenario: Trust legal contract: Verification service lists four new RPCs
+func TestTrustLegal_VerificationServiceListsFourNewRPCs(t *testing.T) {
+	fd, _ := tcFile(t, tlVerProto)
+	tcRPCs(t, fd, "VerificationService", tlRPCMap(
+		"SubmitKyc", "GetVerificationStatus", "ReviewKyc",
+		"CreateKycUploadUrl", "ListKycSubmissions", "GetKycDocumentUrl", "GetPublicBadges"))
+}
+
+// Scenario: Trust legal contract: KYC messages have fixed fields
+func TestTrustLegal_KycMessagesHaveFixedFields(t *testing.T) {
+	fd, _ := tcFile(t, tlVerProto)
+	st := "enum:" + tlVer + "VerificationStatus"
+	tcShape(t, fd, "CreateKycUploadUrlRequest", map[string]string{"content_type": "1 string", "size_bytes": "2 int64"})
+	tcShape(t, fd, "CreateKycUploadUrlResponse", map[string]string{
+		"upload_url": "1 string", "doc_ref": "2 string", "expires_at": "3 " + idTS})
+	tcShape(t, fd, "ListKycSubmissionsRequest", map[string]string{"status": "1 " + st, "page": "2 " + idPageReq})
+	tcShape(t, fd, "ListKycSubmissionsResponse", map[string]string{
+		"submissions": "1 repeated message:" + tlVer + "KycSubmission", "page": "2 " + idPageResp})
+	tcShape(t, fd, "KycSubmission", map[string]string{
+		"id": "1 string", "user_id": "2 string", "doc_type": "3 string", "status": "4 " + st,
+		"document_count": "5 int32", "reason_code": "6 string", "created_at": "7 " + idTS, "reviewed_at": "8 " + idTS})
+	tcShape(t, fd, "GetKycDocumentUrlRequest", map[string]string{"submission_id": "1 string", "index": "2 int32"})
+	tcShape(t, fd, "GetKycDocumentUrlResponse", map[string]string{"url": "1 string", "expires_at": "2 " + idTS})
+	tcShape(t, fd, "GetPublicBadgesRequest", map[string]string{"user_ids": "1 repeated string"})
+	tcShape(t, fd, "PublicBadge", map[string]string{"user_id": "1 string", "verified": "2 bool"})
+	tcShape(t, fd, "GetPublicBadgesResponse", map[string]string{"badges": "1 repeated message:" + tlVer + "PublicBadge"})
+}
+
+// Scenario: Trust legal contract: Existing KYC messages only gain fields
+func TestTrustLegal_ExistingKycMessagesOnlyGainFields(t *testing.T) {
+	fd, _ := tcFile(t, tlVerProto)
+	st := "enum:" + tlVer + "VerificationStatus"
+	tcShape(t, fd, "SubmitKycRequest", map[string]string{
+		"doc_type": "1 string", "doc_ref": "2 string", "additional_doc_refs": "3 repeated string"})
+	tcShape(t, fd, "ReviewKycRequest", map[string]string{"id": "1 string", "decision": "2 string", "reason_code": "3 string"})
+	tcShape(t, fd, "GetVerificationStatusResponse", map[string]string{
+		"status": "1 " + st, "badge": "2 bool", "reject_reason_code": "3 string"})
+	tcShape(t, fd, "SubmitKycResponse", map[string]string{"id": "1 string", "status": "2 " + st})
+	tcShape(t, fd, "GetVerificationStatusRequest", map[string]string{"user_id": "1 string"})
+	tcShape(t, fd, "ReviewKycResponse", map[string]string{"status": "1 " + st})
+}
+
+// Scenario: Trust legal contract: KycSubmission round-trips with unset review time
+func TestTrustLegal_KycSubmissionRoundTripsWithUnsetReviewTime(t *testing.T) {
+	fd, _ := tcFile(t, tlVerProto)
+	md := tcMsg(t, fd, "KycSubmission")
+	m := tcNew(t, md, "id", "s-1", "user_id", "u-1", "doc_type", "passport", "status", 1, "document_count", 3,
+		"created_at", tcTS(tcFld(t, md, "created_at"), 1760000000))
+	got := tcRoundEqual(t, m)
+	if got.Has(tcFld(t, md, "reviewed_at")) {
+		t.Errorf("unset reviewed_at became set")
+	}
+	if got.Get(tcFld(t, md, "document_count")).Int() != 3 {
+		t.Errorf("document_count changed")
+	}
+}
+
+// Scenario: Trust legal contract: Status response round-trips NOT_SUBMITTED and a long reason code
+func TestTrustLegal_StatusResponseRoundTripsNotSubmittedAndLongReasonCode(t *testing.T) {
+	fd, _ := tcFile(t, tlVerProto)
+	md := tcMsg(t, fd, "GetVerificationStatusResponse")
+	code := strings.Repeat("a", 64)
+	got := tcRoundEqual(t, tcNew(t, md, "status", 4, "reject_reason_code", code))
+	if got.Get(tcFld(t, md, "status")).Enum() != 4 || got.Get(tcFld(t, md, "reject_reason_code")).String() != code {
+		t.Errorf("status or reject_reason_code changed")
+	}
+}
+
+// Scenario: Trust legal contract: Old readers skip KYC additions and tolerate status 4
+func TestTrustLegal_OldReadersSkipKycAdditionsAndTolerateStatus4(t *testing.T) {
+	fd, files := tcFile(t, tlVerProto)
+	sub := tcNew(t, tcMsg(t, fd, "SubmitKycRequest"), "doc_type", "passport", "doc_ref", "ref-0",
+		"additional_doc_refs", []string{"ref-1", "ref-2", "ref-3"})
+	st := tcNew(t, tcMsg(t, fd, "GetVerificationStatusResponse"), "status", 4, "reject_reason_code", "blurry")
+	old := tcOld(t, files, fd, func(p *descriptorpb.FileDescriptorProto) {
+		tcDropFields(p, "SubmitKycRequest", func(n int32) bool { return n <= 2 })
+		tcDropFields(p, "GetVerificationStatusResponse", func(n int32) bool { return n <= 2 })
+		tcDropEnumValues(p, "VerificationStatus", func(n int32) bool { return n <= 3 })
+	})
+	om := old.Messages().ByName("SubmitKycRequest")
+	got := tcParseWith(t, sub, om)
+	if got.Get(om.Fields().ByName("doc_type")).String() != "passport" || got.Get(om.Fields().ByName("doc_ref")).String() != "ref-0" {
+		t.Errorf("old reader lost existing SubmitKycRequest fields")
+	}
+	sm := old.Messages().ByName("GetVerificationStatusResponse")
+	if tcParseWith(t, st, sm).Get(sm.Fields().ByName("status")).Enum() != 4 {
+		t.Errorf("status 4 not kept as a number")
+	}
+}
+
+// Scenario: Trust legal contract: KYC access rules are documented
+func TestTrustLegal_KycAccessRulesAreDocumented(t *testing.T) {
+	fd, _ := tcFile(t, tlVerProto)
+	rc := func(r string) string { return tcRPCComment(t, fd, "VerificationService", r) }
+	tcCheck(t, "CreateKycUploadUrl", rc("CreateKycUploadUrl"), "USER principal", "INVALID_ARGUMENT", "5 MiB")
+	tcCheck(t, "ListKycSubmissions", rc("ListKycSubmissions"), "admin")
+	tcCheck(t, "GetKycDocumentUrl", rc("GetKycDocumentUrl"), "admin", "kyc.document_view", "fail closed", "UNAVAILABLE")
+	tcCheck(t, "GetPublicBadges", rc("GetPublicBadges"), "anonymous", "INVALID_ARGUMENT")
+	tcCheck(t, "GetVerificationStatus", rc("GetVerificationStatus"), "verification.read")
+}
+
+// Scenario: Trust legal contract: Missing audit-first note is caught
+func TestTrustLegal_MissingAuditFirstNoteIsCaught(t *testing.T) {
+	fixture := "Admin only; fail closed with UNAVAILABLE when the audit store is down; TTL 5 minutes."
+	if err := tcKeys(fixture, "admin", "kyc.document_view", "fail closed"); err == nil {
+		t.Errorf("helper did not report the missing kyc.document_view note")
+	}
+}
+
+// Scenario: Trust legal contract: Audit request fields are unchanged
+func TestTrustLegal_AuditRequestFieldsAreUnchanged(t *testing.T) {
+	fd, _ := tcFile(t, tlAuditProto)
+	tcShape(t, fd, "WriteAuditEventRequest", map[string]string{
+		"actor_id": "1 string", "action": "2 string", "target_type": "3 string", "target_id": "4 string", "metadata": "5 map"})
 }
