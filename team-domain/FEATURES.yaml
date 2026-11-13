@@ -3621,3 +3621,237 @@ features:
     status: planned
     covered_by: null
     notes: "change domain-storefront-customisation; e2e: domain/storefront_customisation.feature::Changing only the tagline keeps banner, featured listings and theme"
+
+  - id: listing.storefront-customisation-valid-tagline-and-theme-are-saved
+    title: "Valid tagline and theme are saved"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Valid tagline and theme are saved"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertStoresTrimmedTaglineAndTheme. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-tagline-of-exactly-120-runes-is-accepted-boundary
+    title: "Tagline of exactly 120 runes is accepted (boundary)"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Tagline of exactly 120 runes is accepted (boundary)"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertTagline120RunesAccepted. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-tagline-over-120-runes-is-rejected
+    title: "Tagline over 120 runes is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Tagline over 120 runes is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertTagline121RunesRejected. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-tagline-with-a-control-character-is-rejected
+    title: "Tagline with a control character is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Tagline with a control character is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertTaglineControlCharRejected. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-unknown-theme-is-rejected
+    title: "Unknown theme is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Unknown theme is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertUnknownThemeRejected. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-empty-theme-is-accepted-as-default
+    title: "Empty theme is accepted as default"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Empty theme is accepted as default"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertEmptyThemeAccepted. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-external-banner-url-is-rejected
+    title: "External banner URL is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "External banner URL is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertExternalBannerRejected. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-non-http-scheme-query-string-or-fragment-in-banner-is-rejected
+    title: "Non-http scheme, query string or fragment in banner is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Non-http scheme, query string or fragment in banner is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertBannerSchemeQueryFragmentRejected. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-banner-can-be-cleared
+    title: "Banner can be cleared"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Banner can be cleared"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertEmptyBannerClears. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-a-legacy-banner-already-stored-does-not-block-saving-other-fields
+    title: "A legacy banner already stored does not block saving other fields"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A legacy banner already stored does not block saving other fields"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertUnchangedLegacyBannerAccepted. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-a-seventh-featured-listing-is-rejected
+    title: "A seventh featured listing is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A seventh featured listing is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertSevenFeaturedRejected. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-unknown-and-foreign-listing-ids-give-the-same-answer
+    title: "Unknown and foreign listing ids give the same answer"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Unknown and foreign listing ids give the same answer"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertFeaturedForeignAndUnknownSameError. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-duplicate-or-empty-featured-ids-are-rejected
+    title: "Duplicate or empty featured ids are rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Duplicate or empty featured ids are rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertFeaturedDuplicateOrEmptyRejected. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-featured-lookup-uses-one-batched-read
+    title: "Featured lookup uses one batched read"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Featured lookup uses one batched read"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertFeaturedSingleBatchedLookup. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-lookup-failure-stores-nothing
+    title: "Lookup failure stores nothing"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Lookup failure stores nothing"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/listing TestUpsertFeaturedLookupErrorStoresNothing. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-principal-without-listing-write-is-denied
+    title: "Principal without listing.write is denied"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Principal without listing.write is denied"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/rpc TestUpsertStorefrontRequiresWriteScope. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-body-seller-id-of-another-seller-is-ignored
+    title: "Body seller_id of another seller is ignored"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Body seller_id of another seller is ignored"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/rpc TestUpsertStorefrontIgnoresBodySellerID. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-existing-display-name-and-slug-rules-still-apply
+    title: "Existing display name and slug rules still apply"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Existing display name and slug rules still apply"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/rpc TestUpsertStorefrontRulesUnchangedOnSharedHandler. Not producible end to end through the gateway (unit level)."
