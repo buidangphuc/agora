@@ -26,6 +26,10 @@ Implement OpenSpec change `promotion-plan-billing` test-first per its tasks.md; 
 - platform-e2e/tests/e2e/step_definitions/seller_plan_billing_steps.py
 - platform-e2e/tests/e2e/support/seller_plan_billing_support.py
 - platform-e2e/tests/e2e/step_definitions/test_seller_plan_billing.py
+- widened (P1)
+  - team-gateway/README.md — docs-sync: GetMySubscription/CancelSubscription now forwarded, line citations refreshed
+  - openspec/changes/promotion-plan-billing/specs/promotion-plan-billing/spec.md — VERIFIED BY citations matched to real test names
+  - openspec/changes/promotion-plan-billing/tasks.md — task 2.4 tick
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-promotion` (equivalent: `cd team-promotion && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)
