@@ -1,0 +1,599 @@
+syntax = "proto3";
+
+// team-promotion (Go) owns this: shop/platform vouchers and time-boxed flash-sale
+// campaigns. Discounts are pure CALCULATION — this service never moves money
+// (payments/wallet stay mock, see AGENTS.md §7). Redemption at checkout mirrors
+// team-domain's ReserveStock (ADR-0008): ValidateAndReserve is idempotent on the
+// caller's reservation_id, then Commit/Release close the hold. State-change
+// events are emitted on `promotion.events` (ADR-0002).
+package platform.promotion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+enum DiscountType {
+  DISCOUNT_TYPE_UNSPECIFIED = 0;
+  DISCOUNT_TYPE_PERCENT = 1; // discount_value = 1..100 (percent off)
+  DISCOUNT_TYPE_FIXED = 2;   // discount_value = minor-unit amount off
+}
+
+enum CampaignStatus {
+  CAMPAIGN_STATUS_UNSPECIFIED = 0;
+  CAMPAIGN_STATUS_SCHEDULED = 1;
+  CAMPAIGN_STATUS_ACTIVE = 2;
+  CAMPAIGN_STATUS_ENDED = 3;
+  CAMPAIGN_STATUS_CANCELLED = 4;
+}
+
+enum VoucherScope {
+  VOUCHER_SCOPE_UNSPECIFIED = 0;
+  VOUCHER_SCOPE_SHOP = 1;     // applies to one seller's items (seller_id set)
+  VOUCHER_SCOPE_PLATFORM = 2; // applies platform-wide
+}
+
+// Owned by team-promotion (DB-per-service). Checkout redemption is synchronous
+// gRPC from the order saga — never fire-and-forget.
+service VoucherService {
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action voucher.create.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): ALREADY_EXISTS
+  // when the code is taken; reasons AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
+  rpc CreateVoucher(CreateVoucherRequest) returns (CreateVoucherResponse);
+  rpc GetVoucher(GetVoucherRequest) returns (GetVoucherResponse);
+  rpc ListVouchers(ListVouchersRequest) returns (ListVouchersResponse);
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action voucher.deactivate.
+  // Sets active=false and deactivated_at. Idempotent.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
+  rpc DeactivateVoucher(DeactivateVoucherRequest) returns (DeactivateVoucherResponse);
+  // admin-only (scopes `admin` and `promotion.admin`): audited first as
+  // voucher.update, fail closed. ends_at, quota, per_user_limit and
+  // new_user_only are mutable; owner_user_id and kind are server-owned.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
+  rpc UpdateVoucher(UpdateVoucherRequest) returns (UpdateVoucherResponse);
+  // Idempotent on reservation_id: same id returns the same discount without
+  // decrementing quota twice. Reject (valid=false + reason) if expired,
+  // below min_spend, or quota exhausted. A user-bound voucher used by any other
+  // buyer or after its single use, and a new_user_only voucher for a buyer with
+  // a completed order, are refused with valid=false and reason
+  // VOUCHER_NOT_ELIGIBLE; per-user-limit exhaustion is refused with valid=false
+  // and reason VOUCHER_PER_USER_LIMIT. Only an unavailable eligibility check
+  // answers gRPC UNAVAILABLE (fail closed). buyer_id is honoured only from a
+  // service principal holding `promotion.reserve`; otherwise the principal id is
+  // used.
+  rpc ValidateAndReserve(ValidateAndReserveRequest) returns (ValidateAndReserveResponse);
+  rpc CommitReservation(CommitReservationRequest) returns (CommitReservationResponse);
+  rpc ReleaseReservation(ReleaseReservationRequest) returns (ReleaseReservationResponse);
+  // Any authenticated USER principal (the signed-in buyer; non-anonymous,
+  // non-service), keyed on the principal id; the buyer id is never a request
+  // field. Anonymous gets UNAUTHENTICATED; a service principal gets
+  // PERMISSION_DENIED. Routed at the gateway with no admin edge policy; the
+  // anonymous reject lives in the service. Returns only the caller's own
+  // active, unexpired user-bound vouchers.
+  rpc ListMyVouchers(ListMyVouchersRequest) returns (ListMyVouchersResponse);
+}
+
+// Time-boxed sale price + capped stock for a listing/variant.
+service FlashSaleService {
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action campaign.create.
+  // idempotency_key is required on the admin path, 8..64 chars [A-Za-z0-9_-];
+  // ALREADY_EXISTS on a payload mismatch for the same key.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE, LISTING_UNAVAILABLE.
+  rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
+  rpc GetActiveFlashSale(GetActiveFlashSaleRequest) returns (GetActiveFlashSaleResponse);
+  rpc ListActiveCampaigns(ListActiveCampaignsRequest) returns (ListActiveCampaignsResponse);
+  // admin-only (scopes `admin` and `promotion.admin`): lists campaigns of any status, filtered by statuses.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reason
+  // PROMOTION_UNAVAILABLE.
+  rpc ListCampaigns(ListCampaignsRequest) returns (ListCampaignsResponse);
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action campaign.cancel.
+  // Moves a campaign to CAMPAIGN_STATUS_CANCELLED.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE.
+  rpc CancelCampaign(CancelCampaignRequest) returns (CancelCampaignResponse);
+  // admin-only (scopes `admin` and `promotion.admin`): audited, audit action campaign.update.
+  // Replaces sale_price, stock_cap, starts_at and ends_at.
+  // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
+  // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE, LISTING_UNAVAILABLE.
+  rpc UpdateCampaign(UpdateCampaignRequest) returns (UpdateCampaignResponse);
+  // Live remaining stock for the flash-sale banner/meter (frontend LiveFlashSaleStock).
+  rpc GetFlashSaleStock(GetFlashSaleStockRequest) returns (GetFlashSaleStockResponse);
+
+  // SERVICE-ONLY: callable only by internal services holding the scope
+  // promotion.reserve; any other authenticated caller gets PERMISSION_DENIED and
+  // a call without a principal gets UNAUTHENTICATED. The gateway never exposes it.
+  //
+  // Holds `quantity` units of a flash-sale campaign for one order line.
+  // Idempotent on reservation_id. A replay returns the stored outcome and
+  // ignores the other request fields. A replay of a hold that was released or
+  // expired returns reserved=false, reason=not_active; every checkout attempt
+  // uses fresh order ids, so a reservation_id is never reused after release.
+  // An uncommitted hold expires 15 minutes after it is reserved.
+  //
+  // Checks run in the order not_active, price_changed, insufficient_stock and
+  // the first failure wins: the campaign must be active (not_active);
+  // expected_sale_price must equal the campaign sale price (price_changed);
+  // and insufficient_stock means cap - sold - holds < quantity. The reason set
+  // is closed: only these three values are ever returned.
+  //
+  // Invalid input is an INVALID_ARGUMENT error, not a reason: empty
+  // reservation_id, campaign_id or listing_id, an id over 200 bytes, or
+  // quantity <= 0. An empty variant_id is valid.
+  rpc ReserveFlashSaleStock(ReserveFlashSaleStockRequest) returns (ReserveFlashSaleStockResponse);
+  // SERVICE-ONLY: requires the scope promotion.reserve; other callers get
+  // PERMISSION_DENIED, no principal gets UNAUTHENTICATED; not exposed by the gateway.
+  //
+  // Converts a hold into sold stock. Called in checkout Phase B, next to the
+  // team-domain CommitReservation. Idempotent: committing an already committed
+  // hold returns committed=true. A hold that was released or expired, or an
+  // unknown reservation_id, returns committed=false and changes nothing.
+  rpc CommitFlashSaleStock(CommitFlashSaleStockRequest) returns (CommitFlashSaleStockResponse);
+  // SERVICE-ONLY: requires the scope promotion.reserve; other callers get
+  // PERMISSION_DENIED, no principal gets UNAUTHENTICATED; not exposed by the gateway.
+  //
+  // Release returns committed units too: for a committed hold it does
+  // stock_sold -= quantity. Idempotent: an already released or expired hold
+  // returns released=true and changes no counter. Only an unknown
+  // reservation_id returns released=false. CancelOrder calls this.
+  rpc ReleaseFlashSaleStock(ReleaseFlashSaleStockRequest) returns (ReleaseFlashSaleStockResponse);
+}
+
+// Seller subscription tiers (shop upgrade plans). Discounts/limits are pure
+// entitlement calculation — this service never moves money (AGENTS.md §7).
+service SubscriptionService {
+  rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+  rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
+  rpc GetEntitlements(GetEntitlementsRequest) returns (GetEntitlementsResponse);
+  // Returns the calling seller's own subscription; the seller is the principal
+  // and never a request field.
+  rpc GetMySubscription(GetMySubscriptionRequest) returns (GetMySubscriptionResponse);
+  // Turns off auto-renew for the caller's own subscription; access continues
+  // until current_period_end. The seller is the principal, never a request field.
+  rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse);
+}
+
+message GetMySubscriptionRequest {}
+
+message GetMySubscriptionResponse {
+  // Unset for a FREE seller: no subscription exists.
+  SellerSubscription subscription = 1;
+}
+
+message CancelSubscriptionRequest {}
+
+message CancelSubscriptionResponse {
+  SellerSubscription subscription = 1;
+}
+
+enum PlanTier {
+  PLAN_TIER_UNSPECIFIED = 0;
+  PLAN_TIER_FREE = 1;
+  PLAN_TIER_PRO = 2;
+  PLAN_TIER_PREMIUM = 3;
+}
+
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+  SUBSCRIPTION_STATUS_ACTIVE = 1;
+  SUBSCRIPTION_STATUS_EXPIRED = 2;
+  SUBSCRIPTION_STATUS_CANCELLED = 3;
+}
+
+message Plan {
+  string id = 1;
+  PlanTier name = 2;
+  // Price in integer VND (no minor units) per term.
+  int64 price = 3;
+  repeated string features = 4; // human-readable feature bullets
+  int32 term_days = 5;
+}
+
+message SellerSubscription {
+  string id = 1;
+  string seller_id = 2;
+  string plan_id = 3;
+  PlanTier tier = 4;
+  SubscriptionStatus status = 5;
+  google.protobuf.Timestamp starts_at = 6;
+  google.protobuf.Timestamp ends_at = 7;
+  google.protobuf.Timestamp current_period_end = 8;
+  bool auto_renew = 9;
+}
+
+message ListPlansRequest {}
+
+message ListPlansResponse {
+  repeated Plan plans = 1;
+}
+
+message SubscribeRequest {
+  string plan_id = 1;
+}
+
+message SubscribeResponse {
+  SellerSubscription subscription = 1;
+}
+
+message GetEntitlementsRequest {
+  string seller_id = 1;
+}
+
+message GetEntitlementsResponse {
+  PlanTier plan = 1;
+  // Entitlement limits keyed by feature (e.g. "max_listings" -> "500").
+  map<string, string> limits = 2;
+}
+
+enum VoucherKind {
+  VOUCHER_KIND_UNSPECIFIED = 0;
+  VOUCHER_KIND_STANDARD = 1;
+  VOUCHER_KIND_NEW_USER = 2;
+}
+
+message ListMyVouchersRequest {}
+
+message ListMyVouchersResponse {
+  repeated Voucher vouchers = 1;
+}
+
+message Voucher {
+  string id = 1;
+  string code = 2;
+  VoucherScope scope = 3;
+  string seller_id = 4;
+  DiscountType discount_type = 5;
+  int64 discount_value = 6;
+  int64 min_spend = 7;
+  int64 max_discount = 8; // cap for percentage discounts; 0 = uncapped
+  int64 quota = 9;        // total redemptions allowed; 0 = unlimited
+  int64 used = 10;
+  google.protobuf.Timestamp starts_at = 11;
+  google.protobuf.Timestamp ends_at = 12;
+  bool active = 13;
+  google.protobuf.Timestamp deactivated_at = 14;
+  // Buyer the voucher is bound to; empty = not user-bound. server-owned.
+  string owner_user_id = 15;
+  // server-owned.
+  VoucherKind kind = 16;
+  // Redemptions allowed per buyer; 0 = global quota only.
+  int32 per_user_limit = 17;
+  bool new_user_only = 18;
+}
+
+message DeactivateVoucherRequest {
+  string voucher_id = 1;
+}
+
+message DeactivateVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message UpdateVoucherRequest {
+  string voucher_id = 1;
+  optional google.protobuf.Timestamp ends_at = 2;
+  optional int64 quota = 3;
+  optional int32 per_user_limit = 4;
+  optional bool new_user_only = 5;
+}
+
+message UpdateVoucherResponse {
+  Voucher voucher = 1;
+}
+
+// Admin-only (`admin`/`promotion.admin`) like the existing fields. owner_user_id and kind are server-owned:
+// they are never settable through Create or Update.
+message CreateVoucherRequest {
+  string code = 1;
+  VoucherScope scope = 2;
+  DiscountType discount_type = 3;
+  int64 discount_value = 4;
+  int64 min_spend = 5;
+  int64 max_discount = 6;
+  int64 quota = 7;
+  google.protobuf.Timestamp starts_at = 8;
+  google.protobuf.Timestamp ends_at = 9;
+  int32 per_user_limit = 10;
+  bool new_user_only = 11;
+}
+
+message CreateVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message GetVoucherRequest {
+  string code = 1;
+}
+
+message GetVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message ListVouchersRequest {
+  string seller_id = 1; // empty = platform-scoped vouchers
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListVouchersResponse {
+  repeated Voucher vouchers = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message ValidateAndReserveRequest {
+  string reservation_id = 1; // caller-owned idempotency key (the order saga id)
+  string code = 2;
+  string buyer_id = 3;
+  int64 cart_subtotal = 4;
+  string seller_id = 5; // required for shop-scoped vouchers
+}
+
+message ValidateAndReserveResponse {
+  bool valid = 1;
+  string reason = 2; // human-readable reason when valid=false
+  int64 discount_amount = 3;
+  string voucher_id = 4;
+  VoucherScope scope = 5;
+  // The shop the voucher belongs to; empty for PLATFORM.
+  string seller_id = 6;
+}
+
+message CommitReservationRequest {
+  string reservation_id = 1;
+}
+
+message CommitReservationResponse {
+  bool committed = 1;
+}
+
+message ReleaseReservationRequest {
+  string reservation_id = 1;
+}
+
+message ReleaseReservationResponse {
+  bool released = 1;
+}
+
+message FlashSaleCampaign {
+  string id = 1;
+  string listing_id = 2;
+  string variant_id = 3;
+  int64 sale_price = 4;
+  int64 stock_cap = 5;
+  int64 stock_sold = 6;
+  google.protobuf.Timestamp starts_at = 7;
+  google.protobuf.Timestamp ends_at = 8;
+  CampaignStatus status = 9;
+  google.protobuf.Timestamp cancelled_at = 10;
+}
+
+message CreateCampaignRequest {
+  string listing_id = 1;
+  string variant_id = 2;
+  int64 sale_price = 3;
+  int64 stock_cap = 4;
+  google.protobuf.Timestamp starts_at = 5;
+  google.protobuf.Timestamp ends_at = 6;
+  string idempotency_key = 7;
+}
+
+message CreateCampaignResponse {
+  FlashSaleCampaign campaign = 1;
+}
+
+message GetActiveFlashSaleRequest {
+  string listing_id = 1;
+}
+
+message GetActiveFlashSaleResponse {
+  bool active = 1;
+  FlashSaleCampaign campaign = 2;
+}
+
+message ListActiveCampaignsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListActiveCampaignsResponse {
+  repeated FlashSaleCampaign campaigns = 1;
+  platform.common.v1.PageResponse page = 2;
+  bool flash_sale_disabled = 3;
+}
+
+message ListCampaignsRequest {
+  repeated CampaignStatus statuses = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListCampaignsResponse {
+  repeated FlashSaleCampaign campaigns = 1;
+  platform.common.v1.PageResponse page = 2;
+  bool flash_sale_disabled = 3;
+}
+
+message CancelCampaignRequest {
+  string campaign_id = 1;
+}
+
+message CancelCampaignResponse {
+  FlashSaleCampaign campaign = 1;
+}
+
+message UpdateCampaignRequest {
+  string campaign_id = 1;
+  int64 sale_price = 2;
+  int64 stock_cap = 3;
+  google.protobuf.Timestamp starts_at = 4;
+  google.protobuf.Timestamp ends_at = 5;
+}
+
+message UpdateCampaignResponse {
+  FlashSaleCampaign campaign = 1;
+}
+
+message GetFlashSaleStockRequest {
+  string campaign_id = 1;
+}
+
+message GetFlashSaleStockResponse {
+  // stock_cap - stock_sold - active (unexpired, uncommitted) holds.
+  int64 remaining = 1;
+  int64 stock_cap = 2;
+}
+
+message ReserveFlashSaleStockRequest {
+  // Shape: <order_id>:<listing_id>:<variant_id>, or <order_id>:<listing_id>:
+  // when the variant is empty. At most 200 bytes.
+  string reservation_id = 1;
+  string campaign_id = 2;
+  string listing_id = 3;
+  string variant_id = 4;
+  int64 quantity = 5;
+  // The sale price the buyer was shown; compared with the campaign sale price.
+  int64 expected_sale_price = 6;
+}
+
+message ReserveFlashSaleStockResponse {
+  bool reserved = 1;
+  // Empty when reserved=true. Otherwise one of the closed set: not_active,
+  // price_changed, insufficient_stock.
+  string reason = 2;
+}
+
+message CommitFlashSaleStockRequest {
+  string reservation_id = 1;
+}
+
+message CommitFlashSaleStockResponse {
+  bool committed = 1;
+}
+
+message ReleaseFlashSaleStockRequest {
+  string reservation_id = 1;
+}
+
+message ReleaseFlashSaleStockResponse {
+  bool released = 1;
+}
+
+// Sponsored placements / pay-per-slot ad campaigns. Budget/bid are pure
+// bookkeeping values — this service never moves money (AGENTS.md §7).
+service SponsoredService {
+  rpc CreateAdCampaign(CreateAdCampaignRequest) returns (CreateAdCampaignResponse);
+  // Returns the listing ids to render in sponsored slots for a given context
+  // (e.g. a search query, category, or homepage placement key).
+  rpc ListSponsoredSlots(ListSponsoredSlotsRequest) returns (ListSponsoredSlotsResponse);
+  // Lists the caller's own campaigns only.
+  rpc ListMyAdCampaigns(ListMyAdCampaignsRequest) returns (ListMyAdCampaignsResponse);
+  // Pauses one of the caller's own campaigns; NOT_FOUND when it is not the
+  // caller's own campaign.
+  rpc PauseAdCampaign(PauseAdCampaignRequest) returns (PauseAdCampaignResponse);
+  // Resumes one of the caller's own campaigns; NOT_FOUND when it is not the
+  // caller's own campaign, FAILED_PRECONDITION when the remaining budget is
+  // below the bid.
+  rpc ResumeAdCampaign(ResumeAdCampaignRequest) returns (ResumeAdCampaignResponse);
+  // Records a click for an impression token. Callable by an anonymous
+  // principal. Charges at most once per token.
+  rpc RecordAdClick(RecordAdClickRequest) returns (RecordAdClickResponse);
+}
+
+enum AdCampaignStatus {
+  AD_CAMPAIGN_STATUS_UNSPECIFIED = 0;
+  AD_CAMPAIGN_STATUS_ACTIVE = 1;
+  AD_CAMPAIGN_STATUS_PAUSED = 2;
+  AD_CAMPAIGN_STATUS_ENDED = 3;
+  // Set when the remaining budget falls below the bid.
+  AD_CAMPAIGN_STATUS_PAUSED_BUDGET = 4;
+}
+
+message AdCampaign {
+  string id = 1;
+  string seller_id = 2;
+  string listing_id = 3;
+  // Total budget in integer VND.
+  int64 budget = 4;
+  // Per-click bid in integer VND; the minimum is 500, lower is INVALID_ARGUMENT.
+  int64 bid = 5;
+  AdCampaignStatus status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  // Amount charged so far in integer VND.
+  int64 spent = 8;
+  int64 impressions = 9;
+  int64 clicks = 10;
+  string category_id = 11;
+}
+
+message CreateAdCampaignRequest {
+  string listing_id = 1;
+  int64 budget = 2;
+  int64 bid = 3;
+}
+
+message CreateAdCampaignResponse {
+  AdCampaign campaign = 1;
+}
+
+message ListSponsoredSlotsRequest {
+  // Placement context key (e.g. search query, category id, or slot name).
+  string context_str = 1;
+  string placement = 2;
+  string category_id = 3;
+  // Maximum slots to return, 1..4; outside that range is INVALID_ARGUMENT.
+  int32 limit = 4;
+}
+
+message SponsoredSlot {
+  string listing_id = 1;
+  string campaign_id = 2;
+  // Opaque, single-use token valid for 30 minutes.
+  string impression_token = 3;
+}
+
+message ListMyAdCampaignsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListMyAdCampaignsResponse {
+  repeated AdCampaign campaigns = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message PauseAdCampaignRequest {
+  string campaign_id = 1;
+}
+
+message PauseAdCampaignResponse {
+  AdCampaign campaign = 1;
+}
+
+message ResumeAdCampaignRequest {
+  string campaign_id = 1;
+}
+
+message ResumeAdCampaignResponse {
+  AdCampaign campaign = 1;
+}
+
+message RecordAdClickRequest {
+  string impression_token = 1;
+}
+
+message RecordAdClickResponse {
+  string listing_id = 1;
+  // false when the token was replayed, expired, or belongs to the caller's own seller.
+  bool charged = 2;
+}
+
+message ListSponsoredSlotsResponse {
+  // Listing ids to render as sponsored, best-bid first; resolve via ListingService.
+  repeated string listing_ids = 1;
+  repeated SponsoredSlot slots = 2;
+}
+
+// ── Events (emitted on `promotion.events`, wrapped in EventEnvelope) ──
+message VoucherChanged {
+  Voucher voucher = 1;
+}
+
+message FlashSaleChanged {
+  FlashSaleCampaign campaign = 1;
+}
