@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
@@ -15,14 +16,14 @@ func (e *adminEnv) seedShop(t *testing.T, code, seller string, scope int32, ends
 		Code: code, Scope: scope, SellerID: seller, DiscountType: discountTypePercent, DiscountValue: 10,
 		MinSpend: 5000, MaxDiscount: 3000, Quota: 5,
 		StartsAt: adminNow.Add(-2 * time.Hour), EndsAt: ends,
-	}, e.svc.event)
+	}, e.eventFn(t))
 	if err != nil {
 		t.Fatalf("seed %s: %v", code, err)
 	}
 	return v
 }
 
-func codesOf(vs []store.Voucher) map[string]bool {
+func sellerCodesOf(vs []store.Voucher) map[string]bool {
 	out := map[string]bool{}
 	for _, v := range vs {
 		out[v.Code] = true
@@ -41,7 +42,7 @@ func TestListMyShopVouchersEveryState_SellerSeesOwnVouchersOfEveryState(t *testi
 	if _, err := e.mem.Create(t.Context(), store.Voucher{
 		Code: "A-BOUND", Scope: voucherScopeShop, SellerID: "seller-A", OwnerUserID: "u1", Quota: 1,
 		StartsAt: adminNow.Add(-time.Hour), EndsAt: adminNow.Add(time.Hour),
-	}, e.svc.event); err != nil {
+	}, e.eventFn(t)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.mem.Deactivate(t.Context(), off.ID, adminNow); err != nil {
@@ -52,7 +53,7 @@ func TestListMyShopVouchersEveryState_SellerSeesOwnVouchersOfEveryState(t *testi
 	if err != nil {
 		t.Fatalf("ListMyShopVouchers: %v", err)
 	}
-	codes := codesOf(got)
+	codes := sellerCodesOf(got)
 	if len(got) != 3 || !codes["A-LIVE"] || !codes["A-OFF"] || !codes["A-OLD"] || next != "" {
 		t.Fatalf("got %v next %q, want exactly A-LIVE A-OFF A-OLD and no cursor", codes, next)
 	}
@@ -89,7 +90,7 @@ func TestListMyShopVouchersEmptySellerID_SellerSeesOwnVouchersOfEveryState(t *te
 	e.seedShop(t, "SHOP-NOSELLER", "", voucherScopeShop, adminNow.Add(time.Hour))
 	got, _, err := e.svc.ListMyShopVouchers(t.Context(), "", "", 0)
 	if err == nil && len(got) != 0 {
-		t.Fatalf("empty seller id returned %v, want nothing or an error", codesOf(got))
+		t.Fatalf("empty seller id returned %v, want nothing or an error", sellerCodesOf(got))
 	}
 }
 
@@ -162,7 +163,7 @@ func TestDeactivateMyShopVoucherNotOwner_DeactivatingAnotherSellersVoucherIsDeni
 	bound, err := e.mem.Create(t.Context(), store.Voucher{
 		Code: "A-BOUND", Scope: voucherScopeShop, SellerID: "seller-A", OwnerUserID: "u1", Quota: 1,
 		StartsAt: adminNow.Add(-time.Hour), EndsAt: adminNow.Add(time.Hour),
-	}, e.svc.event)
+	}, e.eventFn(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,4 +223,10 @@ func TestDeactivateMyShopVoucherAdminRegression_AdminDeactivateKeepsItsAdminRule
 	if len(e.w.events) != 1 || e.w.events[0].Action != "voucher.deactivate" || e.w.events[0].TargetID != "A-LIVE" {
 		t.Fatalf("events = %+v, want one voucher.deactivate for A-LIVE", e.w.events)
 	}
+}
+
+func (e *adminEnv) eventFn(t *testing.T) func(store.Voucher) (outbox.Row, error) {
+	t.Helper()
+	ctx := t.Context()
+	return func(v store.Voucher) (outbox.Row, error) { return e.svc.event(ctx, v) }
 }
