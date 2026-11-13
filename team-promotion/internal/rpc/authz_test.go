@@ -152,8 +152,8 @@ func TestCreateAdCampaignAuthzAndCaps(t *testing.T) {
 		{"seller foreign listing", seller, mk("l2", 10, 100), codes.PermissionDenied},
 		{"seller unknown listing", seller, mk("nope", 10, 100), codes.InvalidArgument},
 		{"admin foreign listing", authCtx(t, "admin-1", "listing.write", "admin", "promotion.admin"), mk("l2", 10, 100), codes.OK},
-		{"bid at cap", seller, mk("l1", 1000, 100), codes.OK},
-		{"bid above cap", seller, mk("l1", 1001, 100), codes.InvalidArgument},
+		{"bid at cap", seller, mk("l1", 1000, 1000), codes.OK},
+		{"bid above cap", seller, mk("l1", 1001, 2000), codes.InvalidArgument},
 		{"budget above cap", seller, mk("l1", 10, 5001), codes.InvalidArgument},
 	} {
 		if _, err := ads.CreateAdCampaign(tc.ctx, tc.req); code(err) != tc.want {
