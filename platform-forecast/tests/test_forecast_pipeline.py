@@ -69,3 +69,34 @@ def test_full_pipeline_run():
     assert result["horizon_days"] == 14
     assert len(result["published_keys"]) == 2
     assert mock_redis.setex.call_count == 2
+
+
+def test_pipeline_payload_labels_follow_selection_fnj12_fnj14():
+    """FNJ-12, FNJ-14: pipeline labels name the model that ran."""
+    import json
+
+    base_date = datetime.date(2026, 9, 1)
+    facts = []
+    for d in range(30):
+        dt = base_date + datetime.timedelta(days=d)
+        facts.append({"seller_id": "s", "listing_id": "long", "date": dt.strftime("%Y-%m-%d"),
+                      "quantity": 5, "unit_price": 1000})
+    for d in range(25, 30):
+        dt = base_date + datetime.timedelta(days=d)
+        facts.append({"seller_id": "s", "listing_id": "short", "date": dt.strftime("%Y-%m-%d"),
+                      "quantity": 3, "unit_price": 1000})
+
+    redis = MagicMock()
+    settings = Settings(horizon_days=14, min_history_days_for_ml=14, backtest_days=7)
+    result = run_demand_forecast_pipeline(facts, redis_client=redis, settings=settings)
+
+    allowed = {"lgbm_quantile_v1", "seasonal_naive_v1"}
+    by_listing = {p["listing_id"]: p for p in result["payloads"]}
+    assert set(by_listing) == {"long", "short"}
+    assert by_listing["long"]["model_version"] == "seasonal_naive_v1"
+    for p in result["payloads"]:
+        assert p["model_version"] in allowed
+        assert len(p["daily_forecasts"]) == 14
+        assert p["daily_forecasts"][0]["date"] == "2026-10-01"
+    stored = [json.loads(c.args[2]) for c in redis.setex.call_args_list]
+    assert {s["model_version"] for s in stored} <= allowed
