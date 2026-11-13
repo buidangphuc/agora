@@ -3060,3 +3060,193 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY team-domain `internal/app` `TestRunConsumesIdentityEvents`. Not producible end to end through the gateway (unit level)."
+
+  - id: bundle.create
+    title: Create a bundle of the caller's own listings
+    persona: seller
+    priority: P1
+    summary: >-
+      CreateBundle stores a bundle only for 2 to 10 distinct, existing, variant-free listings owned by
+      the caller, priced above 0 and strictly below the sum of the parts; GetBundle and
+      ListBundlesBySeller keep returning bundles stored before these rules.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateBundle, listing.v1.GetBundle, listing.v1.ListBundlesBySeller]
+    acceptance:
+      - "B1: Given a seller with two own published listings, when CreateBundle is called with a valid price, then the bundle carries seller_id of the caller and the listing ids in request order and GetBundle returns it"
+      - "B2: Given one own and one foreign listing, when CreateBundle is called, then PERMISSION_DENIED and no bundle is stored"
+      - "B3: Given one own listing and an unknown listing id, when CreateBundle is called, then PERMISSION_DENIED with the same message as for a foreign listing"
+      - "B4: Given a caller without listing.write, when CreateBundle is called, then PERMISSION_DENIED and no bundle is stored"
+      - "B5: Given exactly one listing id, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B6: Given ten own listings, when CreateBundle is called, then a bundle of 10 ids is returned; with eleven, INVALID_ARGUMENT"
+      - "B7: Given the same own listing id twice, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B8: Given a plain listing and an own listing with variants, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B9: Given listings priced 100000 and 50000, when bundle_price is 150000, then INVALID_ARGUMENT and no bundle is stored"
+      - "B10: Given listings priced 100000 and 50000, when bundle_price is 149999, then the bundle is returned with that price"
+      - "B11: Given valid listings, when bundle_price is 0 and then -1, then both fail with INVALID_ARGUMENT and no bundle is stored"
+      - "B12: Given a bundle stored before the rules whose price is at or above the sum, when requested through GetBundle and ListBundlesBySeller, then both return it unchanged"
+      - "B13: Given an unknown bundle id, when GetBundle is called, then NOT_FOUND"
+    tags: [seller]
+    status: planned
+    notes: >-
+      Scenarios in platform-e2e/tests/e2e/features/seller/bundle_integrity.feature (domain-bundle-integrity).
+      B12 seeds the legacy bundle by SQL into listing_db.bundles.
+
+  - id: bundle-integrity.b1
+    title: "B1 A seller bundles their own listings"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B1 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B1: Own listings stored in request order"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestBundleCreate_B1_OwnListingsStoredInRequestOrder`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b2
+    title: "B2 Another seller's listing is refused"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B2 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B2: Foreign listing refused"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB2_ForeignListingPermissionDenied`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b4
+    title: "B4 A caller without the listing write scope is refused"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B4 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B4: Missing write scope refused"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB4_MissingWriteScopeStoresNothing`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b5
+    title: "B5 A single-listing bundle is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B5 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B5: Single listing rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB5B6B7_CountAndDuplicateInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b6
+    title: "B6 A bundle of exactly ten listings is accepted and eleven are rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B6 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B6: Ten accepted, eleven rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB6_TenListingsAccepted`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b7
+    title: "B7 A repeated listing id is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B7 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B7: Repeated id rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB5B6B7_CountAndDuplicateInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b8
+    title: "B8 A bundle with a variant listing is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B8 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B8: Variant listing rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB8_VariantListingInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b9
+    title: "B9 A price equal to the sum of the parts is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B9 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B9: Price equal to sum rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB9_PriceEqualToSumInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b10
+    title: "B10 One minor unit below the sum is accepted"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B10 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B10: One minor unit below sum accepted"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestBundleCreate_B10_OneMinorUnitBelowSumAccepted`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b11
+    title: "B11 A zero or negative price is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B11 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B11: Non-positive price rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB11_NonPositivePriceInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b12
+    title: "B12 A bundle that predates the rules is still returned"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B12 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B12: Legacy bundle readable"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB12_LegacyBundleStillReadable`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b13
+    title: "B13 An unknown bundle id is not found"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B13 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B13: Unknown bundle NOT_FOUND"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB13_UnknownBundleNotFound`. Also exercised by the e2e scenario in bundle_integrity.feature."

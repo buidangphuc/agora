@@ -17,7 +17,7 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 | `GetImageUploadUrl` | `listing.write` | `Unavailable` if no object store |
 | `UpsertStorefront` | `listing.write` | row keyed by the principal; `AlreadyExists` on slug clash |
 | `GetStorefront`, `BatchGetStorefronts` | `listing.read` | batch max 100 ids, else `InvalidArgument` |
-| `CreateBundle` | `listing.write` | owner-scoped |
+| `CreateBundle` | `listing.write` | owner-scoped; 2 to 10 distinct own non-variant listings, price above 0 and below their sum (foreign or unknown listing: PermissionDenied; other rule breaks: InvalidArgument) |
 | `GetBundle`, `ListBundlesBySeller` | `listing.read` | |
 | `ModerateListing`, `ListModerationQueue` | `admin` scope (`PermissionDenied` with `missing scope` otherwise). `ModerateListing` writes a `listing.moderate` audit entry first (`Unavailable` with no change and the message `audit trail unavailable` if team-audit is down) |
 | `ReserveStock`, `ReleaseStock`, `CommitReservation` | **SERVICE principal** (type `service`) holding `listing.write` | internal RPCs; team-order calls them as `service-team-order`. A user, even a seller with the scope, gets `PermissionDenied` |
@@ -143,7 +143,7 @@ Standalone, point `KAFKA_BROKERS` at a reachable broker (platform-core's Redpand
 
 ## Spec and verification
 
-- `FEATURES.yaml` (repo root): 151 features, 32 `automated`, 119 `not-testable`. For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
+- `FEATURES.yaml` (repo root): 229 features, 32 `automated`, 1 `planned` (`bundle.create`), 196 `not-testable`. For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
 - E2E coverage lives in `platform-e2e`: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
 
