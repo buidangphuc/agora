@@ -2,11 +2,11 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ListingStatus } from "@/generated/platform/listing/v1/listing_pb.js";
 import {
   DiscountType,
   VoucherScope,
 } from "@/generated/platform/promotion/v1/promotion_pb.js";
-import { ListingStatus } from "@/generated/platform/listing/v1/listing_pb.js";
 import {
   createBundle,
   getStorefront,

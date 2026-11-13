@@ -118,7 +118,12 @@ describe("listMyShopVouchers", () => {
       "Đã kết thúc",
       "Đã tắt",
     ]);
-    expect(res.items[0]).toMatchObject({ id: "a", code: "A", used: 3, quota: 50 });
+    expect(res.items[0]).toMatchObject({
+      id: "a",
+      code: "A",
+      used: 3,
+      quota: 50,
+    });
     expect(res.nextCursor).toBe("nx");
   });
 
@@ -179,8 +184,16 @@ describe("listMyShopVouchers", () => {
   it("voucher state deactivated takes precedence over the time-based states", async () => {
     voucherRpc.listMyShopVouchers.mockResolvedValue({
       vouchers: [
-        voucher({ active: false, startsAt: ts(at(DAY)), endsAt: ts(at(2 * DAY)) }),
-        voucher({ active: false, startsAt: ts(at(-2 * DAY)), endsAt: ts(at(-DAY)) }),
+        voucher({
+          active: false,
+          startsAt: ts(at(DAY)),
+          endsAt: ts(at(2 * DAY)),
+        }),
+        voucher({
+          active: false,
+          startsAt: ts(at(-2 * DAY)),
+          endsAt: ts(at(-DAY)),
+        }),
       ],
     });
     const res = await listMyShopVouchers({}, NOW);
@@ -192,11 +205,16 @@ describe("listMyShopVouchers", () => {
     [Code.PermissionDenied, "denied"],
     [Code.InvalidArgument, "invalid"],
     [Code.Unavailable, "unavailable"],
-  ])("Vouchers of every state are listed with used and quota: ConnectError %s becomes typed result %s", async (code, typed) => {
-    voucherRpc.listMyShopVouchers.mockRejectedValue(new ConnectError("boom", code));
-    const res = await listMyShopVouchers({ cursor: "bad" }, NOW);
-    expect(res).toMatchObject({ ok: false, code: typed });
-  });
+  ])(
+    "Vouchers of every state are listed with used and quota: ConnectError %s becomes typed result %s",
+    async (code, typed) => {
+      voucherRpc.listMyShopVouchers.mockRejectedValue(
+        new ConnectError("boom", code),
+      );
+      const res = await listMyShopVouchers({ cursor: "bad" }, NOW);
+      expect(res).toMatchObject({ ok: false, code: typed });
+    },
+  );
 });
 
 describe("deactivateMyShopVoucher", () => {
@@ -330,11 +348,16 @@ describe("createCampaign", () => {
     [Code.FailedPrecondition, "failed_precondition"],
     [Code.AlreadyExists, "already_exists"],
     [Code.Unavailable, "unavailable"],
-  ])("Foreign listing id is denied: ConnectError %s becomes %s and keeps the server message", async (code, typed) => {
-    flashRpc.createCampaign.mockRejectedValue(new ConnectError("srv msg", code));
-    const res = await createCampaign(input);
-    expect(res).toMatchObject({ ok: false, code: typed, message: "srv msg" });
-  });
+  ])(
+    "Foreign listing id is denied: ConnectError %s becomes %s and keeps the server message",
+    async (code, typed) => {
+      flashRpc.createCampaign.mockRejectedValue(
+        new ConnectError("srv msg", code),
+      );
+      const res = await createCampaign(input);
+      expect(res).toMatchObject({ ok: false, code: typed, message: "srv msg" });
+    },
+  );
 });
 
 describe("cancelMyCampaign", () => {
