@@ -22,6 +22,7 @@ type Service struct {
 	audit     *auditx.Gate
 	logger    *slog.Logger
 	maxBid    int64
+	minBid    int64
 	maxBudget int64
 }
 
@@ -118,31 +119,4 @@ func (s *Service) CreateAdCampaign(ctx context.Context, p CreateAdCampaignParams
 		return store.AdCampaign{}, err
 	}
 	return created, nil
-}
-
-// ListSponsoredSlots returns the listing ids to render in sponsored slots for a
-// placement context, ordered best-bid first. The context key is accepted for
-// forward compatibility (real placement targeting is out of scope for the mock);
-// today it returns every active campaign's listing, deduplicated, keeping the
-// highest-bid entry per listing. An empty/anonymous context never panics.
-func (s *Service) ListSponsoredSlots(ctx context.Context, _ string) ([]string, error) {
-	campaigns, err := s.repo.ListActive(ctx, defaultPageSize)
-	if err != nil {
-		return nil, err
-	}
-	// campaigns arrive bid-descending from the store. Dedup by listing_id,
-	// keeping the first (highest-bid) occurrence so a listing appears once.
-	seen := make(map[string]struct{}, len(campaigns))
-	out := make([]string, 0, len(campaigns))
-	for _, c := range campaigns {
-		if c.ListingID == "" {
-			continue
-		}
-		if _, dup := seen[c.ListingID]; dup {
-			continue
-		}
-		seen[c.ListingID] = struct{}{}
-		out = append(out, c.ListingID)
-	}
-	return out, nil
 }

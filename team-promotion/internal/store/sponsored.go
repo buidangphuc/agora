@@ -33,6 +33,11 @@ type AdCampaign struct {
 	Bid       int64
 	Status    int32
 	CreatedAt time.Time
+
+	Spent       int64
+	Impressions int64
+	Clicks      int64
+	CategoryID  string
 }
 
 // AdCampaignRepository is the persistence seam for sponsored ad campaigns.
@@ -48,6 +53,8 @@ type AdCampaignRepository interface {
 	// ListActive returns the active campaigns ordered by bid descending (best bid
 	// first), bounded by limit. Ties break on newest-first for a stable order.
 	ListActive(ctx context.Context, limit int) ([]AdCampaign, error)
+	ListServable(ctx context.Context, category string, limit int) ([]AdCampaign, error)
+	IssueImpressions(ctx context.Context, issues []ImpressionIssue) error
 	// Ping verifies the backing store is reachable.
 	Ping(ctx context.Context) error
 }
