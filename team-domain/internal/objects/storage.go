@@ -31,6 +31,25 @@ func NewS3Storage(cfg config.Storage) *S3Storage {
 	return &S3Storage{cfg: cfg}
 }
 
+// PublicBase returns the URL prefix (no trailing slash) under which uploaded
+// objects are publicly served.
+func PublicBase(cfg config.Storage) string {
+	if base := strings.TrimRight(cfg.PublicBaseURL, "/"); base != "" {
+		return base
+	}
+	scheme := "http"
+	if cfg.UseSSL {
+		scheme = "https"
+	}
+	host := strings.TrimRight(cfg.Endpoint, "/")
+	if strings.Contains(host, "://") {
+		if u, err := url.Parse(host); err == nil {
+			host = u.Host
+		}
+	}
+	return fmt.Sprintf("%s://%s/%s", scheme, host, cfg.Bucket)
+}
+
 // GetPresignedUploadURL generates a presigned S3 PUT URL valid for 15 minutes.
 func (s *S3Storage) GetPresignedUploadURL(
 	_ context.Context,

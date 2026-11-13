@@ -22,7 +22,20 @@ var ErrDisplayNameInvalid = errors.New("display_name must be at most 80 characte
 // distinct ids are requested. Mapped to InvalidArgument.
 var ErrTooManySellerIDs = errors.New("too many seller_ids (max 100)")
 
+var ErrTaglineInvalid = errors.New("tagline must be at most 120 characters with no control characters")
+
+var ErrBannerInvalid = errors.New("banner must be an uploaded image URL")
+
+var ErrThemeInvalid = errors.New("theme must be default, dark or festive")
+
+var ErrFeaturedInvalid = errors.New("featured listing ids are invalid")
+
+var ErrTooManyFeatured = errors.New("too many featured listings (max 6)")
+
 const (
+	MaxTaglineRunes = 120
+	MaxFeatured     = 6
+	MaxBannerBytes  = 2048
 	// MaxDisplayNameRunes caps the shop display name after trimming.
 	MaxDisplayNameRunes = 80
 	// MaxBatchSellerIDs caps BatchGetStorefronts.
@@ -33,11 +46,28 @@ const (
 // gRPC and of storage. It mirrors ListingService: depend on a repository port,
 // return domain values, let the handler adapt to protobuf.
 type StorefrontService struct {
-	repo store.StorefrontRepository
+	repo       store.StorefrontRepository
+	publicBase string
 }
 
-func NewStorefrontService(repo store.StorefrontRepository) *StorefrontService {
-	return &StorefrontService{repo: repo}
+func NewStorefrontService(repo store.StorefrontRepository, publicBase string) *StorefrontService {
+	return &StorefrontService{repo: repo, publicBase: strings.TrimRight(publicBase, "/")}
+}
+
+func (s *StorefrontService) bannerAllowed(banner string) bool {
+	if len(banner) > MaxBannerBytes || strings.ContainsAny(banner, "?#") {
+		return false
+	}
+	rest, ok := strings.CutPrefix(banner, s.publicBase+"/")
+	return ok && rest != ""
+}
+
+func validTheme(t string) bool {
+	switch t {
+	case "", "default", "dark", "festive":
+		return true
+	}
+	return false
 }
 
 // Upsert creates or replaces the calling seller's storefront. It is
@@ -55,6 +85,23 @@ func (s *StorefrontService) Upsert(ctx context.Context, sf store.Storefront, own
 		return store.Storefront{}, ErrDisplayNameInvalid
 	}
 	sf.DisplayName = name
+	tagline := strings.TrimSpace(sf.Tagline)
+	if utf8.RuneCountInString(tagline) > MaxTaglineRunes || strings.ContainsFunc(tagline, unicode.IsControl) {
+		return store.Storefront{}, ErrTaglineInvalid
+	}
+	sf.Tagline = tagline
+	if sf.BannerURL != "" && !s.bannerAllowed(sf.BannerURL) {
+		existing, err := s.repo.GetBySeller(ctx, ownerID)
+		if err != nil && !errors.Is(err, store.ErrStorefrontNotFound) {
+			return store.Storefront{}, err
+		}
+		if err != nil || existing.BannerURL != sf.BannerURL {
+			return store.Storefront{}, ErrBannerInvalid
+		}
+	}
+	if !validTheme(sf.Theme) {
+		return store.Storefront{}, ErrThemeInvalid
+	}
 	sf.SellerID = ownerID // owner is server-forced, never client-supplied
 	return s.repo.Upsert(ctx, sf)
 }

@@ -44,7 +44,7 @@ func TestUpsertThenGetBySeller(t *testing.T) {
 		Storefront: &listingv1.Storefront{
 			SellerId:           "SPOOFED", // must be overridden by the principal
 			Slug:               "shop-a",
-			BannerUrl:          "https://cdn/banner-a.png",
+			BannerUrl:          "http://localhost:9000/listing-images/banner-a.png",
 			Tagline:            "Hàng chính hãng",
 			FeaturedListingIds: []string{"l1", "l2"},
 			Theme:              "festive",
