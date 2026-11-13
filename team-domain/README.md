@@ -143,7 +143,7 @@ Standalone, point `KAFKA_BROKERS` at a reachable broker (platform-core's Redpand
 
 ## Spec and verification
 
-- `FEATURES.yaml` (repo root): 217 features, 32 `automated`, 1 `planned` (`bundle.create`), 184 `not-testable`. For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
+- `FEATURES.yaml` (repo root): 229 features, 32 `automated`, 1 `planned` (`bundle.create`), 196 `not-testable`. For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
 - E2E coverage lives in `platform-e2e`: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
 
