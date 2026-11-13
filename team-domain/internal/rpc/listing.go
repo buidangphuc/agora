@@ -161,7 +161,7 @@ func (h *ListingHandler) ListMyListings(
 		pageSize = p.GetPageSize()
 	}
 
-	page, err := h.svc.ListMine(ctx, ownerID, cursor, pageSize)
+	page, err := h.svc.ListMine(ctx, ownerID, store.ListingFilter{}, cursor, pageSize)
 	if err != nil {
 		return nil, fail(ctx, err)
 	}
