@@ -34,6 +34,14 @@ const (
 // return domain values, let the handler adapt to protobuf.
 type StorefrontService struct {
 	repo store.StorefrontRepository
+	ent  EntitlementsPort
+}
+
+var ErrFeaturedLimit = errors.New("featured listings exceed plan limit")
+
+func (s *StorefrontService) WithEntitlements(p EntitlementsPort) *StorefrontService {
+	s.ent = p
+	return s
 }
 
 func NewStorefrontService(repo store.StorefrontRepository) *StorefrontService {
