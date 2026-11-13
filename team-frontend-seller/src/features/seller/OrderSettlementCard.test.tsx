@@ -49,20 +49,23 @@ describe("OrderSettlementCard", () => {
     expect(screen.getByText(formatPrice(177600))).toBeInTheDocument();
   });
 
-  it("renders zero commission", () => {
+  it("Zero commission is shown, not hidden: renders 0% and a zero amount", () => {
     render(
       <OrderSettlementCard
         settlement={settled({
           commission: 0,
           commissionRatePercent: 0,
-          net: 310000,
+          commissionReversed: 1000,
+          refundDeducted: 2000,
+          net: 309000,
         })}
         retryHref={retryHref}
       />,
     );
     expect(screen.getByText(/0%/)).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`^${formatPrice(0)}`))).toBeInTheDocument();
-    expect(screen.getAllByText(formatPrice(310000))).toHaveLength(2);
+    expect(screen.getByText(formatPrice(310000))).toBeInTheDocument();
+    expect(screen.getByText(formatPrice(309000))).toBeInTheDocument();
   });
 
   it("Unsettled order shows the not-settled state: message and no amount rows", () => {
