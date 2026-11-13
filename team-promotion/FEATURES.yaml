@@ -6135,3 +6135,16 @@ features:
     tags: [promotion, seller-centre, unit]
     status: not-testable
     notes: "VERIFIED BY team-promotion `internal/store` `TestMigration0009KeepsOldCampaigns`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-seller-reaches-the-seller-rpcs-but-not-the-admin-ones
+    title: "Seller reaches the seller RPCs but not the admin ones"
+    persona: seller
+    priority: P1
+    summary: "Seller reaches the seller RPCs but not the admin ones (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller reaches the seller RPCs but not the admin ones"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestSellerPromotionForwarders_SellerReachesSellerRPCsNotAdminOnes`. Not producible end to end through the gateway (unit level)."
