@@ -68,6 +68,76 @@ func (r *PostgresFlashSaleRepository) ListCampaigns(ctx context.Context, statuse
 	return out, rows.Err()
 }
 
+func (r *PostgresFlashSaleRepository) ListMyCampaigns(ctx context.Context, sellerID string, statuses []string, now time.Time, offset, limit int) ([]FlashSaleCampaign, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	const q = `SELECT ` + campaignSelectColumns + ` FROM flash_sale_campaigns
+		WHERE seller_id = $5 AND seller_id <> '' AND (cardinality($1::text[]) = 0 OR (CASE
+			WHEN cancelled_at IS NOT NULL THEN 'cancelled'
+			WHEN starts_at IS NOT NULL AND starts_at > $2 THEN 'scheduled'
+			WHEN ends_at IS NOT NULL AND ends_at <= $2 THEN 'ended'
+			ELSE 'active' END) = ANY($1::text[]))
+		ORDER BY starts_at DESC NULLS LAST, id ASC
+		LIMIT $3 OFFSET $4`
+	if statuses == nil {
+		statuses = []string{}
+	}
+	rows, err := r.pool.Query(ctx, q, statuses, now, limit, offset, sellerID)
+	if err != nil {
+		return nil, fmt.Errorf("list my campaigns: %w", err)
+	}
+	defer rows.Close()
+	out := []FlashSaleCampaign{}
+	for rows.Next() {
+		var c FlashSaleCampaign
+		if err := scanCampaign(rows, &c); err != nil {
+			return nil, fmt.Errorf("scan campaign: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+func (r *PostgresFlashSaleRepository) CancelIfScheduledOwned(ctx context.Context, id, sellerID string, now time.Time) (time.Time, error) {
+	var at time.Time
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		var owner string
+		var starts, cancelled *time.Time
+		err := tx.QueryRow(ctx,
+			`SELECT seller_id, starts_at, cancelled_at FROM flash_sale_campaigns WHERE id = $1 FOR UPDATE`, id,
+		).Scan(&owner, &starts, &cancelled)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotOwner
+		}
+		if err != nil {
+			return fmt.Errorf("lock campaign %q: %w", id, err)
+		}
+		if sellerID == "" || owner != sellerID {
+			return ErrNotOwner
+		}
+		if cancelled != nil {
+			at = *cancelled
+			return nil
+		}
+		if starts == nil || !starts.After(now) {
+			return ErrCampaignNotScheduled
+		}
+		if _, err := tx.Exec(ctx, `UPDATE flash_sale_campaigns SET cancelled_at = $2, updated_at = $2 WHERE id = $1`, id, now); err != nil {
+			return fmt.Errorf("cancel campaign %q: %w", id, err)
+		}
+		at = now
+		return nil
+	})
+	if err != nil {
+		return time.Time{}, err
+	}
+	return at, nil
+}
+
 func lockCampaignState(ctx context.Context, tx pgx.Tx, id string) (starts, ends, cancelled *time.Time, err error) {
 	err = tx.QueryRow(ctx,
 		`SELECT starts_at, ends_at, cancelled_at FROM flash_sale_campaigns WHERE id = $1 FOR UPDATE`, id,
@@ -193,8 +263,8 @@ func (r *PostgresFlashSaleRepository) CreateIdempotent(ctx context.Context, acto
 			c.ID = NewID()
 		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO flash_sale_campaigns (`+campaignColumns+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			c.ID, c.ListingID, c.VariantID, c.SalePrice, c.StockCap, c.StockSold, nullableTime(c.StartsAt), nullableTime(c.EndsAt),
+			`INSERT INTO flash_sale_campaigns (`+campaignColumns+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+			c.ID, c.ListingID, c.VariantID, c.SalePrice, c.StockCap, c.StockSold, nullableTime(c.StartsAt), nullableTime(c.EndsAt), c.SellerID,
 		); err != nil {
 			return fmt.Errorf("insert campaign: %w", err)
 		}

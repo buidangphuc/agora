@@ -2,12 +2,14 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"regexp"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-promotion/internal/flashsale"
 	"github.com/buidangphuc/team-promotion/internal/store"
@@ -99,6 +101,55 @@ func (h *FlashSaleHandler) CancelCampaign(ctx context.Context, req *promotionv1.
 	cp.Status = campaignStatusToProto(res.Status)
 	cp.CancelledAt = protoTime(res.CancelledAt)
 	return &promotionv1.CancelCampaignResponse{Campaign: cp}, nil
+}
+
+func sellerCampaignToProto(c store.FlashSaleCampaign, st string) *promotionv1.FlashSaleCampaign {
+	cp := campaignToProto(c)
+	cp.SellerId = c.SellerID
+	cp.Status = campaignStatusToProto(st)
+	return cp
+}
+
+func (h *FlashSaleHandler) ListMyCampaigns(ctx context.Context, req *promotionv1.ListMyCampaignsRequest) (*promotionv1.ListMyCampaignsResponse, error) {
+	principal, err := auth.RequireScopes(ctx, scopeListingWrite)
+	if err != nil {
+		return nil, err
+	}
+	statuses := make([]string, 0, len(req.GetStatuses()))
+	for _, st := range req.GetStatuses() {
+		if v := campaignStatusFromProto(st); v != "" {
+			statuses = append(statuses, v)
+		}
+	}
+	res, err := h.svc.ListMyCampaigns(ctx, principal.ID, statuses, req.GetPage().GetCursor(), req.GetPage().GetPageSize())
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	out := make([]*promotionv1.FlashSaleCampaign, 0, len(res.Campaigns))
+	for _, v := range res.Campaigns {
+		out = append(out, sellerCampaignToProto(v.FlashSaleCampaign, v.Status))
+	}
+	return &promotionv1.ListMyCampaignsResponse{Campaigns: out, Page: pageResponse(res.NextCursor)}, nil
+}
+
+func (h *FlashSaleHandler) CancelMyCampaign(ctx context.Context, req *promotionv1.CancelMyCampaignRequest) (*promotionv1.CancelMyCampaignResponse, error) {
+	principal, err := auth.RequireScopes(ctx, scopeListingWrite)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetCampaignId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "campaign_id is required")
+	}
+	res, err := h.svc.CancelMyCampaign(ctx, req.GetCampaignId(), principal.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotOwner) {
+			return nil, status.Error(codes.PermissionDenied, "not allowed to cancel this campaign")
+		}
+		return nil, fail(ctx, h.logger, err)
+	}
+	cp := sellerCampaignToProto(res.Campaign, res.Status)
+	cp.CancelledAt = protoTime(res.CancelledAt)
+	return &promotionv1.CancelMyCampaignResponse{Campaign: cp}, nil
 }
 
 func (h *FlashSaleHandler) UpdateCampaign(ctx context.Context, req *promotionv1.UpdateCampaignRequest) (*promotionv1.UpdateCampaignResponse, error) {
