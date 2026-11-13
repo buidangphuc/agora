@@ -9118,7 +9118,7 @@ features:
     notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'buf lint and breaking pass' (tasks 2.1)"
 
   - id: trust-legal-contract.registerrequest-carries-both-legal-versions
-    title: "RegisterRequest carries both legal versions"
+    title: "Trust legal contract: RegisterRequest carries both legal versions"
     persona: guest
     priority: P2
     summary: "RegisterRequest carries both legal versions"
@@ -9130,10 +9130,10 @@ features:
       - "RegisterRequest carries both legal versions (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_RegisterRequestCarriesBothLegalVersions"
 
   - id: trust-legal-contract.userstatus-gains-deleted-without-moving-values
-    title: "UserStatus gains DELETED without moving values"
+    title: "Trust legal contract: UserStatus gains DELETED without moving values"
     persona: guest
     priority: P2
     summary: "UserStatus gains DELETED without moving values"
@@ -9145,10 +9145,10 @@ features:
       - "UserStatus gains DELETED without moving values (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserStatusGainsDeletedWithoutMovingValues"
 
   - id: trust-legal-contract.privacyservice-has-six-rpcs-and-fixed-messages
-    title: "PrivacyService has six RPCs and fixed messages"
+    title: "Trust legal contract: PrivacyService has six RPCs and fixed messages"
     persona: guest
     priority: P2
     summary: "PrivacyService has six RPCs and fixed messages"
@@ -9160,10 +9160,10 @@ features:
       - "PrivacyService has six RPCs and fixed messages (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_PrivacyServiceHasSixRPCsAndFixedMessages"
 
   - id: trust-legal-contract.consentpurpose-has-fixed-names-and-numbers
-    title: "ConsentPurpose has fixed names and numbers"
+    title: "Trust legal contract: ConsentPurpose has fixed names and numbers"
     persona: guest
     priority: P2
     summary: "ConsentPurpose has fixed names and numbers"
@@ -9175,10 +9175,10 @@ features:
       - "ConsentPurpose has fixed names and numbers (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ConsentPurposeHasFixedNamesAndNumbers"
 
   - id: trust-legal-contract.consentrecord-round-trips-with-a-32-character-version
-    title: "ConsentRecord round-trips with a 32-character version"
+    title: "Trust legal contract: ConsentRecord round-trips with a 32-character version"
     persona: guest
     priority: P2
     summary: "ConsentRecord round-trips with a 32-character version"
@@ -9190,10 +9190,10 @@ features:
       - "ConsentRecord round-trips with a 32-character version (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ConsentRecordRoundTripsWith32CharVersion"
 
   - id: trust-legal-contract.exportmydata-response-round-trips-a-1-mib-payload
-    title: "ExportMyData response round-trips a 1 MiB payload"
+    title: "Trust legal contract: ExportMyData response round-trips a 1 MiB payload"
     persona: guest
     priority: P2
     summary: "ExportMyData response round-trips a 1 MiB payload"
@@ -9205,10 +9205,10 @@ features:
       - "ExportMyData response round-trips a 1 MiB payload (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ExportMyDataResponseRoundTrips1MiB"
 
   - id: trust-legal-contract.old-readers-skip-the-register-versions
-    title: "Old readers skip the register versions"
+    title: "Trust legal contract: Old readers skip the register versions"
     persona: guest
     priority: P2
     summary: "Old readers skip the register versions"
@@ -9220,10 +9220,10 @@ features:
       - "Old readers skip the register versions (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_OldReadersSkipRegisterVersions"
 
   - id: trust-legal-contract.old-readers-parse-an-unknown-status-as-a-number
-    title: "Old readers parse an unknown status as a number"
+    title: "Trust legal contract: Old readers parse an unknown status as a number"
     persona: guest
     priority: P2
     summary: "Old readers parse an unknown status as a number"
@@ -9235,10 +9235,10 @@ features:
       - "Old readers parse an unknown status as a number (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_OldReadersParseUnknownStatusAsNumber"
 
   - id: trust-legal-contract.privacy-principal-rules-are-documented
-    title: "Privacy principal rules are documented"
+    title: "Trust legal contract: Privacy principal rules are documented"
     persona: guest
     priority: P2
     summary: "Privacy principal rules are documented"
@@ -9250,10 +9250,10 @@ features:
       - "Privacy principal rules are documented (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_PrivacyPrincipalRulesAreDocumented"
 
   - id: trust-legal-contract.register-and-deleted-semantics-are-documented
-    title: "Register and DELETED semantics are documented"
+    title: "Trust legal contract: Register and DELETED semantics are documented"
     persona: guest
     priority: P2
     summary: "Register and DELETED semantics are documented"
@@ -9265,10 +9265,10 @@ features:
       - "Register and DELETED semantics are documented (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_RegisterAndDeletedSemanticsAreDocumented"
 
   - id: trust-legal-contract.missing-principal-note-is-caught
-    title: "Missing principal note is caught"
+    title: "Trust legal contract: Missing principal note is caught"
     persona: guest
     priority: P2
     summary: "Missing principal note is caught"
@@ -9280,10 +9280,10 @@ features:
       - "Missing principal note is caught (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_MissingPrincipalNoteIsCaught"
 
   - id: trust-legal-contract.usererased-message-is-fixed
-    title: "UserErased message is fixed"
+    title: "Trust legal contract: UserErased message is fixed"
     persona: guest
     priority: P2
     summary: "UserErased message is fixed"
@@ -9295,10 +9295,10 @@ features:
       - "UserErased message is fixed (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedMessageIsFixed"
 
   - id: trust-legal-contract.usererased-round-trips-with-several-roles
-    title: "UserErased round-trips with several roles"
+    title: "Trust legal contract: UserErased round-trips with several roles"
     persona: guest
     priority: P2
     summary: "UserErased round-trips with several roles"
@@ -9310,10 +9310,10 @@ features:
       - "UserErased round-trips with several roles (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedRoundTripsWithSeveralRoles"
 
   - id: trust-legal-contract.usererased-without-roles-round-trips
-    title: "UserErased without roles round-trips"
+    title: "Trust legal contract: UserErased without roles round-trips"
     persona: guest
     priority: P2
     summary: "UserErased without roles round-trips"
@@ -9325,10 +9325,10 @@ features:
       - "UserErased without roles round-trips (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedWithoutRolesRoundTrips"
 
   - id: trust-legal-contract.usererased-semantics-are-documented
-    title: "UserErased semantics are documented"
+    title: "Trust legal contract: UserErased semantics are documented"
     persona: guest
     priority: P2
     summary: "UserErased semantics are documented"
@@ -9340,10 +9340,10 @@ features:
       - "UserErased semantics are documented (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedSemanticsAreDocumented"
 
   - id: trust-legal-contract.usererased-is-documented-as-not-exposed-to-any-principal-at-the-edge
-    title: "UserErased is documented as not exposed to any principal at the edge"
+    title: "Trust legal contract: UserErased is documented as not exposed to any principal at the edge"
     persona: guest
     priority: P2
     summary: "UserErased is documented as not exposed to any principal at the edge"
@@ -9355,10 +9355,10 @@ features:
       - "UserErased is documented as not exposed to any principal at the edge (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedIsNotExposedAtTheEdge"
 
   - id: trust-legal-contract.missing-idempotency-note-is-caught
-    title: "Missing idempotency note is caught"
+    title: "Trust legal contract: Missing idempotency note is caught"
     persona: guest
     priority: P2
     summary: "Missing idempotency note is caught"
@@ -9370,10 +9370,10 @@ features:
       - "Missing idempotency note is caught (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_MissingIdempotencyNoteIsCaught"
 
   - id: trust-legal-contract.getuserobligations-exists-with-fixed-messages
-    title: "GetUserObligations exists with fixed messages"
+    title: "Trust legal contract: GetUserObligations exists with fixed messages"
     persona: guest
     priority: P2
     summary: "GetUserObligations exists with fixed messages"
@@ -9385,10 +9385,10 @@ features:
       - "GetUserObligations exists with fixed messages (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_GetUserObligationsExistsWithFixedMessages"
 
   - id: trust-legal-contract.getpayoutobligations-exists-with-fixed-messages
-    title: "GetPayoutObligations exists with fixed messages"
+    title: "Trust legal contract: GetPayoutObligations exists with fixed messages"
     persona: guest
     priority: P2
     summary: "GetPayoutObligations exists with fixed messages"
@@ -9400,10 +9400,10 @@ features:
       - "GetPayoutObligations exists with fixed messages (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_GetPayoutObligationsExistsWithFixedMessages"
 
   - id: trust-legal-contract.obligation-responses-round-trip-extreme-values
-    title: "Obligation responses round-trip extreme values"
+    title: "Trust legal contract: Obligation responses round-trip extreme values"
     persona: guest
     priority: P2
     summary: "Obligation responses round-trip extreme values"
@@ -9415,10 +9415,10 @@ features:
       - "Obligation responses round-trip extreme values (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ObligationResponsesRoundTripExtremeValues"
 
   - id: trust-legal-contract.obligation-rpcs-are-documented-as-internal
-    title: "Obligation RPCs are documented as internal"
+    title: "Trust legal contract: Obligation RPCs are documented as internal"
     persona: guest
     priority: P2
     summary: "Obligation RPCs are documented as internal"
@@ -9430,10 +9430,10 @@ features:
       - "Obligation RPCs are documented as internal (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ObligationRPCsAreDocumentedAsInternal"
 
   - id: trust-legal-contract.payout-gate-wording-is-documented
-    title: "Payout gate wording is documented"
+    title: "Trust legal contract: Payout gate wording is documented"
     persona: guest
     priority: P2
     summary: "Payout gate wording is documented"
@@ -9445,10 +9445,10 @@ features:
       - "Payout gate wording is documented (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_PayoutGateWordingIsDocumented"
 
   - id: trust-legal-contract.payout-request-fields-are-unchanged
-    title: "Payout request fields are unchanged"
+    title: "Trust legal contract: Payout request fields are unchanged"
     persona: guest
     priority: P2
     summary: "Payout request fields are unchanged"
@@ -9460,10 +9460,10 @@ features:
       - "Payout request fields are unchanged (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_PayoutRequestFieldsAreUnchanged"
 
   - id: trust-legal-contract.missing-internal-note-is-caught
-    title: "Missing internal note is caught"
+    title: "Trust legal contract: Missing internal note is caught"
     persona: guest
     priority: P2
     summary: "Missing internal note is caught"
@@ -9475,10 +9475,10 @@ features:
       - "Missing internal note is caught (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_MissingInternalNoteIsCaught"
 
   - id: trust-legal-contract.not-submitted-joins-the-status-enum
-    title: "NOT_SUBMITTED joins the status enum"
+    title: "Trust legal contract: NOT_SUBMITTED joins the status enum"
     persona: guest
     priority: P2
     summary: "NOT_SUBMITTED joins the status enum"
@@ -9490,10 +9490,10 @@ features:
       - "NOT_SUBMITTED joins the status enum (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_NotSubmittedJoinsTheStatusEnum"
 
   - id: trust-legal-contract.verification-service-lists-four-new-rpcs
-    title: "Verification service lists four new RPCs"
+    title: "Trust legal contract: Verification service lists four new RPCs"
     persona: guest
     priority: P2
     summary: "Verification service lists four new RPCs"
@@ -9505,10 +9505,10 @@ features:
       - "Verification service lists four new RPCs (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_VerificationServiceListsFourNewRPCs"
 
   - id: trust-legal-contract.kyc-messages-have-fixed-fields
-    title: "KYC messages have fixed fields"
+    title: "Trust legal contract: KYC messages have fixed fields"
     persona: guest
     priority: P2
     summary: "KYC messages have fixed fields"
@@ -9520,10 +9520,10 @@ features:
       - "KYC messages have fixed fields (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_KycMessagesHaveFixedFields"
 
   - id: trust-legal-contract.existing-kyc-messages-only-gain-fields
-    title: "Existing KYC messages only gain fields"
+    title: "Trust legal contract: Existing KYC messages only gain fields"
     persona: guest
     priority: P2
     summary: "Existing KYC messages only gain fields"
@@ -9535,10 +9535,10 @@ features:
       - "Existing KYC messages only gain fields (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ExistingKycMessagesOnlyGainFields"
 
   - id: trust-legal-contract.kycsubmission-round-trips-with-unset-review-time
-    title: "KycSubmission round-trips with unset review time"
+    title: "Trust legal contract: KycSubmission round-trips with unset review time"
     persona: guest
     priority: P2
     summary: "KycSubmission round-trips with unset review time"
@@ -9550,10 +9550,10 @@ features:
       - "KycSubmission round-trips with unset review time (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_KycSubmissionRoundTripsWithUnsetReviewTime"
 
   - id: trust-legal-contract.status-response-round-trips-not-submitted-and-a-long-reason-code
-    title: "Status response round-trips NOT_SUBMITTED and a long reason code"
+    title: "Trust legal contract: Status response round-trips NOT_SUBMITTED and a long reason code"
     persona: guest
     priority: P2
     summary: "Status response round-trips NOT_SUBMITTED and a long reason code"
@@ -9565,10 +9565,10 @@ features:
       - "Status response round-trips NOT_SUBMITTED and a long reason code (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_StatusResponseRoundTripsNotSubmittedAndLongReasonCode"
 
   - id: trust-legal-contract.old-readers-skip-kyc-additions-and-tolerate-status-4
-    title: "Old readers skip KYC additions and tolerate status 4"
+    title: "Trust legal contract: Old readers skip KYC additions and tolerate status 4"
     persona: guest
     priority: P2
     summary: "Old readers skip KYC additions and tolerate status 4"
@@ -9580,10 +9580,10 @@ features:
       - "Old readers skip KYC additions and tolerate status 4 (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_OldReadersSkipKycAdditionsAndTolerateStatus4"
 
   - id: trust-legal-contract.kyc-access-rules-are-documented
-    title: "KYC access rules are documented"
+    title: "Trust legal contract: KYC access rules are documented"
     persona: guest
     priority: P2
     summary: "KYC access rules are documented"
@@ -9595,10 +9595,10 @@ features:
       - "KYC access rules are documented (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_KycAccessRulesAreDocumented"
 
   - id: trust-legal-contract.missing-audit-first-note-is-caught
-    title: "Missing audit-first note is caught"
+    title: "Trust legal contract: Missing audit-first note is caught"
     persona: guest
     priority: P2
     summary: "Missing audit-first note is caught"
@@ -9610,10 +9610,10 @@ features:
       - "Missing audit-first note is caught (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_MissingAuditFirstNoteIsCaught"
 
   - id: trust-legal-contract.catalogue-header-counts-26-actions
-    title: "Catalogue header counts 26 actions"
+    title: "Trust legal contract: Catalogue header counts 26 actions"
     persona: guest
     priority: P2
     summary: "Catalogue header counts 26 actions"
@@ -9625,10 +9625,10 @@ features:
       - "Catalogue header counts 26 actions (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/gaps_contract_docs_test.go (task 1.5)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegalContract_AuditCatalogueCounts26"
 
   - id: trust-legal-contract.stale-catalogue-header-is-rejected
-    title: "Stale catalogue header is rejected"
+    title: "Trust legal contract: Stale catalogue header is rejected"
     persona: guest
     priority: P2
     summary: "Stale catalogue header is rejected"
@@ -9640,10 +9640,10 @@ features:
       - "Stale catalogue header is rejected (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/gaps_contract_docs_test.go (task 1.5)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegalContract_AuditCatalogueCounts26"
 
   - id: trust-legal-contract.audit-request-fields-are-unchanged
-    title: "Audit request fields are unchanged"
+    title: "Trust legal contract: Audit request fields are unchanged"
     persona: guest
     priority: P2
     summary: "Audit request fields are unchanged"
@@ -9655,10 +9655,10 @@ features:
       - "Audit request fields are unchanged (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/platform/identity/v1/trust_legal_compat_test.go (task 2.1)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_AuditRequestFieldsAreUnchanged"
 
   - id: trust-legal-contract.change-is-backward-compatible
-    title: "Change is backward compatible"
+    title: "Trust legal contract: Change is backward compatible"
     persona: guest
     priority: P2
     summary: "Change is backward compatible"
@@ -9670,10 +9670,10 @@ features:
       - "Change is backward compatible (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: `make -C platform-core lint-proto breaking` and the mutated-copy breaking check (task 1.6)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY make -C platform-core lint-proto breaking"
 
   - id: trust-legal-contract.wire-breaking-edit-is-rejected
-    title: "Wire-breaking edit is rejected"
+    title: "Trust legal contract: Wire-breaking edit is rejected"
     persona: guest
     priority: P2
     summary: "Wire-breaking edit is rejected"
@@ -9685,10 +9685,10 @@ features:
       - "Wire-breaking edit is rejected (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: `make -C platform-core lint-proto breaking` and the mutated-copy breaking check (task 1.6)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY make -C platform-core breaking on a mutated scratch copy"
 
   - id: trust-legal-contract.lint-passes
-    title: "Lint passes"
+    title: "Trust legal contract: Lint passes"
     persona: guest
     priority: P2
     summary: "Lint passes"
@@ -9700,10 +9700,10 @@ features:
       - "Lint passes (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: `make -C platform-core lint-proto breaking` and the mutated-copy breaking check (task 1.6)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY make -C platform-core lint-proto"
 
   - id: trust-legal-contract.copies-match-the-source
-    title: "Copies match the source"
+    title: "Trust legal contract: Copies match the source"
     persona: guest
     priority: P2
     summary: "Copies match the source"
@@ -9715,10 +9715,10 @@ features:
       - "Copies match the source (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/trust_legal_consumer_copies_test.sh (tasks 3.1, 3.2)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY trust_legal_consumer_copies_test.sh copies match"
 
   - id: trust-legal-contract.drifted-or-missing-copy-is-rejected
-    title: "Drifted or missing copy is rejected"
+    title: "Trust legal contract: Drifted or missing copy is rejected"
     persona: guest
     priority: P2
     summary: "Drifted or missing copy is rejected"
@@ -9730,10 +9730,10 @@ features:
       - "Drifted or missing copy is rejected (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/trust_legal_consumer_copies_test.sh (tasks 3.1, 3.2)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY trust_legal_consumer_copies_test.sh drifted and missing copy rejected"
 
   - id: trust-legal-contract.consumer-protos-build
-    title: "Consumer protos build"
+    title: "Trust legal contract: Consumer protos build"
     persona: guest
     priority: P2
     summary: "Consumer protos build"
@@ -9745,10 +9745,10 @@ features:
       - "Consumer protos build (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: platform-core/packages/proto/trust_legal_consumer_copies_test.sh (tasks 3.1, 3.2)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY trust_legal_consumer_copies_test.sh buf build"
 
   - id: trust-legal-contract.new-contract-in-every-generated-language
-    title: "New contract in every generated language"
+    title: "Trust legal contract: New contract in every generated language"
     persona: guest
     priority: P2
     summary: "New contract in every generated language"
@@ -9760,4 +9760,4 @@ features:
       - "New contract in every generated language (contract-verified)"
     tags: [trust-legal-contract, contract]
     status: not-testable
-    notes: "trust-legal-contract: pure contract, not producible end to end. Verified by: `make -C platform-core proto` and grep of Go, Python, JVM and TS outputs (task 2.2)"
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY grep over generated Go, Python, JVM and TS output"
