@@ -47,7 +47,7 @@ the card SHALL say so, and a failed settlement call SHALL affect only the card.
 
 - **WHEN** a seller opens `/seller/orders/[id]` of an order that belongs to a different seller
 - **THEN** the response is the not-found page and no `GetOrderSettlement` call is made
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_fee_breakdown_ui.feature` `Another seller's order is not found`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_fee_breakdown_ui.feature` `Another seller's order is not found and nothing is fetched`
 
 #### Scenario: Guest cannot see the breakdown
 

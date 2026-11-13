@@ -2093,3 +2093,203 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: seller-fee-breakdown-ui.breakdown-of-a-settled-order
+    title: "Breakdown of a settled order"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Breakdown of a settled order"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Breakdown of a settled order); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.breakdown-after-a-partial-refund
+    title: "Breakdown after a partial refund"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Breakdown after a partial refund"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Breakdown after a partial refund); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.unsettled-order-shows-the-not-settled-state
+    title: "Unsettled order shows the not-settled state"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Unsettled order shows the not-settled state"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Unsettled order shows the not-settled state); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.another-sellers-order-is-not-found-and-nothing-is-fetched
+    title: "Another seller's order is not found and nothing is fetched"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Another seller's order is not found and nothing is fetched"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Another seller's order is not found and nothing is fetched); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.guest-cannot-see-the-breakdown
+    title: "Guest cannot see the breakdown"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Guest cannot see the breakdown"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Guest cannot see the breakdown); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.commission-rows-are-labelled
+    title: "Commission rows are labelled"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Commission rows are labelled"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Commission rows are labelled); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.zero-commission-is-shown-not-hidden
+    title: "Zero commission is shown, not hidden"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the response has commission 0 and commission_rate_bps 0 (an order settled before commission existed)"
+      - "Then the card shows commission \"₫0\" with rate \"0%\" and net equal to credited"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `renders zero commission`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.settlement-service-failure-degrades-only-the-card
+    title: "Settlement service failure degrades only the card"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When `GetOrderSettlement` fails with UNAVAILABLE or exceeds the 2 s timeout while the order itself loads"
+      - "Then the card shows an error alert \"Không tải được đối soát thanh toán\" with a \"Thử lại\" link, the order items, totals and tabs still render, and the page responds 200"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/orders/[id]/page.test.tsx` `settlement error degrades only the card`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.large-amounts-keep-integer-precision
+    title: "Large amounts keep integer precision"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the response holds credited 9 007 199 254 740 000 (below 2^53) and commission 450 359 962 737 000"
+      - "Then the card renders both exactly as formatted integer VND with no fractional digit"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/payment.test.ts` `maps int64 settlement amounts without rounding`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.every-known-type-has-a-label
+    title: "Every known type has a label"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the label function receives each of the seven known type strings"
+      - "Then it returns the Vietnamese label listed above for each, and none returns the raw string"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `labels every known type`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.unknown-or-empty-type-falls-back
+    title: "Unknown or empty type falls back"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When a ledger entry has type \"FUTURE_TYPE\" or an empty type"
+      - "Then the cell shows \"FUTURE_TYPE\" or \"—\" respectively and the page does not error"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `falls back for unknown and empty types`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.ledger-load-failure-keeps-the-existing-error-state
+    title: "Ledger load failure keeps the existing error state"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When `ListLedgerEntries` fails while the wallet page loads"
+      - "Then the page shows \"Không tải được lịch sử giao dịch\" with \"Thử lại\" and no label is rendered from stale data"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `ledger error keeps the retry state`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.guest-cannot-see-the-ledger
+    title: "Guest cannot see the ledger"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When a visitor without a session requests `/seller/wallet`"
+      - "Then the visitor is redirected to login and the response contains no ledger rows"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `guest is redirected to login`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
