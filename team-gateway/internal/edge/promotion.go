@@ -385,3 +385,19 @@ func (f *SponsoredForwarder) ListSponsoredSlots(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *SponsoredForwarder) RecordAdClick(
+	ctx context.Context,
+	req *connect.Request[promotionv1.RecordAdClickRequest],
+) (*connect.Response[promotionv1.RecordAdClickResponse], error) {
+	var out *promotionv1.RecordAdClickResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.RecordAdClick(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
