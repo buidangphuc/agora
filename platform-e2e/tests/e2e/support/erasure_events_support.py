@@ -41,11 +41,17 @@ ORDER_GROUP = "team-order.erasure"
 PAYMENT_GROUP = "team-payment.erasure"
 PROMOTION_GROUP = "team-promotion.erasure"
 REFERRAL_GROUP = "team-referral-erasure"
+ENGAGEMENT_GROUP = "team-engagement-erasure"
+CHAT_GROUP = "team-chat-erasure"
+NOTIFICATION_GROUP = "team-notification-erasure"
 
 ORDER_DLQ = "identity.events.order.dlq"
 PAYMENT_DLQ = "identity.events.payment.dlq"
 PROMOTION_DLQ = "identity.events.promotion.dlq"
 REFERRAL_DLQ = "identity.events.referral.dlq"
+ENGAGEMENT_DLQ = "identity.events.engagement.dlq"
+CHAT_DLQ = "identity.events.chat.dlq"
+NOTIFICATION_DLQ = "identity.events.notification.dlq"
 
 CONSUME_WAIT_S = 40.0
 POLL_S = 0.5
