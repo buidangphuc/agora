@@ -1,36 +1,28 @@
 # platform-forecast
 
-Offline probabilistic demand-forecasting **library** (ADR-0013, Stage 1): turns order-line facts into
-per-`(seller_id, listing_id)` daily p10/p50/p90 forecasts and writes them to Redis.
+Nightly batch job (ADR-0013): reads the paid order lines that `team-analytics` exports to
+`order_facts.parquet`, forecasts 14 days of p10/p50/p90 units per `(seller_id, listing_id)` and
+writes them to Redis DB 3 under `fc:v1:*`. It is not a server: no port, proto, events or database.
 
-**Status: unwired library. It is not deployed and nothing calls it.** It has no entrypoint, Dockerfile,
-Makefile, compose service, GitOps CronJob, `.env.example`, `FEATURES.yaml` or CI. It is not in the
-root `AGENTS.md` repo map. The only external reference is ADR-0013 (status "Proposed").
+`team-analytics` still computes `GetDemandForecast` itself (`duckdb_baseline_v1`); it does not read
+these keys yet.
 
-**`team-analytics` computes `GetDemandForecast` itself** (`team-analytics/internal/query/duckdb.go`
-`DemandForecast`, `service.go` `GetDemandForecast`) from DuckDB `order_facts`: one mean/stddev per
-listing, model version `duckdb_baseline_v1`. It does not read the Redis keys this repo writes, so
-this library's output has no consumer today.
-
-Bounded context: platform capability (precedent: `platform-recsys`). It owns no business tables,
-defines no proto, serves no port and is not browser-reachable.
+Bounded context: platform capability (precedent: `platform-featurestore`).
 
 ## 1. Contract
 
 - Serves: nothing (no RPCs or endpoints, so no authorization rules).
-- Consumes: no upstream RPCs and no warehouse. The entry point
-  `forecast.pipeline.run_demand_forecast_pipeline(raw_facts, redis_client=None, settings=None)` takes
-  in-memory order facts that the caller supplies: a list of dicts or a DataFrame.
-  - Input columns: `seller_id`, `listing_id`, `quantity`, plus `occurred_at` or `date`. Revenue is
-    `quantity * unit_price` if `unit_price` is present, else a `revenue` column, else 0.
-  - `extract.py` is described as "from warehouse" but only aggregates what it is given.
-- Output (Redis, when `redis_client` is passed; `SETEX`, with no client the key is only returned):
-  - Key `{redis_prefix}:{seller_id}:{listing_id}` = `fc:v1:seller:{seller}:{listing}`, TTL `redis_ttl_seconds`.
-  - JSON: `seller_id`, `listing_id`, `model_version`, `generated_at` (UTC ISO), `is_cold_start`,
-    `daily_forecasts[]` of `{date, p10, p50, p90}`.
-  - Forecasts start the day after the latest date in the input.
-- Return value: `{status, forecast_count, forecast_start_date, horizon_days, published_keys, payloads}`;
-  `{status: "empty", forecast_count: 0, model_version}` for empty input.
+- Input: `${INPUT_DIR}/order_facts.parquet` (read-only) with `seller_id`, `listing_id`, `quantity`,
+  `occurred_at`, `status`. Only `status = 'PAID'` lines of complete days before `AS_OF` count; `buyer_id` is never read.
+- Output (Redis, `SETEX`, never deletes a key):
+  - `fc:v1:seller:{seller}:{listing}` = JSON `seller_id`, `listing_id`, `model_version`, `generated_at`,
+    `is_cold_start`, `daily_forecasts[]` of `{date, p10, p50, p90}`; 14 days starting at `date(AS_OF)`,
+    quantiles clipped to `0 <= p10 <= p50 <= p90`; TTL `REDIS_TTL_SECONDS`.
+  - `fc:v1:meta`, written last: `model_version`, `generated_at`, `as_of`, `horizon_days`, `listings`,
+    `cold_starts`, `wape`, `baseline_wape`, `status`. The same JSON is printed as one stdout line.
+- Models: global quantile LightGBM (`lgbm_quantile_v1`) when its backtest WAPE is strictly lower than the
+  seasonal-naive baseline's (`seasonal_naive_v1`); listings with fewer than `MIN_HISTORY_DAYS_FOR_ML` days are cold starts on the baseline.
+- Exit codes: 0 ok or `empty` export (nothing written), 2 missing/invalid input or config, 3 Redis failure.
 
 ## 2. Events
 
@@ -38,72 +30,56 @@ None produced or consumed.
 
 ## 3. Data
 
-No database. DuckDB is not read (`duckdb_path` is defined but unused). No migrations.
+No database, no migrations.
 
 ## 4. Configuration
 
-`forecast/config.py` (`pydantic-settings`, reads `.env`, unknown keys ignored, env names are the
-upper-cased field names).
+`forecast/config.py` (`pydantic-settings`); `.env.example` is checked against it by `tests/test_env_example.py`.
 
-| Variable | Default | Used by code |
-|---|---|---|
-| `ENV` | `local` | no |
-| `REDIS_URL` | `redis://localhost:6379/0` | no (the caller injects the client) |
-| `DUCKDB_PATH` | `/data/analytics.duckdb` | no |
-| `MODEL_VERSION` | `lgbm_quantile_v1` | yes (label only, see Known gaps) |
-| `HORIZON_DAYS` | `28` | yes |
-| `HISTORY_DAYS` | `90` | no |
-| `MIN_HISTORY_DAYS_FOR_ML` | `14` | yes (cold-start threshold) |
-| `QUANTILES` | `[0.10, 0.50, 0.90]` | yes (only 0.10/0.50/0.90 map to p10/p50/p90 keys) |
-| `REDIS_PREFIX` | `fc:v1:seller` | yes |
-| `REDIS_TTL_SECONDS` | `172800` (48 h) | yes |
-
-There is no `.env.example` and so no drift gate.
+| Variable | Default |
+|---|---|
+| `REDIS_URL` | `redis://localhost:6379/0` |
+| `INPUT_DIR` | `/data/input` |
+| `AS_OF` | empty (now, RFC 3339) |
+| `BACKTEST_DAYS` | `14` |
+| `HORIZON_DAYS` | `14` |
+| `HISTORY_DAYS` | `90` |
+| `MIN_HISTORY_DAYS_FOR_ML` | `14` |
+| `REDIS_PREFIX` | `fc:v1:seller` |
+| `REDIS_TTL_SECONDS` | `172800` |
 
 ## 5. Run locally
 
-Not in `docker-compose.yaml` or `docker-compose.services.yaml`, and no `jobs` profile. Standalone only:
-call the pipeline from Python with your own facts and an optional Redis client.
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml --profile forecast run --rm forecast-job
+```
+
+Mounts `analytics_data` read-only at `/data`, runs as uid 1001, writes Redis DB 3. In the cluster the
+CronJob `platform-gitops/platform/forecast` runs it at `45 2 * * *`, after the analytics export.
+Without the stack: `make run` (set `INPUT_DIR` and `REDIS_URL`).
 
 ## 6. Build, test and lint
 
 ```bash
 cd platform-forecast
-pip install -e '.[dev]'    # pandas, numpy, scipy, redis, pydantic(-settings); dev: pytest, pytest-cov
-pytest                     # testpaths=tests, pythonpath=.
+make test        # uv run --extra dev pytest
+docker build --target test .
 ```
 
-No lint, format or type-check tooling is configured, and there is no CI gate. Tests use a mock
-Redis client and default `Settings()`.
+CI: `platform-forecast` job in `.github/workflows/services-ci.yml`. No lint tooling is configured.
 
 ## 7. Spec and verification
 
-- No `FEATURES.yaml` and no e2e coverage for this repo. The user-facing RPC is covered under
-  `team-analytics/FEATURES.yaml` (`GetDemandForecast serves probabilistic daily demand and restock points`,
-  via `platform-e2e` `analytics/order_facts.feature`); that tests the team-analytics implementation, not this library.
-- Changes go through OpenSpec (`openspec/changes/<id>`), per the root README's ASDLC. No change
-  named forecast exists (Stage 0 was `archive/2026-09-20-add-order-warehouse-facts`). Verify with
-  `make -C platform-e2e features-check` / `make -C platform-e2e spec-check CHANGE=<id>`.
+OpenSpec change `forecast-nightly-job`; behaviours are listed in `FEATURES.yaml` and verified by
+`tests/` and `platform-e2e/tests/e2e/features/forecast/nightly_forecast.feature`.
 
 ## 8. Gotchas
 
-- `publisher.py` imports pandas at the bottom of the file (`# noqa: E402`); it is used inside `format_forecast_payload`.
-- `quantile_lgbm.QuantileRegressor` is a heuristic: rolling mean/lag blend, a weekend factor and a fixed z of 1.28. It is not LightGBM and not trained. `lightgbm` is not a dependency.
-- `baseline.SeasonalNaiveQuantileForecaster` is seasonal-naive (period 7) plus a normal-approximation spread, not EWMA.
-- Cold start (fewer than `min_history_days_for_ml` observed days after zero-filling) uses the baseline and appends `_baseline` to `model_version`.
-- Series are zero-filled across the global min..max date of the whole input, so a listing first sold late gets leading zeros and is rarely "cold".
-- `backtest.py` metrics (WAPE, pinball loss, interval coverage) are pure functions; nothing calls them or persists results.
+- `publisher.py` imports pandas at the bottom of the file (`# noqa: E402`).
+- The Redis client uses protocol 2.
+- Series are zero-filled from each listing's first sale to the last complete day.
 
-## 9. Known gaps
-
-- Unwired: no entrypoint, image, compose `jobs` profile, gitops CronJob/Argo app, or AGENTS.md row. ADR-0013 expects a nightly platform-gitops CronJob.
-- Output has no reader: `team-analytics` does not read `fc:v1:seller:*`; it computes forecasts itself.
-- ADR-0013 items not implemented: warehouse read (no DuckDB/BigQuery extract), category/seller-median cold-start floor, `forecast_runs` backtest rows, OTel gauges, `model_version` key, stale-generation prune, restock/reorder logic (that lives in `team-analytics`).
-- `model_version` defaults to `lgbm_quantile_v1` although no LightGBM model exists.
-- Unused settings: `env`, `redis_url`, `duckdb_path`, `history_days`.
-- Percentile keys are derived as `int(q*100)`, so quantiles other than 0.1/0.5/0.9 break the payload mapping (z-scores are hard-coded for those three).
-
-## 10. Links
+## 9. Links
 
 - Rules: root `AGENTS.md`; root `README.md` (ASDLC).
-- ADR: `platform-core/docs/ADR/0013-seller-demand-forecasting.md` (also `0011-model-serving.md`, `0014-model-registry-promotion.md` for the platform-model precedent).
+- ADR: `platform-core/docs/ADR/0013-seller-demand-forecasting.md`.

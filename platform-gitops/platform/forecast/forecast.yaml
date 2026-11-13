@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forecast-config
+  namespace: marketplace
+data:
+  SCHEDULE: "45 2 * * *"
+  INPUT_DIR: /data
+  REDIS_URL: redis://valkey:6379/3
+  REDIS_TTL_SECONDS: "172800"
+  HORIZON_DAYS: "14"
+  BACKTEST_DAYS: "14"
+  HOME: /tmp
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: forecast
+  namespace: marketplace
+spec:
+  schedule: "45 2 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels: { app: forecast }
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: forecast
+              image: localhost:5001/platform-forecast
+              args: ["run"]
+              envFrom: [{ configMapRef: { name: forecast-config } }]
+              resources:
+                requests: { cpu: 250m, memory: 512Mi }
+                limits: { cpu: "1", memory: 2Gi }
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              volumeMounts:
+                - { name: analytics-data, mountPath: /data, readOnly: true }
+                - { name: tmp, mountPath: /tmp }
+          volumes:
+            - name: analytics-data
+              persistentVolumeClaim: { claimName: analytics-data, readOnly: true }
+            - name: tmp
+              emptyDir: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: forecast, namespace: marketplace }
+spec:
+  podSelector:
+    matchLabels: { app: forecast }
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - podSelector:
+            matchLabels: { app: valkey }
+      ports:
+        - { protocol: TCP, port: 6379 }

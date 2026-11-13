@@ -55,7 +55,7 @@ browser ─▶ team-frontend{,-seller,-admin} (Next.js SSR) ─▶ team-gateway 
 | **platform-modelserve** | Python | Internal ML model serving router + Hugging Face TEI / vLLM runtime integration (ADR-0011) | :8100 (router HTTP) |
 | **platform-finetune** | Python | LLM fine-tune pipeline imported from MLOps (Qwen2.5-0.5B on AG News); weekly gated training job publishing `finetune-classifier` to the shared registry; no consumer yet | — |
 | **platform-featurestore** | Python | Batch job (`python -m featurestore materialize`) that turns warehouse Parquet exports into an offline snapshot and Redis online features; not a server (no port, proto, events or DB) | — |
-| **platform-forecast** | Python | Offline probabilistic demand-forecasting library (p10/p50/p90 per listing); unwired: not deployed, nothing calls it | — |
+| **platform-forecast** | Python | Nightly batch job (`python -m forecast run`) that reads the `order_facts.parquet` export and writes p10/p50/p90 per listing to Redis DB 3 (`fc:v1:*`); not a server (no port, proto, events or DB) | — |
 
 Shared library (not a service): **`platform-core/packages/py-modelregistry`** (package
 `modelregistry`) — the MLflow registry client + publish gate that every trainer runs in-process
@@ -154,7 +154,7 @@ a verify-only party that holds no signing material; it fetches identity's JWKS.)
   `ENABLE_GBDT` / `ENABLE_TWO_TOWER`) and `platform-finetune`. Locally:
   `docker compose --profile jobs run --rm platform-recsys` (or `platform-finetune`, CPU).
 - **Schedules** (`platform-gitops/platform/`): recsys CronJob nightly `0 3 * * *` (03:00 UTC), after
-  the featurestore materialization at 02:15; finetune CronJob weekly `0 4 * * 0` (Sun 04:00 UTC) on
+  the featurestore materialization at 02:15; forecast CronJob `45 2 * * *` (after the analytics export); finetune CronJob weekly `0 4 * * 0` (Sun 04:00 UTC) on
   the GPU pool (one `nvidia.com/gpu`).
 - **One registry**: MLflow Model Registry (`MLFLOW_TRACKING_URI=http://mlflow:5050`). Models
   `recsys-als`, `recsys-gbdt`, `recsys-two-tower`, `finetune-classifier`. Aliases `champion` (should

@@ -4,11 +4,15 @@ import datetime as dt
 import json
 import sys
 
+import redis
+
 from forecast.config import Settings
-from forecast.extract import ConfigError, read_paid_series
+from forecast.extract import ConfigError
+from forecast.pipeline import run_forecast_job
 
 EXIT_OK = 0
 EXIT_CONFIG = 2
+EXIT_REDIS = 3
 
 
 def _parse_as_of(value: str) -> dt.datetime:
@@ -31,9 +35,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         settings = Settings()
         as_of = _parse_as_of(settings.as_of)
-        series = read_paid_series(settings.input_dir, as_of, settings.history_days)
+        client = redis.Redis.from_url(settings.redis_url, socket_timeout=10, protocol=2)
+        summary = run_forecast_job(settings, as_of, client)
     except ConfigError as exc:
         print(json.dumps({"status": "config_error", "error": str(exc)}), file=sys.stderr)
         return EXIT_CONFIG
-    print(json.dumps({"status": "ok", "rows": int(len(series))}))
+    except (redis.RedisError, OSError) as exc:
+        print(json.dumps({"status": "redis_error", "error": type(exc).__name__}), file=sys.stderr)
+        return EXIT_REDIS
+    print(json.dumps(summary))
     return EXIT_OK
