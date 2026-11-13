@@ -5743,3 +5743,573 @@ features:
     tags: [promotion, ads]
     status: planned
     notes: "Target: ads/sponsored_click.feature::Exhausted campaign stops being served"
+
+  - id: promotion.ads-unit-bid-at-the-minimum-is-accepted
+    title: "Bid at the minimum is accepted"
+    persona: seller
+    priority: P2
+    summary: "Bid at the minimum is accepted (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Bid at the minimum is accepted (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestCreateAdCampaignMinBidAccepted. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-bid-below-the-minimum-is-rejected
+    title: "Bid below the minimum is rejected"
+    persona: seller
+    priority: P2
+    summary: "Bid below the minimum is rejected (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Bid below the minimum is rejected (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestCreateAdCampaignBelowMinBidRejected. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-budget-below-the-bid-is-rejected
+    title: "Budget below the bid is rejected"
+    persona: seller
+    priority: P2
+    summary: "Budget below the bid is rejected (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Budget below the bid is rejected (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestCreateAdCampaignBudgetBelowBidRejected. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-another-seller-cannot-advertise-the-listing
+    title: "Another seller cannot advertise the listing"
+    persona: seller
+    priority: P2
+    summary: "Another seller cannot advertise the listing (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Another seller cannot advertise the listing (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestCreateAdCampaignForeignListingDenied. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-search-serves-the-best-two-campaigns-of-the-category
+    title: "Search serves the best two campaigns of the category"
+    persona: seller
+    priority: P2
+    summary: "Search serves the best two campaigns of the category (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Search serves the best two campaigns of the category (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsSearchRanksByBidInCategory. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-equal-bids-favour-the-oldest-campaign
+    title: "Equal bids favour the oldest campaign"
+    persona: seller
+    priority: P2
+    summary: "Equal bids favour the oldest campaign (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Equal bids favour the oldest campaign (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsTieBreaksOldestFirst. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-other-categories-are-excluded-from-search
+    title: "Other categories are excluded from search"
+    persona: seller
+    priority: P2
+    summary: "Other categories are excluded from search (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Other categories are excluded from search (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsSearchExcludesOtherCategory. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-search-without-a-category-returns-no-slots
+    title: "Search without a category returns no slots"
+    persona: seller
+    priority: P2
+    summary: "Search without a category returns no slots (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Search without a category returns no slots (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsSearchRequiresCategory. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-home-serves-across-categories
+    title: "Home serves across categories"
+    persona: seller
+    priority: P2
+    summary: "Home serves across categories (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Home serves across categories (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsHomeIgnoresCategory. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-a-listing-with-two-campaigns-appears-once
+    title: "A listing with two campaigns appears once"
+    persona: seller
+    priority: P2
+    summary: "A listing with two campaigns appears once (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A listing with two campaigns appears once (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsDedupesListing. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-paused-budget-exhausted-and-ended-campaigns-are-not-served
+    title: "Paused, budget-exhausted and ended campaigns are not served"
+    persona: seller
+    priority: P2
+    summary: "Paused, budget-exhausted and ended campaigns are not served (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Paused, budget-exhausted and ended campaigns are not served (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestListServableExcludesNonServable. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-limit-boundary
+    title: "Limit boundary"
+    persona: seller
+    priority: P2
+    summary: "Limit boundary (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Limit boundary (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsLimitBounds. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-unknown-placement-is-rejected
+    title: "Unknown placement is rejected"
+    persona: seller
+    priority: P2
+    summary: "Unknown placement is rejected (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unknown placement is rejected (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsUnknownPlacementRejected. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-slots-expose-no-seller-or-money-data
+    title: "Slots expose no seller or money data"
+    persona: seller
+    priority: P2
+    summary: "Slots expose no seller or money data (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Slots expose no seller or money data (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/rpc` TestListSponsoredSlotsPublicAndMinimal. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-legacy-caller-without-placement-keeps-the-old-answer
+    title: "Legacy caller without placement keeps the old answer"
+    persona: seller
+    priority: P2
+    summary: "Legacy caller without placement keeps the old answer (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Legacy caller without placement keeps the old answer (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestListSlotsLegacyContextOnly. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-serving-records-one-impression-per-slot
+    title: "Serving records one impression per slot"
+    persona: seller
+    priority: P2
+    summary: "Serving records one impression per slot (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Serving records one impression per slot (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestServeInsertsTokensAndCountsImpressions. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-empty-result-writes-nothing
+    title: "Empty result writes nothing"
+    persona: seller
+    priority: P2
+    summary: "Empty result writes nothing (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Empty result writes nothing (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestServeEmptyWritesNothing. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-a-failed-token-insert-fails-the-call-without-counting
+    title: "A failed token insert fails the call without counting"
+    persona: seller
+    priority: P2
+    summary: "A failed token insert fails the call without counting (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A failed token insert fails the call without counting (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestServeRollsBackOnInsertFailure. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-the-stored-row-holds-no-buyer-data
+    title: "The stored row holds no buyer data"
+    persona: seller
+    priority: P2
+    summary: "The stored row holds no buyer data (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The stored row holds no buyer data (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestAdImpressionsSchemaHoldsNoBuyerData. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-first-click-charges-the-bid
+    title: "First click charges the bid"
+    persona: seller
+    priority: P2
+    summary: "First click charges the bid (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "First click charges the bid (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestRecordClickChargesBidOnce. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-replaying-the-token-charges-nothing
+    title: "Replaying the token charges nothing"
+    persona: seller
+    priority: P2
+    summary: "Replaying the token charges nothing (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Replaying the token charges nothing (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestRecordClickReplayChargesNothing. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-expired-token-charges-nothing
+    title: "Expired token charges nothing"
+    persona: seller
+    priority: P2
+    summary: "Expired token charges nothing (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Expired token charges nothing (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestRecordClickExpiredChargesNothing. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-unknown-token-is-not-found
+    title: "Unknown token is not found"
+    persona: seller
+    priority: P2
+    summary: "Unknown token is not found (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unknown token is not found (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestRecordClickUnknownTokenNotFound. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-empty-token-is-invalid
+    title: "Empty token is invalid"
+    persona: seller
+    priority: P2
+    summary: "Empty token is invalid (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Empty token is invalid (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/rpc` TestRecordAdClickEmptyTokenInvalid. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-a-seller-clicking-their-own-ad-is-not-charged
+    title: "A seller clicking their own ad is not charged"
+    persona: seller
+    priority: P2
+    summary: "A seller clicking their own ad is not charged (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A seller clicking their own ad is not charged (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestRecordClickOwnSellerNotCharged. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-another-seller-or-a-buyer-clicking-is-charged
+    title: "Another seller or a buyer clicking is charged"
+    persona: seller
+    priority: P2
+    summary: "Another seller or a buyer clicking is charged (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Another seller or a buyer clicking is charged (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestRecordClickOtherPrincipalCharged. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-the-last-affordable-click-pauses-the-campaign
+    title: "The last affordable click pauses the campaign"
+    persona: seller
+    priority: P2
+    summary: "The last affordable click pauses the campaign (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The last affordable click pauses the campaign (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestRecordClickExhaustsBudgetPauses. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-a-click-on-a-campaign-that-can-no-longer-pay-charges-nothing
+    title: "A click on a campaign that can no longer pay charges nothing"
+    persona: seller
+    priority: P2
+    summary: "A click on a campaign that can no longer pay charges nothing (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A click on a campaign that can no longer pay charges nothing (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/sponsored` TestRecordClickPausedCampaignNotCharged. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-concurrent-clicks-never-overspend
+    title: "Concurrent clicks never overspend"
+    persona: seller
+    priority: P2
+    summary: "Concurrent clicks never overspend (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Concurrent clicks never overspend (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestConcurrentClicksNeverOverspend. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-concurrent-clicks-on-one-token-charge-once
+    title: "Concurrent clicks on one token charge once"
+    persona: seller
+    priority: P2
+    summary: "Concurrent clicks on one token charge once (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Concurrent clicks on one token charge once (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestConcurrentClicksSameTokenChargeOnce. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-a-failed-charge-rolls-the-token-back
+    title: "A failed charge rolls the token back"
+    persona: seller
+    priority: P2
+    summary: "A failed charge rolls the token back (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A failed charge rolls the token back (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestRecordClickRollsBackOnChargeFailure. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-anonymous-caller-reaches-recordadclick
+    title: "Anonymous caller reaches RecordAdClick"
+    persona: seller
+    priority: P2
+    summary: "Anonymous caller reaches RecordAdClick (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Anonymous caller reaches RecordAdClick (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-gateway `internal/edge` TestRecordAdClickForwardsAnonymous. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-a-logged-in-buyer-s-principal-is-forwarded
+    title: "A logged-in buyer's principal is forwarded"
+    persona: seller
+    priority: P2
+    summary: "A logged-in buyer's principal is forwarded (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A logged-in buyer's principal is forwarded (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-gateway `internal/edge` TestRecordAdClickForwardsPrincipal. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-malformed-bearer-token-is-rejected
+    title: "Malformed bearer token is rejected"
+    persona: seller
+    priority: P2
+    summary: "Malformed bearer token is rejected (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Malformed bearer token is rejected (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-gateway `internal/edge` TestRecordAdClickRejectsBadBearer. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-rows-older-than-30-days-are-deleted
+    title: "Rows older than 30 days are deleted"
+    persona: seller
+    priority: P2
+    summary: "Rows older than 30 days are deleted (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Rows older than 30 days are deleted (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/consumer` TestSweeperPurgesOldImpressions. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-purge-failure-does-not-stop-the-voucher-sweep
+    title: "Purge failure does not stop the voucher sweep"
+    persona: seller
+    priority: P2
+    summary: "Purge failure does not stop the voucher sweep (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Purge failure does not stop the voucher sweep (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/consumer` TestSweeperPurgeFailureDoesNotBlockVouchers. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-legacy-campaigns-that-could-never-serve-are-ended
+    title: "Legacy campaigns that could never serve are ended"
+    persona: seller
+    priority: P2
+    summary: "Legacy campaigns that could never serve are ended (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Legacy campaigns that could never serve are ended (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestMigrationEndsUnservableLegacyCampaigns. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ads-unit-the-migration-reverses-cleanly
+    title: "The migration reverses cleanly"
+    persona: seller
+    priority: P2
+    summary: "The migration reverses cleanly (promotion-ads-serving)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The migration reverses cleanly (unit-verified)"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "promotion-ads-serving: VERIFIED BY team-promotion `internal/store` TestMigrationDownRestoresSchema. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
