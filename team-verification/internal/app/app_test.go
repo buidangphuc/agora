@@ -62,6 +62,13 @@ func settings(t *testing.T, port int, dbURL string) config.Settings {
 		Listener: config.Listener{Host: "127.0.0.1", Port: port, ShutdownGrace: 5 * time.Second},
 		Postgres: sdkconfig.Postgres{URL: dbURL},
 		Audit:    config.Audit{Addr: startAudit(t)},
+		Kafka:    sdkconfig.Kafka{Brokers: "127.0.0.1:1"},
+		Storage:  config.Storage{Endpoint: "127.0.0.1:1", Bucket: "kyc", AccessKey: "ak", SecretKey: "sk", Region: "us-east-1"},
+		Events: config.Events{
+			IdentityTopic:    "identity.events",
+			IdentityDLQTopic: "identity.events.team-verification.dlq",
+			IdentityGroup:    "team-verification-identity",
+		},
 	}
 }
 
