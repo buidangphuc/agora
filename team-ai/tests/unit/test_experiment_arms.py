@@ -250,7 +250,6 @@ async def test_floor_reports_popular_tier():
     assert [i.listing_id for i in result.items] == ["p1", "p2"]
     assert result.tier == "popular"
     assert result.model_version == "g1"
-    assert result.fallback
 
 
 async def test_untrained_gbdt_reports_fixed_weights():

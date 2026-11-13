@@ -17,7 +17,7 @@ from app.modules.business.recommendation.placements import (
 )
 from app.modules.business.recommendation.ports import StockEntry, StockLookupError
 from app.modules.business.recommendation.ranking.artifact import TrainedRankerLoader
-from app.modules.business.recommendation.schemas import Candidate
+from app.modules.business.recommendation.schemas import SERVING_FALLBACK, Candidate
 from app.modules.business.recommendation.service import RecommendationService
 
 
@@ -177,7 +177,7 @@ def build_service(
         ranker_loader=TrainedRankerLoader(cache),
         candidate_top_k=100,
         result_top_k=10,
-        model_version="test-v1",
+        model_version=SERVING_FALLBACK,
         stock_lookup=FakeStock() if stock_lookup is None else stock_lookup,
         retrieve_timeout_s=retrieve_timeout_s,
         **({"assigner": assigner} if assigner is not None else {}),
