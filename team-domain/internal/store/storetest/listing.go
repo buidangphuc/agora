@@ -349,3 +349,8 @@ func (c stockChanges) listings() []string {
 	sort.Strings(out)
 	return out
 }
+
+// GetByIDs STUB (red-first): the implementer replaces this.
+func (r *InMemoryListingRepository) GetByIDs(_ context.Context, _ []string) (map[string]store.Listing, error) {
+	return nil, nil
+}

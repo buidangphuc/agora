@@ -694,3 +694,8 @@ func parseQueueCursor(c string) (time.Time, string, error) {
 	}
 	return at, id, nil
 }
+
+// GetByIDs STUB (red-first): the implementer replaces this with one batched read.
+func (r *PostgresListingRepository) GetByIDs(_ context.Context, _ []string) (map[string]Listing, error) {
+	return nil, nil
+}
