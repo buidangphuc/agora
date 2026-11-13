@@ -3060,3 +3060,37 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY team-domain `internal/app` `TestRunConsumesIdentityEvents`. Not producible end to end through the gateway (unit level)."
+
+  - id: bundle.create
+    title: Create a bundle of the caller's own listings
+    persona: seller
+    priority: P1
+    summary: >-
+      CreateBundle stores a bundle only for 2 to 10 distinct, existing, variant-free listings owned by
+      the caller, priced above 0 and strictly below the sum of the parts; GetBundle and
+      ListBundlesBySeller keep returning bundles stored before these rules.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateBundle, listing.v1.GetBundle, listing.v1.ListBundlesBySeller]
+    acceptance:
+      - "B1: Given a seller with two own published listings, when CreateBundle is called with a valid price, then the bundle carries seller_id of the caller and the listing ids in request order and GetBundle returns it"
+      - "B2: Given one own and one foreign listing, when CreateBundle is called, then PERMISSION_DENIED and no bundle is stored"
+      - "B3: Given one own listing and an unknown listing id, when CreateBundle is called, then PERMISSION_DENIED with the same message as for a foreign listing"
+      - "B4: Given a caller without listing.write, when CreateBundle is called, then PERMISSION_DENIED and no bundle is stored"
+      - "B5: Given exactly one listing id, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B6: Given ten own listings, when CreateBundle is called, then a bundle of 10 ids is returned; with eleven, INVALID_ARGUMENT"
+      - "B7: Given the same own listing id twice, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B8: Given a plain listing and an own listing with variants, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B9: Given listings priced 100000 and 50000, when bundle_price is 150000, then INVALID_ARGUMENT and no bundle is stored"
+      - "B10: Given listings priced 100000 and 50000, when bundle_price is 149999, then the bundle is returned with that price"
+      - "B11: Given valid listings, when bundle_price is 0 and then -1, then both fail with INVALID_ARGUMENT and no bundle is stored"
+      - "B12: Given a bundle stored before the rules whose price is at or above the sum, when requested through GetBundle and ListBundlesBySeller, then both return it unchanged"
+      - "B13: Given an unknown bundle id, when GetBundle is called, then NOT_FOUND"
+    tags: [seller]
+    status: planned
+    notes: >-
+      Scenarios in platform-e2e/tests/e2e/features/seller/bundle_integrity.feature (domain-bundle-integrity).
+      B12 seeds the legacy bundle by SQL into listing_db.bundles.

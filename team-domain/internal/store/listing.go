@@ -113,6 +113,9 @@ type Page struct {
 // keyset (the last id of the previous page); empty means "from the start".
 type ListingRepository interface {
 	Get(ctx context.Context, id string) (Listing, error)
+	// GetByIDs reads many listings (variants included) in one batch. Unknown
+	// ids are omitted from the result without error.
+	GetByIDs(ctx context.Context, ids []string) (map[string]Listing, error)
 	// List returns a page filtered by status (empty status = all).
 	List(ctx context.Context, cursor string, pageSize int32, status string) (Page, error)
 	// ListByOwner returns a page of listings owned by ownerID.
