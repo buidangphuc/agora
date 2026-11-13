@@ -2,6 +2,7 @@ package edge
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 
@@ -108,6 +109,25 @@ func (f *CartForwarder) Reorder(
 	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.Reorder(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *CartForwarder) AddBundleToCart(
+	ctx context.Context,
+	req *connect.Request[orderv1.AddBundleToCartRequest],
+) (*connect.Response[orderv1.AddBundleToCartResponse], error) {
+	if p, ok := principalFrom(ctx); !ok || p.ptype == "anonymous" || p.id == "" {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+	var out *orderv1.AddBundleToCartResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.AddBundleToCart(c, req.Msg)
 		return e
 	})
 	if err != nil {
