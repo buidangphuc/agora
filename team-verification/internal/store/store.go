@@ -28,21 +28,24 @@ var ErrAlreadyReviewed = errors.New("kyc submission already reviewed")
 
 // Submission is one KYC record. reviewed_at is nil until a reviewer acts.
 type Submission struct {
-	ID           string
-	UserID       string
-	DocType      string
-	DocRef       string
-	Status       Status
-	ReviewedAt   *time.Time
-	CreatedAt    time.Time
-	ReasonCode   string
-	SupersededAt *time.Time
+	ID            string
+	UserID        string
+	DocType       string
+	DocRef        string
+	Status        Status
+	ReviewedAt    *time.Time
+	CreatedAt     time.Time
+	ReasonCode    string
+	SupersededAt  *time.Time
+	DocumentCount int
 }
 
 // KycRepository stores KYC submissions. One user may submit multiple times;
 // GetLatestByUser returns the most recent for status lookups. Owned by
 // team-verification.
 type KycRepository interface {
+	DocumentRepository
+	ReviewRepository
 	// Create persists a new submission (id pre-assigned by the caller/service).
 	Create(ctx context.Context, s *Submission) (*Submission, error)
 	// GetByID returns a submission by id, or ErrNotFound.
