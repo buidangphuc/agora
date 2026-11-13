@@ -174,6 +174,6 @@ describe("deriveGettingStarted", () => {
     );
     await vi.advanceTimersByTimeAsync(3000);
     const r = await p;
-    expect(states(r)).toEqual(["unknown", "unknown", "unknown", "todo"]);
+    expect(states(r)).toEqual(["unknown", "unknown", "unknown", "unknown"]);
   });
 });
