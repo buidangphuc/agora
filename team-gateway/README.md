@@ -42,7 +42,7 @@ Upstream calls get a deadline (`CALL_TIMEOUT_SECONDS`). Idempotent reads (`callR
 `RETRY_MAX` times on `Unavailable`; writes (`callWrite`) never retry. Upstream gRPC statuses map to
 the matching Connect codes. An upstream `Unavailable` keeps its first `ErrorInfo` detail (domain, reason)
 behind the sanitized message; the promotion forwarders add `promotion.platform/PROMOTION_UNAVAILABLE`
-when the upstream sent none (`internal/edge/promotion.go`).
+when the upstream sent none (`internal/edge/promotion.go`). The seller RPCs `FlashSaleService` `ListMyCampaigns` / `CancelMyCampaign` and `VoucherService` `ListMyShopVouchers` / `DeactivateMyShopVoucher` are forwarded for any authenticated principal (`UNAUTHENTICATED` for anonymous) with no edge scope gate; team-promotion enforces `listing.write` and ownership.
 `VoucherService.ListMyVouchers` needs any authenticated principal (no scope; `UNAUTHENTICATED` for anonymous) and is forwarded with the verified principal. `OrderService.HasCompletedOrder` is an internal RPC and is not routed (`501`).
 
 Identity `AuthService` extras at the edge (`internal/edge/auth.go`): `CreateHandoffCode` needs an
