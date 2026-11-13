@@ -7394,3 +7394,133 @@ features:
     tags: [order, discovery-followups, unit]
     status: not-testable
     notes: "VERIFIED BY team-order migrations TestMigration0024_NoCodOrders. Not producible black box: needs a seeded database, the migration body or a transaction fault."
+
+  - id: order.opb-shop-voucher-only
+    title: "Shop voucher only"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Shop voucher only"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/events TestPaidEventCarriesBreakdownShopVoucher. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-shop-and-platform-voucher-split
+    title: "Shop and platform voucher split"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Shop and platform voucher split"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/events TestPaidEventSplitsShopAndPlatformDiscount. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-no-discount-sets-explicit-zeros
+    title: "No discount sets explicit zeros"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "No discount sets explicit zeros"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/events TestPaidEventZeroDiscountIsPresent. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-existing-fields-and-event-id-are-unchanged
+    title: "Existing fields and event id are unchanged"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Existing fields and event id are unchanged"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/events TestPaidEventLegacyFieldsUnchanged. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-breakdown-is-committed-in-the-paid-transaction
+    title: "Breakdown is committed in the PAID transaction"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Breakdown is committed in the PAID transaction"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestPaidTransitionOutboxCarriesBreakdown. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-a-failing-enqueue-rolls-the-paid-transition-back
+    title: "A failing enqueue rolls the PAID transition back"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A failing enqueue rolls the PAID transition back"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestPaidTransitionRollsBackOnEnqueueFailure. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-platform-share-larger-than-the-discount-is-skipped
+    title: "Platform share larger than the discount is skipped"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Platform share larger than the discount is skipped"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/events TestPaidEventSkipsNegativeShopShare. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-amounts-that-do-not-sum-to-the-total-are-skipped
+    title: "Amounts that do not sum to the total are skipped"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Amounts that do not sum to the total are skipped"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/events TestPaidEventSkipsIncoherentTotal. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-outbox-rows-enqueued-before-deploy-are-not-rewritten
+    title: "Outbox rows enqueued before deploy are not rewritten"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Outbox rows enqueued before deploy are not rewritten"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestPendingLegacyPaidRowRelayedUnchanged. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-re-emitted-paid-fact-collapses-to-one-row
+    title: "Re-emitted PAID fact collapses to one row"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-paid-price-breakdown."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Re-emitted PAID fact collapses to one row"
+    tags: [order, outbox, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/store TestPaidReplayKeepsSingleBreakdownRow. Not producible end to end through the gateway (unit level)."
