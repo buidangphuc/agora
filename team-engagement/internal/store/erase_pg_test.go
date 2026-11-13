@@ -195,6 +195,9 @@ func TestEraseListingRatingUnchanged(t *testing.T) {
 	seedReview(t, pool, "r1", "l1", victim, "V", 5, "a")
 	seedReview(t, pool, "r2", "l1", "u2", "U2", 3, "b")
 	seedReview(t, pool, "r3", "l1", "u3", "U3", 2, "c")
+	for _, id := range []string{"r1", "r2", "r3"} {
+		exec(t, pool, `UPDATE reviews SET verified_purchase = TRUE, order_id = 'ord-' || id WHERE id = $1`, id)
+	}
 	reviews := store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
 	before, err := reviews.GetRatingSummary(context.Background(), "l1")
 	if err != nil {
