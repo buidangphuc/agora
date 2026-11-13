@@ -97,3 +97,6 @@ func ScopesForUser(roles []string, status string) []string {
 	}
 	return out
 }
+
+// RED-STUB: compile-only placeholder for task t2-register-privacy-authz; the implementer replaces this.
+func IsUserOnlyRPC(fullMethod string) bool { return false }

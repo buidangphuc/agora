@@ -120,3 +120,38 @@ func TestServiceOnlyScopesGrantedToNoRole(t *testing.T) {
 		}
 	}
 }
+
+// Scenario: Anonymous and service principals cannot record consent
+// Scenario: Anonymous caller cannot list
+// PrivacyService is principal-scoped: every RPC is user-principal-only and none is public, so no role needs a
+// dedicated scope and an anonymous or service caller is refused by the handler's RequireUser.
+func TestPrivacyServiceRPCsAreUserOnlyAndNeverPublic(t *testing.T) {
+	const prefix = "/platform.identity.v1.PrivacyService/"
+	for _, m := range []string{"RecordConsent", "ListMyConsents", "RequestAccountDeletion", "CancelAccountDeletion", "GetAccountDeletionStatus", "ExportMyData"} {
+		if !authz.IsUserOnlyRPC(prefix + m) {
+			t.Errorf("PrivacyService/%s must be user-principal-only", m)
+		}
+		if authz.IsPublicRPC(prefix + m) {
+			t.Errorf("PrivacyService/%s must not be public", m)
+		}
+	}
+	for _, m := range []string{
+		"/platform.identity.v1.AuthService/Register",
+		"/platform.identity.v1.AuthService/Login",
+		"/platform.identity.v1.AccountAdminService/ListUsers",
+		"/platform.identity.v1.PrivacyService/Unknown",
+		"/platform.identity.v1.PrivacyServiceX/RecordConsent",
+		"",
+	} {
+		if authz.IsUserOnlyRPC(m) {
+			t.Errorf("%q must not be classified user-only", m)
+		}
+	}
+	for _, role := range []string{authz.RoleBuyer, authz.RoleSeller, authz.RoleAdmin} {
+		for _, s := range authz.ScopesForRoles([]string{role}) {
+			if s == "consent.write" || s == "privacy.write" {
+				t.Errorf("role %s must not need a privacy scope, got %s", role, s)
+			}
+		}
+	}
+}
