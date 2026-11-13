@@ -246,6 +246,17 @@ func refundByKey(ctx context.Context, q DBTX, key string) (Refund, bool, error) 
 	return r, true, nil
 }
 
+func commissionOf(ctx context.Context, q DBTX, paymentID string) (int64, error) {
+	e, err := entryByReference(ctx, q, LedgerTypeCommission, paymentID)
+	if errors.Is(err, ErrLedgerEntryNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return -e.Amount, nil
+}
+
 func (s *PostgresSettlementLedger) SettledTransaction(ctx context.Context, orderID string) (PaymentTransaction, error) {
 	var t PaymentTransaction
 	if err := scanTransaction(s.pool.QueryRow(ctx, settledTxSQL, orderID), &t); err != nil {
@@ -261,7 +272,7 @@ func (s *PostgresSettlementLedger) ListRefunds(ctx context.Context, paymentID st
 	return listRefunds(ctx, s.pool, paymentID)
 }
 
-func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID, sellerID string, _ Commissionable) (CreditResult, error) {
+func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID, sellerID string, c Commissionable) (CreditResult, error) {
 	if sellerID == "" {
 		return CreditResult{}, errors.New("seller id is required")
 	}
@@ -289,10 +300,21 @@ func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID
 	credit, credited, err := insertLedgerOnce(ctx, tx, LedgerEntry{
 		SellerID:    sellerID,
 		Type:        LedgerTypeOrderSettlement,
-		Amount:      t.Amount,
+		Amount:      c.CreditAmount(t.Amount),
 		Status:      LedgerStatusCompleted,
 		ReferenceID: t.ID,
 	})
+	if err != nil {
+		return CreditResult{}, err
+	}
+	if credited {
+		if entry, ok := c.CommissionEntry(sellerID, t.ID); ok {
+			if _, _, err := insertLedgerOnce(ctx, tx, entry); err != nil {
+				return CreditResult{}, err
+			}
+		}
+	}
+	commission, err := commissionOf(ctx, tx, t.ID)
 	if err != nil {
 		return CreditResult{}, err
 	}
@@ -304,6 +326,7 @@ func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID
 		return CreditResult{}, err
 	}
 	lockedOwner := credit.SellerID == sellerID
+	var cumulative int64
 	for _, r := range refunds {
 		if r.Amount <= 0 {
 			continue
@@ -319,6 +342,13 @@ func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID
 			return CreditResult{}, err
 		}
 		res.Deducted = res.Deducted || deducted
+		prev := ReversalTarget(commission, cumulative, t.Amount)
+		cumulative += r.Amount
+		if delta := ReversalTarget(commission, cumulative, t.Amount) - prev; delta > 0 {
+			if _, _, err := insertLedgerOnce(ctx, tx, ReversalEntry(credit.SellerID, r.ID, delta)); err != nil {
+				return CreditResult{}, err
+			}
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return CreditResult{}, fmt.Errorf("commit credit: %w", err)
@@ -409,6 +439,23 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 				return RefundResult{}, err
 			}
 			res.Deducted = deducted
+			commission, err := commissionOf(ctx, tx, t.ID)
+			if err != nil {
+				return RefundResult{}, err
+			}
+			if commission > 0 {
+				var reversed int64
+				if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(d.amount), 0)::BIGINT FROM wallet_ledger d
+					JOIN payment_refunds r ON r.id = d.reference_id
+					WHERE d.type = 'COMMISSION_REVERSAL' AND r.payment_id = $1`, t.ID).Scan(&reversed); err != nil {
+					return RefundResult{}, fmt.Errorf("sum commission reversals: %w", err)
+				}
+				if delta := ReversalTarget(commission, refunded, t.Amount) - reversed; delta > 0 {
+					if _, _, err := insertLedgerOnce(ctx, tx, ReversalEntry(credit.SellerID, r.ID, delta)); err != nil {
+						return RefundResult{}, err
+					}
+				}
+			}
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
