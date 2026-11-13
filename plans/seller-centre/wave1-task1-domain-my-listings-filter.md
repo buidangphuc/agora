@@ -25,6 +25,8 @@ Implement OpenSpec change `domain-my-listings-filter` test-first per its tasks.m
 - platform-e2e/tests/e2e/step_definitions/my_listings_filter_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_my_listings_filter.py
 - platform-e2e/src/api/services/listing_service.py
+- widened (P1):
+  - team-domain/internal/app/migrate_test.go — pinned embedded-migration count (16 → 17) directly broken by migration 0017
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-domain --vet`
