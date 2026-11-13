@@ -30,6 +30,8 @@ principal, id `anonymous` and type ANONYMOUS are rejected with `Unauthenticated`
 | `GetWalletBalance` | `sellerAccess`, admin read allowed | Ledger model: `SUM(wallet_ledger.amount)`. |
 | `ListLedgerEntries` | `sellerAccess`, admin read allowed | Ledger model, newest first, opaque offset cursor (`o:<offset>`, base64; the page size is clamped by `pagination.Clamp`), page size default 20 and max 100. `reference_id`: the payment id for an `ORDER_SETTLEMENT`, the refund id (`rpc:`/`return:`/`cancel:`/`legacy:` key) for a `REFUND_DEDUCTION`, empty for a payout. |
 | `RequestWalletPayout` | `sellerAccess`, owner only | Ledger model: appends a negative PENDING `PAYOUT` row. Balance check, hold check and debit are one atomic step (per-seller `pg_advisory_xact_lock` in one transaction). Above the balance: `FailedPrecondition` `insufficient wallet balance`; within the balance but above the withdrawable amount: `FailedPrecondition` `amount is held until <RFC3339 UTC> (refund window)` (see Payout hold-back). |
+| `GetOrderSettlement` | Contract only (monetization-contract, not built) | Defined in `proto/platform/payment/v1/payment.proto:184`; the handler is the embedded `UnimplementedPaymentServiceServer` (`internal/rpc/payment.go:23`), so it returns `Unimplemented`. |
+| `ChargeSellerFee` | Contract only (monetization-contract, not built) | Defined in `proto/platform/payment/v1/payment.proto:190`; returns `Unimplemented` (embedded `UnimplementedPaymentServiceServer`). |
 
 `sellerAccess` (`internal/rpc/wallet_ledger.go`) never trusts the request `seller_id` alone:
 
@@ -196,7 +198,9 @@ The **wallet ledger is the single source of truth** for seller money:
 
 - **Ledger** (`wallet_ledger`): append-only, single-entry signed rows (not double-entry, no bank
   fields). Balance is computed as `SUM(amount)`. Entry types: `ORDER_SETTLEMENT`, `PAYOUT`,
-  `REFUND_DEDUCTION`; statuses `PENDING`, `COMPLETED`, `REJECTED`.
+  `REFUND_DEDUCTION`; statuses `PENDING`, `COMPLETED`, `REJECTED`. The proto enum also defines
+  `COMMISSION`, `COMMISSION_REVERSAL`, `SUBSCRIPTION_FEE` and `AD_SPEND`
+  (`proto/platform/payment/v1/payment.proto:53`); contract only (monetization-contract, not built), nothing writes them.
 - **`payout_requests`** only records bank details and status for a payout, linked to the ledger
   debit that funded it (`ledger_entry_id`). If recording fails after the debit, a compensating
   credit is appended.

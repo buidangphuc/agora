@@ -35,7 +35,9 @@ these into a principal; each RPC handler in `internal/rpc` enforces its own rule
 | `SubscriptionService/Subscribe` | Requires `listing.write` (buyer-only is `PermissionDenied`); seller id is the caller's id. |
 | `SubscriptionService/GetEntitlements` | Principal required. Only a `service` principal may read another seller; every other type (user, admin, unspecified) reads only its own id (fail closed). |
 | `SponsoredService/CreateAdCampaign` | Requires `listing.write`; non-admins must own the listing (same team-domain check as `CreateCampaign`, fails closed). `bid`/`budget` above `MAX_AD_BID`/`MAX_AD_BUDGET` are `InvalidArgument`. Seller id is the caller's id. |
-| `SponsoredService/ListSponsoredSlots` | None (active campaigns, best bid first). |
+| `SponsoredService/ListSponsoredSlots` | None (active campaigns, best bid first). Fills `listing_ids` only; the request fields `placement`, `category_id`, `limit` and the response `slots` (`proto/platform/promotion/v1/promotion.proto:589`) are contract only (monetization-contract, not built). |
+| `SubscriptionService/GetMySubscription`, `CancelSubscription` | Contract only (monetization-contract, not built): defined at `proto/platform/promotion/v1/promotion.proto:150`, `:153`; the handler is the embedded `UnimplementedSubscriptionServiceServer` (`internal/rpc/subscription.go:16`), so they return `Unimplemented`. `Plan.term_days`, `SellerSubscription.current_period_end` and `auto_renew` are not filled. |
+| `SponsoredService/ListMyAdCampaigns`, `PauseAdCampaign`, `ResumeAdCampaign`, `RecordAdClick` | Contract only (monetization-contract, not built): defined at `proto/platform/promotion/v1/promotion.proto:486-496`; the handler is the embedded `UnimplementedSponsoredServiceServer` (`internal/rpc/sponsored.go:16`), so they return `Unimplemented`. `AdCampaign.spent`, `impressions`, `clicks`, `category_id` and status `PAUSED_BUDGET` are not filled. |
 
 Also served: `grpc.health.v1.Health` (services `liveness` and `postgres`) and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default false, only allowed when `ENV` is `local` or `test`).
 

@@ -220,6 +220,28 @@ export enum WalletTransactionType {
    * @generated from enum value: WALLET_TRANSACTION_TYPE_REFUND_DEDUCTION = 3;
    */
   REFUND_DEDUCTION = 3,
+
+  /**
+   * @generated from enum value: WALLET_TRANSACTION_TYPE_COMMISSION = 4;
+   */
+  COMMISSION = 4,
+
+  /**
+   * @generated from enum value: WALLET_TRANSACTION_TYPE_COMMISSION_REVERSAL = 5;
+   */
+  COMMISSION_REVERSAL = 5,
+
+  /**
+   * @generated from enum value: WALLET_TRANSACTION_TYPE_SUBSCRIPTION_FEE = 6;
+   */
+  SUBSCRIPTION_FEE = 6,
+
+  /**
+   * Reserved: not written in v1. A later change books ad spend from the campaign counter.
+   *
+   * @generated from enum value: WALLET_TRANSACTION_TYPE_AD_SPEND = 7;
+   */
+  AD_SPEND = 7,
 }
 // Retrieve enum metadata with: proto3.getEnumType(WalletTransactionType)
 proto3.util.setEnumType(WalletTransactionType, "platform.payment.v1.WalletTransactionType", [
@@ -227,6 +249,38 @@ proto3.util.setEnumType(WalletTransactionType, "platform.payment.v1.WalletTransa
   { no: 1, name: "WALLET_TRANSACTION_TYPE_ORDER_SETTLEMENT" },
   { no: 2, name: "WALLET_TRANSACTION_TYPE_PAYOUT" },
   { no: 3, name: "WALLET_TRANSACTION_TYPE_REFUND_DEDUCTION" },
+  { no: 4, name: "WALLET_TRANSACTION_TYPE_COMMISSION" },
+  { no: 5, name: "WALLET_TRANSACTION_TYPE_COMMISSION_REVERSAL" },
+  { no: 6, name: "WALLET_TRANSACTION_TYPE_SUBSCRIPTION_FEE" },
+  { no: 7, name: "WALLET_TRANSACTION_TYPE_AD_SPEND" },
+]);
+
+/**
+ * @generated from enum platform.payment.v1.SellerFeeKind
+ */
+export enum SellerFeeKind {
+  /**
+   * @generated from enum value: SELLER_FEE_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: SELLER_FEE_KIND_SUBSCRIPTION = 1;
+   */
+  SUBSCRIPTION = 1,
+
+  /**
+   * Reserved: rejected in v1.
+   *
+   * @generated from enum value: SELLER_FEE_KIND_AD_SPEND = 2;
+   */
+  AD_SPEND = 2,
+}
+// Retrieve enum metadata with: proto3.getEnumType(SellerFeeKind)
+proto3.util.setEnumType(SellerFeeKind, "platform.payment.v1.SellerFeeKind", [
+  { no: 0, name: "SELLER_FEE_KIND_UNSPECIFIED" },
+  { no: 1, name: "SELLER_FEE_KIND_SUBSCRIPTION" },
+  { no: 2, name: "SELLER_FEE_KIND_AD_SPEND" },
 ]);
 
 /**
@@ -687,6 +741,222 @@ export class WalletTransaction extends Message<WalletTransaction> {
 
   static equals(a: WalletTransaction | PlainMessage<WalletTransaction> | undefined, b: WalletTransaction | PlainMessage<WalletTransaction> | undefined): boolean {
     return proto3.util.equals(WalletTransaction, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.payment.v1.GetOrderSettlementRequest
+ */
+export class GetOrderSettlementRequest extends Message<GetOrderSettlementRequest> {
+  /**
+   * @generated from field: string order_id = 1;
+   */
+  orderId = "";
+
+  constructor(data?: PartialMessage<GetOrderSettlementRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.payment.v1.GetOrderSettlementRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "order_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOrderSettlementRequest {
+    return new GetOrderSettlementRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetOrderSettlementRequest {
+    return new GetOrderSettlementRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetOrderSettlementRequest {
+    return new GetOrderSettlementRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetOrderSettlementRequest | PlainMessage<GetOrderSettlementRequest> | undefined, b: GetOrderSettlementRequest | PlainMessage<GetOrderSettlementRequest> | undefined): boolean {
+    return proto3.util.equals(GetOrderSettlementRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.payment.v1.GetOrderSettlementResponse
+ */
+export class GetOrderSettlementResponse extends Message<GetOrderSettlementResponse> {
+  /**
+   * @generated from field: string order_id = 1;
+   */
+  orderId = "";
+
+  /**
+   * @generated from field: int64 credited = 2;
+   */
+  credited = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 commission = 3;
+   */
+  commission = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 commission_reversed = 4;
+   */
+  commissionReversed = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 refund_deducted = 5;
+   */
+  refundDeducted = protoInt64.zero;
+
+  /**
+   * net = credited - commission + commission_reversed - refund_deducted.
+   *
+   * @generated from field: int64 net = 6;
+   */
+  net = protoInt64.zero;
+
+  /**
+   * @generated from field: int32 commission_rate_bps = 7;
+   */
+  commissionRateBps = 0;
+
+  constructor(data?: PartialMessage<GetOrderSettlementResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.payment.v1.GetOrderSettlementResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "order_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "credited", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "commission", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 4, name: "commission_reversed", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 5, name: "refund_deducted", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 6, name: "net", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 7, name: "commission_rate_bps", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOrderSettlementResponse {
+    return new GetOrderSettlementResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetOrderSettlementResponse {
+    return new GetOrderSettlementResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetOrderSettlementResponse {
+    return new GetOrderSettlementResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetOrderSettlementResponse | PlainMessage<GetOrderSettlementResponse> | undefined, b: GetOrderSettlementResponse | PlainMessage<GetOrderSettlementResponse> | undefined): boolean {
+    return proto3.util.equals(GetOrderSettlementResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.payment.v1.ChargeSellerFeeRequest
+ */
+export class ChargeSellerFeeRequest extends Message<ChargeSellerFeeRequest> {
+  /**
+   * @generated from field: string seller_id = 1;
+   */
+  sellerId = "";
+
+  /**
+   * amount is integer VND and must be greater than 0, otherwise INVALID_ARGUMENT.
+   *
+   * @generated from field: int64 amount = 2;
+   */
+  amount = protoInt64.zero;
+
+  /**
+   * @generated from field: platform.payment.v1.SellerFeeKind kind = 3;
+   */
+  kind = SellerFeeKind.UNSPECIFIED;
+
+  /**
+   * reference_id is the idempotency key: one entry per (seller_id, kind, reference_id).
+   *
+   * @generated from field: string reference_id = 4;
+   */
+  referenceId = "";
+
+  constructor(data?: PartialMessage<ChargeSellerFeeRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.payment.v1.ChargeSellerFeeRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "seller_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "amount", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "kind", kind: "enum", T: proto3.getEnumType(SellerFeeKind) },
+    { no: 4, name: "reference_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChargeSellerFeeRequest {
+    return new ChargeSellerFeeRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ChargeSellerFeeRequest {
+    return new ChargeSellerFeeRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ChargeSellerFeeRequest {
+    return new ChargeSellerFeeRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ChargeSellerFeeRequest | PlainMessage<ChargeSellerFeeRequest> | undefined, b: ChargeSellerFeeRequest | PlainMessage<ChargeSellerFeeRequest> | undefined): boolean {
+    return proto3.util.equals(ChargeSellerFeeRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.payment.v1.ChargeSellerFeeResponse
+ */
+export class ChargeSellerFeeResponse extends Message<ChargeSellerFeeResponse> {
+  /**
+   * @generated from field: string entry_id = 1;
+   */
+  entryId = "";
+
+  /**
+   * created is false on a replay of the same key, which books nothing more.
+   *
+   * @generated from field: bool created = 2;
+   */
+  created = false;
+
+  constructor(data?: PartialMessage<ChargeSellerFeeResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.payment.v1.ChargeSellerFeeResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "entry_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "created", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChargeSellerFeeResponse {
+    return new ChargeSellerFeeResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ChargeSellerFeeResponse {
+    return new ChargeSellerFeeResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ChargeSellerFeeResponse {
+    return new ChargeSellerFeeResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ChargeSellerFeeResponse | PlainMessage<ChargeSellerFeeResponse> | undefined, b: ChargeSellerFeeResponse | PlainMessage<ChargeSellerFeeResponse> | undefined): boolean {
+    return proto3.util.equals(ChargeSellerFeeResponse, a, b);
   }
 }
 
