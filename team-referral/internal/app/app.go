@@ -110,6 +110,12 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	if err != nil {
 		return err
 	}
+	erasure, err := newConsumer(s, &stack, producer, logger,
+		s.Referral.ErasureGroup, s.Referral.IdentityTopic, s.Referral.ErasureDLQTopic,
+		consumer.NewErasureHandler(repo, handlerCfg))
+	if err != nil {
+		return err
+	}
 	sweeper := referral.NewSweeper(repo, referral.WithConfig(cfg), referral.WithLogger(logger))
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
@@ -121,7 +127,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, identity, orders, sweeper))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, identity, orders, erasure, sweeper))
 }
 
 func newConsumer(s config.Settings, stack *lifecycle.Stack, dlq consume.DLQProducer, logger *slog.Logger, group, topic, dlqTopic string, handler consume.Handler) (*consume.Consumer, error) {

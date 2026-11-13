@@ -16,6 +16,8 @@ these into a principal; each RPC handler in `internal/rpc` enforces its own rule
 `anonymous` or ANONYMOUS-type principal. `RequireAdmin` needs scope `admin`; `RequireSeller` needs
 `listing.write` or `admin`.
 
+Erasure is not an RPC: a user is erased only by the `UserErased` event on `identity.events` (see Events).
+
 | Service / RPC | Authorization (as implemented) |
 |---|---|
 | `VoucherService/CreateVoucher` | Principal required. Scope `PLATFORM` (and unspecified) needs `admin`. Scope `SHOP` needs `listing.write` or `admin`; `seller_id` is forced to the caller's id. `per_user_limit` outside 0..1000 is `InvalidArgument`; the voucher is always `VOUCHER_KIND_STANDARD` with no owner. |
@@ -81,7 +83,12 @@ ADR-0016 layout under `internal/`:
 
 ## Events
 
-Producer only; nothing is consumed.
+Produces `promotion.events` and consumes `identity.events` for `UserErased`; the erasure is event-driven only
+and the voucher API has no erasure RPC.
+
+| Consumed topic | Type (`EventEnvelope.type`) | Group / DLQ | Effect |
+|---|---|---|---|
+| `identity.events` | `platform.identity.v1.UserErased` | `team-promotion.erasure` / `identity.events.promotion.dlq` | In one transaction: sets `active = false` and `deactivated_at` (first value kept) on every voucher whose `owner_user_id` is the user, and deletes the user's `new_user_voucher_state` row. Reservations, shop vouchers and other users' rows are untouched; redelivery and a user without data are no-ops; a malformed event (undecodable, bad payload, empty `user_id`) goes to the DLQ. |
 
 | Topic | Type (`EventEnvelope.type`) | Key | Emitted when |
 |---|---|---|---|

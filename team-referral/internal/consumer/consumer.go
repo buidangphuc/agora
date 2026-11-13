@@ -21,6 +21,7 @@ import (
 
 const (
 	typeUserRegistered  = "platform.identity.v1.UserRegistered"
+	typeUserErased      = "platform.identity.v1.UserErased"
 	typeOrderCompleted  = "platform.order.v1.OrderCompleted"
 	typeReturnRequested = "platform.order.v1.ReturnRequested"
 )
@@ -174,4 +175,28 @@ func applyReturnRequested(ctx context.Context, repo store.ReferralRepository, cf
 	}
 	cfg.logger().DebugContext(ctx, "return requested event applied", "key_fp", logx.PrincipalFP(ev.GetBuyerId()))
 	return nil
+}
+
+func NewErasureHandler(repo store.ReferralRepository, cfg Config) consume.Handler {
+	return func(ctx context.Context, rec consume.Record) error {
+		env, err := decode(rec)
+		if err != nil {
+			return err
+		}
+		if env.GetType() != typeUserErased {
+			return nil
+		}
+		var ev identityv1.UserErased
+		if err := unpack(env, &ev); err != nil {
+			return err
+		}
+		if err := required("user_id", ev.GetUserId()); err != nil {
+			return err
+		}
+		if err := repo.EraseUser(ctx, ev.GetUserId()); err != nil {
+			return err
+		}
+		cfg.logger().DebugContext(ctx, "user erased event applied", "key_fp", logx.PrincipalFP(ev.GetUserId()))
+		return nil
+	}
 }

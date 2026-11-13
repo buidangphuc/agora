@@ -23,7 +23,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq identity.events.order.dlq identity.events.payment.dlq identity.events.referral.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -348,6 +348,8 @@ services:
       - ORDER_PAYMENT_CONSUMER_GROUP=team-order.payment
       - PAYMENT_EVENTS_DLQ_TOPIC=payment.events.dlq
       - ENGAGEMENT_EVENTS_DLQ_TOPIC=engagement.events.order.dlq
+      - ORDER_ERASURE_CONSUMER_GROUP=team-order.erasure
+      - ORDER_ERASURE_DLQ_TOPIC=identity.events.order.dlq
       # order.events outbox relayer (ADR-0013): publishes OrderPaidEvent (line
       # items) written in the same tx as the PAID transition. Same OUTBOX_* names
       # as team-domain.
@@ -423,6 +425,8 @@ services:
       - ORDER_EVENTS_TOPIC=order.events
       - PAYMENT_SETTLEMENT_CONSUMER_GROUP=team-payment.settlement
       - PAYMENT_SETTLEMENT_DLQ_TOPIC=order.events.payment-settlement.dlq
+      - PAYMENT_ERASURE_CONSUMER_GROUP=team-payment.erasure
+      - PAYMENT_ERASURE_DLQ_TOPIC=identity.events.payment.dlq
       - GRPC_PORT=50056
       - ENV=local
       # local/e2e only: enables ProcessMockPayment (refused at boot in staging/prod)
@@ -514,6 +518,8 @@ services:
       - REFERRAL_ORDER_CONSUMER_GROUP=team-referral-order
       - REFERRAL_IDENTITY_DLQ_TOPIC=referral.identity.dlq
       - REFERRAL_ORDER_DLQ_TOPIC=referral.order.dlq
+      - REFERRAL_ERASURE_CONSUMER_GROUP=team-referral-erasure
+      - REFERRAL_ERASURE_DLQ_TOPIC=identity.events.referral.dlq
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
       - OUTBOX_CLAIM_LOCK=60s
