@@ -2,6 +2,7 @@ package edge
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 
@@ -175,6 +176,25 @@ func (f *PaymentForwarder) RequestWalletPayout(
 	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.RequestWalletPayout(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *PaymentForwarder) GetOrderSettlement(
+	ctx context.Context,
+	req *connect.Request[paymentv1.GetOrderSettlementRequest],
+) (*connect.Response[paymentv1.GetOrderSettlementResponse], error) {
+	if p, ok := principalFrom(ctx); !ok || p.ptype == "anonymous" || p.id == "" {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+	var out *paymentv1.GetOrderSettlementResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetOrderSettlement(c, req.Msg)
 		return e
 	})
 	if err != nil {
