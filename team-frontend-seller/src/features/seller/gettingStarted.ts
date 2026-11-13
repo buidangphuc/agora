@@ -49,7 +49,8 @@ function settle<T>(call: () => Promise<T>): Promise<Settled<T>> {
 }
 
 function promoState(a: Settled<Page>, b: Settled<Page>): StepState {
-  const rows = (s: Settled<Page>) => s.ok && s.value.ok && (s.value.items?.length ?? 0) > 0;
+  const rows = (s: Settled<Page>) =>
+    s.ok && s.value.ok && (s.value.items?.length ?? 0) > 0;
   if (rows(a) || rows(b)) return "done";
   const failed = (s: Settled<Page>) => !s.ok || !s.value.ok;
   return failed(a) || failed(b) ? "unknown" : "todo";
@@ -65,7 +66,9 @@ export async function deriveGettingStarted(
     settle(src.campaigns),
   ]);
 
-  const field = (pick: (s: { displayName: string; bannerUrl: string }) => string): StepState => {
+  const field = (
+    pick: (s: { displayName: string; bannerUrl: string }) => string,
+  ): StepState => {
     if (!sf.ok) return "unknown";
     return sf.value && pick(sf.value).trim() !== "" ? "done" : "todo";
   };
@@ -76,9 +79,21 @@ export async function deriveGettingStarted(
       : "todo";
 
   const steps: GettingStartedStep[] = [
-    { label: "Đặt tên gian hàng", href: "/seller/shop", state: field((s) => s.displayName) },
-    { label: "Thêm ảnh bìa gian hàng", href: "/seller/shop", state: field((s) => s.bannerUrl) },
-    { label: "Đăng sản phẩm đầu tiên", href: "/seller/new", state: listingState },
+    {
+      label: "Đặt tên gian hàng",
+      href: "/seller/shop",
+      state: field((s) => s.displayName),
+    },
+    {
+      label: "Thêm ảnh bìa gian hàng",
+      href: "/seller/shop",
+      state: field((s) => s.bannerUrl),
+    },
+    {
+      label: "Đăng sản phẩm đầu tiên",
+      href: "/seller/new",
+      state: listingState,
+    },
     {
       label: "Tạo voucher hoặc flash sale đầu tiên",
       href: "/seller/marketing",

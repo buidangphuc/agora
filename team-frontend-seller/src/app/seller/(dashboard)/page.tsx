@@ -1,12 +1,16 @@
+import { Suspense } from "react";
+
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Alert } from "@/components/ui/Alert";
+import { GettingStartedCard } from "@/features/seller/GettingStartedCard";
 import { KpiRow } from "@/features/seller/KpiRow";
 import { LinkButton } from "@/features/seller/LinkButton";
 import { LISTING_STATUSES, ProductList } from "@/features/seller/ProductList";
 import { QuickActions } from "@/features/seller/QuickActions";
 import { RecentOrders } from "@/features/seller/RecentOrders";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
+import { GettingStartedSkeleton } from "@/features/seller/SellerSkeletons";
 import { deriveWorkplaceKpis } from "@/features/seller/kpi";
 import {
   type SearchParams,
@@ -18,8 +22,13 @@ import {
   getListingsPage,
 } from "@/features/seller/listingsPage";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import { type ListingPage, listMyListings } from "@/lib/gateway/listings";
+import {
+  type ListingPage,
+  getStorefront,
+  listMyListings,
+} from "@/lib/gateway/listings";
 import { type ViewOrder, listSellerOrders } from "@/lib/gateway/orders";
+import { listMyCampaigns, listMyShopVouchers } from "@/lib/gateway/promotion";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
@@ -33,9 +42,11 @@ export default async function SellerPage(props: {
   searchParams?: Promise<SearchParams>;
 }) {
   const searchParams = await props.searchParams;
-  if (!getPrincipal()) redirectGuestToLogin("/seller", searchParams);
+  const principal = getPrincipal();
+  if (!principal) redirectGuestToLogin("/seller", searchParams);
   if (!hasScope("listing.write")) return null;
 
+  const sellerId = principal?.id ?? "";
   const params = parseListParams(searchParams, LISTING_STATUSES);
 
   const pageRequest = getListingsPage(params.page);
@@ -68,6 +79,17 @@ export default async function SellerPage(props: {
           </LinkButton>
         }
       />
+
+      <Suspense fallback={<GettingStartedSkeleton />}>
+        <GettingStartedCard
+          sources={{
+            storefront: () => getStorefront(sellerId, { throwOnError: true }),
+            listings: () => listMyListings({ pageSize: 1 }),
+            vouchers: () => listMyShopVouchers({ pageSize: 1 }),
+            campaigns: () => listMyCampaigns({ pageSize: 1 }),
+          }}
+        />
+      </Suspense>
 
       {kpis.length > 0 && (
         <section aria-label="Số liệu tổng quan" className="space-y-3">
