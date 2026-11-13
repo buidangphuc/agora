@@ -28,6 +28,8 @@ function item(
     imageUrl: `img-${id}.png`,
     sellerId,
     sellerDisplayName,
+    bundleId: "",
+    bundleDiscount: 0,
     ...over,
   };
 }
@@ -98,5 +100,48 @@ describe("CartGroups", () => {
     );
     expect(screen.getByText("Phân loại: Đỏ")).toBeInTheDocument();
     expect(screen.getByText("300.000")).toBeInTheDocument();
+  });
+});
+
+describe("CartGroups combos", () => {
+  const combo = (id: string, discount: number) =>
+    item(id, "s1", "Shop", { bundleId: "b1", bundleDiscount: discount });
+
+  it("C8 shows one Combo label and each line's discount", () => {
+    render(
+      <CartGroups groups={groupByShop([combo("a", 10000), combo("b", 20000)])} />,
+    );
+    const card = screen.getByTestId("cart-shop-group");
+    expect(within(card).getAllByText("Combo")).toHaveLength(1);
+    const rows = within(card).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent(/10\.000/);
+    expect(rows[1]).toHaveTextContent(/20\.000/);
+  });
+
+  it("C9 C13 renders no combo UI without bundle lines", () => {
+    render(
+      <CartGroups
+        groups={groupByShop([
+          item("a", "s1", "Shop"),
+          item("b", "s1", "Shop", { bundleId: "", bundleDiscount: 0 }),
+        ])}
+      />,
+    );
+    expect(screen.queryByText("Combo")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Giảm giá combo/)).not.toBeInTheDocument();
+  });
+
+  it("C11 tolerates a bundle line with a missing discount and renders it as regular", () => {
+    render(
+      <CartGroups
+        groups={groupByShop([
+          item("a", "s1", "Shop", { bundleId: "b1", bundleDiscount: 0 }),
+          item("b", "s1", "Shop", { bundleId: "", bundleDiscount: 20000 }),
+        ])}
+      />,
+    );
+    expect(screen.queryByText("Combo")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 });

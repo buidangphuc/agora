@@ -94,3 +94,53 @@ describe("CartQuantityControl", () => {
     expect(screen.getByRole("button", { name: "Tăng số lượng" })).toBeEnabled();
   });
 });
+
+describe("CartQuantityControl bundle drop", () => {
+  const notice = "Combo đã bị huỷ, các sản phẩm tính giá thường";
+
+  it("C10 removing a bundled line passes its bundle id and shows the cancellation notice", async () => {
+    const user = setupUser();
+    vi.mocked(removeFromCartAction).mockResolvedValue({
+      ok: true,
+      bundleDropped: true,
+    });
+    render(
+      <CartQuantityControl
+        itemId="ci1"
+        quantity={1}
+        title="Áo"
+        bundleId="b1"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Xóa Áo" }));
+    expect(removeFromCartAction).toHaveBeenCalledWith("ci1", "b1");
+    expect(toast.info).toHaveBeenCalledWith(notice);
+  });
+
+  it("C10 changing the quantity of a bundled line passes its bundle id and shows the cancellation notice", async () => {
+    const user = setupUser();
+    vi.mocked(updateCartItemAction).mockResolvedValue({
+      ok: true,
+      bundleDropped: true,
+    });
+    render(
+      <CartQuantityControl
+        itemId="ci1"
+        quantity={1}
+        title="Áo"
+        bundleId="b1"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Tăng số lượng" }));
+    expect(updateCartItemAction).toHaveBeenCalledWith("ci1", 2, "b1");
+    expect(toast.info).toHaveBeenCalledWith(notice);
+  });
+
+  it("C10 a regular line shows no cancellation notice", async () => {
+    const user = setupUser();
+    vi.mocked(updateCartItemAction).mockResolvedValue({ ok: true });
+    render(<CartQuantityControl itemId="ci1" quantity={1} title="Áo" />);
+    await user.click(screen.getByRole("button", { name: "Tăng số lượng" }));
+    expect(toast.info).not.toHaveBeenCalledWith(notice);
+  });
+});

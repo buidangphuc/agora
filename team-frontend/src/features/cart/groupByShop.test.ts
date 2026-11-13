@@ -47,3 +47,35 @@ describe("groupByShop", () => {
     expect(groupByShop([item("a", "s1", 1, 1)])[0]?.sellerDisplayName).toBe("");
   });
 });
+
+describe("groupByShop combos", () => {
+  const bundled = (id: string, bundleId: string, discount: number) => ({
+    ...item(id, "s1", 100, 1),
+    bundleId,
+    bundleDiscount: discount,
+  });
+
+  it("C8 groups lines sharing a bundle id into one combo inside the shop group", () => {
+    const groups = groupByShop([
+      bundled("a", "b1", 10000),
+      { ...item("r", "s1", 50, 1), bundleId: "", bundleDiscount: 0 },
+      bundled("c", "b1", 20000),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.items.map((i) => i.id)).toEqual(["a", "r", "c"]);
+    expect(groups[0]?.combos).toHaveLength(1);
+    expect(groups[0]?.combos[0]?.bundleId).toBe("b1");
+    expect(groups[0]?.combos[0]?.items.map((i) => i.id)).toEqual(["a", "c"]);
+    expect(groups[0]?.subtotal).toBe(250);
+  });
+
+  it("C11 treats lines without bundle id as regular", () => {
+    const groups = groupByShop([
+      { ...item("a", "s1", 100, 1), bundleId: "", bundleDiscount: 5000 },
+      { ...item("b", "s1", 100, 1), bundleId: "b1", bundleDiscount: 0 },
+      item("c", "s1", 100, 1),
+    ]);
+    expect(groups[0]?.combos).toEqual([]);
+    expect(groups[0]?.items.map((i) => i.id)).toEqual(["a", "b", "c"]);
+  });
+});
