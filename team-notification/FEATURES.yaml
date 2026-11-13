@@ -1634,7 +1634,7 @@ features:
       - "Then no notification of that user is deleted and nothing is published to the DLQ"
     tags: [user-erasure, notification, unit]
     status: not-testable
-    notes: "VERIFIED BY team-notification/internal/events/identity_test.go TestIgnoresOtherEventTypes. Not producible black box: needs a database fault, a unit-level handler or log capture."
+    notes: "VERIFIED BY team-notification/internal/events/identity_test.go TestIdentityIgnoresOtherEventTypes. Not producible black box: needs a database fault, a unit-level handler or log capture."
 
   - id: notification.cue-the-erased-id-is-not-logged
     title: "The erased id is not logged"
@@ -1648,4 +1648,4 @@ features:
       - "Then the service log holds a count and a hashed id and no line contains the raw user id"
     tags: [user-erasure, notification, unit]
     status: not-testable
-    notes: "VERIFIED BY team-notification/internal/events/identity_test.go TestErasureLogsNoRawUserID. Not producible black box: needs a database fault, a unit-level handler or log capture."
+    notes: "VERIFIED BY team-notification/internal/events/identity_test.go TestIdentityErasureLogsNoRawUserID. Not producible black box: needs a database fault, a unit-level handler or log capture."
