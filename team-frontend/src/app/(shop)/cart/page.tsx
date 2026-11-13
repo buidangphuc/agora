@@ -1,6 +1,7 @@
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
+import { formatPrice } from "@/components/ui/format";
 import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { CartGroups } from "@/features/cart/CartGroups";
@@ -88,6 +89,14 @@ export default async function CartPage(props: {
         voucherCode={applied}
       >
         <CartGroups groups={groups} />
+        {cart.bundleDiscountTotal > 0 ? (
+          <div className="flex justify-between text-sm text-text-secondary">
+            <span>Giảm giá combo</span>
+            <span data-testid="bundle-discount">
+              -{formatPrice(cart.bundleDiscountTotal)}
+            </span>
+          </div>
+        ) : null}
         <VoucherModal
           vouchers={vouchers}
           subtotal={cart.subtotal}

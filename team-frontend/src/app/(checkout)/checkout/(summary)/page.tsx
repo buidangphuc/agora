@@ -1,3 +1,4 @@
+import { formatPrice } from "@/components/ui/format";
 import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { Code, ConnectError } from "@connectrpc/connect";
@@ -204,6 +205,14 @@ export default async function CheckoutPage(props: {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
         <div className="min-w-0 lg:col-span-2">{steps[state.step]}</div>
         <div className="min-w-0">
+          {cart.bundleDiscountTotal > 0 ? (
+            <div className="mb-3 flex justify-between text-sm text-text-secondary">
+              <span>Giảm giá combo</span>
+              <span data-testid="bundle-discount">
+                -{formatPrice(cart.bundleDiscountTotal)}
+              </span>
+            </div>
+          ) : null}
           <OrderSummary
             itemCount={items.length}
             subtotal={subtotal}
