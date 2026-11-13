@@ -2,6 +2,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  addBundleToCart,
   addToCart,
   clearCart,
   getCart,
@@ -21,6 +22,7 @@ vi.mock("./session.js", () => ({
 type CartRpcs = {
   getCart: ReturnType<typeof vi.fn>;
   addToCart: ReturnType<typeof vi.fn>;
+  addBundleToCart: ReturnType<typeof vi.fn>;
   updateCartItem: ReturnType<typeof vi.fn>;
   removeFromCart: ReturnType<typeof vi.fn>;
   clearCart: ReturnType<typeof vi.fn>;
@@ -35,6 +37,7 @@ function stubCart(
   const cart: CartRpcs = {
     getCart: vi.fn(),
     addToCart: vi.fn(),
+    addBundleToCart: vi.fn(),
     updateCartItem: vi.fn(),
     removeFromCart: vi.fn(),
     clearCart: vi.fn(),
@@ -84,6 +87,7 @@ describe("cart gateway wrapper", () => {
     expect(view).toEqual({
       userId: "u1",
       subtotal: 150000,
+      bundleDiscountTotal: 0,
       totalItems: 2,
       items: [
         {
@@ -97,6 +101,8 @@ describe("cart gateway wrapper", () => {
           imageUrl: "img.png",
           sellerId: "s1",
           sellerDisplayName: "",
+          bundleId: "",
+          bundleDiscount: 0,
         },
       ],
     });
@@ -192,6 +198,7 @@ describe("cart gateway wrapper", () => {
       userId: "",
       items: [],
       subtotal: 0,
+      bundleDiscountTotal: 0,
       totalItems: 0,
     });
   });
@@ -226,5 +233,65 @@ describe("cart gateway wrapper", () => {
     const cart = stubCart({ clearCart: vi.fn().mockResolvedValue({}) });
     await clearCart();
     expect(cart.clearCart).toHaveBeenCalledWith({});
+  });
+
+  it("C8 getCart maps bundleId, bundleDiscount and bundleDiscountTotal from the proto cart", async () => {
+    const bundled = {
+      ...sampleCart,
+      bundleDiscountTotal: 30000n,
+      items: [
+        { ...sampleCart.items[0], id: "a", bundleId: "b1", bundleDiscount: 20000n },
+        { ...sampleCart.items[0], id: "b", bundleId: "b1", bundleDiscount: 10000n },
+        { ...sampleCart.items[0], id: "c", bundleId: "", bundleDiscount: 0n },
+      ],
+    };
+    stubCart({ getCart: vi.fn().mockResolvedValue({ cart: bundled }) });
+    const view = await getCart();
+    expect(view.bundleDiscountTotal).toBe(30000);
+    expect(
+      view.items.map((i) => [i.id, i.bundleId, i.bundleDiscount]),
+    ).toEqual([
+      ["a", "b1", 20000],
+      ["b", "b1", 10000],
+      ["c", "", 0],
+    ]);
+  });
+
+  it("C11 getCart defaults missing bundle fields to empty id and zero discounts", async () => {
+    stubCart({ getCart: vi.fn().mockResolvedValue({ cart: sampleCart }) });
+    const view = await getCart();
+    expect(view.bundleDiscountTotal).toBe(0);
+    expect(view.items[0]?.bundleId).toBe("");
+    expect(view.items[0]?.bundleDiscount).toBe(0);
+  });
+
+  it("C1 addBundleToCart sends bundleId and quantity and returns the mapped cart", async () => {
+    const cart = stubCart({
+      addBundleToCart: vi.fn().mockResolvedValue({
+        cart: {
+          ...sampleCart,
+          bundleDiscountTotal: 5000n,
+          items: [{ ...sampleCart.items[0], bundleId: "b1", bundleDiscount: 5000n }],
+        },
+      }),
+    });
+    const view = await addBundleToCart("b1", 1);
+    expect(cart.addBundleToCart).toHaveBeenCalledWith({
+      bundleId: "b1",
+      quantity: 1,
+    });
+    expect(view.bundleDiscountTotal).toBe(5000);
+    expect(view.items[0]?.bundleId).toBe("b1");
+  });
+
+  it("C6 addBundleToCart propagates the RPC error", async () => {
+    stubCart({
+      addBundleToCart: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("gone", Code.NotFound)),
+    });
+    await expect(addBundleToCart("b1", 1)).rejects.toMatchObject({
+      code: Code.NotFound,
+    });
   });
 });
