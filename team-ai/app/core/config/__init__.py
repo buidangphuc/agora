@@ -63,6 +63,14 @@ class Settings(
     def validate_runtime_safety(self) -> Settings:
         if not self.ENVIRONMENT.is_local and not self.auth_api_keys:
             raise ValueError("AUTH_API_KEYS is required outside dev/local/test")
+        if (
+            not self.ENVIRONMENT.is_local
+            and self.RECS_FLIPT_URL
+            and not self.RECS_EXPERIMENT_SALT
+        ):
+            raise ValueError(
+                "RECS_EXPERIMENT_SALT is required with RECS_FLIPT_URL outside dev/local/test"
+            )
         if not self.ENVIRONMENT.is_production:
             return self
 

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from app.modules.business.recommendation.schemas import Candidate
 
@@ -81,3 +81,16 @@ class StockLookup(Protocol):
     async def lookup(
         self, listing_ids: Sequence[str], *, timeout_s: float
     ) -> list[StockEntry]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class Assignment:
+    variant: str | None
+    ranking_model: str | None
+    status: Literal["assigned", "unassigned", "none"]
+
+
+class ExperimentAssigner(Protocol):
+    async def assign(self, flag: str | None, entity_id: str | None) -> Assignment:
+        """The arm of the entity for the flag. Never raises; any failure is unassigned."""
+        ...

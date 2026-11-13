@@ -8,12 +8,14 @@ decode responses (``decode_responses=True``), as the shared ``resources.redis`` 
 from dataclasses import dataclass
 from typing import Protocol
 
+import httpx
 from qdrant_client import AsyncQdrantClient
 from redis.asyncio import Redis
 
 from app.modules.business.recommendation.adapters.featurestore import (
     RedisFeatureStore,
 )
+from app.modules.business.recommendation.adapters.flipt import FliptExperimentAssigner
 from app.modules.business.recommendation.adapters.nearline import RedisNearlineSignals
 from app.modules.business.recommendation.adapters.qdrant import QdrantCandidateSource
 from app.modules.business.recommendation.adapters.redis_cache import RedisServingCache
@@ -56,6 +58,15 @@ class RecommendationSettings(Protocol):
     @property
     def RECS_NEARLINE_TIMEOUT_MS(self) -> int: ...
 
+    @property
+    def RECS_FLIPT_URL(self) -> str: ...
+
+    @property
+    def RECS_FLIPT_TIMEOUT_MS(self) -> int: ...
+
+    @property
+    def RECS_EXPERIMENT_SALT(self) -> str: ...
+
 
 @dataclass(frozen=True, slots=True)
 class RecommendationClients:
@@ -77,6 +88,18 @@ def build_candidate_source(
         vector_dim=settings.RECS_VECTOR_DIM,
         distance=settings.RECS_QDRANT_DISTANCE,
         timeout_s=settings.RECS_RETRIEVE_TIMEOUT_MS / 1000,
+    )
+
+
+def build_experiment_assigner(
+    settings: RecommendationSettings,
+) -> FliptExperimentAssigner | None:
+    if not settings.RECS_FLIPT_URL:
+        return None
+    return FliptExperimentAssigner(
+        httpx.AsyncClient(base_url=settings.RECS_FLIPT_URL),
+        salt=settings.RECS_EXPERIMENT_SALT,
+        timeout_s=settings.RECS_FLIPT_TIMEOUT_MS / 1000,
     )
 
 
