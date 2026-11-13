@@ -204,7 +204,7 @@ and `docs/AGENT_GUIDE.md`. Other docs: `DATA_ARCHITECTURE`,
 | 0010 | Service-to-service zero-trust (interim) | Accepted (interim) |
 | 0011 | Model serving (platform-modelserve) | Accepted |
 | 0012 | Recommendation placement engine | Accepted |
-| 0013 | Seller demand forecasting (platform-forecast) | Proposed |
+| 0013 | Seller demand forecasting (platform-forecast) | Accepted |
 | 0014 | Model registry and promotion gate | Superseded by ADR-0017 |
 | 0015 | Feature store materialization (platform-featurestore as a batch job) | Accepted |
 | 0016 | Go service convention and SDK distribution | Accepted |
