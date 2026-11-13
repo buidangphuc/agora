@@ -376,4 +376,3 @@ func TestSweepConcurrentSweepersSingleCharge(t *testing.T) {
 		t.Fatalf("stored = %+v, want ACTIVE seq 2", got)
 	}
 }
-
