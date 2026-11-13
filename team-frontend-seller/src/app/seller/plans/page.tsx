@@ -73,7 +73,18 @@ export default async function SellerPlansPage() {
                           ))}
                         </ul>
                       )}
-                      <SubscribeButton planId={plan.id} current={current} />
+                      <SubscribeButton
+                        planId={plan.id}
+                        price={plan.price}
+                        termDays={plan.termDays}
+                        direction={
+                          current
+                            ? "current"
+                            : plan.tier > entitlements.tier
+                              ? "upgrade"
+                              : "downgrade"
+                        }
+                      />
                     </div>
                   </CardContent>
                 </Card>
