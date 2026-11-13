@@ -69,7 +69,7 @@ func (s *sellerVoucherUpstream) ListMyShopVouchers(context.Context, *promotionv1
 	return &promotionv1.ListMyShopVouchersResponse{}, nil
 }
 
-func (s *sellerVoucherUpstream) DeactivateMyShopVoucher(_ context.Context, in *promotionv1.DeactivateMyShopVoucherRequest, _ ...grpc.CallOption) (*promotionv1.DeactivateMyShopVoucherResponse, error) {
+func (s *sellerVoucherUpstream) DeactivateMyShopVoucher(_ context.Context, _ *promotionv1.DeactivateMyShopVoucherRequest, _ ...grpc.CallOption) (*promotionv1.DeactivateMyShopVoucherResponse, error) {
 	s.calls.Add(1)
 	if s.err != nil {
 		return nil, s.err
