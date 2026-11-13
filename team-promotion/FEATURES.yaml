@@ -5697,3 +5697,540 @@ features:
     tags: [promotion, unit]
     status: not-testable
     notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestUpdatePerUserFields. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-catalog-shows-corrected-prices
+    title: "Catalog shows corrected prices"
+    persona: seller
+    priority: P2
+    summary: "Catalog shows corrected prices (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Catalog shows corrected prices (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestMigrationCorrectsPlanPrices`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-go-catalog-and-migrated-rows-agree
+    title: "Go catalog and migrated rows agree"
+    persona: seller
+    priority: P2
+    summary: "Go catalog and migrated rows agree (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Go catalog and migrated rows agree (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestDefaultPlansMatchMigratedCatalog`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-existing-paid-subscription-is-grandfathered-for-one-term
+    title: "Existing paid subscription is grandfathered for one term"
+    persona: seller
+    priority: P2
+    summary: "Existing paid subscription is grandfathered for one term (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing paid subscription is grandfathered for one term (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestMigrationGrandfathersActiveSubscriptions`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-non-positive-term-is-rejected-by-the-schema
+    title: "Non-positive term is rejected by the schema"
+    persona: seller
+    priority: P2
+    summary: "Non-positive term is rejected by the schema (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Non-positive term is rejected by the schema (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestPlanTermDaysMustBePositive`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-free-seller-subscribes-to-pro
+    title: "FREE seller subscribes to PRO"
+    persona: seller
+    priority: P2
+    summary: "FREE seller subscribes to PRO (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "FREE seller subscribes to PRO (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestSubscribeUpgradeChargesAndActivates`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-insufficient-withdrawable-balance-is-rejected
+    title: "Insufficient withdrawable balance is rejected"
+    persona: seller
+    priority: P2
+    summary: "Insufficient withdrawable balance is rejected (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Insufficient withdrawable balance is rejected (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestSubscribeInsufficientBalanceChangesNothing`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-payment-service-unavailable-fails-without-state-change
+    title: "Payment service unavailable fails without state change"
+    persona: seller
+    priority: P2
+    summary: "Payment service unavailable fails without state change (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Payment service unavailable fails without state change (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestSubscribePaymentUnavailableChangesNothing`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-retry-after-a-lost-response-is-not-charged-twice
+    title: "Retry after a lost response is not charged twice"
+    persona: seller
+    priority: P2
+    summary: "Retry after a lost response is not charged twice (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Retry after a lost response is not charged twice (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestSubscribeRetryReplaysChargeKey`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-upgrade-charges-the-full-price-without-proration
+    title: "Upgrade charges the full price without proration"
+    persona: seller
+    priority: P2
+    summary: "Upgrade charges the full price without proration (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Upgrade charges the full price without proration (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestSubscribeUpgradeNoProration`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-missing-or-unknown-plan-id-is-invalid
+    title: "Missing or unknown plan id is invalid"
+    persona: seller
+    priority: P2
+    summary: "Missing or unknown plan id is invalid (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing or unknown plan id is invalid (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/rpc` `TestSubscribeRejectsBadPlanWithoutCharging`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-subscribe-without-seller-scope-is-denied
+    title: "Subscribe without seller scope is denied"
+    persona: seller
+    priority: P2
+    summary: "Subscribe without seller scope is denied (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Subscribe without seller scope is denied (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/rpc` `TestSubscribeRequiresSellerScope`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-concurrent-subscribes-charge-once
+    title: "Concurrent subscribes charge once"
+    persona: seller
+    priority: P2
+    summary: "Concurrent subscribes charge once (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Concurrent subscribes charge once (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/store` `TestConcurrentSubscribeSingleCharge`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-downgrade-is-deferred
+    title: "Downgrade is deferred"
+    persona: seller
+    priority: P2
+    summary: "Downgrade is deferred (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Downgrade is deferred (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestSubscribeDowngradeDeferred`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-cancel-keeps-the-plan-until-the-end
+    title: "Cancel keeps the plan until the end"
+    persona: seller
+    priority: P2
+    summary: "Cancel keeps the plan until the end (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Cancel keeps the plan until the end (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestCancelStopsAutoRenewKeepsPlan`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-cancel-without-a-paid-plan-is-rejected
+    title: "Cancel without a paid plan is rejected"
+    persona: seller
+    priority: P2
+    summary: "Cancel without a paid plan is rejected (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Cancel without a paid plan is rejected (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestCancelFreeSellerRejected`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-re-subscribing-to-the-current-plan-resumes-renewal
+    title: "Re-subscribing to the current plan resumes renewal"
+    persona: seller
+    priority: P2
+    summary: "Re-subscribing to the current plan resumes renewal (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Re-subscribing to the current plan resumes renewal (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/subscription` `TestSubscribeCurrentPlanResumes`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-cancel-without-seller-scope-is-denied
+    title: "Cancel without seller scope is denied"
+    persona: seller
+    priority: P2
+    summary: "Cancel without seller scope is denied (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Cancel without seller scope is denied (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/rpc` `TestCancelSubscriptionRequiresSellerScope`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-paid-seller-reads-own-subscription
+    title: "Paid seller reads own subscription"
+    persona: seller
+    priority: P2
+    summary: "Paid seller reads own subscription (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Paid seller reads own subscription (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/rpc` `TestGetMySubscriptionReturnsOwn`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-free-seller-gets-an-empty-response
+    title: "FREE seller gets an empty response"
+    persona: seller
+    priority: P2
+    summary: "FREE seller gets an empty response (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "FREE seller gets an empty response (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/rpc` `TestGetMySubscriptionFreeIsEmpty`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-another-seller-s-subscription-is-not-reachable
+    title: "Another seller's subscription is not reachable"
+    persona: seller
+    priority: P2
+    summary: "Another seller's subscription is not reachable (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Another seller's subscription is not reachable (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/rpc` `TestSubscriptionRPCsIgnoreOtherSellers`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-unauthenticated-call-is-denied-at-the-edge
+    title: "Unauthenticated call is denied at the edge"
+    persona: seller
+    priority: P2
+    summary: "Unauthenticated call is denied at the edge (promotion-plan-billing)."
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unauthenticated call is denied at the edge (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-gateway `internal/edge` `TestSubscriptionRoutesRequireAuth`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-gateway-forwards-the-new-rpcs-and-never-chargesellerfee
+    title: "Gateway forwards the new RPCs and never ChargeSellerFee"
+    persona: seller
+    priority: P2
+    summary: "Gateway forwards the new RPCs and never ChargeSellerFee (promotion-plan-billing)."
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Gateway forwards the new RPCs and never ChargeSellerFee (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-gateway `internal/edge` `TestSubscriptionForwardsNewRPCsOnly`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-auto-renew-charges-one-fee-per-period
+    title: "Auto-renew charges one fee per period"
+    persona: seller
+    priority: P2
+    summary: "Auto-renew charges one fee per period (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Auto-renew charges one fee per period (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/consumer` `TestSweepRenewsOncePerPeriod`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-cancelled-subscription-lapses-to-free
+    title: "Cancelled subscription lapses to FREE"
+    persona: seller
+    priority: P2
+    summary: "Cancelled subscription lapses to FREE (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Cancelled subscription lapses to FREE (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/consumer` `TestSweepCancelledLapsesToFree`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-pending-downgrade-renews-at-the-lower-price
+    title: "Pending downgrade renews at the lower price"
+    persona: seller
+    priority: P2
+    summary: "Pending downgrade renews at the lower price (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Pending downgrade renews at the lower price (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/consumer` `TestSweepAppliesPendingDowngrade`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-failed-renewal-charge-sets-the-seller-to-free
+    title: "Failed renewal charge sets the seller to FREE"
+    persona: seller
+    priority: P2
+    summary: "Failed renewal charge sets the seller to FREE (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Failed renewal charge sets the seller to FREE (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/consumer` `TestSweepInsufficientBalanceLapsesToFree`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-transient-payment-error-is-retried-inside-the-window
+    title: "Transient payment error is retried inside the window"
+    persona: seller
+    priority: P2
+    summary: "Transient payment error is retried inside the window (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Transient payment error is retried inside the window (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/consumer` `TestSweepTransientErrorRetriesWithinWindow`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-retry-window-exhausted-lapses-the-seller
+    title: "Retry window exhausted lapses the seller"
+    persona: seller
+    priority: P2
+    summary: "Retry window exhausted lapses the seller (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Retry window exhausted lapses the seller (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/consumer` `TestSweepTransientErrorPastWindowLapses`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-two-sweepers-do-not-double-charge
+    title: "Two sweepers do not double charge"
+    persona: seller
+    priority: P2
+    summary: "Two sweepers do not double charge (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Two sweepers do not double charge (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/consumer` `TestSweepConcurrentSweepersSingleCharge`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-blank-payment-address-is-rejected-at-startup
+    title: "Blank payment address is rejected at startup"
+    persona: seller
+    priority: P2
+    summary: "Blank payment address is rejected at startup (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Blank payment address is rejected at startup (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/config` `TestUpstreamRequiresPaymentAddr`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-unit-non-positive-timeout-is-invalid
+    title: "Non-positive timeout is invalid"
+    persona: seller
+    priority: P2
+    summary: "Non-positive timeout is invalid (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Non-positive timeout is invalid (unit-verified)"
+    tags: [promotion, unit]
+    status: not-testable
+    notes: "promotion-plan-billing: VERIFIED BY team-promotion `internal/config` `TestUpstreamRejectsNonPositivePaymentTimeout`. Not producible end to end: internal consumer, store, config or service-only RPC behaviour that needs injected faults, clocks or a database."
+
+  - id: promotion.ppb-seller-upgrades-to-pro-and-the-wallet-is-debited
+    title: "Seller upgrades to PRO and the wallet is debited"
+    persona: seller
+    priority: P1
+    summary: "Seller upgrades to PRO and the wallet is debited (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.Subscribe, promotion.v1.GetMySubscription, promotion.v1.CancelSubscription]
+    acceptance:
+      - "Seller upgrades to PRO and the wallet is debited"
+    tags: [promotion, seller]
+    status: planned
+    covered_by: "promotion/seller_plan_billing.feature::Seller upgrades to PRO and the wallet is debited"
+    notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
+
+  - id: promotion.ppb-seller-without-funds-cannot-upgrade
+    title: "Seller without funds cannot upgrade"
+    persona: seller
+    priority: P1
+    summary: "Seller without funds cannot upgrade (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.Subscribe, promotion.v1.GetMySubscription, promotion.v1.CancelSubscription]
+    acceptance:
+      - "Seller without funds cannot upgrade"
+    tags: [promotion, seller]
+    status: planned
+    covered_by: "promotion/seller_plan_billing.feature::Seller without funds cannot upgrade"
+    notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
+
+  - id: promotion.ppb-cancelled-plan-lapses-at-period-end
+    title: "Cancelled plan lapses at period end"
+    persona: seller
+    priority: P1
+    summary: "Cancelled plan lapses at period end (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.Subscribe, promotion.v1.GetMySubscription, promotion.v1.CancelSubscription]
+    acceptance:
+      - "Cancelled plan lapses at period end"
+    tags: [promotion, seller]
+    status: planned
+    covered_by: "promotion/seller_plan_billing.feature::Cancelled plan lapses at period end"
+    notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
+
+  - id: promotion.ppb-another-seller-cannot-cancel-my-plan
+    title: "Another seller cannot cancel my plan"
+    persona: seller
+    priority: P1
+    summary: "Another seller cannot cancel my plan (promotion-plan-billing)."
+    entry_route: /
+    services: [team-promotion, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.Subscribe, promotion.v1.GetMySubscription, promotion.v1.CancelSubscription]
+    acceptance:
+      - "Another seller cannot cancel my plan"
+    tags: [promotion, seller]
+    status: planned
+    covered_by: "promotion/seller_plan_billing.feature::Another seller cannot cancel my plan"
+    notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
