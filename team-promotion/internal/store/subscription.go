@@ -40,6 +40,7 @@ type Plan struct {
 	ID       string
 	Tier     int32
 	Price    int64             // minor units per billing period
+	TermDays int32             // STUB-T1: billing term length in days
 	Features []string          // human-readable bullets (Vietnamese copy)
 	Limits   map[string]string // entitlement limits keyed by feature
 }
@@ -54,6 +55,13 @@ type SellerSubscription struct {
 	Tier      int32
 	Status    string
 	CreatedAt time.Time
+
+	// STUB-T1 billing fields (implementer wires them into SQL and scans).
+	CurrentPeriodStart time.Time
+	CurrentPeriodEnd   time.Time
+	AutoRenew          bool
+	PendingPlanID      string
+	PeriodSeq          int64
 }
 
 // DefaultPlans is the canonical FREE/PRO/PREMIUM catalog. It is the single source
