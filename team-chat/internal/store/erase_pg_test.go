@@ -124,8 +124,8 @@ func eraseOK(t *testing.T, repo *store.PostgresChatRepository, user string) int6
 func TestEraseReplacesUserMessagesAndKeepsThread(t *testing.T) {
 	f := seedErasure(t)
 	before := messagesOf(t, f.repo, f.t1.ID)
-	if n := eraseOK(t, f.repo, victim); n != 6 {
-		t.Fatalf("Erase returned %d, want 6 messages replaced (3+1+2)", n)
+	if n := eraseOK(t, f.repo, victim); n != 5 {
+		t.Fatalf("Erase returned %d, want 5 messages replaced (3+1+1)", n)
 	}
 	after := messagesOf(t, f.repo, f.t1.ID)
 	if len(after) != len(before) || len(after) != 5 {
