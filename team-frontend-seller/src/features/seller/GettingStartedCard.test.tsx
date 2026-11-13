@@ -8,7 +8,9 @@ const FULL = { displayName: "Shop An", bannerUrl: "https://cdn/b.png" };
 const ONE = { ok: true as const, items: [{ id: "x" }] };
 const NONE = { ok: true as const, items: [] };
 
-function sources(over: Partial<GettingStartedSources> = {}): GettingStartedSources {
+function sources(
+  over: Partial<GettingStartedSources> = {},
+): GettingStartedSources {
   return {
     storefront: async () => FULL,
     listings: async () => ({ items: [{ id: "l1" }] }),
@@ -20,7 +22,7 @@ function sources(over: Partial<GettingStartedSources> = {}): GettingStartedSourc
 
 async function renderCard(src: GettingStartedSources) {
   const ui = await GettingStartedCard({ sources: src });
-  return render(<>{ui}</>);
+  return render(ui);
 }
 
 describe("GettingStartedCard", () => {
@@ -39,13 +41,19 @@ describe("GettingStartedCard", () => {
       }),
     );
     expect(screen.getByText("Bắt đầu bán hàng")).toBeTruthy();
-    const step = screen.getByText("Đăng sản phẩm đầu tiên").closest("li") as HTMLElement;
+    const step = screen
+      .getByText("Đăng sản phẩm đầu tiên")
+      .closest("li") as HTMLElement;
     expect(within(step).getByText(/chưa rõ/)).toBeTruthy();
-    expect(within(step).getByRole("link").getAttribute("href")).toBe("/seller/new");
+    expect(within(step).getByRole("link").getAttribute("href")).toBe(
+      "/seller/new",
+    );
   });
 
   it("one missing step keeps the card", async () => {
-    await renderCard(sources({ storefront: async () => ({ ...FULL, bannerUrl: "" }) }));
+    await renderCard(
+      sources({ storefront: async () => ({ ...FULL, bannerUrl: "" }) }),
+    );
     expect(screen.getByText("Bắt đầu bán hàng")).toBeTruthy();
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(4);
@@ -55,8 +63,12 @@ describe("GettingStartedCard", () => {
       expect.stringContaining("Đăng sản phẩm đầu tiên"),
       expect.stringContaining("Tạo voucher hoặc flash sale đầu tiên"),
     ]);
-    const banner = screen.getByText("Thêm ảnh bìa gian hàng").closest("li") as HTMLElement;
-    expect(within(banner).getByRole("link").getAttribute("href")).toBe("/seller/shop");
+    const banner = screen
+      .getByText("Thêm ảnh bìa gian hàng")
+      .closest("li") as HTMLElement;
+    expect(within(banner).getByRole("link").getAttribute("href")).toBe(
+      "/seller/shop",
+    );
     expect(banner.textContent).not.toMatch(/chưa rõ/);
     for (const i of [0, 2, 3]) {
       expect(items[i].getAttribute("data-state")).toBe("done");

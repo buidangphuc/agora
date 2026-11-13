@@ -6,7 +6,10 @@ type Sources = Parameters<typeof deriveGettingStarted>[0];
 
 const NEVER = new Promise<never>(() => {});
 
-const FULL_STOREFRONT = { displayName: "Shop An", bannerUrl: "https://cdn/b.png" };
+const FULL_STOREFRONT = {
+  displayName: "Shop An",
+  bannerUrl: "https://cdn/b.png",
+};
 const EMPTY_STOREFRONT = { displayName: "", bannerUrl: "" };
 const ONE = { ok: true as const, items: [{ id: "x" }], nextCursor: "" };
 const NONE = { ok: true as const, items: [], nextCursor: "" };
@@ -58,7 +61,11 @@ describe("deriveGettingStarted", () => {
     const r = await deriveGettingStarted(
       sources({
         storefront: async () => ({ displayName: "Shop An", bannerUrl: "" }),
-        listings: async () => ({ items: [{ id: "l1" }], nextCursor: "", total: 1 }),
+        listings: async () => ({
+          items: [{ id: "l1" }],
+          nextCursor: "",
+          total: 1,
+        }),
         campaigns: async () => ONE,
       }),
     );
@@ -70,7 +77,11 @@ describe("deriveGettingStarted", () => {
     const r = await deriveGettingStarted(
       sources({
         storefront: async () => FULL_STOREFRONT,
-        listings: async () => ({ items: [{ id: "l1" }], nextCursor: "", total: 1 }),
+        listings: async () => ({
+          items: [{ id: "l1" }],
+          nextCursor: "",
+          total: 1,
+        }),
         vouchers: async () => ONE,
       }),
     );
@@ -95,7 +106,11 @@ describe("deriveGettingStarted", () => {
     const r = await deriveGettingStarted(
       sources({
         storefront: async () => null,
-        listings: async () => ({ items: [{ id: "l1" }], nextCursor: "", total: 1 }),
+        listings: async () => ({
+          items: [{ id: "l1" }],
+          nextCursor: "",
+          total: 1,
+        }),
         campaigns: async () => ONE,
       }),
     );
@@ -170,7 +185,11 @@ describe("deriveGettingStarted", () => {
 
   it("sources run in parallel each capped at 3s", async () => {
     const p = deriveGettingStarted(
-      sources({ storefront: () => NEVER, listings: () => NEVER, vouchers: () => NEVER }),
+      sources({
+        storefront: () => NEVER,
+        listings: () => NEVER,
+        vouchers: () => NEVER,
+      }),
     );
     await vi.advanceTimersByTimeAsync(3000);
     const r = await p;
