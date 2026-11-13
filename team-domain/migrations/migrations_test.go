@@ -78,8 +78,8 @@ func TestMigrateUpBuildsV1Outbox(t *testing.T) {
 	}
 	ctx := t.Context()
 
-	if v := readVersion(t, pool); v.version != 16 || v.dirty {
-		t.Errorf("schema_migrations = %+v, want version 16 and clean", v)
+	if v := readVersion(t, pool); v.version != 17 || v.dirty {
+		t.Errorf("schema_migrations = %+v, want version 17 and clean", v)
 	}
 
 	type column struct {
@@ -255,8 +255,8 @@ func TestMigrateUpIsIdempotent(t *testing.T) {
 	if err := migrate.Up(t.Context(), dsn, fsys); err != nil {
 		t.Fatalf("second migrate up: %v", err)
 	}
-	if after := readVersion(t, pool); after != before || after.version != 16 {
-		t.Errorf("schema_migrations %+v -> %+v, want unchanged at 16", before, after)
+	if after := readVersion(t, pool); after != before || after.version != 17 {
+		t.Errorf("schema_migrations %+v -> %+v, want unchanged at 17", before, after)
 	}
 	var n int
 	var seqAfter int64
@@ -288,11 +288,63 @@ func TestEmbeddedFSHoldsEverySQLFile(t *testing.T) {
 	}
 	for _, name := range []string{
 		"0013_outbox_v1_columns", "0014_outbox_v1_backfill", "0015_outbox_v1_switch", "0016_outbox_v1_finish",
+		"0017_listings_owner_status_idx",
 	} {
 		for _, dir := range []string{".up.sql", ".down.sql"} {
 			if _, err := fs.Stat(migrations.FS, name+dir); err != nil {
 				t.Errorf("embedded FS lacks %s%s: %v", name, dir, err)
 			}
 		}
+	}
+}
+
+func listingIndexDef(t *testing.T, pool *pgxpool.Pool) (string, bool) {
+	t.Helper()
+	var def string
+	err := pool.QueryRow(t.Context(), `SELECT indexdef FROM pg_indexes
+		WHERE schemaname = current_schema() AND tablename = 'listings' AND indexname = 'listings_owner_status_idx'`).Scan(&def)
+	if err != nil {
+		return "", false
+	}
+	return def, true
+}
+
+func TestMigration0017CreatesOwnerStatusIndex(t *testing.T) {
+	dsn, pool := newDatabase(t)
+	if err := migrate.Up(t.Context(), dsn, os.DirFS(".")); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	def, ok := listingIndexDef(t, pool)
+	if !ok {
+		t.Fatalf("index listings_owner_status_idx missing after migrate up")
+	}
+	if !strings.Contains(def, "(seller_id, status, id)") {
+		t.Errorf("index definition = %q, want columns (seller_id, status, id)", def)
+	}
+}
+
+func TestMigration0017UpgradeFrom16AndDownDropsIndex(t *testing.T) {
+	dsn, pool := newDatabase(t)
+	if err := migrate.Up(t.Context(), dsn, filesUpTo(t, 16)); err != nil {
+		t.Fatalf("migrate to 16: %v", err)
+	}
+	if _, ok := listingIndexDef(t, pool); ok {
+		t.Fatalf("index must not exist at version 16")
+	}
+	if err := migrate.Up(t.Context(), dsn, os.DirFS(".")); err != nil {
+		t.Fatalf("migrate up from 16: %v", err)
+	}
+	if _, ok := listingIndexDef(t, pool); !ok {
+		t.Fatalf("index missing after upgrading from 16")
+	}
+	down, err := os.ReadFile("0017_listings_owner_status_idx.down.sql")
+	if err != nil {
+		t.Fatalf("read down migration: %v", err)
+	}
+	if _, err := pool.Exec(t.Context(), string(down)); err != nil {
+		t.Fatalf("apply down: %v", err)
+	}
+	if _, ok := listingIndexDef(t, pool); ok {
+		t.Errorf("index still present after down migration")
 	}
 }

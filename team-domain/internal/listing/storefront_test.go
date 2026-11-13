@@ -273,7 +273,7 @@ type spyListings struct {
 	failWith   error
 }
 
-func (s *spyListings) GetByIDs(ctx context.Context, ids []string) ([]store.Listing, error) {
+func (s *spyListings) GetByIDs(ctx context.Context, ids []string) (map[string]store.Listing, error) {
 	s.batchCalls++
 	if s.failWith != nil {
 		return nil, s.failWith

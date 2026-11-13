@@ -60,6 +60,29 @@ func (h *CartHandler) AddToCart(ctx context.Context, req *orderv1.AddToCartReque
 	return &orderv1.AddToCartResponse{Cart: toWireCart(principal.ID, items, subtotal)}, nil
 }
 
+func (h *CartHandler) AddBundleToCart(ctx context.Context, req *orderv1.AddBundleToCartRequest) (*orderv1.AddBundleToCartResponse, error) {
+	principal, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetBundleId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "bundle_id is required")
+	}
+	items, subtotal, err := h.svc.AddBundleToCart(ctx, principal.ID, req.GetBundleId(), req.GetQuantity())
+	if err != nil {
+		switch {
+		case errors.Is(err, order.ErrBundleQuantity):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, order.ErrBundleNotFound):
+			return nil, status.Error(codes.NotFound, "bundle not found")
+		case errors.Is(err, order.ErrBundleUnavailable):
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		}
+		return nil, h.fail(ctx, err)
+	}
+	return &orderv1.AddBundleToCartResponse{Cart: toWireCart(principal.ID, items, subtotal)}, nil
+}
+
 func (h *CartHandler) UpdateCartItem(ctx context.Context, req *orderv1.UpdateCartItemRequest) (*orderv1.UpdateCartItemResponse, error) {
 	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
@@ -70,6 +93,9 @@ func (h *CartHandler) UpdateCartItem(ctx context.Context, req *orderv1.UpdateCar
 	}
 	items, subtotal, err := h.svc.UpdateCartItem(ctx, principal.ID, req.GetItemId(), req.GetQuantity())
 	if err != nil {
+		if errors.Is(err, store.ErrCartItemNotFound) {
+			return nil, status.Error(codes.NotFound, "cart item not found")
+		}
 		return nil, h.fail(ctx, err)
 	}
 	return &orderv1.UpdateCartItemResponse{Cart: toWireCart(principal.ID, items, subtotal)}, nil
@@ -85,6 +111,9 @@ func (h *CartHandler) RemoveFromCart(ctx context.Context, req *orderv1.RemoveFro
 	}
 	items, subtotal, err := h.svc.RemoveFromCart(ctx, principal.ID, req.GetItemId())
 	if err != nil {
+		if errors.Is(err, store.ErrCartItemNotFound) {
+			return nil, status.Error(codes.NotFound, "cart item not found")
+		}
 		return nil, h.fail(ctx, err)
 	}
 	return &orderv1.RemoveFromCartResponse{Cart: toWireCart(principal.ID, items, subtotal)}, nil
@@ -124,7 +153,9 @@ func (h *CartHandler) Reorder(ctx context.Context, req *orderv1.ReorderRequest) 
 
 func toWireCart(userID string, items []store.CartItem, subtotal int64) *orderv1.Cart {
 	wireItems := make([]*orderv1.CartItem, 0, len(items))
+	var discountTotal int64
 	for _, it := range items {
+		discountTotal += it.BundleDiscount
 		wireItems = append(wireItems, &orderv1.CartItem{
 			Id:          it.ID,
 			ListingId:   it.ListingID,
@@ -135,11 +166,16 @@ func toWireCart(userID string, items []store.CartItem, subtotal int64) *orderv1.
 			VariantName: it.VariantName,
 			ImageUrl:    it.ImageURL,
 			SellerId:    it.SellerID,
+
+			BundleId:       it.BundleID,
+			BundleDiscount: it.BundleDiscount,
 		})
 	}
 	return &orderv1.Cart{
 		UserId:   userID,
 		Items:    wireItems,
 		Subtotal: subtotal,
+
+		BundleDiscountTotal: discountTotal,
 	}
 }

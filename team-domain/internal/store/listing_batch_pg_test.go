@@ -38,8 +38,8 @@ func TestGetByIDsReturnsOwnerAndFullRow(t *testing.T) {
 	if err != nil || len(got) != 1 {
 		t.Fatalf("GetByIDs = %v, %v", got, err)
 	}
-	if got[0].SellerID != "seller-x" || got[0].Status != "published" {
-		t.Fatalf("row not fully populated: %+v", got[0])
+	if got["own-1"].SellerID != "seller-x" || got["own-1"].Status != "published" {
+		t.Fatalf("row not fully populated: %+v", got["own-1"])
 	}
 }
 

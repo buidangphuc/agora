@@ -3061,6 +3061,467 @@ features:
     status: not-testable
     notes: "VERIFIED BY team-domain `internal/app` `TestRunConsumesIdentityEvents`. Not producible end to end through the gateway (unit level)."
 
+  - id: bundle.create
+    title: Create a bundle of the caller's own listings
+    persona: seller
+    priority: P1
+    summary: >-
+      CreateBundle stores a bundle only for 2 to 10 distinct, existing, variant-free listings owned by
+      the caller, priced above 0 and strictly below the sum of the parts; GetBundle and
+      ListBundlesBySeller keep returning bundles stored before these rules.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateBundle, listing.v1.GetBundle, listing.v1.ListBundlesBySeller]
+    acceptance:
+      - "B1: Given a seller with two own published listings, when CreateBundle is called with a valid price, then the bundle carries seller_id of the caller and the listing ids in request order and GetBundle returns it"
+      - "B2: Given one own and one foreign listing, when CreateBundle is called, then PERMISSION_DENIED and no bundle is stored"
+      - "B3: Given one own listing and an unknown listing id, when CreateBundle is called, then PERMISSION_DENIED with the same message as for a foreign listing"
+      - "B4: Given a caller without listing.write, when CreateBundle is called, then PERMISSION_DENIED and no bundle is stored"
+      - "B5: Given exactly one listing id, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B6: Given ten own listings, when CreateBundle is called, then a bundle of 10 ids is returned; with eleven, INVALID_ARGUMENT"
+      - "B7: Given the same own listing id twice, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B8: Given a plain listing and an own listing with variants, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B9: Given listings priced 100000 and 50000, when bundle_price is 150000, then INVALID_ARGUMENT and no bundle is stored"
+      - "B10: Given listings priced 100000 and 50000, when bundle_price is 149999, then the bundle is returned with that price"
+      - "B11: Given valid listings, when bundle_price is 0 and then -1, then both fail with INVALID_ARGUMENT and no bundle is stored"
+      - "B12: Given a bundle stored before the rules whose price is at or above the sum, when requested through GetBundle and ListBundlesBySeller, then both return it unchanged"
+      - "B13: Given an unknown bundle id, when GetBundle is called, then NOT_FOUND"
+    tags: [seller]
+    status: planned
+    notes: >-
+      Scenarios in platform-e2e/tests/e2e/features/seller/bundle_integrity.feature (domain-bundle-integrity).
+      B12 seeds the legacy bundle by SQL into listing_db.bundles.
+
+  - id: bundle-integrity.b1
+    title: "B1 A seller bundles their own listings"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B1 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B1: Own listings stored in request order"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestBundleCreate_B1_OwnListingsStoredInRequestOrder`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b2
+    title: "B2 Another seller's listing is refused"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B2 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B2: Foreign listing refused"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB2_ForeignListingPermissionDenied`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b4
+    title: "B4 A caller without the listing write scope is refused"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B4 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B4: Missing write scope refused"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB4_MissingWriteScopeStoresNothing`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b5
+    title: "B5 A single-listing bundle is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B5 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B5: Single listing rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB5B6B7_CountAndDuplicateInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b6
+    title: "B6 A bundle of exactly ten listings is accepted and eleven are rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B6 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B6: Ten accepted, eleven rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB6_TenListingsAccepted`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b7
+    title: "B7 A repeated listing id is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B7 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B7: Repeated id rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB5B6B7_CountAndDuplicateInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b8
+    title: "B8 A bundle with a variant listing is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B8 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B8: Variant listing rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB8_VariantListingInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b9
+    title: "B9 A price equal to the sum of the parts is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B9 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B9: Price equal to sum rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB9_PriceEqualToSumInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b10
+    title: "B10 One minor unit below the sum is accepted"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B10 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B10: One minor unit below sum accepted"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/listing` `TestBundleCreate_B10_OneMinorUnitBelowSumAccepted`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b11
+    title: "B11 A zero or negative price is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B11 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B11: Non-positive price rejected"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB11_NonPositivePriceInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b12
+    title: "B12 A bundle that predates the rules is still returned"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B12 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B12: Legacy bundle readable"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB12_LegacyBundleStillReadable`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b13
+    title: "B13 An unknown bundle id is not found"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B13 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B13: Unknown bundle NOT_FOUND"
+    tags: [bundle, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestB13_UnknownBundleNotFound`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+
+  - id: my-listings-filter.s1
+    title: "A single status returns only that status"
+    persona: seller
+    priority: P1
+    summary: Scenario 1 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning 3 published, 2 draft and 1 rejected listing calls `ListMyListings` with `statuses = [PUBLISHED]`"
+      - "THEN the response holds exactly the 3 published listings and `page.total` is 3"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::A single status returns only that status"
+
+  - id: my-listings-filter.s2
+    title: "Several statuses are OR-ed"
+    persona: seller
+    priority: P1
+    summary: Scenario 2 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN the same seller calls `ListMyListings` with `statuses = [DRAFT, REJECTED]`"
+      - "THEN the response holds the 2 draft and the 1 rejected listing, and `page.total` is 3"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::Several statuses are OR-ed"
+
+  - id: my-listings-filter.s3
+    title: "Empty filter keeps today's behaviour"
+    persona: seller
+    priority: P1
+    summary: Scenario 3 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` without `statuses` and without `query`"
+      - "THEN the response holds all 6 own listings ordered by id with `page.total` 6, identical to the response before this change"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::Empty filter keeps today's behaviour"
+
+  - id: my-listings-filter.s4
+    title: "An unspecified status is rejected"
+    persona: seller
+    priority: P1
+    summary: Scenario 4 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `statuses = [LISTING_STATUS_UNSPECIFIED]`"
+      - "THEN the call fails with INVALID_ARGUMENT and no listing is returned"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::An unspecified status is rejected"
+
+  - id: my-listings-filter.s5
+    title: "The DELETED status matches nothing"
+    persona: seller
+    priority: P1
+    summary: Scenario 5 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `statuses = [DELETED]`"
+      - "THEN the response holds 0 listings, `page.total` is 0 and `page.next_cursor` is empty"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::The DELETED status matches nothing"
+
+  - id: my-listings-filter.s6
+    title: "Another seller's listings are never returned"
+    persona: seller
+    priority: P1
+    summary: Scenario 6 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN seller B, who owns no listing, calls `ListMyListings` with `statuses = [PUBLISHED]` while seller A owns 3 published listings"
+      - "THEN the response holds 0 listings and `page.total` is 0"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::Another seller's listings are never returned"
+
+  - id: my-listings-filter.s7
+    title: "A caller without the listing.write scope is denied"
+    persona: seller
+    priority: P1
+    summary: Scenario 7 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a buyer principal without the `listing.write` scope calls `ListMyListings` with any filter"
+      - "THEN the call fails with PERMISSION_DENIED and no listing is returned"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::A caller without the listing.write scope is denied"
+
+  - id: my-listings-filter.s8
+    title: "Substring match ignores case"
+    persona: seller
+    priority: P1
+    summary: Scenario 8 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning listings titled \"Áo thun Đỏ\", \"ÁO THUN xanh\" and \"Quần jean\" calls `ListMyListings` with `query = \"áo thun\"`"
+      - "THEN the response holds the two \"áo thun\" listings and `page.total` is 2"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::Substring match ignores case"
+
+  - id: my-listings-filter.s9
+    title: "Query and status combine"
+    persona: seller
+    priority: P1
+    summary: Scenario 9 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN the seller owns a published and a draft listing both titled \"Áo thun\" and calls `ListMyListings` with `query = \"áo\"` and `statuses = [DRAFT]`"
+      - "THEN the response holds only the draft listing and `page.total` is 1"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::Query and status combine"
+
+  - id: my-listings-filter.s10
+    title: "LIKE wildcards match literally"
+    persona: seller
+    priority: P1
+    summary: Scenario 10 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning \"Giảm 50% áo\" and \"Giảm 500 áo\" calls `ListMyListings` with `query = \"50%\"`"
+      - "THEN the response holds only \"Giảm 50% áo\" and `page.total` is 1"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::LIKE wildcards match literally"
+
+  - id: my-listings-filter.s11
+    title: "A query of exactly 100 runes is accepted, 101 is rejected"
+    persona: seller
+    priority: P1
+    summary: Scenario 11 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with a `query` of 100 runes, then with one of 101 runes"
+      - "THEN the first call succeeds with 0 listings and the second fails with INVALID_ARGUMENT"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::A query of exactly 100 runes is accepted, 101 is rejected"
+
+  - id: my-listings-filter.s12
+    title: "No match returns an empty page"
+    persona: seller
+    priority: P1
+    summary: Scenario 12 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `query = \"zzzz-no-such-title\"`"
+      - "THEN the response holds 0 listings, `page.total` is 0 and `page.next_cursor` is empty"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::No match returns an empty page"
+
+  - id: my-listings-filter.s13
+    title: "A blank query is ignored"
+    persona: seller
+    priority: P1
+    summary: Scenario 13 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `query = \"   \"`"
+      - "THEN the response equals the response for an empty `query`"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::A blank query is ignored"
+
+  - id: my-listings-filter.s14
+    title: "The query text is not logged"
+    persona: seller
+    priority: P1
+    summary: Scenario 14 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `query = \"secret-needle-title\"`"
+      - "THEN no log line of `team-domain-svc` for that call contains \"secret-needle-title\""
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::The query text is not logged"
+
+  - id: my-listings-filter.s15
+    title: "Filtered pages cover the filtered set exactly once"
+    persona: seller
+    priority: P1
+    summary: Scenario 15 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning 250 published and 50 draft listings pages `statuses = [PUBLISHED]` with `page_size = 100` following `next_cursor` until it is empty"
+      - "THEN the three pages hold 100, 100 and 50 listings, no id repeats, no draft appears, and every page reports `page.total` 250"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::Filtered pages cover the filtered set exactly once"
+
+  - id: my-listings-filter.s16
+    title: "Page size above the maximum is clamped"
+    persona: seller
+    priority: P1
+    summary: Scenario 16 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning 150 listings calls `ListMyListings` with `page_size = 1000`"
+      - "THEN the response holds 100 listings and a non-empty `next_cursor`"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::Page size above the maximum is clamped"
+
+  - id: my-listings-filter.s17
+    title: "Filtered page latency at 2,000 listings"
+    persona: seller
+    priority: P1
+    summary: Scenario 17 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning 2,000 listings calls `ListMyListings` 50 times with `statuses = [PUBLISHED]`, `query = \"áo\"` and `page_size = 20`"
+      - "THEN the 95th percentile of the call durations is at most 150 ms"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::Filtered page latency at 2,000 listings"
+
+  - id: my-listings-filter.s18
+    title: "A cursor from a different filter yields no foreign rows"
+    persona: seller
+    priority: P1
+    summary: Scenario 18 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller reuses a `next_cursor` obtained for `statuses = [DRAFT]` on a call with `statuses = [PUBLISHED]`"
+      - "THEN the response holds only the seller's own published listings with id greater than the cursor id"
+    tags: [seller]
+    status: planned
+    covered_by: null
+    notes: "e2e: domain/my_listings_filter.feature::A cursor from a different filter yields no foreign rows"
+
   - id: listing.storefront-banner-upload
     title: Seller saves a banner uploaded through the image bucket
     persona: seller

@@ -10,6 +10,7 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3, protoInt64, Timestamp } from "@bufbuild/protobuf";
 import { Address } from "../../identity/v1/identity_pb.js";
 import { PaymentMethod } from "../../payment/v1/payment_pb.js";
+import { PageRequest, PageResponse } from "../../common/v1/common_pb.js";
 
 /**
  * @generated from enum platform.order.v1.OrderStatus
@@ -292,6 +293,86 @@ proto3.util.setEnumType(ShipmentStatus, "platform.order.v1.ShipmentStatus", [
 ]);
 
 /**
+ * @generated from message platform.order.v1.AddBundleToCartRequest
+ */
+export class AddBundleToCartRequest extends Message<AddBundleToCartRequest> {
+  /**
+   * @generated from field: string bundle_id = 1;
+   */
+  bundleId = "";
+
+  /**
+   * @generated from field: int32 quantity = 2;
+   */
+  quantity = 0;
+
+  constructor(data?: PartialMessage<AddBundleToCartRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.order.v1.AddBundleToCartRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "bundle_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "quantity", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AddBundleToCartRequest {
+    return new AddBundleToCartRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AddBundleToCartRequest {
+    return new AddBundleToCartRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AddBundleToCartRequest {
+    return new AddBundleToCartRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AddBundleToCartRequest | PlainMessage<AddBundleToCartRequest> | undefined, b: AddBundleToCartRequest | PlainMessage<AddBundleToCartRequest> | undefined): boolean {
+    return proto3.util.equals(AddBundleToCartRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.order.v1.AddBundleToCartResponse
+ */
+export class AddBundleToCartResponse extends Message<AddBundleToCartResponse> {
+  /**
+   * @generated from field: platform.order.v1.Cart cart = 1;
+   */
+  cart?: Cart;
+
+  constructor(data?: PartialMessage<AddBundleToCartResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.order.v1.AddBundleToCartResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "cart", kind: "message", T: Cart },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AddBundleToCartResponse {
+    return new AddBundleToCartResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AddBundleToCartResponse {
+    return new AddBundleToCartResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AddBundleToCartResponse {
+    return new AddBundleToCartResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AddBundleToCartResponse | PlainMessage<AddBundleToCartResponse> | undefined, b: AddBundleToCartResponse | PlainMessage<AddBundleToCartResponse> | undefined): boolean {
+    return proto3.util.equals(AddBundleToCartResponse, a, b);
+  }
+}
+
+/**
  * @generated from message platform.order.v1.CartItem
  */
 export class CartItem extends Message<CartItem> {
@@ -340,6 +421,21 @@ export class CartItem extends Message<CartItem> {
    */
   sellerId = "";
 
+  /**
+   * Empty when the line was not added through a bundle.
+   *
+   * @generated from field: string bundle_id = 10;
+   */
+  bundleId = "";
+
+  /**
+   * VND share of the bundle discount allocated to this line. Computed by the server
+   * (server-owned, pro-rata across the bundle lines) and never trusted from a request.
+   *
+   * @generated from field: int64 bundle_discount = 11;
+   */
+  bundleDiscount = protoInt64.zero;
+
   constructor(data?: PartialMessage<CartItem>) {
     super();
     proto3.util.initPartial(data, this);
@@ -357,6 +453,8 @@ export class CartItem extends Message<CartItem> {
     { no: 7, name: "variant_name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 8, name: "image_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 9, name: "seller_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "bundle_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 11, name: "bundle_discount", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CartItem {
@@ -395,6 +493,13 @@ export class Cart extends Message<Cart> {
    */
   subtotal = protoInt64.zero;
 
+  /**
+   * Sum of bundle_discount over items; server-owned.
+   *
+   * @generated from field: int64 bundle_discount_total = 4;
+   */
+  bundleDiscountTotal = protoInt64.zero;
+
   constructor(data?: PartialMessage<Cart>) {
     super();
     proto3.util.initPartial(data, this);
@@ -406,6 +511,7 @@ export class Cart extends Message<Cart> {
     { no: 1, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "items", kind: "message", T: CartItem, repeated: true },
     { no: 3, name: "subtotal", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 4, name: "bundle_discount_total", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Cart {
@@ -2319,6 +2425,21 @@ export class OrderItem extends Message<OrderItem> {
    */
   imageUrl = "";
 
+  /**
+   * Empty when the item did not come from a bundle.
+   *
+   * @generated from field: string bundle_id = 9;
+   */
+  bundleId = "";
+
+  /**
+   * VND share of the bundle discount copied from the cart line at checkout. Computed by the
+   * server (server-owned, pro-rata across the bundle lines) and never trusted from a request.
+   *
+   * @generated from field: int64 bundle_discount = 10;
+   */
+  bundleDiscount = protoInt64.zero;
+
   constructor(data?: PartialMessage<OrderItem>) {
     super();
     proto3.util.initPartial(data, this);
@@ -2335,6 +2456,8 @@ export class OrderItem extends Message<OrderItem> {
     { no: 6, name: "quantity", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 7, name: "unit_price", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 8, name: "image_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "bundle_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "bundle_discount", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OrderItem {
@@ -2939,6 +3062,9 @@ export class ListBuyerOrdersResponse extends Message<ListBuyerOrdersResponse> {
 }
 
 /**
+ * Paging is optional: with page unset the response is the full list, as before. The caller
+ * is the authenticated seller principal; orders of other sellers are never returned.
+ *
  * @generated from message platform.order.v1.ListSellerOrdersRequest
  */
 export class ListSellerOrdersRequest extends Message<ListSellerOrdersRequest> {
@@ -2946,6 +3072,29 @@ export class ListSellerOrdersRequest extends Message<ListSellerOrdersRequest> {
    * @generated from field: platform.order.v1.OrderStatus status_filter = 1;
    */
   statusFilter = OrderStatus.UNSPECIFIED;
+
+  /**
+   * When unset, the full list is returned and status_counts stays empty. page.page_size is
+   * capped at 100.
+   *
+   * @generated from field: platform.common.v1.PageRequest page = 2;
+   */
+  page?: PageRequest;
+
+  /**
+   * Case-insensitive match on order id and item title; the counts in status_counts are
+   * computed with the query applied. A query that is too long is INVALID_ARGUMENT.
+   *
+   * @generated from field: string query = 3;
+   */
+  query = "";
+
+  /**
+   * When non-empty, statuses wins over status_filter.
+   *
+   * @generated from field: repeated platform.order.v1.OrderStatus statuses = 4;
+   */
+  statuses: OrderStatus[] = [];
 
   constructor(data?: PartialMessage<ListSellerOrdersRequest>) {
     super();
@@ -2956,6 +3105,9 @@ export class ListSellerOrdersRequest extends Message<ListSellerOrdersRequest> {
   static readonly typeName = "platform.order.v1.ListSellerOrdersRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "status_filter", kind: "enum", T: proto3.getEnumType(OrderStatus) },
+    { no: 2, name: "page", kind: "message", T: PageRequest },
+    { no: 3, name: "query", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "statuses", kind: "enum", T: proto3.getEnumType(OrderStatus), repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListSellerOrdersRequest {
@@ -2976,6 +3128,49 @@ export class ListSellerOrdersRequest extends Message<ListSellerOrdersRequest> {
 }
 
 /**
+ * @generated from message platform.order.v1.OrderStatusCount
+ */
+export class OrderStatusCount extends Message<OrderStatusCount> {
+  /**
+   * @generated from field: platform.order.v1.OrderStatus status = 1;
+   */
+  status = OrderStatus.UNSPECIFIED;
+
+  /**
+   * @generated from field: int64 count = 2;
+   */
+  count = protoInt64.zero;
+
+  constructor(data?: PartialMessage<OrderStatusCount>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.order.v1.OrderStatusCount";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "status", kind: "enum", T: proto3.getEnumType(OrderStatus) },
+    { no: 2, name: "count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OrderStatusCount {
+    return new OrderStatusCount().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): OrderStatusCount {
+    return new OrderStatusCount().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): OrderStatusCount {
+    return new OrderStatusCount().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: OrderStatusCount | PlainMessage<OrderStatusCount> | undefined, b: OrderStatusCount | PlainMessage<OrderStatusCount> | undefined): boolean {
+    return proto3.util.equals(OrderStatusCount, a, b);
+  }
+}
+
+/**
  * @generated from message platform.order.v1.ListSellerOrdersResponse
  */
 export class ListSellerOrdersResponse extends Message<ListSellerOrdersResponse> {
@@ -2983,6 +3178,21 @@ export class ListSellerOrdersResponse extends Message<ListSellerOrdersResponse> 
    * @generated from field: repeated platform.order.v1.Order orders = 1;
    */
   orders: Order[] = [];
+
+  /**
+   * Unset when the request had no page.
+   *
+   * @generated from field: platform.common.v1.PageResponse page = 2;
+   */
+  page?: PageResponse;
+
+  /**
+   * One entry per status of the seller's orders with the query applied, ignoring the status
+   * filters; empty when the request had no page.
+   *
+   * @generated from field: repeated platform.order.v1.OrderStatusCount status_counts = 3;
+   */
+  statusCounts: OrderStatusCount[] = [];
 
   constructor(data?: PartialMessage<ListSellerOrdersResponse>) {
     super();
@@ -2993,6 +3203,8 @@ export class ListSellerOrdersResponse extends Message<ListSellerOrdersResponse> 
   static readonly typeName = "platform.order.v1.ListSellerOrdersResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "orders", kind: "message", T: Order, repeated: true },
+    { no: 2, name: "page", kind: "message", T: PageResponse },
+    { no: 3, name: "status_counts", kind: "message", T: OrderStatusCount, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListSellerOrdersResponse {

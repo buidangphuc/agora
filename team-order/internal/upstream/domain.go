@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	sdkupstream "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/upstream"
@@ -77,6 +79,12 @@ type DomainClient interface {
 	CommitReservation(ctx context.Context, req *listingv1.CommitReservationRequest, opts ...grpc.CallOption) (*listingv1.CommitReservationResponse, error)
 }
 
+// BundleClient is the bundle read of team-domain's ListingService. The stock client returned by
+// NewServiceStockClient implements it when its inner client does.
+type BundleClient interface {
+	GetBundle(ctx context.Context, req *listingv1.GetBundleRequest, opts ...grpc.CallOption) (*listingv1.GetBundleResponse, error)
+}
+
 // serviceStockClient marks exactly the stock-changing RPCs AsService and leaves
 // every other call (GetListing) untouched, so a buyer's read still forwards the
 // buyer principal while stock changes carry team-order's own authority.
@@ -114,4 +122,15 @@ func (c serviceStockClient) GetListing(ctx context.Context, req *listingv1.GetLi
 		ctx = sdkupstream.WithServicePrincipal(ctx, servicePrincipalID, listingReadScope)
 	}
 	return c.DomainClient.GetListing(ctx, req, opts...)
+}
+
+func (c serviceStockClient) GetBundle(ctx context.Context, req *listingv1.GetBundleRequest, opts ...grpc.CallOption) (*listingv1.GetBundleResponse, error) {
+	inner, ok := c.DomainClient.(BundleClient)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "domain client has no bundle read")
+	}
+	if p, ok := auth.FromContext(ctx); !ok || p.Anonymous() {
+		ctx = sdkupstream.WithServicePrincipal(ctx, servicePrincipalID, listingReadScope)
+	}
+	return inner.GetBundle(ctx, req, opts...)
 }
