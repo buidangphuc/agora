@@ -12,14 +12,14 @@ button, when any of its listings is absent from the shop's published listings or
 - **WHEN** a signed-in buyer clicks "Thêm combo vào giỏ" on a combo of 2 published listings on `/shop/{id}`
 - **THEN** the cart contains 2 lines, one per listing, each tagged with that bundle, and the page shows "Đã thêm combo" with a link to `/cart`
 
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `Buyer adds a combo to the cart`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `C1 Adding an available combo puts every listing in the cart`
 
 #### Scenario: C2 A combo with an unpublished listing is shown unavailable
 
 - **WHEN** a visitor opens `/shop/{id}` and one listing of a combo has been unpublished
 - **THEN** that combo card shows "Combo tạm không khả dụng" and has no "Thêm combo vào giỏ" button
 
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `A combo with an unpublished listing is unavailable`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `C2 A combo with an unpublished listing is shown unavailable`
 
 #### Scenario: C3 A refused add flips the card to unavailable
 
@@ -68,7 +68,7 @@ cart SHALL show "Combo đã bị huỷ, các sản phẩm tính giá thường".
 - **WHEN** a buyer opens `/cart` holding a combo of 2 lines with a bundle discount total of 30000 VND
 - **THEN** both lines appear under one "Combo" label and the summary shows "Giảm giá combo" with 30.000 VND
 
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `Cart shows the combo discount`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `C8 Combo lines and the discount are shown in the cart`
 
 #### Scenario: C9 A cart without bundles is unchanged
 
@@ -82,7 +82,7 @@ cart SHALL show "Combo đã bị huỷ, các sản phẩm tính giá thường".
 - **WHEN** a buyer removes one line of a bundle or changes its quantity
 - **THEN** the cart shows "Combo đã bị huỷ, các sản phẩm tính giá thường" and no "Combo" label remains for the remaining lines
 
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `Removing a combo line cancels the combo`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `C10 Removing one combo line shows the cancellation notice`
 
 #### Scenario: C11 A combo line with a missing discount does not break the cart
 
@@ -101,7 +101,7 @@ is greater than zero, and SHALL show the order total returned by the server.
 - **WHEN** a buyer with a combo in the cart (regular sum 150000 VND, bundle price 120000 VND) opens `/checkout`
 - **THEN** the summary shows "Giảm giá combo" 30.000 VND and a merchandise total of 120.000 VND
 
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `Checkout total reflects the bundle price`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_bundle_purchase_ui.feature` `C12 The order total reflects the bundle price`
 
 #### Scenario: C13 An invalid combo at checkout shows regular prices
 
