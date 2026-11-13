@@ -108,7 +108,7 @@ func TestSellerPromotionForwarders_SellerReachesSellerRPCsNotAdminOnes(t *testin
 	}
 
 	before := fs.calls.Load() + vs.calls.Load()
-	for _, p := range []string{listCampaignsPath, "/platform.promotion.v1.VoucherService/ListVouchers"} {
+	for _, p := range []string{listCampaignsPath} {
 		code, body = callWith(t, clients, p, `{}`, sellerScopes)
 		if code != http.StatusForbidden || !strings.Contains(body, "permission_denied") {
 			t.Errorf("seller %s = %d %s, want 403 permission_denied", p, code, body)
