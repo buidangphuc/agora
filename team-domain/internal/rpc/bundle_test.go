@@ -11,14 +11,22 @@ import (
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-domain/internal/listing"
 	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store"
 	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 // newBundleHandler builds a ListingHandler wired with an in-memory bundle store
 // (listing deps unused by the bundle RPCs).
 func newBundleHandler() *rpc.ListingHandler {
-	bSvc := listing.NewBundleService(storetest.NewInMemoryBundleRepository())
-	return rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
+	lrepo := storetest.NewInMemoryListingRepository(
+		store.Listing{ID: "l1", SellerID: "seller_a", Price: 1_000_000_000},
+		store.Listing{ID: "l2", SellerID: "seller_a", Price: 1_000_000_000},
+		store.Listing{ID: "l3", SellerID: "seller_a", Price: 1_000_000_000},
+		store.Listing{ID: "lb", SellerID: "seller_b", Price: 1_000_000_000},
+		store.Listing{ID: "lb2", SellerID: "seller_b", Price: 1_000_000_000},
+	)
+	bSvc := listing.NewBundleService(storetest.NewInMemoryBundleRepository(), lrepo)
+	return rpc.NewListingHandler(listing.NewListingService(lrepo), nil, nil).
 		WithBundles(bSvc)
 }
 
@@ -67,11 +75,11 @@ func TestListBundlesBySeller(t *testing.T) {
 	h := newBundleHandler()
 
 	for _, title := range []string{"Combo A1", "Combo A2"} {
-		if _, err := h.CreateBundle(sellerCtx("seller_a"), &listingv1.CreateBundleRequest{Title: title}); err != nil {
+		if _, err := h.CreateBundle(sellerCtx("seller_a"), &listingv1.CreateBundleRequest{Title: title, ListingIds: []string{"l1", "l2"}, BundlePrice: 1_500_000_000}); err != nil {
 			t.Fatalf("seller_a create %q: %v", title, err)
 		}
 	}
-	if _, err := h.CreateBundle(sellerCtx("seller_b"), &listingv1.CreateBundleRequest{Title: "Combo B1"}); err != nil {
+	if _, err := h.CreateBundle(sellerCtx("seller_b"), &listingv1.CreateBundleRequest{Title: "Combo B1", ListingIds: []string{"lb", "lb2"}, BundlePrice: 1_500_000_000}); err != nil {
 		t.Fatalf("seller_b create: %v", err)
 	}
 

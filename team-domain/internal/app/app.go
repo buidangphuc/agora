@@ -118,7 +118,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 
 	h := rpc.NewListingHandler(svc, store.NewPostgresCategoryRepository(pool), objects.NewS3Storage(s.Storage)).
 		WithStorefront(listing.NewStorefrontService(store.NewPostgresStorefrontRepository(pool))).
-		WithBundles(listing.NewBundleService(store.NewPostgresBundleRepository(pool)))
+		WithBundles(listing.NewBundleService(store.NewPostgresBundleRepository(pool), repo))
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	listingv1.RegisterListingServiceServer(srv, h)

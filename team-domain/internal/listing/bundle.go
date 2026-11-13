@@ -17,11 +17,22 @@ var ErrTitleRequired = errors.New("title is required")
 // storage. It mirrors ListingService/StorefrontService: depend on a repository
 // port, return domain values, let the handler adapt to protobuf.
 type BundleService struct {
-	repo store.BundleRepository
+	repo     store.BundleRepository
+	listings store.ListingRepository
 }
 
-func NewBundleService(repo store.BundleRepository) *BundleService {
-	return &BundleService{repo: repo}
+// STUB (test-author): signature and sentinels only; the implementer replaces
+// the behaviour (task 1.2).
+var (
+	ErrBundleListingCount     = errors.New("a bundle needs 2 to 10 listings")
+	ErrBundleDuplicateListing = errors.New("a bundle cannot repeat a listing")
+	ErrBundleListingNotOwned  = errors.New("listing not found or not yours")
+	ErrBundleVariantListing   = errors.New("a listing with variants cannot be bundled")
+	ErrBundlePrice            = errors.New("bundle price must be above 0 and below the sum of the listings")
+)
+
+func NewBundleService(repo store.BundleRepository, listings store.ListingRepository) *BundleService {
+	return &BundleService{repo: repo, listings: listings}
 }
 
 // Create stores a new bundle for the calling seller. It is owner-scoped: the
