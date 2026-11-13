@@ -1,11 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
-import { listMyListings } from "@/lib/gateway/listings";
+import { getStorefront, listMyListings } from "@/lib/gateway/listings";
 import { listSellerOrders } from "@/lib/gateway/orders";
-import { hasScope } from "@/lib/gateway/session";
+import { listMyCampaigns, listMyShopVouchers } from "@/lib/gateway/promotion";
+import { getPrincipal, hasScope } from "@/lib/gateway/session";
 import SellerLoading from "./loading";
 import SellerPage from "./page";
 
@@ -23,7 +24,19 @@ vi.mock("@/lib/gateway/session", () => ({
   })),
   hasScope: vi.fn(),
 }));
-vi.mock("@/lib/gateway/listings", () => ({ listMyListings: vi.fn() }));
+vi.mock("@/lib/gateway/listings", () => ({
+  listMyListings: vi.fn(),
+  getStorefront: vi.fn(),
+}));
+vi.mock("@/lib/gateway/promotion", () => ({
+  listMyShopVouchers: vi.fn(),
+  listMyCampaigns: vi.fn(),
+}));
+vi.mock("@/features/auth/guardPath", () => ({
+  redirectGuestToLogin: vi.fn(() => {
+    throw new Error("REDIRECT_TO_LOGIN");
+  }),
+}));
 vi.mock("@/lib/gateway/orders", () => ({ listSellerOrders: vi.fn() }));
 vi.mock("@/features/listing/actions", () => ({ deleteListingAction: vi.fn() }));
 
@@ -79,6 +92,20 @@ beforeEach(() => {
   vi.mocked(hasScope).mockReturnValue(true);
   vi.mocked(listSellerOrders).mockResolvedValue([]);
   givenListings([]);
+  vi.mocked(getStorefront).mockResolvedValue({
+    displayName: "Shop An",
+    bannerUrl: "https://cdn/b.png",
+  } as never);
+  vi.mocked(listMyShopVouchers).mockResolvedValue({
+    ok: true,
+    items: [],
+    nextCursor: "",
+  } as never);
+  vi.mocked(listMyCampaigns).mockResolvedValue({
+    ok: true,
+    items: [],
+    nextCursor: "",
+  } as never);
 });
 
 const kpiRow = () => screen.getByTestId("kpi-row");
@@ -324,5 +351,95 @@ describe("/seller loading skeleton", () => {
     expect(
       skeletonRow.querySelectorAll('[aria-busy="true"]').length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe("/seller getting started card", () => {
+  it("getting started uses the principal seller id", async () => {
+    await renderPage({ sellerId: "s-other" });
+    await waitFor(() => expect(getStorefront).toHaveBeenCalled());
+    const ids = vi.mocked(getStorefront).mock.calls.map((c) => c[0]);
+    expect(ids).toContain("s");
+    expect(ids).not.toContain("s-other");
+  });
+
+  it("getting started reads each promotion and listing source with page size 1", async () => {
+    await renderPage();
+    await waitFor(() => expect(listMyShopVouchers).toHaveBeenCalled());
+    expect(listMyShopVouchers).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 1 }),
+    );
+    expect(listMyCampaigns).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 1 }),
+    );
+    expect(listMyListings).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 1 }),
+    );
+  });
+
+  it("no card and no calls without seller scope", async () => {
+    vi.mocked(getPrincipal).mockReturnValueOnce(null as never);
+    await expect(
+      SellerPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("REDIRECT_TO_LOGIN");
+
+    vi.mocked(hasScope).mockReturnValue(false);
+    const ui = await SellerPage({ searchParams: Promise.resolve({}) });
+    render(<>{ui}</>);
+    expect(screen.queryByText("Bắt đầu bán hàng")).toBeNull();
+    expect(getStorefront).not.toHaveBeenCalled();
+    expect(listMyListings).not.toHaveBeenCalled();
+    expect(listMyShopVouchers).not.toHaveBeenCalled();
+    expect(listMyCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("failed source shows chua ro and the dashboard stays", async () => {
+    vi.mocked(listMyListings).mockImplementation(((input?: {
+      pageSize?: number;
+    }) =>
+      input?.pageSize === 1
+        ? Promise.reject(new Error("unavailable"))
+        : Promise.resolve({
+            items: [listing(1)],
+            nextCursor: "",
+            total: 1,
+          })) as never);
+    vi.mocked(listMyShopVouchers).mockResolvedValue({
+      ok: true,
+      items: [{ id: "v1" }],
+      nextCursor: "",
+    } as never);
+    await renderPage();
+    expect(await screen.findByText("Bắt đầu bán hàng")).toBeInTheDocument();
+    const step = (await screen.findByText("chưa rõ")).closest("li");
+    expect(step).toHaveAttribute("data-state", "unknown");
+    expect(
+      within(step as HTMLElement).getByRole("link", { name: "Thực hiện" }),
+    ).toHaveAttribute("href", "/seller/new");
+    expect(screen.getByTestId("kpi-row")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sản phẩm 1" })).toBeInTheDocument();
+  });
+
+  it("a hanging source does not block the dashboard and the card sits above the KPI row", async () => {
+    vi.mocked(getStorefront).mockReturnValue(new Promise(() => {}) as never);
+    await renderPage();
+    expect(screen.getByTestId("kpi-row")).toBeInTheDocument();
+    expect(screen.getByTestId("getting-started-skeleton")).toBeInTheDocument();
+    expect(
+      screen
+        .getByTestId("getting-started-skeleton")
+        .compareDocumentPosition(screen.getByTestId("kpi-row")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("loading skeleton includes the getting started card placeholder above the KPI row", () => {
+    render(<SellerLoading />);
+    const card = screen.getByTestId("getting-started-skeleton");
+    expect(card.getAttribute("aria-busy")).toBe("true");
+    expect(
+      card.compareDocumentPosition(screen.getByTestId("kpi-row-skeleton")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
