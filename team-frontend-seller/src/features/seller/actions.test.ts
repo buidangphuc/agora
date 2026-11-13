@@ -16,8 +16,8 @@ import {
   createAdCampaignAction,
   createBundleAction,
   requestWalletPayoutAction,
-  subscribeAction,
   searchMyListingsAction,
+  subscribeAction,
   upsertStorefrontAction,
 } from "./actions";
 
@@ -199,9 +199,9 @@ describe("upsertStorefrontAction", () => {
     expect(JSON.stringify(vi.mocked(getStorefront).mock.calls)).not.toContain(
       "Other-Seller",
     );
-    expect(JSON.stringify(vi.mocked(upsertStorefront).mock.calls)).not.toContain(
-      "Other-Seller",
-    );
+    expect(
+      JSON.stringify(vi.mocked(upsertStorefront).mock.calls),
+    ).not.toContain("Other-Seller");
     expect(JSON.stringify(vi.mocked(revalidatePath).mock.calls)).not.toContain(
       "Other-Seller",
     );
@@ -279,17 +279,19 @@ describe("upsertStorefrontAction", () => {
   });
 
   it("Seller shop UI: a 120-character tagline is accepted and 121 is refused - action re-validates", async () => {
-    expect((await upsertStorefrontAction({ ...input, tagline: "a".repeat(120) })).ok).toBe(true);
+    expect(
+      (await upsertStorefrontAction({ ...input, tagline: "a".repeat(120) })).ok,
+    ).toBe(true);
     vi.mocked(upsertStorefront).mockClear();
     expect(
       await upsertStorefrontAction({ ...input, tagline: "a".repeat(121) }),
     ).toEqual({ ok: false, error: "Tagline tối đa 120 ký tự." });
-    expect(
-      await upsertStorefrontAction({ ...input, tagline: "a\nb" }),
-    ).toEqual({
-      ok: false,
-      error: "Tagline không được chứa ký tự điều khiển.",
-    });
+    expect(await upsertStorefrontAction({ ...input, tagline: "a\nb" })).toEqual(
+      {
+        ok: false,
+        error: "Tagline không được chứa ký tự điều khiển.",
+      },
+    );
     expect(upsertStorefront).not.toHaveBeenCalled();
   });
 

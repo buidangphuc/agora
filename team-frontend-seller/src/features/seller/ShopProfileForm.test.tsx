@@ -41,7 +41,12 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("ShopProfileForm", () => {
   it("is pre-filled with the current name (name field)", () => {
-    render(<ShopProfileForm initial={initial({ displayName: "Cửa hàng Hoa Mai" })} titles={{}} />);
+    render(
+      <ShopProfileForm
+        initial={initial({ displayName: "Cửa hàng Hoa Mai" })}
+        titles={{}}
+      />,
+    );
     expect(field()).toHaveValue("Cửa hàng Hoa Mai");
   });
 
@@ -73,7 +78,9 @@ describe("ShopProfileForm", () => {
   });
 
   it("rejects a blank name inline and sends nothing", () => {
-    render(<ShopProfileForm initial={initial({ displayName: "Cũ" })} titles={{}} />);
+    render(
+      <ShopProfileForm initial={initial({ displayName: "Cũ" })} titles={{}} />,
+    );
     fireEvent.change(field(), { target: { value: "   " } });
     save();
     expect(field()).toHaveAttribute("aria-invalid", "true");
@@ -107,7 +114,9 @@ describe("ShopProfileForm", () => {
       ok: false,
       error: "slug taken",
     });
-    render(<ShopProfileForm initial={initial({ displayName: "A" })} titles={{}} />);
+    render(
+      <ShopProfileForm initial={initial({ displayName: "A" })} titles={{}} />,
+    );
     save();
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("slug taken"),
@@ -138,7 +147,9 @@ describe("ShopProfileForm", () => {
     render(<ShopProfileForm initial={FULL} titles={TITLES} />);
     fireEvent.change(tagline(), { target: { value: "Mới" } });
     save();
-    await waitFor(() => expect(upsertStorefrontAction).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(upsertStorefrontAction).toHaveBeenCalledTimes(1),
+    );
     expect(upsertStorefrontAction).toHaveBeenCalledWith({
       displayName: "Hoa Mai",
       bannerUrl: "https://cdn.test/b.png",

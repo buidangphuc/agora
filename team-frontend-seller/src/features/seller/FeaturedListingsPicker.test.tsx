@@ -1,10 +1,4 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -19,7 +13,13 @@ const item = (id: string, title = `Sản phẩm ${id}`) => ({ id, title });
 const page = (...ids: string[]) =>
   ({
     ok: true,
-    data: { page: { items: ids.map((i) => item(i)), nextCursor: "", total: ids.length } },
+    data: {
+      page: {
+        items: ids.map((i) => item(i)),
+        nextCursor: "",
+        total: ids.length,
+      },
+    },
   }) as never;
 
 let selection: string[] = [];
@@ -135,7 +135,8 @@ describe("FeaturedListingsPicker", () => {
   it("Seller shop UI: an unavailable featured listing can be removed — unavailable featured can be removed", () => {
     render(<Harness initial={["a", "x"]} titles={titlesFor(["a"])} />);
     expect(screen.getByText("Không còn khả dụng")).toBeInTheDocument();
-    const row = screen.getByText("Không còn khả dụng").closest("li")!;
+    const row = screen.getByText("Không còn khả dụng").closest("li");
+    if (!row) throw new Error("row not found");
     fireEvent.click(within(row).getByRole("button", { name: /^Xóa/ }));
     expect(selection).toEqual(["a"]);
     expect(screen.queryByText("Không còn khả dụng")).toBeNull();
