@@ -23,7 +23,7 @@ type VerificationService struct {
 	repo store.KycRepository
 }
 
-func NewVerificationService(repo store.KycRepository) *VerificationService {
+func NewVerificationService(repo store.KycRepository, _ ...Option) *VerificationService {
 	return &VerificationService{repo: repo}
 }
 
