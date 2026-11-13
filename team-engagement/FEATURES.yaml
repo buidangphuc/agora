@@ -5262,7 +5262,7 @@ features:
       - "Then it is rejected to the DLQ and no favourite, follow, report or loyalty row of any user is deleted"
     tags: [user-erasure, engagement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestEmptyUserIDDeletesNothing. Not producible black box: needs a database fault, a unit-level handler or log capture."
+    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestIdentityEmptyUserIDDeletesNothing. Not producible black box: needs a database fault, a unit-level handler or log capture."
 
   - id: engagement.cue-a-replayed-event-changes-nothing
     title: "A replayed event changes nothing"
@@ -5320,7 +5320,7 @@ features:
       - "Then no row of that user changes and nothing is published to the DLQ"
     tags: [user-erasure, engagement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestIgnoresOtherEventTypes. Not producible black box: needs a database fault, a unit-level handler or log capture."
+    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestIdentityIgnoresOtherEventTypes. Not producible black box: needs a database fault, a unit-level handler or log capture."
 
   - id: engagement.cue-erasure-completes-within-one-hour
     title: "Erasure completes within one hour"
@@ -5349,4 +5349,4 @@ features:
       - "Then the service log holds a count and a hashed id and no line contains the raw user id"
     tags: [user-erasure, engagement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestErasureLogsNoRawUserID. Not producible black box: needs a database fault, a unit-level handler or log capture."
+    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestIdentityErasureLogsNoRawUserID. Not producible black box: needs a database fault, a unit-level handler or log capture."

@@ -82,7 +82,7 @@ and loyalty account.
 
 - **WHEN** a `UserErased` event with an empty `user_id` is consumed
 - **THEN** it is rejected to the DLQ and no favourite, follow, report or loyalty row of any user is deleted
-- **VERIFIED BY**: `team-engagement/internal/events/identity_test.go` `TestEmptyUserIDDeletesNothing`
+- **VERIFIED BY**: `team-engagement/internal/events/identity_test.go` `TestIdentityEmptyUserIDDeletesNothing`
 
 ### Requirement: The engagement erasure consumer is idempotent and fail-visible
 
@@ -112,7 +112,7 @@ on replay.
 
 - **WHEN** a `UserStatusChanged` event for a user is consumed
 - **THEN** no row of that user changes and nothing is published to the DLQ
-- **VERIFIED BY**: `team-engagement/internal/events/identity_test.go` `TestIgnoresOtherEventTypes`
+- **VERIFIED BY**: `team-engagement/internal/events/identity_test.go` `TestIdentityIgnoresOtherEventTypes`
 
 #### Scenario: Erasure completes within one hour
 
@@ -124,4 +124,4 @@ on replay.
 
 - **WHEN** the consumer handles a `UserErased` event
 - **THEN** the service log holds a count and a hashed id and no line contains the raw user id
-- **VERIFIED BY**: `team-engagement/internal/events/identity_test.go` `TestErasureLogsNoRawUserID`
+- **VERIFIED BY**: `team-engagement/internal/events/identity_test.go` `TestIdentityErasureLogsNoRawUserID`
