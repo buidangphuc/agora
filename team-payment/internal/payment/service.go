@@ -65,12 +65,17 @@ type Service struct {
 	// measured against (injectable for tests).
 	holdWindow time.Duration
 	now        func() time.Time
+	commission int64
 }
 
 type Option func(*Service)
 
 func WithPayoutHold(window time.Duration) Option {
 	return func(s *Service) { s.holdWindow = window }
+}
+
+func WithCommissionRate(bps int64) Option {
+	return func(s *Service) { s.commission = bps }
 }
 
 func WithClock(now func() time.Time) Option {

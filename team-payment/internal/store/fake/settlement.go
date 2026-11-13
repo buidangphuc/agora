@@ -103,6 +103,34 @@ func (s *InMemorySettlementLedger) ListRefunds(_ context.Context, paymentID stri
 	return s.refunds.list(paymentID), nil
 }
 
+func (s *InMemorySettlementLedger) OrderSettlement(_ context.Context, orderID string) (store.OrderSettlementView, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.settledLocked(orderID)
+	if !ok {
+		return store.OrderSettlementView{}, store.ErrNotSettled
+	}
+	s.ledger.mu.RLock()
+	defer s.ledger.mu.RUnlock()
+	credit, ok := s.ledger.byReferenceLocked(store.LedgerTypeOrderSettlement, t.ID)
+	if !ok {
+		return store.OrderSettlementView{}, store.ErrNotSettled
+	}
+	v := store.OrderSettlementView{SellerID: credit.SellerID, Credited: credit.Amount}
+	if c, ok := s.ledger.byReferenceLocked(store.LedgerTypeCommission, t.ID); ok {
+		v.Commission, v.CommissionRateBps = -c.Amount, c.RateBps
+	}
+	for _, r := range s.refunds.list(t.ID) {
+		if d, ok := s.ledger.byReferenceLocked(store.LedgerTypeRefundDeduction, r.ID); ok {
+			v.RefundDeducted += -d.Amount
+		}
+		if d, ok := s.ledger.byReferenceLocked(store.LedgerTypeCommissionReversal, r.ID); ok {
+			v.CommissionReversed += d.Amount
+		}
+	}
+	return v, nil
+}
+
 func (s *InMemorySettlementLedger) CreditSettlement(_ context.Context, orderID, sellerID string, c store.Commissionable) (store.CreditResult, error) {
 	if sellerID == "" {
 		return store.CreditResult{}, errors.New("seller id is required")
