@@ -3087,7 +3087,6 @@ features:
       - "Erased seller's listings in every status are deleted"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Erased seller's listings in every status are deleted"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-deleted-listings-leave-the-store
@@ -3101,7 +3100,6 @@ features:
       - "Deleted listings leave the store"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Deleted listings leave the store"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-delete-events-match-the-existing-delete-path
@@ -3115,7 +3113,6 @@ features:
       - "Delete events match the existing delete path"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Delete events match the existing delete path"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-other-sellers-listings-are-not-touched
@@ -3129,7 +3126,6 @@ features:
       - "Other sellers' listings are not touched"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Other sellers' listings are not touched"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-erasure-has-no-rpc-entry-point-and-owner-checks-stay
@@ -3143,7 +3139,6 @@ features:
       - "Erasure has no RPC entry point and owner checks stay"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Erasure has no RPC entry point and owner checks stay"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-roles-in-the-event-do-not-widen-the-delete
@@ -3157,7 +3152,6 @@ features:
       - "Roles in the event do not widen the delete"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Roles in the event do not widen the delete"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-batch-boundary-of-500-listings
@@ -3171,7 +3165,6 @@ features:
       - "Batch boundary of 500 listings"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Batch boundary of 500 listings"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-storefront-and-bundles-are-deleted
@@ -3185,7 +3178,6 @@ features:
       - "Storefront and bundles are deleted"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Storefront and bundles are deleted"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-failed-shop-data-delete-rolls-back-the-listings-too
@@ -3212,7 +3204,6 @@ features:
       - "Another seller's storefront and bundles survive"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Another seller's storefront and bundles survive"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-redelivered-event-is-a-no-op
@@ -3226,7 +3217,6 @@ features:
       - "Redelivered event is a no-op"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Redelivered event is a no-op"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-second-event-for-the-same-user-is-a-no-op
@@ -3240,7 +3230,6 @@ features:
       - "Second event for the same user is a no-op"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Second event for the same user is a no-op"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-store-failure-rolls-back-and-retries
@@ -3267,7 +3256,6 @@ features:
       - "Erasure of a user with no listings"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Erasure of a user with no listings"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-malformed-event-goes-to-the-dlq
@@ -3281,7 +3269,6 @@ features:
       - "Malformed event goes to the DLQ"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Malformed event goes to the DLQ"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-other-event-types-are-ignored
@@ -3295,7 +3282,6 @@ features:
       - "Other event types are ignored"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Other event types are ignored"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-a-poison-erasure-event-does-not-block-seller-hold
@@ -3309,7 +3295,6 @@ features:
       - "A poison erasure event does not block seller hold"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::A poison erasure event does not block seller hold"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
 
   - id: domain.dse-logs-carry-no-raw-identifiers
@@ -3323,5 +3308,4 @@ features:
       - "Logs carry no raw identifiers"
     tags: [user-erasure, seller]
     status: planned
-    covered_by: "domain/seller_erasure.feature::Logs carry no raw identifiers"
     notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
