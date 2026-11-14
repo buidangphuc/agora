@@ -35,6 +35,9 @@ Implement OpenSpec change `seller-plan-ui` test-first per its tasks.md; context 
 - platform-e2e/tests/e2e/step_definitions/test_seller_plans.py
 - platform-e2e/tests/e2e/step_definitions/test_seller.py
 - platform-e2e/tests/e2e/step_definitions/d2_seller_steps.py
+- widened (P1):
+  - platform-e2e/tests/e2e/step_definitions/seller_plan_ui_steps.py — e2e step file of this change (named differently from the packet's seller_plans_steps.py)
+  - team-frontend-seller/src/app/seller/accounts.test.tsx — existing test directly broken: plans page now calls getMySubscription and labels the upgrade button "Nâng cấp"
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller`

@@ -83,6 +83,7 @@ func TestExecuteRejectsUnknownSubcommand(t *testing.T) {
 	t.Setenv("GRPC_PORT", strconv.Itoa(port))
 	t.Setenv("UPSTREAM_DOMAIN_ADDR", deadBroker)
 	t.Setenv("UPSTREAM_AUDIT_ADDR", deadBroker)
+	t.Setenv("UPSTREAM_PAYMENT_ADDR", deadBroker)
 	for _, args := range [][]string{{"migrate", "down"}, {"serve"}} {
 		err := app.Execute(t.Context(), args)
 		if err == nil {

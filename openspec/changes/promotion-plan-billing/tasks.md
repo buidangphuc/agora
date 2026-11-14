@@ -16,7 +16,7 @@
 - [ ] 2.2 Same file: insufficient funds (scenario: Seller without funds cannot upgrade)
 - [ ] 2.3 Same file: cancel then lapse, using the stack's sweep interval or a real-service guarded mode for a short term, no route fulfils (scenario: Cancelled plan lapses at period end)
 - [ ] 2.3b Same file: isolation between sellers (scenario: Another seller cannot cancel my plan)
-- [ ] 2.4 Register in team-promotion FEATURES.yaml (done by the e2e-author)
+- [x] 2.4 Register in team-promotion FEATURES.yaml (done by the e2e-author)
 
 ## 3. Verification
 

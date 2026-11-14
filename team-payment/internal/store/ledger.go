@@ -40,6 +40,8 @@ type LedgerEntry struct {
 	// unique when set: one credit per payment, one deduction per refund.
 	ReferenceID string
 	CreatedAt   time.Time
+	// RateBps is the commission rate applied (COMMISSION rows only; 0 = NULL).
+	RateBps int32
 }
 
 // ErrReferenceRequired is returned by AppendEntryOnce for an entry without a reference.
@@ -96,6 +98,10 @@ const insertLedgerSQL = `INSERT INTO wallet_ledger (id, seller_id, type, amount,
 const insertLedgerOnceSQL = insertLedgerSQL + `
 	ON CONFLICT (type, reference_id) WHERE reference_id IS NOT NULL DO NOTHING`
 
+const insertLedgerOnceRateSQL = `INSERT INTO wallet_ledger (id, seller_id, type, amount, status, reference_id, created_at, commission_rate_bps)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	ON CONFLICT (type, reference_id) WHERE reference_id IS NOT NULL DO NOTHING`
+
 func NormalizeEntry(e LedgerEntry) LedgerEntry {
 	if e.ID == "" {
 		e.ID = uuid.NewString()
@@ -140,7 +146,11 @@ func insertLedgerOnce(ctx context.Context, q DBTX, e LedgerEntry) (LedgerEntry, 
 		return LedgerEntry{}, false, ErrReferenceRequired
 	}
 	e = NormalizeEntry(e)
-	tag, err := q.Exec(ctx, insertLedgerOnceSQL, e.ID, e.SellerID, e.Type, e.Amount, e.Status, e.ReferenceID, e.CreatedAt)
+	sql, args := insertLedgerOnceSQL, []any{e.ID, e.SellerID, e.Type, e.Amount, e.Status, e.ReferenceID, e.CreatedAt}
+	if e.RateBps > 0 {
+		sql, args = insertLedgerOnceRateSQL, append(args, e.RateBps)
+	}
+	tag, err := q.Exec(ctx, sql, args...)
 	if err != nil {
 		return LedgerEntry{}, false, fmt.Errorf("insert ledger entry once: %w", err)
 	}
@@ -280,7 +290,9 @@ func (r *PostgresLedgerRepository) AppendDebitOnce(ctx context.Context, e Ledger
 const heldCreditsSQL = `SELECT c.created_at,
 		(c.amount + COALESCE((SELECT SUM(d.amount) FROM wallet_ledger d
 			JOIN payment_refunds r ON r.id = d.reference_id
-			WHERE d.type = 'REFUND_DEDUCTION' AND r.payment_id = c.reference_id), 0))::BIGINT
+			WHERE d.type IN ('REFUND_DEDUCTION', 'COMMISSION_REVERSAL') AND r.payment_id = c.reference_id), 0)
+		+ COALESCE((SELECT SUM(m.amount) FROM wallet_ledger m
+			WHERE m.type = 'COMMISSION' AND m.reference_id = c.reference_id), 0))::BIGINT
 	FROM wallet_ledger c
 	WHERE c.seller_id = $1 AND c.type = 'ORDER_SETTLEMENT' AND c.status = 'COMPLETED' AND c.created_at > $2`
 

@@ -34,6 +34,7 @@ import (
 	"github.com/buidangphuc/team-promotion/internal/store"
 	"github.com/buidangphuc/team-promotion/internal/store/storefake"
 	"github.com/buidangphuc/team-promotion/internal/subscription"
+	"github.com/buidangphuc/team-promotion/internal/subscription/paymentfake"
 	"github.com/buidangphuc/team-promotion/internal/voucher"
 )
 
@@ -99,6 +100,7 @@ type rigOpts struct {
 	holds        func(*storefake.InMemoryFlashHoldRepository) store.FlashHoldRepository
 	voucherEvent func(context.Context, store.Voucher) (outbox.Row, error)
 	logger       *slog.Logger
+	payment      *paymentfake.Charger
 }
 
 type rig struct {
@@ -113,6 +115,7 @@ type rig struct {
 	holds        store.FlashHoldRepository
 	voucherH     *rpc.VoucherHandler
 	flashH       *rpc.FlashSaleHandler
+	pay          *paymentfake.Charger
 }
 
 func startRig(t *testing.T, o rigOpts) *rig {
@@ -147,7 +150,10 @@ func startRig(t *testing.T, o rigOpts) *rig {
 
 	voucherSvc := voucher.New(o.vouchers, o.reservations, gate, o.voucherEvent, o.logger)
 	flashSvc := flashsale.New(cf, holds, nil, o.listings, gate, noCampaignEvent, o.logger)
-	subSvc := subscription.New(storefake.NewInMemorySubscriptionRepository(), o.logger)
+	if o.payment == nil {
+		o.payment = paymentfake.New()
+	}
+	subSvc := subscription.New(storefake.NewInMemorySubscriptionRepository(), o.logger).WithPayment(o.payment)
 	adSvc := sponsored.New(storefake.NewInMemoryAdCampaignRepository(), o.listings, gate, o.logger).WithLimits(1000, 5000).WithMinBid(1)
 
 	vh := rpc.NewVoucherHandler(voucherSvc, o.logger)
@@ -168,6 +174,7 @@ func startRig(t *testing.T, o rigOpts) *rig {
 		holds:        holds,
 		voucherH:     vh,
 		flashH:       fh,
+		pay:          o.payment,
 	}
 }
 

@@ -28,6 +28,11 @@ Implement OpenSpec change `payment-settlement-commission` test-first per its tas
 - platform-e2e/tests/e2e/support/settlement_commission_support.py
 - platform-e2e/tests/e2e/step_definitions/test_settlement_commission.py
 
+### widened (P1)
+- platform-e2e/tests/e2e/features/payment/psc_commission.feature (e2e feature of this change, named differently from the packet)
+- platform-e2e/tests/e2e/step_definitions/psc_steps.py (e2e steps of this change, named differently from the packet)
+- platform-e2e/tests/e2e/step_definitions/test_psc_commission.py (e2e scenario binding of this change, named differently from the packet)
+
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-payment` (equivalent: `cd team-payment && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-gateway` (equivalent: `cd team-gateway && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)

@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getStorefront, listBundlesBySeller } from "@/lib/gateway/listings";
 import { getWalletBalance, listLedgerEntries } from "@/lib/gateway/payment";
-import { getEntitlements, listPlans } from "@/lib/gateway/promotion";
+import {
+  getEntitlements,
+  getMySubscription,
+  listPlans,
+} from "@/lib/gateway/promotion";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 import SellerPlansPage from "./plans/page";
 import SellerShopPage from "./shop/page";
@@ -26,6 +30,7 @@ vi.mock("@/lib/gateway/payment", () => ({
 vi.mock("@/lib/gateway/promotion", () => ({
   listPlans: vi.fn(),
   getEntitlements: vi.fn(),
+  getMySubscription: vi.fn(),
 }));
 vi.mock("@/lib/gateway/listings", () => ({
   getStorefront: vi.fn(),
@@ -125,10 +130,16 @@ describe("/seller/plans", () => {
       tierText: "Miễn phí",
       limits: {},
     } as never);
+    vi.mocked(getMySubscription).mockResolvedValue({
+      tier: 1,
+      tierText: "Miễn phí",
+      currentPeriodEnd: "",
+      autoRenew: false,
+    } as never);
     render(await SellerPlansPage());
     expect(screen.getAllByText("Gói hiện tại").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Gói hiện tại" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Đăng ký" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Nâng cấp" })).toBeEnabled();
   });
 });
 

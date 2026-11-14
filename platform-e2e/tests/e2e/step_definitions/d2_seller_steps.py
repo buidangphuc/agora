@@ -587,7 +587,7 @@ def plans_state(world: World) -> None:
     expect(current_button).to_be_disabled()
     others = cards.filter(has_not=page.locator("span", has_text="Gói hiện tại"))
     for i in range(others.count()):
-        expect(others.nth(i).get_by_role("button", name="Đăng ký")).to_be_enabled()
+        expect(others.nth(i).get_by_role("button", name="Nâng cấp")).to_be_enabled()
 
 
 @when("the d2 seller opens the bundles page")

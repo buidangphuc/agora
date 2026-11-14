@@ -4,8 +4,8 @@ Go gRPC service (`:50061`) for the **promotions** bounded context. It owns shop 
 **vouchers** (with an idempotent reserve/commit/release redemption seam used by checkout),
 **flash-sale campaigns** (sale price plus a stock meter), **seller subscription plans**
 (`FREE`/`PRO`/`PREMIUM`, entitlements lookup) and **sponsored ad slots**. It does discount
-arithmetic and quota bookkeeping only. It never moves money (AGENTS.md section 7); `Subscribe` and
-`CreateAdCampaign` are mocks that charge nothing. Status: deployed in the root compose.
+arithmetic and quota bookkeeping only. It never moves money itself (AGENTS.md section 7): `Subscribe` and
+the renewal sweeper ask team-payment `ChargeSellerFee` to debit the seller wallet; `CreateAdCampaign` is a mock that charges nothing. Status: deployed in the root compose.
 
 ## Contract
 
@@ -32,16 +32,17 @@ these into a principal; each RPC handler in `internal/rpc` enforces its own rule
 | `FlashSaleService/UpdateCampaign` | Scope `admin`. Scheduled campaigns only (`FailedPrecondition` otherwise); same price, stock cap and window checks as create, price checked against the listing; audited as `campaign.update` (fail-closed) (`internal/flashsale/flashsale_update.go:33`). |
 | `FlashSaleService/ReserveFlashSaleStock`, `CommitFlashSaleStock`, `ReleaseFlashSaleStock` | SERVICE principal holding `promotion.reserve` only (user/admin tokens are `PermissionDenied`); see [Flash stock holds](#flash-stock-holds). |
 | `SubscriptionService/ListPlans` | None. |
-| `SubscriptionService/Subscribe` | Requires `listing.write` (buyer-only is `PermissionDenied`); seller id is the caller's id. |
+| `SubscriptionService/Subscribe` | Requires `listing.write` (buyer-only is `PermissionDenied`); seller id is the caller's id. Empty `plan_id` is `InvalidArgument`, unknown `NotFound`. Under a per-seller lock (`internal/subscription/billing.go:59`): an upgrade or a new paid plan charges the full plan price (no proration) through `ChargeSellerFee` with key `sub:<id>:<period_seq+1>:<plan_id>`, then starts a `term_days` period with `auto_renew` on; a lower tier while a paid plan is active is deferred as `pending_plan_id` (no charge); the current plan resumes `auto_renew` and clears a pending downgrade (no charge); FREE without an active paid plan changes nothing. Insufficient withdrawable balance is `FailedPrecondition`, any other payment error `Unavailable`; both leave the row unchanged. |
+| `SubscriptionService/GetMySubscription` | Requires `listing.write`; returns the caller's active subscription with `current_period_end` and `auto_renew`, or an empty response when there is none (`internal/rpc/subscription.go:74`). |
+| `SubscriptionService/CancelSubscription` | Requires `listing.write`; turns `auto_renew` off and clears `pending_plan_id`, the plan stays until `current_period_end`; no active paid plan is `FailedPrecondition` (`internal/subscription/billing.go:110`). |
 | `SubscriptionService/GetEntitlements` | Principal required. Only a `service` principal may read another seller; every other type (user, admin, unspecified) reads only its own id (fail closed). |
 | `SponsoredService/CreateAdCampaign` | Requires `listing.write`; non-admins must own the listing (same team-domain check as `CreateCampaign`, fails closed). `bid`/`budget` above `MAX_AD_BID`/`MAX_AD_BUDGET` are `InvalidArgument`. Seller id is the caller's id. |
 | `SponsoredService/ListSponsoredSlots` | None (public). With `placement` `search` (needs `category_id`, else no slots) or `home` (all categories) it returns up to `limit` (default 2, max 4) `slots` of servable campaigns (active, budget left covers the bid), best bid first, oldest first on ties, one per listing, each with a single-use `impression_token`; tokens and impression counts are written in one transaction and a failed write is `Unavailable`. Unknown placement or `limit` outside 0..4 is `InvalidArgument`. Without `placement` it keeps the legacy `listing_ids` answer. |
-| `SubscriptionService/GetMySubscription`, `CancelSubscription` | Contract only (monetization-contract, not built): defined at `proto/platform/promotion/v1/promotion.proto:150`, `:153`; the handler is the embedded `UnimplementedSubscriptionServiceServer` (`internal/rpc/subscription.go:16`), so they return `Unimplemented`. `Plan.term_days`, `SellerSubscription.current_period_end` and `auto_renew` are not filled. |
 | `SponsoredService/ListMyAdCampaigns`, `PauseAdCampaign`, `ResumeAdCampaign`, `RecordAdClick` | Contract only (monetization-contract, not built): defined at `proto/platform/promotion/v1/promotion.proto:486-496`; the handler is the embedded `UnimplementedSponsoredServiceServer` (`internal/rpc/sponsored.go:16`), so they return `Unimplemented`. `AdCampaign.spent`, `impressions`, `clicks`, `category_id` and status `PAUSED_BUDGET` are not filled. |
 
 Also served: `grpc.health.v1.Health` (services `liveness` and `postgres`) and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default false, only allowed when `ENV` is `local` or `test`).
 
-**Consumes:** team-order `OrderService/HasCompletedOrder` (service principal `service-team-promotion`, scope `order.read`, `UPSTREAM_ORDER_ADDR`) for `new_user_only` vouchers; any error, timeout or refusal is `Unavailable` (fail closed). Kafka `identity.events` (`UserRegistered`) and `referral.events` (`ReferralAttributed`, `ReferralRejected`) issue one `VOUCHER_KIND_NEW_USER` voucher per account (see [New-user vouchers](#new-user-vouchers)). team-domain `ListingService/GetListing` (vendored `platform/listing/v1`), called with the
+**Consumes:** team-payment `PaymentService/ChargeSellerFee` (service principal `service-team-promotion`, scope `payment:write`, `UPSTREAM_PAYMENT_ADDR`) for plan charges and renewals. team-order `OrderService/HasCompletedOrder` (service principal `service-team-promotion`, scope `order.read`, `UPSTREAM_ORDER_ADDR`) for `new_user_only` vouchers; any error, timeout or refusal is `Unavailable` (fail closed). Kafka `identity.events` (`UserRegistered`) and `referral.events` (`ReferralAttributed`, `ReferralRejected`) issue one `VOUCHER_KIND_NEW_USER` voucher per account (see [New-user vouchers](#new-user-vouchers)). team-domain `ListingService/GetListing` (vendored `platform/listing/v1`), called with the
 caller's forwarded principal, to verify listing ownership in `CreateCampaign` (`UPSTREAM_DOMAIN_ADDR`).
 It also reads the principal metadata and depends on Postgres, Kafka and Flipt (below). In the root compose, `team-order` and `team-gateway` set
 `UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061`.
@@ -55,6 +56,8 @@ quota (`used < quota`) and, for shop vouchers, that the voucher `seller_id` equa
 `[0, subtotal]`.
 
 Per-user rules: after the idempotent-replay check, `ValidateAndReserve` refuses with `valid=false` and reason `VOUCHER_NOT_ELIGIBLE` when the voucher has an owner other than the buyer, or when `new_user_only` is set and the buyer has a completed order; and with `VOUCHER_PER_USER_LIMIT` when `per_user_limit > 0` and the buyer already has that many committed or unexpired reserved holds. The per-user count and the hold insert share one transaction under an advisory lock per (voucher, buyer). These run before the global quota check. A hold expires `VOUCHER_RESERVATION_TTL` after it is created (`voucher_reservations.expires_at`) and then stops counting; committed holds always count. An unavailable `HasCompletedOrder` is gRPC `UNAVAILABLE`; no hold is made.
+
+Renewal: the renewal sweeper (`internal/consumer/renewal.go`, every minute, 500 rows per pass) takes active subscriptions whose `current_period_end` has passed, under the same per-seller lock. `auto_renew` off sets the row `cancelled` (FREE). Otherwise it charges the pending plan (or the current one) once per period with key `sub:<id>:<period_seq+1>:<plan_id>` and starts a new term; insufficient balance sets the row `expired` (FREE) at once, other payment errors are retried until `SUBSCRIPTION_RENEWAL_RETRY_WINDOW` after `current_period_end` and then expire it. Gauge `subscription_renewals_overdue` counts rows still due after a pass.
 
 ## New-user vouchers
 
@@ -72,12 +75,12 @@ ADR-0016 layout under `internal/`:
 | `internal/config` | settings (SDK `config.Load`) |
 | `internal/store` | Postgres stores and embedded migrations |
 | `internal/events` | event envelopes written to the outbox |
-| `internal/upstream` | team-audit, team-domain and team-order clients |
-| `internal/consumer` | new-user voucher issuance from identity and referral events, verdict sweeper, purge |
+| `internal/upstream` | team-audit, team-domain, team-order and team-payment clients |
+| `internal/consumer` | new-user voucher issuance from identity and referral events, verdict sweeper, purge, subscription renewal sweeper |
 | `internal/listing` | listing ownership check |
 | `internal/voucher` | voucher rules and discount arithmetic |
 | `internal/flashsale` | flash-sale campaigns and stock holds |
-| `internal/subscription` | plans and entitlements |
+| `internal/subscription` | plans, entitlements, subscribe/cancel billing |
 | `internal/sponsored` | sponsored ad campaigns |
 | `internal/rpc` | gRPC handlers and authorization |
 
@@ -108,6 +111,8 @@ Own database `promotion_db` (user `promotion_svc`). Migrations in `internal/stor
 | `0005_outbox` | `outbox` (transactional event outbox) |
 | `0006_voucher_active` | adds `vouchers.active` (default true), `deactivated_at` |
 | `0007_campaign_cancel_idempotency` | adds `flash_sale_campaigns.cancelled_at`; `campaign_idempotency` (PK `actor_id`, `key`; payload hash, campaign id) |
+| `0008_user_vouchers` | adds `vouchers.owner_user_id`, `kind`, `per_user_limit`, `new_user_only`; `voucher_reservations.expires_at`; `promotion_processed_events` |
+| `0009_plan_billing` | adds `subscription_plans.term_days` (default 30, CHECK > 0) and sets PRO 199000 / PREMIUM 499000; adds `seller_subscriptions.current_period_start`, `current_period_end`, `auto_renew`, `pending_plan_id`, `period_seq` and index `seller_subscriptions_due_idx`; existing active paid rows get one free term with `auto_renew` on |
 
 Migrations are embedded in `internal/store/migrations` and applied by `server migrate up` (the
 `team-promotion-migrate` one-shot container in the root compose runs it; it needs only `ENV` and
@@ -148,6 +153,9 @@ Startup fails when a required key is missing or invalid.
 | `UPSTREAM_DOMAIN_ADDR` | none | required. team-domain gRPC address (`team-domain-svc:50051` in compose) |
 | `UPSTREAM_ORDER_ADDR` | none | team-order gRPC address (`team-order-svc:50055` in compose). Unset does not stop boot; `new_user_only` checks then fail closed with `Unavailable` |
 | `UPSTREAM_ORDER_TIMEOUT` | `500ms` | per-call bound for `HasCompletedOrder` |
+| `UPSTREAM_PAYMENT_ADDR` | none | required. team-payment gRPC address (`team-payment-svc:50056` in compose). `SubscriptionService/Subscribe` and the renewal sweeper charge the seller wallet through `PaymentService/ChargeSellerFee` (service principal `service-team-promotion`, scope `payment:write`, key `sub:<id>:<period_seq+1>:<plan_id>`); a blank value stops boot |
+| `UPSTREAM_PAYMENT_TIMEOUT` | `2s` | per-call bound for `ChargeSellerFee`, must be > 0; a timeout is `Unavailable` and changes nothing |
+| `SUBSCRIPTION_RENEWAL_RETRY_WINDOW` | `1h` | how long after `current_period_end` a transient renewal charge error is retried before the seller lapses to FREE, must be > 0 |
 | `NEW_USER_WELCOME_AMOUNT` | `20000` | welcome voucher discount, must be > 0 |
 | `NEW_USER_INVITED_AMOUNT` | `30000` | invited voucher discount, must be > 0 |
 | `NEW_USER_MIN_SPEND` | `100000` | minimum subtotal of new-user vouchers, >= 0 |
@@ -240,6 +248,7 @@ Database tests run against Docker Postgres and never skip; a skip is a gate fail
 - **No event on redemption or release.** `VoucherChanged` fires only on create, not when `used` changes.
 - **No event on admin changes.** `DeactivateVoucher`, `UpdateVoucher`, `CancelCampaign` and `UpdateCampaign` write audit events but no `VoucherChanged`/`FlashSaleChanged` outbox row (`internal/voucher/voucher.go:150`, `internal/flashsale/flashsale_cancel.go:21`).
 - The `flash-sale-enabled` kill-switch only gates reads; it does not block `CreateCampaign`.
+- **`ListPlans` does not fill `Plan.term_days`.** The store reads `term_days` (`internal/store/subscription.go:199`) but `planToProto` drops it (`internal/rpc/common.go:219`), so clients see 0 instead of 30 (promotion-plan-billing requirement "Plan catalog prices are integer VND per 30-day term").
 
 ## Links
 

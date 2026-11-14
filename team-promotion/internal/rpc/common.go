@@ -47,6 +47,9 @@ func mustErrorTable() grpcx.ErrorTable {
 		grpcx.Rule{Target: store.ErrIdempotencyMismatch, Code: codes.AlreadyExists, Message: "idempotency_key already used with a different payload"},
 		grpcx.Rule{Target: sponsored.ErrInvalidAdCampaign, Code: codes.InvalidArgument, Message: "invalid ad campaign"},
 		grpcx.Rule{Target: subscription.ErrInvalidSubscription, Code: codes.InvalidArgument, Message: "invalid subscription"},
+		grpcx.Rule{Target: subscription.ErrInsufficientBalance, Code: codes.FailedPrecondition, Message: "insufficient withdrawable balance"},
+		grpcx.Rule{Target: subscription.ErrPaymentUnavailable, Code: codes.Unavailable, Message: "payment service unavailable"},
+		grpcx.Rule{Target: subscription.ErrNoPaidPlan, Code: codes.FailedPrecondition, Message: "seller has no paid plan"},
 		grpcx.Rule{Target: store.ErrPlanNotFound, Code: codes.NotFound, Message: "plan not found"},
 		grpcx.Rule{Target: listing.ErrNotFound, Code: codes.InvalidArgument},
 		grpcx.Rule{Target: listing.ErrNotOwner, Code: codes.PermissionDenied},
@@ -230,6 +233,9 @@ func subscriptionToProto(s store.SellerSubscription) *promotionv1.SellerSubscrip
 		Tier:     promotionv1.PlanTier(s.Tier),
 		Status:   subscriptionStatusToProto(s.Status),
 		StartsAt: protoTime(s.CreatedAt),
+
+		CurrentPeriodEnd: protoTime(s.CurrentPeriodEnd),
+		AutoRenew:        s.AutoRenew,
 	}
 }
 

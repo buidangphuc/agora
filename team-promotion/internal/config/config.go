@@ -12,6 +12,9 @@ type Upstream struct {
 	DomainAddr   string        `env:"UPSTREAM_DOMAIN_ADDR"`
 	OrderAddr    string        `env:"UPSTREAM_ORDER_ADDR"`
 	OrderTimeout time.Duration `env:"UPSTREAM_ORDER_TIMEOUT" default:"500ms"`
+
+	PaymentAddr    string        `env:"UPSTREAM_PAYMENT_ADDR"`
+	PaymentTimeout time.Duration `env:"UPSTREAM_PAYMENT_TIMEOUT" default:"2s"`
 }
 
 func (u Upstream) Validate() error {
@@ -22,7 +25,24 @@ func (u Upstream) Validate() error {
 	if u.OrderTimeout <= 0 {
 		errs = append(errs, errors.New("UPSTREAM_ORDER_TIMEOUT must be > 0"))
 	}
+	if strings.TrimSpace(u.PaymentAddr) == "" {
+		errs = append(errs, errors.New("UPSTREAM_PAYMENT_ADDR is required"))
+	}
+	if u.PaymentTimeout <= 0 {
+		errs = append(errs, errors.New("UPSTREAM_PAYMENT_TIMEOUT must be > 0"))
+	}
 	return errors.Join(errs...)
+}
+
+type Subscription struct {
+	RenewalRetryWindow time.Duration `env:"SUBSCRIPTION_RENEWAL_RETRY_WINDOW" default:"1h"`
+}
+
+func (s Subscription) Validate() error {
+	if s.RenewalRetryWindow <= 0 {
+		return errors.New("SUBSCRIPTION_RENEWAL_RETRY_WINDOW must be > 0")
+	}
+	return nil
 }
 
 type NewUser struct {
@@ -105,6 +125,8 @@ type Settings struct {
 	Ads      Ads
 	Events   Events
 	NewUser  NewUser
+
+	Subscription Subscription
 }
 
 func (s Settings) Validate() error {

@@ -40,6 +40,7 @@ type Plan struct {
 	ID       string
 	Tier     int32
 	Price    int64             // minor units per billing period
+	TermDays int32             // billing term length in days
 	Features []string          // human-readable bullets (Vietnamese copy)
 	Limits   map[string]string // entitlement limits keyed by feature
 }
@@ -54,6 +55,12 @@ type SellerSubscription struct {
 	Tier      int32
 	Status    string
 	CreatedAt time.Time
+
+	CurrentPeriodStart time.Time
+	CurrentPeriodEnd   time.Time
+	AutoRenew          bool
+	PendingPlanID      string
+	PeriodSeq          int64
 }
 
 // DefaultPlans is the canonical FREE/PRO/PREMIUM catalog. It is the single source
@@ -63,9 +70,10 @@ type SellerSubscription struct {
 func DefaultPlans() []Plan {
 	return []Plan{
 		{
-			ID:    "plan_free",
-			Tier:  PlanTierFree,
-			Price: 0,
+			ID:       "plan_free",
+			Tier:     PlanTierFree,
+			Price:    0,
+			TermDays: 30,
 			Features: []string{
 				"Đăng tối đa 10 tin",
 				"Thống kê cơ bản",
@@ -78,9 +86,10 @@ func DefaultPlans() []Plan {
 			},
 		},
 		{
-			ID:    "plan_pro",
-			Tier:  PlanTierPro,
-			Price: 19900000, // 199.000đ (minor units) — display only, never charged
+			ID:       "plan_pro",
+			Tier:     PlanTierPro,
+			Price:    199000,
+			TermDays: 30,
 			Features: []string{
 				"Đăng tối đa 100 tin",
 				"5 tin nổi bật mỗi tháng",
@@ -94,9 +103,10 @@ func DefaultPlans() []Plan {
 			},
 		},
 		{
-			ID:    "plan_premium",
-			Tier:  PlanTierPremium,
-			Price: 49900000, // 499.000đ (minor units) — display only, never charged
+			ID:       "plan_premium",
+			Tier:     PlanTierPremium,
+			Price:    499000,
+			TermDays: 30,
 			Features: []string{
 				"Đăng tin không giới hạn",
 				"50 tin nổi bật mỗi tháng",
@@ -155,7 +165,7 @@ func NewPostgresSubscriptionRepository(pool *pgxpool.Pool) *PostgresSubscription
 
 func scanPlan(row pgx.Row, p *Plan) error {
 	var limitsRaw []byte
-	if err := row.Scan(&p.ID, &p.Tier, &p.Price, &p.Features, &limitsRaw); err != nil {
+	if err := row.Scan(&p.ID, &p.Tier, &p.Price, &p.TermDays, &p.Features, &limitsRaw); err != nil {
 		return err
 	}
 	p.Limits = map[string]string{}
@@ -168,7 +178,7 @@ func scanPlan(row pgx.Row, p *Plan) error {
 }
 
 func (r *PostgresSubscriptionRepository) ListPlans(ctx context.Context) ([]Plan, error) {
-	const q = `SELECT id, tier, price, features, limits FROM subscription_plans ORDER BY tier ASC`
+	const q = `SELECT id, tier, price, term_days, features, limits FROM subscription_plans ORDER BY tier ASC`
 	rows, err := r.pool.Query(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("list plans: %w", err)
@@ -186,7 +196,7 @@ func (r *PostgresSubscriptionRepository) ListPlans(ctx context.Context) ([]Plan,
 }
 
 func (r *PostgresSubscriptionRepository) GetPlanByID(ctx context.Context, id string) (Plan, error) {
-	const q = `SELECT id, tier, price, features, limits FROM subscription_plans WHERE id = $1`
+	const q = `SELECT id, tier, price, term_days, features, limits FROM subscription_plans WHERE id = $1`
 	var p Plan
 	if err := scanPlan(r.pool.QueryRow(ctx, q, id), &p); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -219,15 +229,36 @@ func (r *PostgresSubscriptionRepository) UpsertSubscription(ctx context.Context,
 	return out, nil
 }
 
+const subscriptionCols = `s.id, s.seller_id, s.plan_id, p.tier, s.status, s.created_at,
+	s.current_period_start, s.current_period_end, s.auto_renew, s.pending_plan_id, s.period_seq`
+
+func scanSubscription(row pgx.Row, out *SellerSubscription) error {
+	var start, end *time.Time
+	var pending *string
+	if err := row.Scan(&out.ID, &out.SellerID, &out.PlanID, &out.Tier, &out.Status, &out.CreatedAt,
+		&start, &end, &out.AutoRenew, &pending, &out.PeriodSeq); err != nil {
+		return err
+	}
+	out.CurrentPeriodStart, out.CurrentPeriodEnd, out.PendingPlanID = time.Time{}, time.Time{}, ""
+	if start != nil {
+		out.CurrentPeriodStart = *start
+	}
+	if end != nil {
+		out.CurrentPeriodEnd = *end
+	}
+	if pending != nil {
+		out.PendingPlanID = *pending
+	}
+	return nil
+}
+
 func (r *PostgresSubscriptionRepository) GetActiveSubscriptionBySeller(ctx context.Context, sellerID string) (SellerSubscription, error) {
-	const q = `SELECT s.id, s.seller_id, s.plan_id, p.tier, s.status, s.created_at
+	q := `SELECT ` + subscriptionCols + `
 		FROM seller_subscriptions s
 		JOIN subscription_plans p ON p.id = s.plan_id
 		WHERE s.seller_id = $1 AND s.status = $2`
 	var out SellerSubscription
-	if err := r.pool.QueryRow(ctx, q, sellerID, SubscriptionStatusActive).Scan(
-		&out.ID, &out.SellerID, &out.PlanID, &out.Tier, &out.Status, &out.CreatedAt,
-	); err != nil {
+	if err := scanSubscription(r.pool.QueryRow(ctx, q, sellerID, SubscriptionStatusActive), &out); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return SellerSubscription{}, ErrSubscriptionNotFound
 		}
