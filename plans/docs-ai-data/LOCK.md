@@ -9,7 +9,7 @@ spec: plans/docs-ai-data/00-spec.md (Locked 2026-11-13)
 |---|---|---|---|---|---|---|---|---|---|
 | docs-ai-data-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3a9d21916b42 | [x] |
 | forecast-nightly-job | platform-forecast | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 19b344b05766 | [x] |
-| analytics-forecast-serving | team-analytics | [docs-ai-data-contract, forecast-nightly-job] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a81e99cadc6b | [x] |
+| analytics-forecast-serving | team-analytics | [docs-ai-data-contract, forecast-nightly-job] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d53c8e85412e | [x] |
 | recs-experiment-arms | team-ai | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 31f1eb885578 | [x] |
 | analytics-experiment-reports | team-analytics | [docs-ai-data-contract, analytics-forecast-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 5a60c9fe79cd | [x] |
 | ai-assistant-grounding | team-ai | [docs-ai-data-contract, recs-experiment-arms] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6e5b9b48e616 | [x] |
