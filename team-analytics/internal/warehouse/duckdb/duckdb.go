@@ -29,12 +29,15 @@ type Writer struct {
 }
 
 // Open dials (opens/creates) the DuckDB file at path and ensures the schema.
-func Open(ctx context.Context, path string) (*Writer, error) {
+func Open(ctx context.Context, path string, opts ...Option) (*Writer, error) {
 	db, err := sql.Open("duckdb", path)
 	if err != nil {
 		return nil, fmt.Errorf("open duckdb %q: %w", path, err)
 	}
 	w := &Writer{db: db, path: path, now: time.Now}
+	for _, o := range opts {
+		o(w)
+	}
 	if err := w.ensureSchema(ctx); err != nil {
 		_ = db.Close()
 		return nil, err

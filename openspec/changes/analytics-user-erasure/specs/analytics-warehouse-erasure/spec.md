@@ -46,7 +46,7 @@ For every `tracking_events` row with `principal_type = 'user'` and `principal_id
 #### Scenario: AUE-40 A service principal row with the same id is not re-keyed
 - **WHEN** U is erased and a `tracking_events` row has `principal_type = 'service'` with `principal_id` equal to U's id
 - **THEN** that row is not changed, because only rows of type `user` are re-keyed, and the purge still commits
-- **VERIFIED BY**: `team-analytics/internal/warehouse/duckdb/erase_test.go` `TestPurgeLeavesServicePrincipalRows`
+- **VERIFIED BY**: `team-analytics/internal/warehouse/duckdb/erase_test.go` `TestErasureLeavesServicePrincipalRows`
 
 #### Scenario: AUE-8 Boundary of a user with no rows
 - **WHEN** a `UserErased` arrives for a user with zero rows in every table
@@ -75,7 +75,7 @@ The purge SHALL re-key `order_facts.buyer_id`, `order_facts.seller_id`, `engagem
 #### Scenario: AUE-35 A failed order or engagement re-key rolls back as a whole
 - **WHEN** the re-key of `engagement_facts` fails after `order_facts` was re-keyed within U's purge
 - **THEN** the transaction is rolled back, U's `order_facts` rows keep the original `buyer_id`, no tombstone exists and the record is retried without a DLQ record
-- **VERIFIED BY**: `team-analytics/internal/warehouse/duckdb/erase_test.go` `TestPurgeRollsBackWhenEngagementRekeyFails`
+- **VERIFIED BY**: `team-analytics/internal/warehouse/duckdb/erase_test.go` `TestErasureRollsBackWhenEngagementRekeyFails`
 
 #### Scenario: AUE-36 A forged event for another user does not touch unrelated rows
 - **WHEN** a `UserErased` names a user id that is a strict prefix or suffix of V's id
@@ -104,7 +104,7 @@ The purge SHALL write a tombstone `erased_users(user_hmac, pseudonym, erased_at)
 #### Scenario: AUE-38 Tombstone lookup failure rejects the batch
 - **WHEN** the tombstone lookup fails inside the insert transaction
 - **THEN** the batch is rolled back with no rows written, offsets are not committed and the batch is retried
-- **VERIFIED BY**: `team-analytics/internal/warehouse/duckdb/erase_test.go` `TestWriterTombstoneLookupFailureRollsBackBatch`
+- **VERIFIED BY**: `team-analytics/internal/warehouse/duckdb/erase_test.go` `TestErasureWriterTombstoneLookupFailureRollsBackBatch`
 
 ### Requirement: Parquet exports and logs carry no erased id
 
@@ -142,4 +142,4 @@ The service SHALL read `IDENTITY_EVENTS_TOPIC`, `ERASURE_CONSUMER_GROUP`, `ERASU
 #### Scenario: AUE-18 Env example stays in sync
 - **WHEN** `make check-env` runs after the four keys are added to config and `.env.example`
 - **THEN** `TestEnvExampleInSync` passes
-- **VERIFIED BY**: `team-analytics/internal/config/env_example_test.go` `TestEnvExampleInSync`
+- **VERIFIED BY**: `team-analytics/internal/config/config_test.go` `TestErasureEnvExampleListsTheFourKeys`
