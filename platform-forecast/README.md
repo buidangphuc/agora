@@ -4,8 +4,7 @@ Nightly batch job (ADR-0013): reads the paid order lines that `team-analytics` e
 `order_facts.parquet`, forecasts 14 days of p10/p50/p90 units per `(seller_id, listing_id)` and
 writes them to Redis DB 3 under `fc:v1:*`. It is not a server: no port, proto, events or database.
 
-`team-analytics` still computes `GetDemandForecast` itself (`duckdb_baseline_v1`); it does not read
-these keys yet.
+`team-analytics` serves `GetDemandForecast` by reading these keys (`FORECAST_REDIS_URL`, analytics-forecast-serving).
 
 Bounded context: platform capability (precedent: `platform-featurestore`).
 

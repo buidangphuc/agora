@@ -885,6 +885,7 @@ services:
       - ENGAGEMENT_EVENTS_TOPIC=engagement.events
       - ENGAGEMENT_DLQ_TOPIC=engagement.events.analytics.dlq
       - ENGAGEMENT_CONSUMER_GROUP=team-analytics.engagement
+      - FORECAST_REDIS_URL=redis://redis:6379/3
       - GRPC_REFLECTION_ENABLED=true
     volumes:
       - analytics_data:/data

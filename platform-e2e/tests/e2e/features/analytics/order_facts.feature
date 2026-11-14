@@ -25,8 +25,4 @@ Feature: Order facts outbox emission and warehouse ingestion
     When "GetRevenueBreakdown" is queried for that seller
     Then top SKUs report accurate "revenue" and "units_sold" calculated as "SUM(quantity * unit_price)" and "SUM(quantity)"
 
-  Scenario: GetDemandForecast serves probabilistic daily demand and restock points
-    Given a seller SKU with historical order facts
-    When "GetDemandForecast" is queried for that seller and listing
-    Then a multi-day forecast with "p10", "p50", "p90" quantiles and suggested reorder point is returned
-
+  # GetDemandForecast is covered by analytics/forecast_serving.feature (analytics-forecast-serving).

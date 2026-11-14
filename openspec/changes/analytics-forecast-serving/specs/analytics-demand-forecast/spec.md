@@ -22,13 +22,13 @@
 
 - **WHEN** a seller calls `GetDemandForecast` with `lead_time_days = 3` and `service_level = 0.95` on a key whose first three days have p50 = 4 and p90 = 6
 - **THEN** `safety_stock = 3.3` (z 1.65 times mean spread 2) and `suggested_reorder_point = 15.3` (12 plus 3.3)
-- **VERIFIED BY**: `team-analytics/internal/rpc/handler_test.go` `TestGetDemandForecastReorderPoint`
+- **VERIFIED BY**: `team-analytics/internal/rpc/forecast_test.go` `TestGetDemandForecastReorderPoint`
 
 #### Scenario: An invalid listing or seller id is rejected
 
 - **WHEN** a caller sends `listing_id = "x:*"`, or an empty `seller_id`, or an empty `listing_id`
 - **THEN** the RPC returns `InvalidArgument` and issues no Redis read
-- **VERIFIED BY**: `team-analytics/internal/rpc/handler_test.go` `TestGetDemandForecastRejectsBadIDs`
+- **VERIFIED BY**: `team-analytics/internal/rpc/forecast_test.go` `TestGetDemandForecastRejectsBadIDs`
 
 #### Scenario: Another seller's forecast is denied
 
@@ -52,7 +52,7 @@ default value, even when `order_facts` holds history for that listing.
 
 - **WHEN** a seller calls `GetDemandForecast` for a listing whose key has `is_cold_start = true` and a baseline model_version
 - **THEN** the response echoes the stored baseline points with `is_cold_start = true` and the stored `model_version`
-- **VERIFIED BY**: `team-analytics/internal/rpc/handler_test.go` `TestGetDemandForecastStoredColdStart`
+- **VERIFIED BY**: `team-analytics/internal/rpc/forecast_test.go` `TestGetDemandForecastStoredColdStart`
 
 #### Scenario: The DuckDB baseline is gone
 
@@ -70,7 +70,7 @@ SHALL return gRPC `UNAVAILABLE` with no forecast fields.
 
 - **WHEN** a seller calls `GetDemandForecast` while the Redis read fails or times out
 - **THEN** the RPC returns `UNAVAILABLE` and the response carries no daily points and no reorder point
-- **VERIFIED BY**: `team-analytics/internal/rpc/handler_test.go` `TestGetDemandForecastStoreDown`
+- **VERIFIED BY**: `team-analytics/internal/rpc/forecast_test.go` `TestGetDemandForecastStoreDown`
 
 #### Scenario: A malformed payload returns UNAVAILABLE
 
@@ -82,7 +82,7 @@ SHALL return gRPC `UNAVAILABLE` with no forecast fields.
 
 - **WHEN** team-analytics starts with `FORECAST_REDIS_URL` empty and a seller calls `GetDemandForecast`
 - **THEN** the RPC returns `UNAVAILABLE`, and the other query RPCs keep answering
-- **VERIFIED BY**: `team-analytics/internal/rpc/handler_test.go` `TestGetDemandForecastStoreUnconfigured`
+- **VERIFIED BY**: `team-analytics/internal/rpc/forecast_test.go` `TestGetDemandForecastStoreUnconfigured`
 
 #### Scenario: A read stays within the latency budget
 
