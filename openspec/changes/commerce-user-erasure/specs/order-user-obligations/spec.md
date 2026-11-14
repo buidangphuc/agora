@@ -25,15 +25,18 @@ SERVICE principal with scope `order.internal.read` and SHALL NOT be routed at th
 - **GIVEN** an APPROVED return whose buyer is U and whose seller is V
 - **WHEN** the service calls `GetUserObligations` for U and then for V
 - **THEN** each response has `open_returns` 1
+- **VERIFIED BY**: team-order/internal/store TestUserObligationsCounts
 
 #### Scenario: OBL-5 Another user's orders are not counted
 - **GIVEN** U has 1 PAID buyer order and W has 4 PENDING buyer orders
 - **WHEN** the service calls `GetUserObligations` for U
 - **THEN** `open_buyer_orders` is 1
+- **VERIFIED BY**: team-order/internal/store TestUserObligationsCounts
 
 #### Scenario: OBL-6 An empty user id is rejected
 - **WHEN** the service calls `GetUserObligations` with `user_id` ""
 - **THEN** the call fails with `INVALID_ARGUMENT` and no query runs
+- **VERIFIED BY**: team-order/internal/rpc TestGetUserObligationsRejectsEmptyUserID
 
 #### Scenario: OBL-7 A user principal is refused
 - **WHEN** a signed-in USER principal calls `GetUserObligations` for its own id
@@ -55,3 +58,5 @@ SERVICE principal with scope `order.internal.read` and SHALL NOT be routed at th
 - **GIVEN** the order database is unreachable
 - **WHEN** the service calls `GetUserObligations` for U
 - **THEN** the call fails with a non-OK gRPC status and the response carries no counts
+- **VERIFIED BY**: team-order/internal/rpc TestGetUserObligationsStoreFailure
+

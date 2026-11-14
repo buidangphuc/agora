@@ -63,10 +63,10 @@ event in one transaction, SHALL skip event types other than `UserErased`, and SH
 
 - **WHEN** a `UserStatusChanged` event for a user is consumed
 - **THEN** no message of that user changes and nothing is published to the DLQ
-- **VERIFIED BY**: `team-chat/internal/events/identity_test.go` `TestIgnoresOtherEventTypes`
+- **VERIFIED BY**: `team-chat/internal/events/identity_test.go` `TestIdentityIgnoresOtherEventTypes`
 
 #### Scenario: Message text and the erased id are not logged
 
 - **WHEN** the consumer handles a `UserErased` event
 - **THEN** the service log holds a count and a hashed id and no line contains the raw user id or any message text
-- **VERIFIED BY**: `team-chat/internal/events/identity_test.go` `TestErasureLogsNoRawUserIDOrText`
+- **VERIFIED BY**: `team-chat/internal/events/identity_test.go` `TestIdentityErasureLogsNoRawUserIDOrText`

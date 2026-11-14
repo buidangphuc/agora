@@ -35,6 +35,13 @@ Implement OpenSpec change `commerce-user-erasure` test-first per its tasks.md; c
 - platform-e2e/tests/e2e/step_definitions/test_referral_user_erasure.py
 - platform-e2e/tests/e2e/step_definitions/commerce_erasure_steps.py
 - platform-e2e/tests/e2e/support/erasure_events_support.py
+- widened (P1):
+  - openspec/changes/commerce-user-erasure/specs/order-user-erasure/spec.md — the slice's own OpenSpec folder; adds only "- **VERIFIED BY**: <test>" citation lines (no requirement or scenario wording change)
+  - openspec/changes/commerce-user-erasure/specs/order-user-obligations/spec.md — the slice's own OpenSpec folder; adds only "- **VERIFIED BY**: <test>" citation lines (no requirement or scenario wording change)
+  - openspec/changes/commerce-user-erasure/specs/payment-payout-obligations/spec.md — the slice's own OpenSpec folder; adds only "- **VERIFIED BY**: <test>" citation lines (no requirement or scenario wording change)
+  - openspec/changes/commerce-user-erasure/specs/payment-user-erasure/spec.md — the slice's own OpenSpec folder; adds only "- **VERIFIED BY**: <test>" citation lines (no requirement or scenario wording change)
+  - openspec/changes/commerce-user-erasure/specs/promotion-user-erasure/spec.md — the slice's own OpenSpec folder; adds only "- **VERIFIED BY**: <test>" citation lines (no requirement or scenario wording change)
+  - openspec/changes/commerce-user-erasure/specs/referral-user-erasure/spec.md — the slice's own OpenSpec folder; adds only "- **VERIFIED BY**: <test>" citation lines (no requirement or scenario wording change)
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-order --vet` (same for team-payment, team-promotion, team-referral)

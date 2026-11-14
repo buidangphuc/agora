@@ -57,10 +57,10 @@ state on replay.
 
 - **WHEN** a `UserStatusChanged` event for a user is consumed
 - **THEN** no notification of that user is deleted and nothing is published to the DLQ
-- **VERIFIED BY**: `team-notification/internal/events/identity_test.go` `TestIgnoresOtherEventTypes`
+- **VERIFIED BY**: `team-notification/internal/events/identity_test.go` `TestIdentityIgnoresOtherEventTypes`
 
 #### Scenario: The erased id is not logged
 
 - **WHEN** the consumer handles a `UserErased` event
 - **THEN** the service log holds a count and a hashed id and no line contains the raw user id
-- **VERIFIED BY**: `team-notification/internal/events/identity_test.go` `TestErasureLogsNoRawUserID`
+- **VERIFIED BY**: `team-notification/internal/events/identity_test.go` `TestIdentityErasureLogsNoRawUserID`

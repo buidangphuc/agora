@@ -1518,3 +1518,129 @@ features:
     tags: [notification, unit]
     status: not-testable
     notes: "VERIFIED BY `team-notification/internal/names` `TestResolverBoundedToTwoSeconds`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: notification.cue-the-user-s-notification-data-is-deleted
+    title: "The user's notification data is deleted"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): The user's notification data is deleted"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When a `UserErased` event is consumed for a user with 4 notifications, 2 alert subscriptions and a preferences row"
+      - "Then zero rows for that user remain in `notifications`, `alert_subscriptions` and `notification_prefs`"
+    tags: [user-erasure, notification]
+    status: planned
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+
+  - id: notification.cue-other-users-notifications-are-untouched
+    title: "Other users' notifications are untouched"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): Other users' notifications are untouched"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When a `UserErased` event for user A is consumed and user B has notifications and alert subscriptions"
+      - "Then every row of user B is unchanged and user B still lists their notifications"
+    tags: [user-erasure, notification]
+    status: planned
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+
+  - id: notification.cue-a-user-with-no-notification-data-is-a-no-op
+    title: "A user with no notification data is a no-op"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): A user with no notification data is a no-op"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When a `UserErased` event is consumed for a user who has no rows"
+      - "Then the handler returns no error and nothing is published to the DLQ"
+    tags: [user-erasure, notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification/internal/store/erase_pg_test.go TestEraseUnknownUserIsNoOp. Not producible black box: needs a database fault, a unit-level handler or log capture."
+
+  - id: notification.cue-erasure-is-reachable-only-through-the-identity-topic
+    title: "Erasure is reachable only through the identity topic"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): Erasure is reachable only through the identity topic"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When a `UserErased` record is produced to a topic other than `identity.events`, or a user principal calls any team-notification RPC naming another user"
+      - "Then no notification of the named user is deleted"
+    tags: [user-erasure, notification]
+    status: planned
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+
+  - id: notification.cue-a-replayed-event-changes-nothing
+    title: "A replayed event changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): A replayed event changes nothing"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When the same `UserErased` event is delivered twice"
+      - "Then the second delivery returns no error and no row of the user exists"
+    tags: [user-erasure, notification]
+    status: planned
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+
+  - id: notification.cue-a-malformed-event-goes-to-the-dlq
+    title: "A malformed event goes to the DLQ"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): A malformed event goes to the DLQ"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When a record on `identity.events` is not a valid `EventEnvelope`, or a `UserErased` payload has an empty `user_id`"
+      - "Then the record is published to `identity.events.notification.dlq` without retry and no row changes"
+    tags: [user-erasure, notification]
+    status: planned
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+
+  - id: notification.cue-a-store-failure-rolls-back-and-is-retried
+    title: "A store failure rolls back and is retried"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): A store failure rolls back and is retried"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When the erase transaction fails half-way because Postgres is unavailable"
+      - "Then no table keeps a partial deletion, the record is retried up to 5 times, and the erasure completes after the database returns with the DLQ empty"
+    tags: [user-erasure, notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification/internal/store/erase_pg_test.go TestEraseRollsBackOnFailure. Not producible black box: needs a database fault, a unit-level handler or log capture."
+
+  - id: notification.cue-other-identity-events-are-ignored
+    title: "Other identity events are ignored"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): Other identity events are ignored"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When a `UserStatusChanged` event for a user is consumed"
+      - "Then no notification of that user is deleted and nothing is published to the DLQ"
+    tags: [user-erasure, notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification/internal/events/identity_test.go TestIdentityIgnoresOtherEventTypes. Not producible black box: needs a database fault, a unit-level handler or log capture."
+
+  - id: notification.cue-the-erased-id-is-not-logged
+    title: "The erased id is not logged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (notification-user-erasure): The erased id is not logged"
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "When the consumer handles a `UserErased` event"
+      - "Then the service log holds a count and a hashed id and no line contains the raw user id"
+    tags: [user-erasure, notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification/internal/events/identity_test.go TestIdentityErasureLogsNoRawUserID. Not producible black box: needs a database fault, a unit-level handler or log capture."

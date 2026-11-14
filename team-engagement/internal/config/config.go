@@ -28,6 +28,9 @@ type Events struct {
 	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
 	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-engagement-feed"`
 	EventsTopic   string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
+
+	IdentityTopic        string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
+	ErasureConsumerGroup string `env:"KAFKA_ERASURE_CONSUMER_GROUP" default:"team-engagement-erasure"`
 }
 
 func (e Events) Validate() error {
@@ -40,6 +43,12 @@ func (e Events) Validate() error {
 	}
 	if strings.TrimSpace(e.EventsTopic) == "" {
 		errs = append(errs, errors.New("ENGAGEMENT_EVENTS_TOPIC is required"))
+	}
+	if strings.TrimSpace(e.IdentityTopic) == "" {
+		errs = append(errs, errors.New("IDENTITY_EVENTS_TOPIC is required"))
+	}
+	if strings.TrimSpace(e.ErasureConsumerGroup) == "" {
+		errs = append(errs, errors.New("KAFKA_ERASURE_CONSUMER_GROUP is required"))
 	}
 	return errors.Join(errs...)
 }

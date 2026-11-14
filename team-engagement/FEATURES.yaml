@@ -5084,3 +5084,255 @@ features:
     tags: [listing-rating-events, unit]
     status: not-testable
     notes: "engagement-listing-rating-events: unit-verified, not producible end to end (outbox/store/migration internals). Verified by: team-engagement `migrations` `TestMigration0015DownRemovesOnlyPendingBackfill`"
+
+  - id: engagement.cue-a-review-keeps-rating-and-text-under-an-anonymised-author
+    title: "A review keeps rating and text under an anonymised author"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): A review keeps rating and text under an anonymised author"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event for a user with a 4-star review \"Giao nhanh\" is consumed"
+      - "Then the review is still returned by `ListReviews` with rating 4 and comment \"Giao nhanh\" and author name \"Người dùng đã xóa\""
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-a-question-and-its-answers-keep-their-text-under-an-anonymised-author
+    title: "A question and its answers keep their text under an anonymised author"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): A question and its answers keep their text under an anonymised author"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event for a user who asked one question and answered another is consumed"
+      - "Then both texts are still listed on the product page and neither row carries the erased user id"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-the-listing-rating-is-unchanged
+    title: "The listing rating is unchanged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): The listing rating is unchanged"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event for the author of one of three reviews of a listing is consumed"
+      - "Then the listing's review count stays 3 and its average rating is the same as before"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-the-moderation-reason-of-an-erased-author-is-cleared
+    title: "The moderation reason of an erased author is cleared"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): The moderation reason of an erased author is cleared"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event is consumed for the author of a review an admin had hidden with a reason"
+      - "Then the review's `hide_reason` is empty, `hidden_at` is still set and the review is still hidden from buyers"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-an-erased-moderator-no-longer-appears-as-hidden-by
+    title: "An erased moderator no longer appears as hidden_by"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): An erased moderator no longer appears as hidden_by"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event is consumed for an admin who hid two reviews written by other users"
+      - "Then `hidden_by` is empty on both reviews, `hide_reason` of those reviews is unchanged and both are still hidden"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-other-users-content-is-untouched
+    title: "Other users' content is untouched"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): Other users' content is untouched"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event for user A is consumed and user B has a review, a question and a favourite"
+      - "Then every row of user B is byte-identical to its state before the event"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-erasure-is-reachable-only-through-the-identity-topic
+    title: "Erasure is reachable only through the identity topic"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): Erasure is reachable only through the identity topic"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` record is produced to a topic other than `identity.events`, or a user principal calls any team-engagement RPC naming another user"
+      - "Then no data of the named user is erased or changed"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-favourites-follows-and-reports-filed-by-the-user-are-deleted
+    title: "Favourites, follows and reports filed by the user are deleted"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): Favourites, follows and reports filed by the user are deleted"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event is consumed for a user with 2 favourites, 1 follow, 1 report filed and 1 helpful vote"
+      - "Then zero rows keyed by that user remain in `favorites`, `follows`, `reports` (as `reporter_id`) and `review_helpful_votes`"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-an-erased-seller-loses-their-followers
+    title: "An erased seller loses their followers"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): An erased seller loses their followers"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event is consumed for a seller followed by 3 buyers"
+      - "Then zero `follows` rows with that `seller_id` remain and each follower's other follows are unchanged"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-collections-history-check-ins-and-loyalty-are-deleted
+    title: "Collections, history, check-ins and loyalty are deleted"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): Collections, history, check-ins and loyalty are deleted"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event is consumed for a user with a collection of 2 items, 5 viewed listings, 3 check-ins and a loyalty account"
+      - "Then zero rows keyed by that user remain in `collections`, `collection_items`, `view_history`, `checkins` and `loyalty_accounts`"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-reports-about-the-erased-user-s-content-stay-open
+    title: "Reports about the erased user's content stay open"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): Reports about the erased user's content stay open"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event is consumed for the author of a listing review that another user reported"
+      - "Then that report row still exists with its status unchanged"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-an-event-without-a-user-id-deletes-nothing
+    title: "An event without a user id deletes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): An event without a user id deletes nothing"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event with an empty `user_id` is consumed"
+      - "Then it is rejected to the DLQ and no favourite, follow, report or loyalty row of any user is deleted"
+    tags: [user-erasure, engagement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestIdentityEmptyUserIDDeletesNothing. Not producible black box: needs a database fault, a unit-level handler or log capture."
+
+  - id: engagement.cue-a-replayed-event-changes-nothing
+    title: "A replayed event changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): A replayed event changes nothing"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When the same `UserErased` event is delivered twice"
+      - "Then the second delivery returns no error and the table contents equal the state after the first delivery"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-a-malformed-event-goes-to-the-dlq
+    title: "A malformed event goes to the DLQ"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): A malformed event goes to the DLQ"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a record on `identity.events` is not a valid `EventEnvelope`, or a `UserErased` payload has an empty `user_id`"
+      - "Then the record is published to `identity.events.engagement.dlq` without retry and no row changes"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-a-store-failure-rolls-back-and-is-retried
+    title: "A store failure rolls back and is retried"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): A store failure rolls back and is retried"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When the erase transaction fails half-way because Postgres is unavailable"
+      - "Then no table keeps a partial change, the record is retried up to 5 times, and after the database returns the erasure completes with the DLQ empty"
+    tags: [user-erasure, engagement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-engagement/internal/store/erase_pg_test.go TestEraseRollsBackOnFailure. Not producible black box: needs a database fault, a unit-level handler or log capture."
+
+  - id: engagement.cue-other-identity-events-are-ignored
+    title: "Other identity events are ignored"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): Other identity events are ignored"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserStatusChanged` event for a user is consumed"
+      - "Then no row of that user changes and nothing is published to the DLQ"
+    tags: [user-erasure, engagement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestIdentityIgnoresOtherEventTypes. Not producible black box: needs a database fault, a unit-level handler or log capture."
+
+  - id: engagement.cue-erasure-completes-within-one-hour
+    title: "Erasure completes within one hour"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): Erasure completes within one hour"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When a `UserErased` event is published to `identity.events` for a user holding 1000 rows across the tables"
+      - "Then every row is erased or anonymised within 1 h and the store transaction takes at most 5 s"
+    tags: [user-erasure, engagement]
+    status: planned
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+
+  - id: engagement.cue-the-erased-id-is-not-logged
+    title: "The erased id is not logged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (engagement-user-erasure): The erased id is not logged"
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "When the consumer handles a `UserErased` event"
+      - "Then the service log holds a count and a hashed id and no line contains the raw user id"
+    tags: [user-erasure, engagement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-engagement/internal/events/identity_test.go TestIdentityErasureLogsNoRawUserID. Not producible black box: needs a database fault, a unit-level handler or log capture."

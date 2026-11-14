@@ -27,11 +27,13 @@ SHALL be idempotent by user id, and SHALL ignore every other event type on the t
 #### Scenario: ORD-4 A user with no data is a no-op
 - **WHEN** a `UserErased` event for a user with no orders, returns or cart items is consumed
 - **THEN** the handler completes OK and no row in any table changes
+- **VERIFIED BY**: team-order/internal/store TestEraseUser
 
 #### Scenario: ORD-5 A seller's orders keep the buyers' addresses
 - **GIVEN** U is a seller (roles include seller) of an order placed by buyer B
 - **WHEN** a `UserErased` event for U is consumed
 - **THEN** B's recipient name, phone and address on that order are unchanged and the order still names U's id as `seller_id`
+- **VERIFIED BY**: team-order/internal/store TestEraseUser
 
 #### Scenario: ORD-6 A malformed event is parked, not applied
 - **WHEN** a `UserErased` event with an empty `user_id`, or an envelope that does not decode, is consumed
@@ -41,10 +43,12 @@ SHALL be idempotent by user id, and SHALL ignore every other event type on the t
 - **GIVEN** the order database fails after the cart delete but before the commit
 - **WHEN** a `UserErased` event for U is consumed
 - **THEN** the transaction rolls back (orders still unmasked), the record is retried, and after the database recovers all of U's data is masked and the DLQ is empty
+- **VERIFIED BY**: team-order/internal/store TestEraseUserRollsBack
 
 #### Scenario: ORD-8 Other identity events are ignored
 - **WHEN** a `UserRegistered` or `UserStatusChanged` event for U is consumed
 - **THEN** no order, return or cart row changes
+- **VERIFIED BY**: team-order/internal/events TestErasureConsumerIgnoresOtherEvents
 
 #### Scenario: ORD-9 The masked order stays readable by its parties
 - **GIVEN** U's data was erased and a seller S owns one of U's orders
