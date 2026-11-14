@@ -154,7 +154,7 @@ func startRig(t *testing.T, o rigOpts) *rig {
 		o.payment = paymentfake.New()
 	}
 	subSvc := subscription.New(storefake.NewInMemorySubscriptionRepository(), o.logger).WithPayment(o.payment)
-	adSvc := sponsored.New(storefake.NewInMemoryAdCampaignRepository(), o.listings, gate, o.logger).WithLimits(1000, 5000)
+	adSvc := sponsored.New(storefake.NewInMemoryAdCampaignRepository(), o.listings, gate, o.logger).WithLimits(1000, 5000).WithMinBid(1)
 
 	vh := rpc.NewVoucherHandler(voucherSvc, o.logger)
 	fh := rpc.NewFlashSaleHandler(flashSvc, o.logger)

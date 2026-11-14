@@ -13,9 +13,9 @@
 
 ## 2. e2e track (platform-e2e)
 
-- [ ] 2.1 Feature `ads/sponsored_serving.feature`: seller with an ACTIVE campaign, search by its category returns a tokened slot, home returns it too (scenario: Served slots are visible end to end)
-- [ ] 2.2 Feature `ads/sponsored_click.feature`: double click charges once, then budget exhaustion removes the listing from serving; campaign state read via the real service, mock data through the service's own API, no fake containers (scenarios: Click and budget burn end to end, Exhausted campaign stops being served)
-- [ ] 2.3 Register both under team-promotion FEATURES.yaml (done by the e2e-author)
+- [x] 2.1 Feature `ads/sponsored_serving.feature`: seller with an ACTIVE campaign, search by its category returns a tokened slot, home returns it too (scenario: Served slots are visible end to end)
+- [x] 2.2 Feature `ads/sponsored_click.feature`: double click charges once, then budget exhaustion removes the listing from serving; campaign state read via the real service, mock data through the service's own API, no fake containers (scenarios: Click and budget burn end to end, Exhausted campaign stops being served)
+- [x] 2.3 Register both under team-promotion FEATURES.yaml (done by the e2e-author)
 
 ## 3. Verification
 

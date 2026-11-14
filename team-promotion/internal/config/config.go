@@ -84,6 +84,7 @@ func (n NewUser) Validate() error {
 type Ads struct {
 	MaxBid    int64 `env:"MAX_AD_BID" default:"1000000"`
 	MaxBudget int64 `env:"MAX_AD_BUDGET" default:"1000000000"`
+	MinBid    int64 `env:"MIN_AD_BID" default:"500"`
 }
 
 func (a Ads) Validate() error {
@@ -93,6 +94,9 @@ func (a Ads) Validate() error {
 	}
 	if a.MaxBudget <= 0 {
 		errs = append(errs, errors.New("MAX_AD_BUDGET must be > 0"))
+	}
+	if a.MinBid <= 0 {
+		errs = append(errs, errors.New("MIN_AD_BID must be > 0"))
 	}
 	return errors.Join(errs...)
 }

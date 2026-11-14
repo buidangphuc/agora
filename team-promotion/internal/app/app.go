@@ -146,7 +146,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		RetryWindow: s.Subscription.RenewalRetryWindow,
 		Logger:      logger,
 	})
-	adSvc := sponsored.New(store.NewPostgresAdCampaignRepository(pool), listings, gate, logger).WithLimits(s.Ads.MaxBid, s.Ads.MaxBudget)
+	adSvc := sponsored.New(store.NewPostgresAdCampaignRepository(pool), listings, gate, logger).WithLimits(s.Ads.MaxBid, s.Ads.MaxBudget).WithMinBid(s.Ads.MinBid)
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv,
