@@ -2,6 +2,8 @@ package app_test
 
 import (
 	"context"
+	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,13 +50,13 @@ func seedErasureUser(t *testing.T, w *duckdb.Writer, user string) {
 	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
 	ctx := context.Background()
 	require.NoError(t, w.Write(ctx, []*warehouse.TrackingRecord{
-		{EventID: "t-" + user, EventType: "view", ListingID: "l1", SessionID: "s-" + user, AnonymousID: "anon-" + user, OccurredAt: at, PrincipalID: user, PrincipalType: "user"},
+		{EventID: evID("t"), EventType: "view", ListingID: "l1", SessionID: "s-" + user, AnonymousID: "anon-" + user, OccurredAt: at, PrincipalID: user, PrincipalType: "user"},
 	}))
 	require.NoError(t, w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{
-		{EventID: "o-" + user, OrderID: "ord", ListingID: "l1", SellerID: "s", Quantity: 1, UnitPrice: 5, Currency: "VND", OccurredAt: at, Status: "PAID", BuyerID: user},
+		{EventID: evID("o"), OrderID: "ord", ListingID: "l1", SellerID: "s", Quantity: 1, UnitPrice: 5, Currency: "VND", OccurredAt: at, Status: "PAID", BuyerID: user},
 	}))
 	require.NoError(t, w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{
-		{EventID: "e-" + user, Fact: warehouse.FactFavoriteAdded, UserID: user, ListingID: "l1", OccurredAt: at},
+		{EventID: evID("e"), Fact: warehouse.FactFavoriteAdded, UserID: user, ListingID: "l1", OccurredAt: at},
 	}))
 }
 
@@ -124,8 +126,12 @@ func TestErasureConsumerSkipsOtherTypesAndDeadLettersPoison(t *testing.T) {
 		}
 		assert.True(t, hasErr, "DLQ record %s has no error header", r.Key)
 	}
-	p.stopAndWait(t)
-	assert.GreaterOrEqual(t, committedOffset(t, brokers, "team-analytics.user-erasure", "identity.events"), int64(3))
 	assert.NotZero(t, mentions(t, w, "user-keep-app-2"))
 	assert.Equal(t, 0, tombstones(t, w))
+	p.stopAndWait(t)
+	assert.GreaterOrEqual(t, committedOffset(t, brokers, "team-analytics.user-erasure", "identity.events"), int64(3))
 }
+
+var evSeq atomic.Int64
+
+func evID(prefix string) string { return prefix + "-" + strconv.FormatInt(evSeq.Add(1), 10) }

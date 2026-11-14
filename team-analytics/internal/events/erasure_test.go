@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -54,13 +56,13 @@ func erSeed(t *testing.T, w *duckdb.Writer, user string) {
 	t.Helper()
 	ctx := context.Background()
 	require.NoError(t, w.Write(ctx, []*warehouse.TrackingRecord{
-		{EventID: "t-" + user, EventType: "view", ListingID: "l1", SessionID: "s-" + user, AnonymousID: "anon-" + user, OccurredAt: erAt, PrincipalID: user, PrincipalType: "user"},
+		{EventID: evID("t"), EventType: "view", ListingID: "l1", SessionID: "s-" + user, AnonymousID: "anon-" + user, OccurredAt: erAt, PrincipalID: user, PrincipalType: "user"},
 	}))
 	require.NoError(t, w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{
-		{EventID: "o-" + user, OrderID: "ord-1", ListingID: "l1", SellerID: "seller-x", Quantity: 1, UnitPrice: 10, Currency: "VND", OccurredAt: erAt, Status: "PAID", BuyerID: user},
+		{EventID: evID("o"), OrderID: "ord-1", ListingID: "l1", SellerID: "seller-x", Quantity: 1, UnitPrice: 10, Currency: "VND", OccurredAt: erAt, Status: "PAID", BuyerID: user},
 	}))
 	require.NoError(t, w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{
-		{EventID: "e-" + user, Fact: warehouse.FactFavoriteAdded, UserID: user, ListingID: "l1", OccurredAt: erAt},
+		{EventID: evID("e"), Fact: warehouse.FactFavoriteAdded, UserID: user, ListingID: "l1", OccurredAt: erAt},
 	}))
 }
 
@@ -229,3 +231,7 @@ func TestErasureLogsCarryNoRawID(t *testing.T) {
 		assert.Contains(t, out, tbl, "per-table count for %s is logged", tbl)
 	}
 }
+
+var evSeq atomic.Int64
+
+func evID(prefix string) string { return prefix + "-" + strconv.FormatInt(evSeq.Add(1), 10) }
