@@ -44,6 +44,7 @@ func strictEnv(t *testing.T, env string) {
 	t.Setenv("GA4_API_SECRET", "ga4-secret")
 	t.Setenv("GA4_MEASUREMENT_ID", "G-ABC123")
 	t.Setenv("GA4_EXPORT_DATASET", "ga4_export")
+	t.Setenv("ERASURE_TOMBSTONE_SECRET", "tombstone-secret")
 }
 
 func mustErrNaming(t *testing.T, err error, keys ...string) {
@@ -570,6 +571,10 @@ func TestLoadStrictEnvRequiresTombstoneSecret(t *testing.T) {
 	for _, env := range []string{"prod", "production", "staging"} {
 		t.Run(env, func(t *testing.T) {
 			strictEnv(t, env)
+			t.Setenv("ERASURE_TOMBSTONE_SECRET", "")
+			if err := os.Unsetenv("ERASURE_TOMBSTONE_SECRET"); err != nil {
+				t.Fatal(err)
+			}
 			_, err := config.Load()
 			mustErrNaming(t, err, "ERASURE_TOMBSTONE_SECRET")
 
