@@ -27,6 +27,8 @@ Implement OpenSpec change `domain-storefront-customisation` test-first per its t
 - platform-e2e/tests/e2e/step_definitions/storefront_customisation_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_storefront_customisation.py
 - platform-e2e/src/api/services/listing_service.py
+- widened (P1):
+  - platform-e2e/src/constants/gateway_endpoints.py — e2e support constant (LISTING_GET_IMAGE_UPLOAD_URL) used by this change's listing_service.py e2e client
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-domain --vet`

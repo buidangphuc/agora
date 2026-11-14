@@ -259,3 +259,72 @@ describe("listings moderation mapping", () => {
     );
   });
 });
+
+describe("Seller shop UI: listMyListings filters", () => {
+  it("Seller shop UI: search runs on the server with the typed query - statuses and query reach the RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      listings: [protoListing],
+      page: { nextCursor: "", total: 1n },
+    });
+    stub({ listing: { listMyListings: rpc } });
+    await listMyListings({
+      statuses: [ListingStatus.PUBLISHED],
+      query: "áo",
+      pageSize: 20,
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith({
+      page: { cursor: "", pageSize: 20 },
+      statuses: [ListingStatus.PUBLISHED],
+      query: "áo",
+    });
+  });
+
+  it("Seller shop UI: search runs on the server with the typed query - no filter by default", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      listings: [],
+      page: { nextCursor: "", total: 0n },
+    });
+    stub({ listing: { listMyListings: rpc } });
+    await listMyListings();
+    expect(rpc).toHaveBeenCalledWith({
+      page: { cursor: "", pageSize: 20 },
+      statuses: [],
+      query: "",
+    });
+  });
+
+  it("Seller shop UI: saving sends the full storefront once - upsertStorefront maps every branding field", async () => {
+    const upsert = vi.fn().mockResolvedValue({
+      storefront: {
+        sellerId: "s1",
+        slug: "shop-a",
+        bannerUrl: "b.png",
+        tagline: "Hoa",
+        featuredListingIds: ["a", "c", "b"],
+        theme: "dark",
+        displayName: "Tiem",
+      },
+    });
+    stub({ listing: { upsertStorefront: upsert } });
+    await upsertStorefront({
+      sellerId: "s1",
+      slug: "shop-a",
+      bannerUrl: "b.png",
+      tagline: "Hoa",
+      featuredListingIds: ["a", "c", "b"],
+      theme: "dark",
+      displayName: "Tiem",
+    });
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0]?.[0].storefront).toEqual({
+      sellerId: "s1",
+      slug: "shop-a",
+      bannerUrl: "b.png",
+      tagline: "Hoa",
+      featuredListingIds: ["a", "c", "b"],
+      theme: "dark",
+      displayName: "Tiem",
+    });
+  });
+});

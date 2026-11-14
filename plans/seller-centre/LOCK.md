@@ -12,11 +12,11 @@ spec: plans/seller-centre/00-spec.md (Locked 2026-11-13)
 | domain-bundle-integrity | team-domain | [] | 1 | pass | pass | pass | ENGINE_DOWN | cf9bc98fe270 | [x] |
 | seller-shop-customisation-ui | team-frontend-seller | [domain-storefront-customisation, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | b5a0802622cc | [x] |
 | shop-page-featured-theme | team-frontend | [domain-storefront-customisation] | 1 | pass | pass | pass | ENGINE_DOWN | 670decbcf356 | [x] |
-| promotion-seller-self-service | team-promotion | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 6f7920975566 | [x] |
-| seller-marketing-hub | team-frontend-seller | [promotion-seller-self-service, domain-my-listings-filter] | 3 | pass | pass | pass | ENGINE_DOWN | e997b9518e3e | [x] |
+| promotion-seller-self-service | team-promotion | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 88b5553a6c87 | [x] |
+| seller-marketing-hub | team-frontend-seller | [promotion-seller-self-service, domain-my-listings-filter] | 3 | pass | pass | pass | ENGINE_DOWN | f847db14ecee | [x] |
 | seller-getting-started | team-frontend-seller | [seller-marketing-hub, seller-shop-customisation-ui] | 1 | pass | pass | pass | ENGINE_DOWN | fa2485d9f803 | [x] |
 | order-bundle-checkout | team-order | [seller-centre-contract, domain-bundle-integrity] | 1 | pass | pass | pass | ENGINE_DOWN | 0c3095790822 | [x] |
-| shop-bundle-purchase-ui | team-frontend | [order-bundle-checkout, shop-page-featured-theme] | 1 | pass | pass | pass | ENGINE_DOWN | b4e35900d5a9 | [x] |
+| shop-bundle-purchase-ui | team-frontend | [order-bundle-checkout, shop-page-featured-theme] | 1 | pass | pass | pass | ENGINE_DOWN | ada306a5c726 | [x] |
 | order-seller-list-paging | team-order | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 664ebea0e750 | [x] |
 | seller-server-paging-ui | team-frontend-seller | [order-seller-list-paging, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | 4301e73500fb | [x] |
 | seller-bulk-ship | team-frontend-seller | [seller-server-paging-ui] | 1 | pass | pass | pass | ENGINE_DOWN | 34c482424858 | [x] |

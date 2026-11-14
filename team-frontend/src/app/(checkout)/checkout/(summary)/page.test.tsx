@@ -89,6 +89,8 @@ function item(
     imageUrl: "",
     sellerId: "s1",
     sellerDisplayName: "",
+    bundleId: "",
+    bundleDiscount: 0,
     ...extra,
   };
 }
@@ -138,6 +140,7 @@ function setCart(items: ViewCartItem[]) {
     items,
     subtotal: items.reduce((a, i) => a + i.unitPrice * i.quantity, 0),
     totalItems: items.length,
+    bundleDiscountTotal: 0,
   });
 }
 
@@ -256,6 +259,7 @@ describe("/checkout groups and totals from the preview", () => {
       ],
       subtotal: 600000,
       totalItems: 2,
+      bundleDiscountTotal: 0,
     });
   };
 
@@ -472,6 +476,7 @@ describe("/checkout items selection", () => {
       ],
       subtotal: 300000,
       totalItems: 3,
+      bundleDiscountTotal: 0,
     });
 
   it("Checkout coherence: only the selected lines are quoted and listed: only the selected lines are quoted and listed", async () => {
@@ -525,6 +530,7 @@ describe("/checkout cart selection", () => {
       ],
       subtotal: 300000,
       totalItems: 3,
+      bundleDiscountTotal: 0,
     });
 
   it("Cart selection: checkout uses only the selected ids: selected ids reach preview and beacon", async () => {
@@ -697,6 +703,7 @@ describe("/checkout scoped vouchers", () => {
       ],
       subtotal: 600000,
       totalItems: 2,
+      bundleDiscountTotal: 0,
     });
   });
 
@@ -908,5 +915,48 @@ describe("/checkout payment step own vouchers", () => {
   it("W6 does not read own vouchers outside the payment step", async () => {
     await go({ step: "shipping", addr: "a2" });
     expect(listMyVouchers).not.toHaveBeenCalled();
+  });
+});
+
+describe("/checkout combo discount", () => {
+  it("C12 shows Giảm giá combo with the server total and the server merchandise total", async () => {
+    vi.mocked(getCart).mockResolvedValue({
+      userId: "u1",
+      items: [item(75000, 2, { bundleId: "b1", bundleDiscount: 30000 })],
+      subtotal: 150000,
+      totalItems: 1,
+      bundleDiscountTotal: 30000,
+    });
+    setPreview(
+      preview({
+        itemsSubtotal: 120000,
+        totalAmount: 140000,
+        groups: [group("s1", { itemsSubtotal: 120000, totalAmount: 140000 })],
+      }),
+    );
+    await go({ step: "shipping", addr: "a2" });
+    expect(screen.getAllByText("Giảm giá combo").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("bundle-discount")[0]).toHaveTextContent(
+      "30.000",
+    );
+    expect(
+      within(screen.getByTestId("order-summary")).getByText(/120\.000/),
+    ).toBeInTheDocument();
+  });
+
+  it("C13 shows no Giảm giá combo row when the server dropped the bundle", async () => {
+    vi.mocked(getCart).mockResolvedValue({
+      userId: "u1",
+      items: [item(75000, 2)],
+      subtotal: 150000,
+      totalItems: 1,
+      bundleDiscountTotal: 0,
+    });
+    setPreview(preview({ itemsSubtotal: 150000, totalAmount: 170000 }));
+    await go({ step: "shipping", addr: "a2" });
+    expect(screen.queryByText("Giảm giá combo")).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("order-summary")).getByText(/150\.000/),
+    ).toBeInTheDocument();
   });
 });

@@ -2093,3 +2093,1127 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: seller-shop-customisation-ui.the-form-is-pre-filled-from-the-storefront
+    title: "Seller shop UI: the form is pre-filled from the storefront"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When `/seller/shop` renders for a seller whose storefront has banner B, tagline \"Hoa tươi mỗi ngày\", featured ids [a, b] and theme `festive`"
+      - "Then the form shows B as the banner preview, \"Hoa tươi mỗi ngày\" in the tagline field, the titles of listings a and b in that order, and the theme `festive` selected"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopProfileForm.test.tsx is pre-filled with the current storefront. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.saving-sends-the-full-storefront-once
+    title: "Seller shop UI: saving sends the full storefront once"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller changes only the tagline and clicks \"Lưu thay đổi\""
+      - "Then `UpsertStorefront` is called exactly once with the unchanged slug, display name, banner, featured ids and theme and the new tagline, and the seller id equals the session principal id"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts upsertStorefrontAction keeps unchanged fields. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-tampered-seller-id-is-ignored
+    title: "Seller shop UI: a tampered seller id is ignored"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the action is invoked with a `sellerId` field of another seller in its input"
+      - "Then `UpsertStorefront` is called with the session principal id and the foreign id appears in no RPC"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts seller id comes from the session. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-principal-without-listing-write-cannot-save
+    title: "Seller shop UI: a principal without listing.write cannot save"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When `upsertStorefrontAction` runs with no session, and again with a session lacking `listing.write`"
+      - "Then both calls return the error \"Bạn cần đăng nhập để cập nhật gian hàng.\" or the access-denied error respectively and `UpsertStorefront` is called zero times"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts storefront save refused without scope. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-failed-read-blocks-the-save
+    title: "Seller shop UI: a failed read blocks the save"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the current storefront cannot be read because `GetStorefront` answers UNAVAILABLE"
+      - "Then the action returns \"Không tải được hồ sơ gian hàng hiện tại. Vui lòng thử lại.\" and `UpsertStorefront` is called zero times"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts read failure blocks the save. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-seller-brands-the-shop-in-the-browser-and-the-buyer-sees-it
+    title: "Seller shop UI: a seller brands the shop in the browser and the buyer sees it"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When a seller opens `/seller/shop`, uploads a banner, sets tagline \"Hoa tươi mỗi ngày\", picks two published listings and the theme `dark`, saves, and then reloads `/seller/shop`"
+      - "Then the reloaded form shows the same banner, tagline, the two listings in the chosen order and `dark`, and the buyer app `/shop/{sellerId}` shows the tagline \"Hoa tươi mỗi ngày\""
+    tags: [seller, shop]
+    status: planned
+    covered_by: null
+
+  - id: seller-shop-customisation-ui.a-120-character-tagline-is-accepted-and-121-is-refused
+    title: "Seller shop UI: a 120-character tagline is accepted and 121 is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller enters a tagline of exactly 120 characters and submits, then enters 121 characters and submits"
+      - "Then the first submit calls the action once; the second shows \"Tagline tối đa 120 ký tự.\" and calls the action zero more times"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/shopBranding.test.ts tagline boundary at 120. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-control-character-in-the-tagline-is-refused
+    title: "Seller shop UI: a control character in the tagline is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the tagline contains a newline or a NUL character and the seller submits"
+      - "Then the form shows \"Tagline không được chứa ký tự điều khiển.\" and the action is not called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/shopBranding.test.ts tagline control characters. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.an-empty-tagline-clears-the-tagline-only
+    title: "Seller shop UI: an empty tagline clears the tagline only"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller empties the tagline of a storefront with a banner and featured ids and saves"
+      - "Then `UpsertStorefront` is called with `tagline` empty and the banner, featured ids and theme unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts empty tagline keeps other fields. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-server-rejection-is-shown-and-the-input-kept
+    title: "Seller shop UI: a server rejection is shown and the input kept"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the action receives `INVALID_ARGUMENT` from `UpsertStorefront`"
+      - "Then the form shows an error alert with the server message, the typed tagline and the chosen featured listings stay in the form, and no success toast appears"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopProfileForm.test.tsx server rejection keeps the input. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.an-accepted-banner-is-uploaded-and-previewed
+    title: "Seller shop UI: an accepted banner is uploaded and previewed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller picks a 2 MB `image/png` file"
+      - "Then `getUploadUrlAction` is called once with `image/png`, the file is PUT once to the returned `uploadUrl`, and the preview shows the returned `publicUrl`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopBannerField.test.tsx uploads and previews. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-wrong-type-or-oversize-banner-is-refused-before-upload
+    title: "Seller shop UI: a wrong type or oversize banner is refused before upload"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller picks an `application/pdf` file, then an `image/png` of 10 MB + 1 byte"
+      - "Then each shows an error line (\"Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.\" and \"Kích thước file không vượt quá 10MB.\" respectively) and `getUploadUrlAction` is called zero times"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopBannerField.test.tsx type and size refused. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-file-of-exactly-10-mb-is-accepted
+    title: "Seller shop UI: a file of exactly 10 MB is accepted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller picks an `image/webp` file of exactly 10 MB"
+      - "Then `getUploadUrlAction` is called once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopBannerField.test.tsx 10 MB boundary accepted. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-failed-upload-keeps-the-previous-banner
+    title: "Seller shop UI: a failed upload keeps the previous banner"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the presigned PUT answers HTTP 500 for a seller who already has banner B"
+      - "Then the preview still shows B, an error line beginning \"Upload thất bại\" appears and Save still sends B"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/ShopBannerField.test.tsx failed upload keeps previous banner. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.removing-the-banner-clears-it
+    title: "Seller shop UI: removing the banner clears it"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller clicks \"Xóa banner\" and saves"
+      - "Then `UpsertStorefront` is called with an empty `bannerUrl` and the other fields unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts remove banner sends empty url. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.search-runs-on-the-server-with-the-typed-query
+    title: "Seller shop UI: search runs on the server with the typed query"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller types \"áo\" in the picker and 300 ms pass"
+      - "Then exactly one `ListMyListings` call is made with `statuses = [PUBLISHED]`, `query = \"áo\"` and `pageSize = 20`, and no `ListMyListings` call carries a non-empty cursor"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx search is one filtered call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.the-seventh-featured-listing-is-refused
+    title: "Seller shop UI: the seventh featured listing is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When 6 listings are selected and the seller tries to add another"
+      - "Then the add control is disabled, the line \"Tối đa 6 sản phẩm nổi bật.\" is shown and the selection stays at 6"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx cap of six. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.the-sixth-featured-listing-is-accepted
+    title: "Seller shop UI: the sixth featured listing is accepted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When 5 listings are selected and the seller adds one more"
+      - "Then 6 are selected and Save sends 6 ids in the shown order"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx sixth accepted. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.reordering-changes-the-saved-order
+    title: "Seller shop UI: reordering changes the saved order"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the seller selects a, b, c and moves c up once, then saves"
+      - "Then `UpsertStorefront` receives `featuredListingIds` equal to [a, c, b]"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts featured order is kept. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.an-already-selected-listing-is-not-added-twice
+    title: "Seller shop UI: an already selected listing is not added twice"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When listing a is selected and the seller adds a again"
+      - "Then the selection still contains a once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx no duplicates. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-search-failure-leaves-the-selection-intact
+    title: "Seller shop UI: a search failure leaves the selection intact"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When `ListMyListings` answers UNAVAILABLE during a search"
+      - "Then the picker shows \"Không tải được danh sách sản phẩm.\" with a retry button and the current selection is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx search failure keeps selection. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.an-unavailable-featured-listing-can-be-removed
+    title: "Seller shop UI: an unavailable featured listing can be removed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the storefront holds featured id x whose listing is no longer found"
+      - "Then the picker shows \"Không còn khả dụng\" for x with a remove control, and after removing x and saving, `UpsertStorefront` receives the remaining ids without x"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/FeaturedListingsPicker.test.tsx unavailable featured can be removed. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-shop-customisation-ui.a-featured-listing-of-another-seller-is-rejected-by-the-server
+    title: "Seller shop UI: a featured listing of another seller is rejected by the server"
+    persona: seller
+    priority: P2
+    summary: "Change seller-shop-customisation-ui (initiative seller-centre)."
+    entry_route: /seller/shop
+    services: [team-frontend-seller, team-gateway, team-domain]
+    acceptance:
+      - "When the action sends a featured id that belongs to another seller and `UpsertStorefront` answers INVALID_ARGUMENT"
+      - "Then the form shows the error alert, the storefront returned by the next `GetStorefront` is unchanged, and the buyer shop page shows no listing of the other seller"
+    tags: [seller, shop]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.seller-opens-the-hub-from-the-navigation
+    title: "Seller opens the hub from the navigation"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller clicks \"Marketing\" in the seller navigation"
+      - "Then the browser lands on `/seller/marketing` and the \"Voucher của shop\" tab is selected"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.tab-is-kept-in-the-url
+    title: "Tab is kept in the URL"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects the \"Flash sale\" tab and reloads the page"
+      - "Then the URL contains `tab=flashsale` and the \"Flash sale\" tab is selected after reload"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.unknown-tab-value-falls-back-to-the-default
+    title: "Unknown tab value falls back to the default"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens `/seller/marketing?tab=bogus`"
+      - "Then the \"Voucher của shop\" tab is shown and no error state is rendered"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx falls back to the voucher tab for an unknown tab value. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.buyer-account-is-denied-the-hub
+    title: "Buyer account is denied the hub"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a signed-in buyer without scope `listing.write` opens `/seller/marketing`"
+      - "Then the seller access-denied view is shown and no promotion RPC is called"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.anonymous-visitor-is-redirected-to-login
+    title: "Anonymous visitor is redirected to login"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When an anonymous visitor opens `/seller/marketing`"
+      - "Then the visitor is redirected to the login page"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.one-tab-s-dependency-outage-does-not-blank-the-other
+    title: "One tab's dependency outage does not blank the other"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `ListMyCampaigns` fails with UNAVAILABLE while the seller opens the \"Flash sale\" tab"
+      - "Then that tab shows a retry state, the navigation stays visible, and the \"Voucher của shop\" tab still lists vouchers"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx keeps the other tab usable when ListMyCampaigns is unavailable. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.vouchers-of-every-state-are-listed-with-used-and-quota
+    title: "Vouchers of every state are listed with used and quota"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller who owns one active, one scheduled, one ended and one deactivated shop voucher opens the tab"
+      - "Then four rows are shown with the labels Đang chạy, Sắp diễn ra, Đã kết thúc and Đã tắt and each row shows `used/quota`"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.other-sellers-vouchers-are-never-shown
+    title: "Other sellers' vouchers are never shown"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When seller A opens the tab while seller B owns a shop voucher and a platform voucher exists"
+      - "Then no row for seller B's or the platform voucher is shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.empty-list-shows-an-empty-state
+    title: "Empty list shows an empty state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with no shop vouchers opens the tab"
+      - "Then an empty state with a \"Tạo voucher\" call to action is shown and no error is shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.paging-boundary-at-21-vouchers
+    title: "Paging boundary at 21 vouchers"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with 21 shop vouchers opens the tab"
+      - "Then 20 rows are shown with a next-page control, and the next page shows 1 row"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.principal-without-listing-write-gets-no-vouchers
+    title: "Principal without listing.write gets no vouchers"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without scope `listing.write` requests the voucher tab data"
+      - "Then access is denied and `ListMyShopVouchers` is not called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx does not call ListMyShopVouchers without listing.write. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.unknown-cursor-shows-the-retry-state
+    title: "Unknown cursor shows the retry state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens the tab with a malformed `cursor` in the URL and the RPC answers INVALID_ARGUMENT"
+      - "Then the retry state is shown and no rows are shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx shows the retry state for a malformed cursor. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.valid-voucher-is-created-and-listed
+    title: "Valid voucher is created and listed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits code `GIAM10`, PERCENT 10, quota 100 and a window starting tomorrow"
+      - "Then `CreateVoucher` is called once with scope SHOP and no seller id, and a row `GIAM10` with label Sắp diễn ra appears in the list within 2 s"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.empty-code-is-rejected-before-any-call
+    title: "Empty code is rejected before any call"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits the form with an empty code"
+      - "Then an inline error \"Vui lòng nhập mã voucher\" is shown and no RPC is called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/ShopVoucherForm.test.tsx rejects an empty code before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.window-ending-before-it-starts-is-rejected
+    title: "Window ending before it starts is rejected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits an end time earlier than the start time"
+      - "Then an inline error is shown and no RPC is called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/ShopVoucherForm.test.tsx rejects an end before the start before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.duplicate-code-shows-the-server-error
+    title: "Duplicate code shows the server error"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits a code that already exists and the RPC answers ALREADY_EXISTS"
+      - "Then an error \"Mã voucher đã tồn tại\" is shown, the form keeps its values and the list is unchanged"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.seller-without-listing-write-cannot-submit
+    title: "Seller without listing.write cannot submit"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without scope `listing.write` posts the create-voucher server action"
+      - "Then the action answers a denied result and `CreateVoucher` is not called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts marketing actions answer denied without listing.write. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.deactivating-an-active-voucher
+    title: "Deactivating an active voucher"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller confirms \"Tắt voucher\" on an active voucher"
+      - "Then the row shows Đã tắt within 2 s and a buyer cannot apply that code at checkout preview"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.cancelling-the-confirmation-changes-nothing
+    title: "Cancelling the confirmation changes nothing"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens the confirmation and chooses \"Huỷ bỏ\""
+      - "Then no RPC is called and the row state is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/VoucherTab.test.tsx cancelling the deactivate confirmation calls nothing. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.deactivating-twice-is-accepted
+    title: "Deactivating twice is accepted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller deactivates a voucher that is already deactivated, for example from a stale tab"
+      - "Then the row shows Đã tắt and no error is shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts deactivating an already deactivated voucher is accepted. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.another-seller-s-voucher-id-is-denied
+    title: "Another seller's voucher id is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller posts the deactivate action with a voucher id owned by another seller"
+      - "Then the RPC answers PERMISSION_DENIED, the message \"Không có quyền hoặc voucher không tồn tại\" is shown, and the voucher stays active"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.campaigns-are-listed-with-status-and-sold-over-cap
+    title: "Campaigns are listed with status and sold over cap"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with a SCHEDULED campaign (cap 10) and an ACTIVE campaign (cap 20, sold 5) opens the tab"
+      - "Then two rows show Sắp diễn ra with `0/10` and Đang diễn ra with `5/20`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/lib/gateway/promotion.test.ts maps campaign status and sold over cap. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.hub-status-filter-narrows-the-list
+    title: "Hub status filter narrows the list"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects the filter \"Đã huỷ\""
+      - "Then the URL contains `status=cancelled`, `ListMyCampaigns` is called with `statuses=[CANCELLED]`, and only cancelled rows are shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.other-sellers-campaigns-are-never-shown
+    title: "Other sellers' campaigns are never shown"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When seller A opens the tab while seller B owns a campaign"
+      - "Then no row for seller B's campaign is shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.principal-without-listing-write-gets-no-campaigns
+    title: "Principal without listing.write gets no campaigns"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without scope `listing.write` requests the flash sale tab data"
+      - "Then access is denied and `ListMyCampaigns` is not called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/marketing/page.test.tsx does not call ListMyCampaigns without listing.write. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.listing-title-lookup-failure-does-not-hide-the-row
+    title: "Listing title lookup failure does not hide the row"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a campaign's listing title cannot be resolved because the listing service is unavailable"
+      - "Then the row is still shown with the listing id in place of the title"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleTab.test.tsx keeps the row with the listing id when the title lookup fails. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.picker-searches-server-side
+    title: "Picker searches server-side"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller types \"ao\" in the listing picker"
+      - "Then one `ListMyListings` call is made with `query=\"ao\"` and `statuses=[PUBLISHED]`, no further pages are walked, and at most 20 options are shown"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.valid-campaign-is-created-and-listed
+    title: "Valid campaign is created and listed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller picks a published listing and submits sale price 50000, cap 10 and a future window"
+      - "Then `CreateCampaign` is called once and a SCHEDULED row appears in the list within 2 s"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.double-submit-creates-one-campaign
+    title: "Double submit creates one campaign"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller double-clicks the submit button"
+      - "Then exactly one campaign exists afterwards"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx double submit sends one CreateCampaign with one idempotency key. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.missing-listing-is-rejected-before-any-call
+    title: "Missing listing is rejected before any call"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits the form without picking a listing"
+      - "Then an inline error is shown and no RPC is called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx rejects a missing listing before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.sale-price-of-zero-or-cap-below-one-is-rejected
+    title: "Sale price of zero or cap below one is rejected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits sale price 0 or cap 0"
+      - "Then an inline error is shown and no RPC is called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx rejects sale price 0 and cap 0 before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.server-rejection-is-shown-and-nothing-is-created
+    title: "Server rejection is shown and nothing is created"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the RPC answers INVALID_ARGUMENT or FAILED_PRECONDITION, for example a sale price not below the listing price"
+      - "Then the server message is shown, the form keeps its values and the list is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/marketing/FlashSaleForm.test.tsx shows the server message and keeps the form values. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.foreign-listing-id-is-denied
+    title: "Foreign listing id is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller posts the create-campaign action with a listing id owned by another seller"
+      - "Then the RPC answers PERMISSION_DENIED, an error is shown, and no campaign is created"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/actions.test.ts createCampaignAction maps PERMISSION_DENIED for a foreign listing. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-marketing-hub.cancelling-a-scheduled-campaign
+    title: "Cancelling a scheduled campaign"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller confirms \"Huỷ\" on a SCHEDULED campaign"
+      - "Then the row shows Đã huỷ within 2 s and the campaign never becomes active for buyers"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.active-and-ended-campaigns-offer-no-cancel-control
+    title: "Active and ended campaigns offer no cancel control"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller views an ACTIVE, an ENDED and a CANCELLED campaign row"
+      - "Then none of the three rows has a \"Huỷ\" control"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.cancelling-a-campaign-that-started-meanwhile-is-refused
+    title: "Cancelling a campaign that started meanwhile is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller confirms \"Huỷ\" on a row that became ACTIVE since the page loaded and the RPC answers FAILED_PRECONDITION"
+      - "Then the message \"Flash sale đã bắt đầu, không thể huỷ\" is shown and the row refreshes to Đang diễn ra"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-marketing-hub.another-seller-s-campaign-id-is-denied
+    title: "Another seller's campaign id is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-marketing-hub (initiative seller-centre)."
+    entry_route: /seller/marketing
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller posts the cancel action with a campaign id owned by another seller"
+      - "Then the RPC answers PERMISSION_DENIED, the message \"Không có quyền hoặc flash sale không tồn tại\" is shown, and the campaign is unchanged"
+    tags: [seller, promo]
+    status: planned
+    covered_by: null
+
+  - id: seller-getting-started.a-new-seller-sees-all-four-steps-not-done
+    title: "Getting started: a new seller sees all four steps not done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When a seller with no display name, no banner, no listing, no voucher and no campaign opens `/seller`"
+      - "Then the card \"Bắt đầu bán hàng\" shows exactly four steps, all not done, with links `/seller/shop`, `/seller/shop`, `/seller/new`, `/seller/marketing`, and no step mentions KYC"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts all steps not done for an empty shop. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.done-steps-are-marked-from-the-shop-data
+    title: "Getting started: done steps are marked from the shop data"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When the seller has display name \"Shop An\", an empty banner URL, one DRAFT listing, no voucher and one SCHEDULED campaign"
+      - "Then steps 1, 3 and 4 are done, step 2 is not done, and the card is still shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts marks steps from storefront, listing and promotion data. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-voucher-alone-completes-the-marketing-step
+    title: "Getting started: a voucher alone completes the marketing step"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When the seller has one deactivated shop voucher and no campaign"
+      - "Then step 4 is done"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts a voucher of any state completes step 4. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-seller-without-a-storefront-row-sees-steps-1-and-2-not-done
+    title: "Getting started: a seller without a storefront row sees steps 1 and 2 not done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `GetStorefront` answers NOT_FOUND for the seller"
+      - "Then steps 1 and 2 are not done (not \"chưa rõ\") and steps 3 and 4 are evaluated from their own sources"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts missing storefront is not done not unknown. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.the-seller-id-comes-from-the-session-not-the-request
+    title: "Getting started: the seller id comes from the session, not the request"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `/seller` is requested with the query string `?sellerId=s-other`"
+      - "Then `GetStorefront` is called with the principal's seller id and never with `s-other`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/(dashboard)/page.test.tsx getting started uses the principal seller id. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-visitor-without-listing-write-never-reaches-the-card
+    title: "Getting started: a visitor without listing.write never reaches the card"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `/seller` renders for an anonymous visitor, and again for a signed-in principal without `listing.write`"
+      - "Then the anonymous visitor is redirected to login, the other principal gets no card, and none of the four data sources is called in either case"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/(dashboard)/page.test.tsx no card and no calls without seller scope. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.the-card-hides-once-all-steps-are-done
+    title: "Getting started: the card hides once all steps are done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When the seller has a display name, a banner, one listing and one voucher"
+      - "Then the card \"Bắt đầu bán hàng\" is absent from `/seller` and the KPI row is present"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/GettingStartedCard.test.tsx renders nothing when all steps are done. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.an-unavailable-source-shows-chua-ro-and-keeps-the-dashboard
+    title: "Getting started: an unavailable source shows chưa rõ and keeps the dashboard"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `ListMyListings` answers UNAVAILABLE while the other three sources answer normally"
+      - "Then step 3 shows \"chưa rõ\" with its link `/seller/new`, the card stays visible even if the other steps are done, and the dashboard still renders its KPI row, recent orders and product list"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/GettingStartedCard.test.tsx failed source shows chua ro and card stays. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.one-promotion-source-down-and-the-other-empty-is-unknown
+    title: "Getting started: one promotion source down and the other empty is unknown"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `ListMyShopVouchers` answers UNAVAILABLE and `ListMyCampaigns` returns no rows"
+      - "Then step 4 shows \"chưa rõ\""
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts step 4 unknown when one source fails and the other is empty. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.one-promotion-source-down-and-the-other-has-a-row-is-done
+    title: "Getting started: one promotion source down and the other has a row is done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `ListMyShopVouchers` answers UNAVAILABLE and `ListMyCampaigns` returns one campaign"
+      - "Then step 4 is done"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts step 4 done when one source has a row though the other fails. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-source-slower-than-3-s-times-out
+    title: "Getting started: a source slower than 3 s times out"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When `GetStorefront` does not answer within 3 s"
+      - "Then steps 1 and 2 show \"chưa rõ\" at 3 s and the page response is not delayed beyond the other sections"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/gettingStarted.test.ts a source slower than 3s becomes unknown. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.exactly-one-step-missing-keeps-the-card
+    title: "Getting started: exactly one step missing keeps the card"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When three steps are done and only the banner is missing"
+      - "Then the card is shown with step 2 not done and the other three done"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/GettingStartedCard.test.tsx one missing step keeps the card. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-getting-started.a-new-seller-completes-the-steps-in-the-browser
+    title: "Getting started: a new seller completes the steps in the browser"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When a freshly granted seller opens `/seller`, saves a shop name and a banner on `/seller/shop`, creates a listing on `/seller/new`, creates a shop voucher on `/seller/marketing`, and returns to `/seller`"
+      - "Then the first visit shows four not-done steps, each completed step is done on the next visit, and after the last step the card \"Bắt đầu bán hàng\" is absent"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: seller-getting-started.a-seller-with-a-flash-sale-only-sees-the-marketing-step-done
+    title: "Getting started: a seller with a flash sale only sees the marketing step done"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When a seller whose only activity is one flash-sale campaign on their own listing opens `/seller`"
+      - "Then step 3 and step 4 are done, steps 1 and 2 are not done, and the card is shown"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: seller-getting-started.a-buyer-without-the-seller-role-does-not-see-the-card
+    title: "Getting started: a buyer without the seller role does not see the card"
+    persona: seller
+    priority: P2
+    summary: "Change seller-getting-started (initiative seller-centre)."
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-domain, team-promotion]
+    acceptance:
+      - "When a buyer without `listing.write` opens `/seller` on the seller app"
+      - "Then the page shows the onboarding button \"Đồng ý và trở thành Người Bán\" and no text \"Bắt đầu bán hàng\""
+    tags: [seller]
+    status: planned
+    covered_by: null

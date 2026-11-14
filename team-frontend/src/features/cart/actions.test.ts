@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  addBundleToCart,
   addToCart,
   clearCart,
   removeFromCart,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/gateway/cart";
 
 import {
+  addBundleToCartAction,
   addToCartAction,
   clearCartAction,
   removeFromCartAction,
@@ -18,6 +20,7 @@ import {
 
 vi.mock("@/lib/gateway/cart", () => ({
   addToCart: vi.fn(),
+  addBundleToCart: vi.fn(),
   updateCartItem: vi.fn(),
   removeFromCart: vi.fn(),
   clearCart: vi.fn(),
@@ -155,5 +158,80 @@ describe("other cart actions", () => {
     const res = await clearCartAction();
     expect(clearCart).toHaveBeenCalled();
     expect(res).toEqual({ ok: true });
+  });
+});
+
+describe("addBundleToCartAction", () => {
+  it("C1 adds the bundle, revalidates /cart and /checkout and returns success", async () => {
+    vi.mocked(addBundleToCart).mockResolvedValue(cartOf() as never);
+    const res = await addBundleToCartAction("b1");
+    expect(addBundleToCart).toHaveBeenCalledWith("b1", 1);
+    expect(revalidatePath).toHaveBeenCalledWith("/cart");
+    expect(revalidatePath).toHaveBeenCalledWith("/checkout");
+    expect(res.ok).toBe(true);
+  });
+
+  it("C4 addBundleToCartAction reports unauthenticated", async () => {
+    vi.mocked(addBundleToCart).mockRejectedValue(
+      new ConnectError("no session", Code.Unauthenticated),
+    );
+    const res = await addBundleToCartAction("b1");
+    expect(res).toMatchObject({ ok: false, unauthenticated: true });
+    expect(typeof (res as { error?: unknown }).error).toBe("string");
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("C3 failed precondition maps to unavailable", async () => {
+    vi.mocked(addBundleToCart).mockRejectedValue(
+      new ConnectError("listing unpublished", Code.FailedPrecondition),
+    );
+    const res = await addBundleToCartAction("b1");
+    expect(res).toMatchObject({ ok: false, unavailable: true });
+    expect(res).not.toHaveProperty("unauthenticated");
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("C6 addBundleToCartAction maps not found and outage to a plain error", async () => {
+    for (const code of [Code.NotFound, Code.Unavailable]) {
+      vi.mocked(addBundleToCart).mockRejectedValue(
+        new ConnectError("boom", code),
+      );
+      const res = await addBundleToCartAction("b1");
+      expect(res.ok).toBe(false);
+      expect(typeof (res as { error?: unknown }).error).toBe("string");
+      expect((res as { error: string }).error).not.toBe("");
+      expect(res).not.toHaveProperty("unavailable");
+      expect(res).not.toHaveProperty("unauthenticated");
+    }
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("bundleDropped on remove and update (C10)", () => {
+  it("C10 removeFromCartAction reports bundleDropped for a bundled line", async () => {
+    vi.mocked(removeFromCart).mockResolvedValue({} as never);
+    const res = await removeFromCartAction("ci1", "b1");
+    expect(removeFromCart).toHaveBeenCalledWith("ci1");
+    expect(res).toEqual({ ok: true, bundleDropped: true });
+  });
+
+  it("C10 updateCartItemAction reports bundleDropped for a bundled line", async () => {
+    vi.mocked(updateCartItem).mockResolvedValue({} as never);
+    const res = await updateCartItemAction("ci1", 3, "b1");
+    expect(updateCartItem).toHaveBeenCalledWith("ci1", 3);
+    expect(res).toEqual({ ok: true, bundleDropped: true });
+  });
+
+  it("C10 a regular line never reports bundleDropped", async () => {
+    vi.mocked(removeFromCart).mockResolvedValue({} as never);
+    vi.mocked(updateCartItem).mockResolvedValue({} as never);
+    expect(await removeFromCartAction("ci1", "")).toEqual({ ok: true });
+    expect(await updateCartItemAction("ci1", 2, "")).toEqual({ ok: true });
+  });
+
+  it("C10 a failed remove of a bundled line does not report bundleDropped", async () => {
+    vi.mocked(removeFromCart).mockRejectedValue(new Error("gone"));
+    const res = await removeFromCartAction("ci1", "b1");
+    expect(res).toEqual({ ok: false, error: "gone" });
   });
 });

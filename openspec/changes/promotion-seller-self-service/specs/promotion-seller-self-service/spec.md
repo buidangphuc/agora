@@ -21,7 +21,7 @@ caller is UNAUTHENTICATED. Every `CreateCampaign` SHALL store the listing owner 
 #### Scenario: Paging boundary at 21 campaigns
 - **WHEN** seller A, who has 21 campaigns, calls ListMyCampaigns with `page_size` 20 and then with the returned cursor
 - **THEN** the first call returns 20 campaigns and a non-empty `next_cursor`, the second returns 1 campaign and an empty `next_cursor`, with no repeats
-- **VERIFIED BY**: team-promotion `internal/flashsale` `TestListMyCampaignsPaging`
+- **VERIFIED BY**: team-promotion `internal/flashsale` `TestListMyCampaignsPaging_PagingBoundaryAt21Campaigns`
 
 #### Scenario: Caller without listing.write is denied
 - **WHEN** a buyer without scope `listing.write` calls ListMyCampaigns through the gateway
@@ -36,7 +36,7 @@ caller is UNAUTHENTICATED. Every `CreateCampaign` SHALL store the listing owner 
 #### Scenario: A new campaign records the listing owner
 - **WHEN** seller A creates a campaign for A's listing, and an admin creates one for seller B's listing
 - **THEN** A's campaign has `seller_id` = A and the admin-created campaign has `seller_id` = B, and the admin campaign appears in B's ListMyCampaigns
-- **VERIFIED BY**: team-promotion `internal/flashsale` `TestCreateCampaignStoresListingOwner`
+- **VERIFIED BY**: team-promotion `internal/flashsale` `TestCampaignSellerCreateStoresListingOwner_NewCampaignRecordsListingOwner`
 
 ### Requirement: A seller cancels only their own SCHEDULED campaign
 
@@ -65,12 +65,12 @@ transaction, and no audit event SHALL be written.
 #### Scenario: Cancelling twice is idempotent
 - **WHEN** seller A cancels the same SCHEDULED campaign twice
 - **THEN** both calls return OK with status CANCELLED and the same `cancelled_at`
-- **VERIFIED BY**: team-promotion `internal/flashsale` `TestCancelMyCampaignIdempotent`
+- **VERIFIED BY**: team-promotion `internal/flashsale` `TestCancelMyCampaignIdempotent_CancellingTwiceIsIdempotent`
 
 #### Scenario: Campaign starting during the cancel is not cancelled
 - **WHEN** a campaign's `starts_at` passes between the seller's page load and the CancelMyCampaign call
 - **THEN** the call fails with FAILED_PRECONDITION because the status is evaluated under the row lock at call time
-- **VERIFIED BY**: team-promotion `internal/store` `TestCancelIfScheduledOwnedBoundary`
+- **VERIFIED BY**: team-promotion `internal/store` `TestCancelIfScheduledOwnedBoundary_CampaignStartingDuringTheCancelIsNotCancelled`
 
 #### Scenario: Seller cancellation writes no audit event
 - **WHEN** a seller cancels their SCHEDULED campaign while team-audit is stopped
@@ -192,4 +192,4 @@ rows keep working for every existing RPC.
 #### Scenario: Migration keeps old rows valid
 - **WHEN** migration 0009 is applied to a database holding campaigns created before it
 - **THEN** those rows have `seller_id` = '' and the admin ListCampaigns, GetActiveFlashSale and stock reserve return the same results as before
-- **VERIFIED BY**: team-promotion `internal/store` `TestMigration0009KeepsOldCampaigns`
+- **VERIFIED BY**: team-promotion `internal/store` `TestMigration0009CampaignSeller_KeepsOldRowsValid`
