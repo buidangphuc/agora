@@ -89,7 +89,7 @@ attached to the external network `platform-core_default`):
 ```bash
 (cd platform-core/infra && docker compose -p platform-core up -d)   # infra
 docker compose -f docker-compose.services.yaml up -d --build         # services (repo root)
-platform-core/tools/seed-marketplace.sh                              # seed accounts + catalog
+platform-core/tools/seed-marketplace.sh                              # seed accounts + catalog; sellers KYC-verified via ReviewKyc (ADMIN_USERNAME/ADMIN_PASSWORD)
 ```
 
 Then:

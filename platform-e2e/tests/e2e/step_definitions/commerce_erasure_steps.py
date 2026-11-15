@@ -311,6 +311,7 @@ def given_payout_seller(oic, name: str, count: int) -> None:
     oic.actors["seller"] = seller
     b = p.buyer(oic, f"buyer-{name}")
     p.credit_and_age(oic, seller, b, f"L-{name}", PRICE)
+    p.ensure_verified(oic, seller)
     for _ in range(count):
         s.ok(
             s.post(

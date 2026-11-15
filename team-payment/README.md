@@ -25,11 +25,11 @@ principal, id `anonymous` and type ANONYMOUS are rejected with `Unauthenticated`
 | `ProcessMockPayment` | Authenticated; the transaction's buyer or an admin (`requireBuyerOrAdmin`, no seller read) | Served by the `payment-provider` adapter chosen with `MOCK_DATA`: without `MOCK_DATA=payment-provider` it returns `FailedPrecondition` `mock payments are disabled`. With it, `simulate_success=true` settles to PAID, `false` sets FAILED. Already PAID returns success without re-settling. Writes no ledger entry (the seller is credited from `OrderPaidEvent`, see Events). |
 | `RefundPayment` | Authenticated; the order's seller (user principal, seller id resolved via `team-order.GetOrder`) or a principal with scope `admin`, else `PermissionDenied` | `refund_id` is required (1-64 of `[A-Za-z0-9._:-]`, else `InvalidArgument`) and is the idempotency key, stored as `rpc:<refund_id>`. `amount` > 0 (`InvalidArgument`) and at most the refundable remainder (`FailedPrecondition` `refund amount exceeds the refundable remainder`); a `REFUNDED` or unpaid payment is `FailedPrecondition`; the same id with another payment or amount is `AlreadyExists`; the same id and amount again succeeds and writes nothing. See Refund model. Never blocked by balance or hold (the balance may go negative). `payment_id` may also be an order id. |
 | `GetSellerWallet` | `sellerAccess`, admin read allowed | Balance = `SUM(wallet_ledger.amount)`, currency VND. Same data as `GetWalletBalance`. |
-| `RequestPayout` | `sellerAccess`, owner only | Requires `bank_code`, `account_number`, `account_name`. Debits the ledger through the same atomic step as `RequestWalletPayout` (same refusals; a refused payout records nothing), then stores the bank details in `payout_requests` linked by `ledger_entry_id`. |
+| `RequestPayout` | `sellerAccess`, owner only; the seller must be VERIFIED | After authz and validation, fails `FAILED_PRECONDITION` `seller verification required` while `GetVerificationStatus` is not VERIFIED, and `UNAVAILABLE` `verification unavailable` on any verification error (fail closed, see Consumes). Requires `bank_code`, `account_number`, `account_name`. Debits the ledger through the same atomic step as `RequestWalletPayout` (same refusals; a refused payout records nothing), then stores the bank details in `payout_requests` linked by `ledger_entry_id`. |
 | `ListPayoutHistory` | `sellerAccess`, admin read allowed | Reads `payout_requests`. |
 | `GetWalletBalance` | `sellerAccess`, admin read allowed | Ledger model: `SUM(wallet_ledger.amount)`. |
 | `ListLedgerEntries` | `sellerAccess`, admin read allowed | Ledger model, newest first, opaque offset cursor (`o:<offset>`, base64; the page size is clamped by `pagination.Clamp`), page size default 20 and max 100. `reference_id`: the payment id for an `ORDER_SETTLEMENT`, the refund id (`rpc:`/`return:`/`cancel:`/`legacy:` key) for a `REFUND_DEDUCTION`, empty for a payout. |
-| `RequestWalletPayout` | `sellerAccess`, owner only | Ledger model: appends a negative PENDING `PAYOUT` row. Balance check, hold check and debit are one atomic step (per-seller `pg_advisory_xact_lock` in one transaction). Above the balance: `FailedPrecondition` `insufficient wallet balance`; within the balance but above the withdrawable amount: `FailedPrecondition` `amount is held until <RFC3339 UTC> (refund window)` (see Payout hold-back). |
+| `RequestWalletPayout` | `sellerAccess`, owner only; the seller must be VERIFIED | Same verification gate as `RequestPayout`. Ledger model: appends a negative PENDING `PAYOUT` row. Balance check, hold check and debit are one atomic step (per-seller `pg_advisory_xact_lock` in one transaction). Above the balance: `FailedPrecondition` `insufficient wallet balance`; within the balance but above the withdrawable amount: `FailedPrecondition` `amount is held until <RFC3339 UTC> (refund window)` (see Payout hold-back). |
 | `GetPayoutObligations` | Service principal holding scope `payment.internal.read` only (`auth.RequireService`); a user principal or a service without the scope gets `PermissionDenied`, no principal `Unauthenticated`. Not routed at the gateway | Internal, for team-identity's erasure check. Empty `user_id` is `InvalidArgument`. Returns `available_balance` (withdrawable: balance minus held, never below 0), `held_balance` (proceeds inside the hold window, same split as payouts) and `pending_payouts` (payout requests PENDING or PROCESSING). A user with no wallet reads zeros. |
 
 `sellerAccess` (`internal/rpc/wallet_ledger.go`) never trusts the request `seller_id` alone:
@@ -39,7 +39,7 @@ principal, id `anonymous` and type ANONYMOUS are rejected with `Unauthenticated`
 - Payouts are owner-only: an admin or a service principal cannot pay out. A service principal with
   an empty `seller_id` gets `InvalidArgument`; any other mismatch gets `PermissionDenied`.
 
-**Consumes (upstream):** `team-order` `OrderService.GetOrder` at `UPSTREAM_ORDER_ADDR`, used for
+**Consumes (upstream):** `team-verification` `VerificationService.GetVerificationStatus` at `UPSTREAM_VERIFICATION_ADDR`, checked before `RequestPayout` and `RequestWalletPayout` (service principal `service-team-payment`, scope `verification.read`, single attempt bounded to 2 s, any error is `UNAVAILABLE`); `team-order` `OrderService.GetOrder` at `UPSTREAM_ORDER_ADDR`, used for
 (1) the `PENDING` check and amount/currency in `CreatePayment`, and (2) the seller check in
 `RefundPayment` and in `GetPayment` for non-buyer callers. The settlement credit makes no call: seller and amount come from the event and
 the own transaction. The
@@ -237,7 +237,7 @@ expect zero rows.
 
 Settings are loaded by the SDK `config` package in `internal/config/config.go`; every key is also in `.env.example`
 (`internal/config` tests fail when they drift). Durations are Go durations (`10s`). There are no enable flags: Postgres,
-Kafka, `team-order` and `team-audit` are required.
+Kafka, `team-order`, `team-audit` and `team-verification` are required.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -257,6 +257,7 @@ Kafka, `team-order` and `team-audit` are required.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | OTLP endpoint |
 | `OTEL_SERVICE_NAME` | `team-payment` | Service name in traces |
 | `UPSTREAM_ORDER_ADDR` | required | team-order gRPC address |
+| `UPSTREAM_VERIFICATION_ADDR` | required | team-verification gRPC address. Payouts need a VERIFIED seller; the service refuses to boot without it |
 | `UPSTREAM_AUDIT_ADDR` | required | team-audit gRPC address. Every admin `RefundPayment` writes a `payment.admin_refund` audit event (target `payment/<id>`, metadata `order_id`, `refund_id`, `amount`) before the refund; an audit failure returns `UNAVAILABLE` and no refund happens. Seller refunds are not audited |
 | `MOCK_DATA` | empty | Comma-separated mock adapters; `MOCK_DATA=payment-provider` enables the fixture adapter behind `ProcessMockPayment`. Refused in staging and prod |
 | `PAYOUT_HOLD_DAYS` | `7` | Payout hold window in days, 0-3650; `0` disables the hold. Invalid refuses startup |
@@ -355,7 +356,7 @@ from `COPY . .`, so `generated/` must exist in the build context; the SDK module
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (108 features: 71 `automated`, 37 `not-testable`), including
+- Feature manifest: `FEATURES.yaml` (223 features: 74 `automated`, 26 `planned`, 123 `not-testable`), including
   `payment.mock-pay`, `payment.seller-wallet`, `payment.payout`, `payment.refund` and the wallet-access
   authz features. Automated entries carry a `covered_by` pointing at a scenario in `platform-e2e`.
 - Verify e2e coverage with `make -C platform-e2e features-check`, and for an OpenSpec change with

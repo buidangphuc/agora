@@ -36,6 +36,8 @@ except ImportError:
 
 DEFAULT_GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://localhost:8080")
 DEFAULT_PASSWORD = "pass123"
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin-dev-password-123")
 
 CATEGORIES = [
     {"id": "cat-electronics", "name": "Điện Tử & Thiết Bị Số"},
@@ -1204,17 +1206,47 @@ class MarketplaceSeeder:
             self.seller_tokens[s["username"]] = token
             self.seller_user_ids[s["username"]] = uid
 
-            # Submit KYC Document for Seller
-            kyc_payload = {
-                "doc_type": s["kyc"]["doc_type"],
-                "doc_ref": s["kyc"]["doc_ref"],
-            }
-            code, res = self.client.post(
-                "/platform.verification.v1.VerificationService/SubmitKyc",
-                kyc_payload,
-                token=token,
-            )
-            print(f"  ✓ Seller: {s['shop_name']} (@{s['username']}) - KYC Submitted [{s['kyc']['doc_type']}]")
+            self.verify_seller(s["username"], token, s["kyc"]["doc_type"])
+            print(f"  ✓ Seller: {s['shop_name']} (@{s['username']}) - KYC verified [{s['kyc']['doc_type']}]")
+
+    def verify_seller(self, username: str, token: str, doc_type: str):
+        svc = "/platform.verification.v1.VerificationService"
+        code, res = self.client.post(f"{svc}/GetVerificationStatus", {}, token=token)
+        if isinstance(res, dict) and res.get("result", res).get("status") == "VERIFICATION_STATUS_VERIFIED":
+            return
+        body = b"agora-seed-kyc-" + username.encode()
+        code, grant = self.client.post(
+            f"{svc}/CreateKycUploadUrl",
+            {"contentType": "image/jpeg", "sizeBytes": len(body)},
+            token=token,
+        )
+        grant = grant.get("result", grant) if isinstance(grant, dict) else {}
+        if self.client.dry_run:
+            grant = {"uploadUrl": "", "docRef": f"dry-{username}"}
+        if not grant.get("docRef"):
+            print(f"  ⚠️ KYC upload slot failed for {username}")
+            return
+        if not self.client.dry_run and requests:
+            from urllib.parse import urlsplit, urlunsplit
+            parts = urlsplit(grant["uploadUrl"])
+            target = urlsplit(os.getenv("KYC_S3_ENDPOINT", "http://localhost:9000"))
+            url = urlunsplit((target.scheme, target.netloc, parts.path, parts.query, ""))
+            requests.put(url, data=body, headers={"Host": parts.netloc, "Content-Type": "image/jpeg"}, timeout=30)
+        code, sub = self.client.post(
+            f"{svc}/SubmitKyc",
+            {"docType": doc_type, "docRef": grant["docRef"]},
+            token=token,
+        )
+        sub = sub.get("result", sub) if isinstance(sub, dict) else {}
+        sub_id = "dry-sub" if self.client.dry_run else sub.get("id")
+        if not sub_id:
+            return
+        code, admin_res = self.client.post(
+            "/platform.identity.v1.AuthService/Login",
+            {"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+        )
+        admin_token = admin_res.get("result", admin_res).get("token") if isinstance(admin_res, dict) else None
+        self.client.post(f"{svc}/ReviewKyc", {"id": sub_id, "decision": "approve"}, token=admin_token)
 
     def seed_buyers(self):
         print("\n👤 [2/6] Seeding 10 Buyer Accounts with Authentic Shipping Addresses...")
