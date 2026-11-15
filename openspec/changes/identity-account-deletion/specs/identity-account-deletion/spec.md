@@ -230,6 +230,7 @@ team-identity for signed-in users and SHALL answer 501 for `OrderService.GetUser
 
 - **WHEN** any caller posts `GetUserObligations` or `GetPayoutObligations` through the gateway
 - **THEN** the gateway returns 501
+- **VERIFIED BY**: `team-gateway/internal/edge` `TestObligationRPCsAreNotRoutedAtTheGateway`
 
 ### Requirement: Deletion logs carry no personal data
 
