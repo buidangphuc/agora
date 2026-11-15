@@ -3217,3 +3217,403 @@ features:
     tags: [seller]
     status: planned
     covered_by: null
+
+  - id: sspu.first-page-of-a-large-shop
+    title: "First page of a large shop"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: First page of a large shop"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with 5,000 orders opens `/seller/orders`"
+      - "Then the table shows 20 rows, the \"Tất cả\" badge shows 5000, and the seller app issued exactly one `ListSellerOrders` call with `page_size` 20"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.status-tab-filters-on-the-server
+    title: "Status tab filters on the server"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Status tab filters on the server"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller/orders?status=shipped`"
+      - "Then every row has status \"Đang giao hàng\" and the \"Đang giao\" badge equals the number of SHIPPED orders of the seller"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.badges-stay-stable-while-searching
+    title: "Badges stay stable while searching"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Badges stay stable while searching"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller/orders?status=shipped&q=<8-char order id prefix>`"
+      - "Then the table shows only the matching order and the \"Tất cả\" badge still shows the count of all orders matching the query"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.next-page-uses-the-returned-cursor
+    title: "Next page uses the returned cursor"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Next page uses the returned cursor"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller clicks \"Trang sau\" on page 1 of 45 orders"
+      - "Then the URL holds `cursor` and `page=2`, the table shows the remaining 20 orders after the first 20, and no order of page 1 appears again"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.last-page-has-no-next-link
+    title: "Last page has no next link"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Last page has no next link"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens the last page of the list"
+      - "Then the \"Trang sau\" control is not rendered and the table shows between 1 and 20 rows"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.query-is-trimmed-to-100-characters
+    title: "Query is trimmed to 100 characters"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Query is trimmed to 100 characters"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller/orders?q=` followed by 150 characters"
+      - "Then the request carries a `query` of 100 characters and the page renders without an error"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.orders-page-unknown-cursor-shows-the-retry-state
+    title: "Orders page unknown cursor shows the retry state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Orders page unknown cursor shows the retry state"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller/orders?cursor=not-a-cursor`"
+      - "Then the page shows the error Alert \"Không tải được danh sách đơn hàng\" with a \"Thử lại\" link to `/seller/orders` without `cursor`"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.changing-tab-or-search-resets-the-position
+    title: "Changing tab or search resets the position"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Changing tab or search resets the position"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller is on page 3 and selects the \"Hoàn thành\" tab"
+      - "Then the URL contains neither `cursor` nor `page` and the first page of completed orders is shown"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.no-match-shows-the-empty-result
+    title: "No match shows the empty result"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: No match shows the empty result"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller searches a text that matches no order"
+      - "Then the page shows \"Không có kết quả\" with a \"Xoá bộ lọc\" link to `/seller/orders`"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.a-non-seller-principal-is-denied
+    title: "A non-seller principal is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: A non-seller principal is denied"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a buyer principal without the `listing.write` scope opens `/seller/orders`"
+      - "Then the page renders no order row and no `ListSellerOrders` call is made"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.kpis-of-a-large-catalogue
+    title: "KPIs of a large catalogue"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: KPIs of a large catalogue"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with 2,000 listings (1,200 published) opens `/seller`"
+      - "Then \"Tổng sản phẩm\" shows 2000, \"Đang bán\" shows 1200 and the product table shows 20 rows"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.status-filter-runs-in-team-domain
+    title: "Status filter runs in team-domain"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Status filter runs in team-domain"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller?status=draft`"
+      - "Then every row is a draft listing and the request carried `statuses = [DRAFT]`"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.title-search-runs-in-team-domain
+    title: "Title search runs in team-domain"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Title search runs in team-domain"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller?q=áo thun`"
+      - "Then every row title contains \"áo thun\" ignoring case and the request carried `query = \"áo thun\"`"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.next-product-page-uses-the-cursor
+    title: "Next product page uses the cursor"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Next product page uses the cursor"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller clicks \"Trang sau\" under the product table"
+      - "Then the URL holds `cursor` and `page=2` and the table shows listings not shown on page 1"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.orders-source-down-degrades-only-its-blocks
+    title: "Orders source down degrades only its blocks"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Orders source down degrades only its blocks"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `ListSellerOrders` fails while `/seller` renders"
+      - "Then the page answers HTTP 200, the \"Cần gửi\" KPI is omitted, the recent-orders block shows its error state with a retry link, and the product table still renders"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.listings-source-down-shows-the-retry-state
+    title: "Listings source down shows the retry state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Listings source down shows the retry state"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `ListMyListings` fails while `/seller` renders"
+      - "Then the product block shows the error Alert \"Không tải được danh sách sản phẩm\" with a \"Thử lại\" link and the order blocks still render"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.an-unknown-product-cursor-shows-the-retry-state
+    title: "An unknown product cursor shows the retry state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: An unknown product cursor shows the retry state"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller?cursor=not-a-cursor`"
+      - "Then the product block shows the error Alert with a \"Thử lại\" link to `/seller` without `cursor`"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.a-principal-without-the-seller-scope-is-denied
+    title: "A principal without the seller scope is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: A principal without the seller scope is denied"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a buyer principal without the `listing.write` scope opens `/seller`"
+      - "Then the page renders no listing or order row and makes no `ListMyListings` or `ListSellerOrders` call"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.picker-opens-with-the-first-options
+    title: "Picker opens with the first options"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Picker opens with the first options"
+    entry_route: /seller/bundles
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with 2,000 listings opens `/seller/ads`"
+      - "Then the picker lists at most 20 published listings and the page issued one `ListMyListings` call"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.typing-narrows-the-options
+    title: "Typing narrows the options"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Typing narrows the options"
+    entry_route: /seller/bundles
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller types \"quần\" in the bundle picker and waits 300 ms"
+      - "Then the picker lists only own published listings whose title contains \"quần\" ignoring case, at most 20"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.selection-survives-a-new-search
+    title: "Selection survives a new search"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Selection survives a new search"
+    entry_route: /seller/bundles
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller selects two listings in the bundle picker and then searches another text"
+      - "Then the two selected listings remain selected and are submitted by \"Tạo combo\""
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.search-without-a-result
+    title: "Search without a result"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Search without a result"
+    entry_route: /seller/bundles
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller types a text that matches no published listing"
+      - "Then the picker shows \"Không tìm thấy sản phẩm\" and offers no option"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.search-fails
+    title: "Search fails"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Search fails"
+    entry_route: /seller/bundles
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `ListMyListings` fails during a picker search"
+      - "Then the picker shows \"Không tải được sản phẩm\" with a retry control and keeps the current selection"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: sspu.a-buyer-cannot-call-the-search-action
+    title: "A buyer cannot call the search action"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: A buyer cannot call the search action"
+    entry_route: /seller/bundles
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without the `listing.write` scope invokes `searchMyListingsAction`"
+      - "Then the action returns an error and no listing is returned"
+    tags: [seller, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/actions.test.ts` `searchMyListingsAction denies a principal without listing.write`. Unit level: a server action cannot be invoked from the browser without its build-time action id."
+
+  - id: sspu.search-text-stays-out-of-the-server-logs
+    title: "Search text stays out of the server logs"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: Search text stays out of the server logs"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller searches `/seller/orders?q=0901234567`"
+      - "Then the seller app server output captured during the request does not contain \"0901234567\""
+    tags: [seller]
+    status: planned
+    covered_by: null
