@@ -11,7 +11,7 @@ spec: plans/docs-ai-data/00-spec.md (Locked 2026-11-13)
 | forecast-nightly-job | platform-forecast | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 19b344b05766 | [x] |
 | analytics-forecast-serving | team-analytics | [docs-ai-data-contract, forecast-nightly-job] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d53c8e85412e | [x] |
 | recs-experiment-arms | team-ai | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 31f1eb885578 | [x] |
-| analytics-experiment-reports | team-analytics | [docs-ai-data-contract, analytics-forecast-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 5a60c9fe79cd | [x] |
+| analytics-experiment-reports | team-analytics | [docs-ai-data-contract, analytics-forecast-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c06fea1873ba | [x] |
 | ai-assistant-grounding | team-ai | [docs-ai-data-contract, recs-experiment-arms] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6e5b9b48e616 | [x] |
 | ai-copilot-grounding | team-ai | [docs-ai-data-contract, ai-assistant-grounding] | 1 | pass | pass (1 PERM warning, false positive) | pass | ENGINE_DOWN (LLM fallback) | f1c635233431 | [x] |
 | seller-forecast-card | team-frontend-seller | [analytics-forecast-serving, ai-copilot-grounding] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 79b4f5651141 | [x] |
