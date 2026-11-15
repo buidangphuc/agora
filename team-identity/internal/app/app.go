@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/twmb/franz-go/pkg/kgo"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
+	sdkup "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/upstream"
 
 	"github.com/buidangphuc/team-identity/internal/config"
 	"github.com/buidangphuc/team-identity/internal/events"
@@ -36,6 +38,8 @@ import (
 const (
 	serviceName  = "team-identity"
 	auditScope   = "audit.write"
+	orderScope   = "order.internal.read"
+	paymentScope = "payment.internal.read"
 	closeGrace   = 2 * time.Second
 	jwksGrace    = 5 * time.Second
 	seedTimeout  = 30 * time.Second
@@ -124,8 +128,25 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 	stack.Push(func(context.Context) error { return auditConn.Close() })
 	gate := auditx.NewGate(upstream.NewAuditWriter(auditConn), logger)
 
+	orderConn, err := sdkup.NewClient(s.Upstream.OrderAddr, sdkup.AsService("service-"+serviceName, orderScope))
+	if err != nil {
+		return nil, fmt.Errorf("order upstream: %w", err)
+	}
+	stack.Push(func(context.Context) error { return orderConn.Close() })
+	paymentConn, err := sdkup.NewClient(s.Upstream.PaymentAddr, sdkup.AsService("service-"+serviceName, paymentScope))
+	if err != nil {
+		return nil, fmt.Errorf("payment upstream: %w", err)
+	}
+	stack.Push(func(context.Context) error { return paymentConn.Close() })
+
 	ttl := time.Duration(s.JWT.TTLSeconds) * time.Second
 	users := store.NewPostgresUserRepository(pool)
+	deletion := identity.NewAccountDeletionService(identity.AccountDeletionDeps{
+		Users:       deletionRepo{PostgresUserRepository: users, pool: pool},
+		Obligations: upstream.NewObligations(orderConn, paymentConn),
+		Window:      s.AccountDeletion.CancelWindow,
+		Gate:        gate,
+	})
 	sessions := store.NewPostgresSessionRepository(pool)
 	svc, err := identity.NewAuthService(users, sessions, signer, ttl, gate)
 	if err != nil {
@@ -151,7 +172,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 		Session: rpc.NewSessionHandler(sessions, logger).WithTokenTTL(ttl),
 		Profile: rpc.NewProfileHandler(users, logger),
 		Admin:   rpc.NewAccountAdminHandler(svc, users, logger),
-		Privacy: rpc.NewPrivacyHandler(users, s.LegalTerms, s.PrivacyPolicy, s.SellerTerms, logger),
+		Privacy: rpc.NewPrivacyHandler(users, s.LegalTerms, s.PrivacyPolicy, s.SellerTerms, logger).WithAccountDeletion(deletion),
 	})
 
 	relayer, err := outbox.NewRelayer(outStore, pub, outbox.RelayerOptions{
@@ -191,6 +212,19 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 		return nil, err
 	}
 
+	eraseEvery := s.AccountDeletion.SweepInterval
+	if eraseEvery <= 0 {
+		eraseEvery = s.Retention.SweepInterval
+	}
+	erasure := identity.NewErasureSweeper(users, identity.ErasureSweeperConfig{
+		Interval:  eraseEvery,
+		BatchSize: s.Retention.SweepBatchSize,
+	}, logger)
+	erase, err := lifecycle.Every(eraseEvery, erasure.Tick, lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		return nil, err
+	}
+
 	jwks := lifecycle.HTTP(&http.Server{
 		Addr:              net.JoinHostPort(s.Host, strconv.Itoa(s.JWT.JWKSHTTPPort)),
 		Handler:           token.JWKSHandler(token.PublicKey{Kid: signer.KID(), Key: signer.PublicKey()}),
@@ -211,7 +245,24 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 				OnShutdown:    []func(){health.Drain},
 				Closers:       []func(context.Context) error{stack.Close},
 				Logger:        logger,
-			}, health, jwks, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, sweep))
+			}, health, jwks, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, sweep, erase))
 		},
 	}, nil
+}
+
+type deletionRepo struct {
+	*store.PostgresUserRepository
+	pool *pgxpool.Pool
+}
+
+func (r deletionRepo) DeletionEraseAfter(ctx context.Context, userID string) (time.Time, error) {
+	var erase *time.Time
+	err := r.pool.QueryRow(ctx, `SELECT erase_after FROM users WHERE id = $1 AND status <> 'deleted'`, userID).Scan(&erase)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && erase == nil) {
+		return time.Time{}, nil
+	}
+	if err != nil {
+		return time.Time{}, fmt.Errorf("read erase_after: %w", err)
+	}
+	return *erase, nil
 }

@@ -110,3 +110,12 @@ func TestAccountAdminRPCsAreNotPublicAndNeedAdminScope(t *testing.T) {
 		t.Error("admin role must hold the admin scope")
 	}
 }
+
+// Scenario: identity.account-deletion-login-to-an-erased-account-fails (scopes for deleted are empty)
+func TestScopesForUserDeletedIsEmpty(t *testing.T) {
+	for _, roles := range [][]string{{authz.RoleSeller}, {authz.RoleBuyer}, {authz.RoleSeller, authz.RoleBuyer}, nil} {
+		if got := authz.ScopesForUser(roles, "deleted"); len(got) != 0 {
+			t.Fatalf("scopes for deleted %v = %v, want none", roles, got)
+		}
+	}
+}

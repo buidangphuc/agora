@@ -96,6 +96,12 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 		}
 		return AuthResult{}, fmt.Errorf("%w: user lookup", ErrRefreshUnavailable)
 	}
+	if u.Status == store.StatusDeleted {
+		if err := s.revokeRefreshed(ctx, res.Session, ev); err != nil {
+			return AuthResult{}, err
+		}
+		return AuthResult{}, ErrInvalidRefreshToken
+	}
 	if u.Status == store.StatusSuspended || u.Status == store.StatusBanned {
 		if err := s.revokeRefreshed(ctx, res.Session, ev); err != nil {
 			return AuthResult{}, err

@@ -95,14 +95,39 @@ func (p PasswordReset) ResolveFor(rt sdkconfig.Runtime) error {
 }
 
 type Upstream struct {
-	AuditAddr string `env:"UPSTREAM_AUDIT_ADDR"`
+	AuditAddr   string `env:"UPSTREAM_AUDIT_ADDR"`
+	OrderAddr   string `env:"UPSTREAM_ORDER_ADDR"`
+	PaymentAddr string `env:"UPSTREAM_PAYMENT_ADDR"`
 }
 
 func (u Upstream) Validate() error {
-	if strings.TrimSpace(u.AuditAddr) == "" {
-		return errors.New("UPSTREAM_AUDIT_ADDR is required")
+	var errs []error
+	for _, c := range []struct{ key, val string }{
+		{"UPSTREAM_AUDIT_ADDR", u.AuditAddr},
+		{"UPSTREAM_ORDER_ADDR", u.OrderAddr},
+		{"UPSTREAM_PAYMENT_ADDR", u.PaymentAddr},
+	} {
+		if strings.TrimSpace(c.val) == "" {
+			errs = append(errs, fmt.Errorf("%s is required", c.key))
+		}
 	}
-	return nil
+	return errors.Join(errs...)
+}
+
+type AccountDeletion struct {
+	CancelWindow  time.Duration `env:"ACCOUNT_DELETION_CANCEL_WINDOW" default:"48h"`
+	SweepInterval time.Duration `env:"ACCOUNT_ERASURE_SWEEP_INTERVAL" default:"1h"`
+}
+
+func (a AccountDeletion) Validate() error {
+	var errs []error
+	if a.CancelWindow <= 0 {
+		errs = append(errs, errors.New("ACCOUNT_DELETION_CANCEL_WINDOW must be > 0"))
+	}
+	if a.SweepInterval <= 0 {
+		errs = append(errs, errors.New("ACCOUNT_ERASURE_SWEEP_INTERVAL must be > 0"))
+	}
+	return errors.Join(errs...)
 }
 
 type Retention struct {
@@ -183,22 +208,23 @@ func (p PrivacyPolicy) Validate() error {
 type Settings struct {
 	sdkconfig.Runtime
 	sdkconfig.GRPC
-	Postgres      sdkconfig.Postgres
-	Kafka         sdkconfig.Kafka
-	LogKeyFP      sdkconfig.LogKeyFP
-	OTel          sdkconfig.OTel
-	Outbox        sdkconfig.Outbox
-	OutboxPurge   OutboxPurge
-	Events        Events
-	JWT           JWT
-	SeedAdmin     SeedAdmin
-	PasswordReset PasswordReset
-	Upstream      Upstream
-	Retention     Retention
-	Handoff       Handoff
-	SellerTerms   SellerTerms
-	LegalTerms    LegalTerms
-	PrivacyPolicy PrivacyPolicy
+	Postgres        sdkconfig.Postgres
+	Kafka           sdkconfig.Kafka
+	LogKeyFP        sdkconfig.LogKeyFP
+	OTel            sdkconfig.OTel
+	Outbox          sdkconfig.Outbox
+	OutboxPurge     OutboxPurge
+	Events          Events
+	JWT             JWT
+	SeedAdmin       SeedAdmin
+	PasswordReset   PasswordReset
+	Upstream        Upstream
+	Retention       Retention
+	Handoff         Handoff
+	SellerTerms     SellerTerms
+	LegalTerms      LegalTerms
+	PrivacyPolicy   PrivacyPolicy
+	AccountDeletion AccountDeletion
 }
 
 func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

@@ -242,6 +242,9 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 	if err != nil {
 		return AuthResult{}, err
 	}
+	if u.Status == store.StatusDeleted {
+		return AuthResult{}, ErrInvalidCredentials
+	}
 	if u.Status == store.StatusSuspended || u.Status == store.StatusBanned {
 		s.recordLogin(ctx, u.ID, false)
 		return AuthResult{}, ErrAccountLocked

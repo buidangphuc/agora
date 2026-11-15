@@ -207,18 +207,6 @@ func TestPrivacyForwarderLaterSliceRPCsUnimplemented(t *testing.T) {
 	auth := f.userBearer(t)
 	ctx := context.Background()
 	calls := map[string]func() error{
-		"RequestAccountDeletion": func() error {
-			_, err := f.client.RequestAccountDeletion(ctx, privacyReq(&identityv1.RequestAccountDeletionRequest{}, auth))
-			return err
-		},
-		"CancelAccountDeletion": func() error {
-			_, err := f.client.CancelAccountDeletion(ctx, privacyReq(&identityv1.CancelAccountDeletionRequest{}, auth))
-			return err
-		},
-		"GetAccountDeletionStatus": func() error {
-			_, err := f.client.GetAccountDeletionStatus(ctx, privacyReq(&identityv1.GetAccountDeletionStatusRequest{}, auth))
-			return err
-		},
 		"ExportMyData": func() error {
 			_, err := f.client.ExportMyData(ctx, privacyReq(&identityv1.ExportMyDataRequest{}, auth))
 			return err

@@ -2,8 +2,10 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -13,6 +15,7 @@ import (
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
 	"github.com/buidangphuc/team-identity/internal/config"
+	"github.com/buidangphuc/team-identity/internal/identity"
 	"github.com/buidangphuc/team-identity/internal/store"
 )
 
@@ -32,11 +35,12 @@ type ConsentRepository interface {
 
 type PrivacyHandler struct {
 	identityv1.UnimplementedPrivacyServiceServer
-	repo    ConsentRepository
-	terms   []string
-	privacy []string
-	seller  []string
-	logger  *slog.Logger
+	repo     ConsentRepository
+	terms    []string
+	privacy  []string
+	seller   []string
+	logger   *slog.Logger
+	deletion *identity.AccountDeletionService
 }
 
 func NewPrivacyHandler(repo ConsentRepository, terms config.LegalTerms, privacy config.PrivacyPolicy, seller config.SellerTerms, logger *slog.Logger) *PrivacyHandler {
@@ -135,4 +139,96 @@ func (h *PrivacyHandler) ListMyConsents(ctx context.Context, req *identityv1.Lis
 		})
 	}
 	return &identityv1.ListMyConsentsResponse{Records: out, Page: &commonv1.PageResponse{NextCursor: next}}, nil
+}
+
+func (h *PrivacyHandler) WithAccountDeletion(svc *identity.AccountDeletionService) *PrivacyHandler {
+	h.deletion = svc
+	return h
+}
+
+func (h *PrivacyHandler) deletionUser(ctx context.Context) (auth.Principal, error) {
+	p, err := auth.RequireUser(ctx)
+	if err != nil {
+		return auth.Principal{}, err
+	}
+	if h.deletion == nil {
+		return auth.Principal{}, status.Error(codes.Unimplemented, "account deletion not enabled")
+	}
+	return p, nil
+}
+
+func (h *PrivacyHandler) RequestAccountDeletion(ctx context.Context, req *identityv1.RequestAccountDeletionRequest) (*identityv1.RequestAccountDeletionResponse, error) {
+	p, err := h.deletionUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetPassword() == "" {
+		return nil, status.Error(codes.InvalidArgument, "password is required")
+	}
+	var erase time.Time
+	run := func(ctx context.Context) error {
+		var rerr error
+		erase, rerr = h.deletion.Request(ctx, p.ID, p.SessionID, req.GetPassword())
+		return rerr
+	}
+	if p.HasScope(scopeAdmin) {
+		err = h.deletion.Audited(ctx, p.ID, "account.deletion_request", run)
+	} else {
+		err = run(ctx)
+	}
+	if err != nil {
+		if status.Code(err) == codes.Unavailable {
+			return nil, err
+		}
+		var blocked *identity.DeletionBlockedError
+		switch {
+		case errors.Is(err, identity.ErrDeletionPasswordMismatch):
+			return nil, status.Error(codes.PermissionDenied, "password does not match")
+		case errors.As(err, &blocked):
+			return nil, status.Error(codes.FailedPrecondition, "account cannot be deleted while there are: "+strings.Join(blocked.Categories, ", "))
+		case errors.Is(err, identity.ErrObligationsUnavailable):
+			h.logger.WarnContext(ctx, "obligation check failed", "op", "request account deletion", "error", err)
+			return nil, status.Error(codes.Unavailable, "service unavailable")
+		}
+		return nil, statusErr(ctx, h.logger, err)
+	}
+	return &identityv1.RequestAccountDeletionResponse{EraseAfter: timestamppb.New(erase)}, nil
+}
+
+func (h *PrivacyHandler) CancelAccountDeletion(ctx context.Context, _ *identityv1.CancelAccountDeletionRequest) (*identityv1.CancelAccountDeletionResponse, error) {
+	p, err := h.deletionUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	run := func(ctx context.Context) error { return h.deletion.Cancel(ctx, p.ID) }
+	if p.HasScope(scopeAdmin) {
+		err = h.deletion.Audited(ctx, p.ID, "account.deletion_cancel", run)
+	} else {
+		err = run(ctx)
+	}
+	if err != nil {
+		if status.Code(err) == codes.Unavailable {
+			return nil, err
+		}
+		if errors.Is(err, identity.ErrNoPendingDeletion) {
+			return nil, status.Error(codes.FailedPrecondition, "no pending account deletion")
+		}
+		return nil, statusErr(ctx, h.logger, err)
+	}
+	return &identityv1.CancelAccountDeletionResponse{}, nil
+}
+
+func (h *PrivacyHandler) GetAccountDeletionStatus(ctx context.Context, _ *identityv1.GetAccountDeletionStatusRequest) (*identityv1.GetAccountDeletionStatusResponse, error) {
+	p, err := h.deletionUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	erase, err := h.deletion.Status(ctx, p.ID)
+	if err != nil {
+		return nil, statusErr(ctx, h.logger, err)
+	}
+	if erase.IsZero() {
+		return &identityv1.GetAccountDeletionStatusResponse{}, nil
+	}
+	return &identityv1.GetAccountDeletionStatusResponse{Pending: true, EraseAfter: timestamppb.New(erase)}, nil
 }
