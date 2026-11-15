@@ -24,6 +24,17 @@ Implement OpenSpec change `identity-account-deletion` test-first per its tasks.m
 - platform-e2e/tests/e2e/features/identity/account_deletion.feature
 - platform-e2e/tests/e2e/step_definitions/test_account_deletion.py
 - platform-e2e/tests/e2e/step_definitions/account_deletion_steps.py
+- widened (P1):
+  - openspec/changes/identity-account-deletion/design.md — the slice's own OpenSpec folder; "Clarifications" entry on admin-scope self-deletion audit (no requirement or scenario wording change)
+  - openspec/changes/identity-account-deletion/specs/identity-account-deletion/spec.md — the slice's own OpenSpec folder; only VERIFIED BY citations added (no requirement or scenario wording change)
+  - platform-e2e/compose/README.md — doc updated by docs-sync (account-deletion overlay row)
+  - platform-e2e/pyproject.toml — pytest marker registration (account_deletion, deletion_default, deletion_sweep_override)
+  - platform-e2e/tests/e2e/features/identity/account_deletion_erasure.feature — e2e feature of this change (packet named it account_deletion.feature)
+  - platform-e2e/tests/e2e/features/identity/account_deletion_gateway.feature — e2e feature of this change (packet named it account_deletion.feature)
+  - platform-e2e/tests/e2e/features/identity/account_deletion_obligations.feature — e2e feature of this change (packet named it account_deletion.feature)
+  - platform-e2e/tests/e2e/features/identity/account_deletion_request.feature — e2e feature of this change (packet named it account_deletion.feature)
+  - platform-e2e/tests/e2e/features/identity/account_deletion_sessions.feature — e2e feature of this change (packet named it account_deletion.feature)
+  - platform-e2e/tests/e2e/support/account_deletion_support.py — e2e support module of this change
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-identity --vet`
