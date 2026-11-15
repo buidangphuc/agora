@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getDispute, listDisputes } from "@/lib/gateway/disputes";
 import type { ViewDispute } from "@/lib/gateway/disputes";
+import { listKycSubmissions } from "@/lib/gateway/kyc";
 import { listModerationQueue } from "@/lib/gateway/moderation";
 import { listReports } from "@/lib/gateway/reports";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
@@ -33,6 +34,15 @@ vi.mock("@/lib/gateway/disputes", () => ({
 vi.mock("@/features/dispute/actions", () => ({
   resolveDisputeAction: vi.fn(),
   createDisputeAction: vi.fn(),
+}));
+vi.mock("@/lib/gateway/kyc", () => ({
+  listKycSubmissions: vi.fn(),
+  getKycDocumentUrl: vi.fn(),
+  reviewKyc: vi.fn(),
+}));
+vi.mock("@/features/admin/kycActions", () => ({
+  viewKycDocumentAction: vi.fn(),
+  reviewKycAction: vi.fn(),
 }));
 vi.mock("@/lib/gateway/reports", () => ({
   listReports: vi.fn(),
@@ -78,6 +88,17 @@ const disputeRow: ViewDispute = {
 const DISPUTES_UNAVAILABLE =
   "Không tải được danh sách khiếu nại. Vui lòng thử lại sau.";
 
+const kycRow = {
+  id: "k-1",
+  userId: "u-seller-9",
+  docType: "cccd",
+  status: "PENDING",
+  documentCount: 2,
+  reasonCode: "",
+  createdAt: "2026-10-05T17:00:00.000Z",
+  reviewedAt: "",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(listDisputes).mockResolvedValue({
@@ -99,6 +120,11 @@ beforeEach(() => {
   vi.mocked(listModerationQueue).mockResolvedValue({
     status: "ok",
     items: [],
+    nextCursor: "",
+  } as never);
+  vi.mocked(listKycSubmissions).mockResolvedValue({
+    status: "ok",
+    items: [kycRow],
     nextCursor: "",
   } as never);
 });
@@ -353,5 +379,107 @@ describe("CasesPage", () => {
     expect(
       screen.getByText("Không tìm thấy khiếu nại này."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("CasesPage kyc tab", () => {
+  const kycSp = (extra: Record<string, string> = {}) => ({
+    searchParams: Promise.resolve({ tab: "kyc", ...extra }),
+  });
+
+  it("kyc tab: anonymous visitor redirects and calls no RPC (KYC queue: Anonymous visitor is redirected to login)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    vi.mocked(getToken).mockReturnValue(undefined);
+    expect(await CasesPage(kycSp())).toBeNull();
+    expect(redirect).toHaveBeenCalledWith("/login?returnUrl=%2Fadmin%2Fcases");
+    expect(listKycSubmissions).not.toHaveBeenCalled();
+  });
+
+  it("kyc tab: non-admin sees the 403 result and calls no RPC (KYC queue: Non-admin sees the 403 result)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(buyer);
+    render(await CasesPage(kycSp()));
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(listKycSubmissions).not.toHaveBeenCalled();
+  });
+
+  it("kyc tab: gateway PermissionDenied renders the 403 result (KYC queue: Gateway refusal is shown as the same 403)", async () => {
+    vi.mocked(listKycSubmissions).mockResolvedValue({
+      status: "forbidden",
+    } as never);
+    render(await CasesPage(kycSp()));
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(
+      screen.getByText("Gateway từ chối quyền admin cho phiên đăng nhập này."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("kyc tab: Unauthenticated redirects to login (KYC queue: Expired session is sent to login)", async () => {
+    vi.mocked(listKycSubmissions).mockResolvedValue({
+      status: "unauthenticated",
+    } as never);
+    expect(await CasesPage(kycSp())).toBeNull();
+    expect(redirect).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(redirect).mock.calls[0][0]).toMatch(
+      /^\/login\?returnUrl=%2Fadmin%2Fcases$/,
+    );
+  });
+
+  it("kyc tab: list failure shows the retry alert (KYC queue: List failure shows a retry message)", async () => {
+    vi.mocked(listKycSubmissions).mockResolvedValue({
+      status: "unavailable",
+    } as never);
+    const { container } = render(await CasesPage(kycSp()));
+    expect(
+      screen.getByText(
+        "Không tải được danh sách hồ sơ xác minh. Vui lòng thử lại sau.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Xác minh người bán" }),
+    ).toBeInTheDocument();
+    expect(container.innerHTML).not.toMatch(/ConnectError|dial tcp/);
+  });
+
+  it("kyc tab: lists PENDING by default and marks the tab (KYC queue: Pending submissions are listed oldest first)", async () => {
+    render(await CasesPage(kycSp()));
+    expect(listKycSubmissions).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(listKycSubmissions).mock.calls[0][0]).toBe("PENDING");
+    expect(vi.mocked(listKycSubmissions).mock.calls[0][1] ?? "").toBe("");
+    expect(listReports).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("link", { name: "Xác minh người bán" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("u-seller-9")).toBeInTheDocument();
+  });
+
+  it("kyc tab: forwards status and cursor (KYC queue: Decided submissions are reachable through the filter)", async () => {
+    render(await CasesPage(kycSp({ status: "rejected", cursor: "c7" })));
+    expect(vi.mocked(listKycSubmissions).mock.calls[0]).toEqual([
+      "REJECTED",
+      "c7",
+    ]);
+  });
+
+  it("kyc tab: calls no document RPC before a click (KYC queue: No document URL is present before the click)", async () => {
+    const { container } = render(await CasesPage(kycSp()));
+    expect(container.innerHTML).not.toMatch(/https?:\/\/[^"]*X-Amz/);
+  });
+
+  it("the disputes tab strip also links the KYC tab (KYC queue: Tab appears next to the existing tabs)", async () => {
+    render(
+      await CasesPage({ searchParams: Promise.resolve({ tab: "disputes" }) }),
+    );
+    expect(
+      screen.getByRole("link", { name: "Xác minh người bán" }),
+    ).toHaveAttribute("href", "/admin/cases?tab=kyc");
+  });
+
+  it("the reports tab strip links the KYC tab (KYC queue: Tab appears next to the existing tabs)", async () => {
+    render(await CasesPage({ searchParams: Promise.resolve({}) }));
+    expect(
+      screen.getByRole("link", { name: "Xác minh người bán" }),
+    ).toHaveAttribute("href", "/admin/cases?tab=kyc");
   });
 });

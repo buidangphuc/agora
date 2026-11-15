@@ -5,6 +5,11 @@ import type { CasesTab } from "./casesParams";
 export const CASES_TABS: { key: CasesTab; label: string; href: string }[] = [
   { key: "reports", label: "Báo cáo", href: "/admin/cases?tab=reports" },
   { key: "queue", label: "Hàng chờ duyệt", href: "/admin/cases?tab=queue" },
+  {
+    key: "kyc",
+    label: "Xác minh người bán",
+    href: "/admin/cases?tab=kyc",
+  },
 ];
 
 export function AdminCasesTabs({ active }: { active: CasesTab }) {

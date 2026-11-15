@@ -31,6 +31,7 @@ import {
 } from "@/generated/platform/promotion/v1/promotion_connect.js";
 import { RecommendationService } from "@/generated/platform/recommendation/v1/recommendation_connect.js";
 import { SearchService } from "@/generated/platform/search/v1/search_connect.js";
+import { VerificationService } from "@/generated/platform/verification/v1/verification_connect.js";
 
 import { anonymousFallbackInterceptor, authInterceptor } from "./auth.js";
 import type { ClientContext } from "./client-context.js";
@@ -73,5 +74,6 @@ export function makeClients(
     voucher: createPromiseClient(VoucherService, transport),
     flashSale: createPromiseClient(FlashSaleService, transport),
     subscription: createPromiseClient(SubscriptionService, transport),
+    verification: createPromiseClient(VerificationService, transport),
   };
 }
