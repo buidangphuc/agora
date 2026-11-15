@@ -207,6 +207,8 @@ services:
       - JWT_KID=dev-2026
       - JWKS_HTTP_PORT=50063
       - SELLER_TERMS_VERSIONS=2026-11-02
+      - LEGAL_TERMS_VERSIONS=2026-11
+      - PRIVACY_POLICY_VERSIONS=2026-11
       - GRPC_PORT=50053
       - ENV=local
       # SessionRevoked outbox relayer (ADR-0003 addendum): RevokeSession writes the
@@ -906,6 +908,9 @@ services:
     build:
       context: ./team-frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_LEGAL_TERMS_VERSION: "2026-11"
+        NEXT_PUBLIC_PRIVACY_POLICY_VERSION: "2026-11"
     image: team-frontend:local
     container_name: team-frontend-svc
     environment:

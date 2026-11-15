@@ -42,6 +42,7 @@ type Clients struct {
 	// reached at the same gRPC endpoint as AuthService/AddressService.
 	Session      identityv1.SessionServiceClient
 	AccountAdmin identityv1.AccountAdminServiceClient
+	Privacy      identityv1.PrivacyServiceClient
 	Engagement   engagementv1.EngagementServiceClient
 	Cart         orderv1.CartServiceClient
 	Order        orderv1.OrderServiceClient
@@ -161,6 +162,7 @@ func Dial(dialTimeout time.Duration, addrs []Addr) (*Clients, error) {
 	c.Address = identityv1.NewAddressServiceClient(identityConn)
 	c.Session = identityv1.NewSessionServiceClient(identityConn)
 	c.AccountAdmin = identityv1.NewAccountAdminServiceClient(identityConn)
+	c.Privacy = identityv1.NewPrivacyServiceClient(identityConn)
 	c.Engagement = engagementv1.NewEngagementServiceClient(engagementConn)
 	c.Cart = orderv1.NewCartServiceClient(orderConn)
 	c.Order = orderv1.NewOrderServiceClient(orderConn)

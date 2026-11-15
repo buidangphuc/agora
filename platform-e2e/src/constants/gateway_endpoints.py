@@ -16,6 +16,9 @@ PROM_RAW_QUERY = "/api/v1/query"  # raw Prometheus query path — must NOT be ex
 # platform.identity.v1
 AUTH_REGISTER = "/platform.identity.v1.AuthService/Register"
 AUTH_LOGIN = "/platform.identity.v1.AuthService/Login"
+PRIVACY_RECORD_CONSENT = "/platform.identity.v1.PrivacyService/RecordConsent"
+PRIVACY_LIST_MY_CONSENTS = "/platform.identity.v1.PrivacyService/ListMyConsents"
+PRIVACY_EXPORT_MY_DATA = "/platform.identity.v1.PrivacyService/ExportMyData"
 ADDRESS_CREATE = "/platform.identity.v1.AddressService/CreateAddress"
 ADDRESS_LIST = "/platform.identity.v1.AddressService/ListAddresses"
 SESSION_LIST = "/platform.identity.v1.SessionService/ListSessions"

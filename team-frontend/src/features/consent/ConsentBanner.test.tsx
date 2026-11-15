@@ -7,6 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { readConsent } from "@/lib/consent/consent";
 
+const ledger = vi.hoisted(() => ({ recordBannerConsent: vi.fn() }));
+vi.mock("./actions", () => ({
+  recordBannerConsent: ledger.recordBannerConsent,
+}));
+
 import { ConsentBanner, CookieSettingsLink } from "./ConsentBanner";
 
 const NOW_MS = 1760000000_000;
@@ -30,6 +35,8 @@ function mountPage() {
 }
 
 beforeEach(() => {
+  ledger.recordBannerConsent.mockReset();
+  ledger.recordBannerConsent.mockResolvedValue(undefined);
   clearCookie();
   vi.spyOn(Date, "now").mockReturnValue(NOW_MS);
 });
@@ -43,20 +50,20 @@ describe("Scenario: First visit shows banner and contacts no Google host", () =>
   it("shows a dialog with analytics, marketing, personalization groups", async () => {
     mountPage();
     const dialog = await screen.findByRole("dialog");
-    for (const g of [/analytics/i, /marketing/i, /personali[sz]ation/i]) {
+    for (const g of [/Phân tích/i, /Tiếp thị/i, /Cá nhân hóa/i]) {
       expect(
         await screen.findByRole("checkbox", { name: g }),
       ).toBeInTheDocument();
     }
     expect(dialog).toHaveAccessibleName();
-    for (const b of [/accept all/i, /reject all/i, /save choices/i]) {
+    for (const b of [/Chấp nhận tất cả/i, /Từ chối tất cả/i, /Lưu lựa chọn/i]) {
       expect(screen.getByRole("button", { name: b })).toBeInTheDocument();
     }
   });
 
   it("starts with every optional group unchecked (opt-in)", async () => {
     mountPage();
-    for (const g of [/analytics/i, /marketing/i, /personali[sz]ation/i]) {
+    for (const g of [/Phân tích/i, /Tiếp thị/i, /Cá nhân hóa/i]) {
       expect(
         await screen.findByRole("checkbox", { name: g }),
       ).not.toBeChecked();
@@ -91,7 +98,7 @@ describe("Scenario: Accept all writes the cookie / Reject all / Granular choice 
     const user = userEvent.setup();
     mountPage();
     await user.click(
-      await screen.findByRole("button", { name: /accept all/i }),
+      await screen.findByRole("button", { name: /Chấp nhận tất cả/i }),
     );
     expect(rawCookie()).toBe("v=1&a=1&m=1&p=1&ts=1760000000");
     await waitFor(() =>
@@ -103,7 +110,7 @@ describe("Scenario: Accept all writes the cookie / Reject all / Granular choice 
     const user = userEvent.setup();
     mountPage();
     await user.click(
-      await screen.findByRole("button", { name: /reject all/i }),
+      await screen.findByRole("button", { name: /Từ chối tất cả/i }),
     );
     expect(rawCookie()).toBe("v=1&a=0&m=0&p=0&ts=1760000000");
     await waitFor(() =>
@@ -115,9 +122,9 @@ describe("Scenario: Accept all writes the cookie / Reject all / Granular choice 
     const user = userEvent.setup();
     mountPage();
     await user.click(
-      await screen.findByRole("checkbox", { name: /personali[sz]ation/i }),
+      await screen.findByRole("checkbox", { name: /Cá nhân hóa/i }),
     );
-    await user.click(screen.getByRole("button", { name: /save choices/i }));
+    await user.click(screen.getByRole("button", { name: /Lưu lựa chọn/i }));
     expect(rawCookie()).toBe("v=1&a=0&m=0&p=1&ts=1760000000");
     expect(readConsent()).toMatchObject({
       analytics: false,
@@ -159,14 +166,14 @@ describe("Scenario: Returning buyer sees no banner", () => {
 
   it("renders no dialog with a valid cookie", async () => {
     mountPage();
-    await screen.findByText(/cookie settings/i);
+    await screen.findByText(/Cài đặt cookie/i);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("footer 'Cookie settings' link re-opens the banner", async () => {
     const user = userEvent.setup();
     mountPage();
-    await user.click(await screen.findByText(/cookie settings/i));
+    await user.click(await screen.findByText(/Cài đặt cookie/i));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
@@ -174,12 +181,12 @@ describe("Scenario: Returning buyer sees no banner", () => {
     document.cookie = "agora_consent=v=1&a=0&m=0&p=1&ts=1760000000; Path=/";
     const user = userEvent.setup();
     mountPage();
-    await user.click(await screen.findByText(/cookie settings/i));
+    await user.click(await screen.findByText(/Cài đặt cookie/i));
     expect(
-      await screen.findByRole("checkbox", { name: /personali[sz]ation/i }),
+      await screen.findByRole("checkbox", { name: /Cá nhân hóa/i }),
     ).toBeChecked();
-    await user.click(screen.getByRole("checkbox", { name: /analytics/i }));
-    await user.click(screen.getByRole("button", { name: /save choices/i }));
+    await user.click(screen.getByRole("checkbox", { name: /Phân tích/i }));
+    await user.click(screen.getByRole("button", { name: /Lưu lựa chọn/i }));
     expect(rawCookie()).toBe("v=1&a=1&m=0&p=1&ts=1760000000");
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -228,7 +235,9 @@ describe("Scenario: Banner is keyboard operable", () => {
   it("a choice can be made with the keyboard alone (Enter on Reject all)", async () => {
     const user = userEvent.setup();
     mountPage();
-    const reject = await screen.findByRole("button", { name: /reject all/i });
+    const reject = await screen.findByRole("button", {
+      name: /Từ chối tất cả/i,
+    });
     reject.focus();
     await user.keyboard("{Enter}");
     expect(rawCookie()).toBe("v=1&a=0&m=0&p=0&ts=1760000000");
@@ -249,5 +258,94 @@ describe("Scenario: mounting (layout + footer wiring)", () => {
       shell.indexOf("</footer>"),
     );
     expect(footer).toMatch(/<CookieSettingsLink\b/);
+  });
+});
+
+describe("Scenario: Banner text is Vietnamese", () => {
+  it("title is Tùy chọn cookie, groups are Phân tích / Tiếp thị / Cá nhân hóa, no English label remains", async () => {
+    mountPage();
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveAccessibleName("Tùy chọn cookie");
+    expect(
+      screen.getByRole("heading", { name: "Tùy chọn cookie" }),
+    ).toBeVisible();
+    for (const g of ["Phân tích", "Tiếp thị", "Cá nhân hóa"]) {
+      expect(screen.getByRole("checkbox", { name: g })).toBeInTheDocument();
+    }
+    expect(dialog.textContent).not.toMatch(
+      /Cookie preferences|Analytics|Marketing|Personali[sz]ation|Reject all|Save choices|Accept all|Helps us|Lets us|Tailors/,
+    );
+  });
+
+  it("footer link reads Cài đặt cookie", () => {
+    mountPage();
+    expect(
+      screen.getByRole("button", { name: "Cài đặt cookie" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Cookie settings")).not.toBeInTheDocument();
+  });
+});
+
+describe("Scenario: banner commits are forwarded to the ledger action", () => {
+  it("[Signed-in save records only changed purposes] passes the cookie read before the write and the new groups", async () => {
+    document.cookie = "agora_consent=v=1&a=1&m=0&p=0&ts=1760000000; Path=/";
+    const user = userEvent.setup();
+    mountPage();
+    await user.click(await screen.findByText(/Cài đặt cookie/i));
+    await user.click(screen.getByRole("checkbox", { name: /Cá nhân hóa/i }));
+    await user.click(screen.getByRole("button", { name: /Lưu lựa chọn/i }));
+    expect(rawCookie()).toBe("v=1&a=1&m=0&p=1&ts=1760000000");
+    expect(ledger.recordBannerConsent).toHaveBeenCalledTimes(1);
+    const [prev, next] = ledger.recordBannerConsent.mock.calls[0];
+    expect(prev).toMatchObject({
+      analytics: true,
+      marketing: false,
+      personalization: false,
+      version: 1,
+    });
+    expect(next).toEqual({
+      analytics: true,
+      marketing: false,
+      personalization: true,
+    });
+  });
+
+  it("[First choice records all three purposes] with no prior cookie prev has version 0 and next is all denied", async () => {
+    const user = userEvent.setup();
+    mountPage();
+    await user.click(
+      await screen.findByRole("button", { name: /Từ chối tất cả/i }),
+    );
+    expect(ledger.recordBannerConsent).toHaveBeenCalledTimes(1);
+    const [prev, next] = ledger.recordBannerConsent.mock.calls[0];
+    expect(prev).toMatchObject({ version: 0 });
+    expect(next).toEqual({
+      analytics: false,
+      marketing: false,
+      personalization: false,
+    });
+  });
+
+  it("[Anonymous choice is cookie only] Chấp nhận tất cả writes the cookie synchronously with the new format", async () => {
+    const user = userEvent.setup();
+    mountPage();
+    await user.click(
+      await screen.findByRole("button", { name: /Chấp nhận tất cả/i }),
+    );
+    expect(rawCookie()).toBe("v=1&a=1&m=1&p=1&ts=1760000000");
+  });
+
+  it("[Ledger write failure keeps the cookie choice] a rejected ledger action leaves the cookie, closes the banner, shows no error", async () => {
+    ledger.recordBannerConsent.mockRejectedValue(new Error("UNAVAILABLE"));
+    const user = userEvent.setup();
+    mountPage();
+    await user.click(
+      await screen.findByRole("button", { name: /Chấp nhận tất cả/i }),
+    );
+    expect(rawCookie()).toBe("v=1&a=1&m=1&p=1&ts=1760000000");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

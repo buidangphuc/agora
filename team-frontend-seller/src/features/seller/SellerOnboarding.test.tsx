@@ -89,4 +89,14 @@ describe("SellerOnboarding", () => {
       screen.getByRole("button", { name: "Đăng xuất" }),
     ).toBeInTheDocument();
   });
+
+  it("[Terms link opens the seller terms page] the terms link targets the buyer seller-terms page in a new tab", () => {
+    const { container } = render(<SellerOnboarding />);
+    const link = container.querySelector(
+      'a[href="http://localhost:3000/dieu-khoan-nguoi-ban"]',
+    );
+    expect(link).not.toBeNull();
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link?.getAttribute("rel") ?? "").toContain("noopener");
+  });
 });

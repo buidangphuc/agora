@@ -3,7 +3,16 @@ export interface CredentialValues {
   password: string;
 }
 
-export type CredentialField = "username" | "password";
+export interface RegisterValues extends CredentialValues {
+  acceptTerms?: boolean;
+  acceptPrivacy?: boolean;
+}
+
+export type CredentialField =
+  | "username"
+  | "password"
+  | "acceptTerms"
+  | "acceptPrivacy";
 export type CredentialErrors = Partial<Record<CredentialField, string>>;
 
 export const MIN_USERNAME = 3;
@@ -24,13 +33,21 @@ export function validateLogin({
 export function validateRegister({
   username,
   password,
-}: CredentialValues): CredentialErrors {
+  acceptTerms,
+  acceptPrivacy,
+}: RegisterValues): CredentialErrors {
   const errors: CredentialErrors = {};
   if (username.trim().length < MIN_USERNAME) {
     errors.username = `Tên đăng nhập tối thiểu ${MIN_USERNAME} ký tự.`;
   }
   if (password.length < MIN_PASSWORD) {
     errors.password = `Mật khẩu tối thiểu ${MIN_PASSWORD} ký tự.`;
+  }
+  if (!acceptTerms) {
+    errors.acceptTerms = "Vui lòng đồng ý với Điều khoản sử dụng.";
+  }
+  if (!acceptPrivacy) {
+    errors.acceptPrivacy = "Vui lòng đồng ý với Chính sách bảo mật.";
   }
   return errors;
 }

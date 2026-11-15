@@ -21,6 +21,7 @@ from typing import Any
 import httpx
 
 from config.settings import get_settings
+from src.constants import legal_versions as legal
 from tests.e2e.flows.stack_flow import _docker
 
 ORDER = "/platform.order.v1.OrderService"
@@ -115,7 +116,7 @@ def register(w: OicWorld, name: str, role: str) -> Actor:
         None,
         AUTH,
         "Register",
-        {"username": username, "password": get_settings().seed_password, "role": role},
+        {"username": username, "password": get_settings().seed_password, "role": role, **legal.versions()},
     )
     token = (ok(resp).get("result") or {}).get("token", "")
     assert token, f"register {role}: {resp.text[:300]}"
