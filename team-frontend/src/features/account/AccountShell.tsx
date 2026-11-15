@@ -8,7 +8,6 @@ import { WelcomePanel } from "@/features/welcome/WelcomePanel";
 export type AccountMenuKey =
   | "addresses"
   | "security"
-  | "verification"
   | "referral"
   | "following"
   | "favorites"
@@ -31,7 +30,6 @@ export interface AccountMenuItem {
 export const ACCOUNT_MENU: AccountMenuItem[] = [
   { key: "addresses", label: "Địa chỉ", href: "/account/addresses" },
   { key: "security", label: "Bảo mật", href: "/account/security" },
-  { key: "verification", label: "Xác minh", href: "/account/verification" },
   { key: "referral", label: "Giới thiệu", href: "/account/referral" },
   { key: "following", label: "Đang theo dõi", href: "/account/following" },
   { key: "favorites", label: "Yêu thích", href: "/favorites" },
