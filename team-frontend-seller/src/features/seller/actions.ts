@@ -1,5 +1,6 @@
 "use server";
 
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
 import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
@@ -26,6 +27,10 @@ function messageOf(err: unknown, fallback: string): string {
 
 // ── Wallet ──────────────────────────────────────────────────────────────────
 
+const PAYOUT_VERIFY_REQUIRED = "Cần xác minh danh tính để rút tiền";
+const PAYOUT_VERIFY_RETRY =
+  "Chưa kiểm tra được trạng thái xác minh, vui lòng thử lại sau";
+
 export async function requestWalletPayoutAction(
   sellerId: string,
   amount: number,
@@ -36,6 +41,12 @@ export async function requestWalletPayoutAction(
   try {
     await requestWalletPayout(sellerId, amount);
   } catch (err: unknown) {
+    if (err instanceof ConnectError) {
+      if (err.code === Code.FailedPrecondition) {
+        return fail(PAYOUT_VERIFY_REQUIRED);
+      }
+      if (err.code === Code.Unavailable) return fail(PAYOUT_VERIFY_RETRY);
+    }
     return fail(messageOf(err, "Yêu cầu rút tiền thất bại."));
   }
   revalidatePath("/seller/wallet");

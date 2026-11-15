@@ -8,8 +8,11 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/components/ui/format";
+import { LinkButton } from "./LinkButton";
 import { requestWalletPayoutAction } from "./actions";
 import { usePending } from "./usePending";
+
+const VERIFY_REQUIRED = "Cần xác minh danh tính để rút tiền";
 
 /** Error text for a payout amount, or null when it is a valid whole amount <= balance. */
 export function validatePayoutAmount(
@@ -112,7 +115,19 @@ export function PayoutButton({
             error={fieldError ?? undefined}
             disabled={pending}
           />
-          {error && <Alert type="error" description={error} />}
+          {error && (
+            <Alert
+              type="error"
+              description={error}
+              action={
+                error === VERIFY_REQUIRED ? (
+                  <LinkButton href="/seller/verification" size="sm">
+                    Xác minh ngay
+                  </LinkButton>
+                ) : undefined
+              }
+            />
+          )}
         </div>
       </Modal>
     </>
