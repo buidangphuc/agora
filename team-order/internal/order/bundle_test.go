@@ -576,6 +576,26 @@ func TestBundleInvalidAtPreviewIsUntaggedBeforePayment(t *testing.T) {
 }
 
 // Scenario: A bundle that became invalid is untagged before payment
+func TestBundleUnpublishedListingHiddenByDomainIsUntaggedAtPreview(t *testing.T) {
+	r := newBundleRig(t)
+	r.mustAddBundle(t, "buyer_1", "bnd_ab", 1)
+	r.domain.mu.Lock()
+	r.domain.getErr = map[string]error{"lst_b": status.Error(codes.NotFound, "not_found")}
+	r.domain.mu.Unlock()
+
+	_, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", nil)
+	if !errors.Is(err, order.ErrPriceChanged) {
+		t.Fatalf("err = %v, want ErrPriceChanged", err)
+	}
+	items := r.cartOf(t, "buyer_1")
+	if len(items) != 2 {
+		t.Fatalf("cart lines = %d, want 2", len(items))
+	}
+	assertNoBundleTag(t, items)
+	r.assertNothingReserved(t, "buyer_1")
+}
+
+// Scenario: A bundle that became invalid is untagged before payment
 func TestBundleInvalidAtCreateOrderIsUntagged(t *testing.T) {
 	r := newBundleRig(t)
 	r.mustAddBundle(t, "buyer_1", "bnd_ab", 1)

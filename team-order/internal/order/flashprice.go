@@ -118,9 +118,15 @@ func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items
 		}
 		resp, err := s.domainClient.GetListing(ctx, &listingv1.GetListingRequest{Id: it.ListingID})
 		if err != nil {
+			if bundleDropped {
+				return nil, ErrPriceChanged
+			}
 			return nil, fmt.Errorf("get listing %q from domain: %w", it.ListingID, err)
 		}
 		if resp.GetListing() == nil && s.orderFlash != nil {
+			if bundleDropped {
+				return nil, ErrPriceChanged
+			}
 			// Fail closed when flash pricing is wired: with no listing there is no
 			// price to verify the cart against. Without a flash client a nil listing
 			// is treated as an unknown price (see below), which keeps the legacy
