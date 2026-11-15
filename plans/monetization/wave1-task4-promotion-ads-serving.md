@@ -29,8 +29,10 @@ Implement OpenSpec change `promotion-ads-serving` test-first per its tasks.md; c
 - platform-e2e/tests/e2e/step_definitions/test_sponsored_click.py
 ### widened (P1)
 - openspec/changes/promotion-ads-serving/tasks.md (task ticks in this change's own OpenSpec folder)
-- platform-e2e/pyproject.toml (pytest marker registration: ads; user decision 2026-11-15)
 - platform-e2e/tests/e2e/step_definitions/test_sponsored_ads_steps.py (e2e step file of this change binding both ads features, named differently from the packet)
+
+## Shared append (non-exclusive, owned by W1-T3 listing-plan-cap)
+- platform-e2e/pyproject.toml: one pytest marker line (ads; user decision 2026-11-15), appended next to the plan_cap marker and merged without conflict
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-promotion` (equivalent: `cd team-promotion && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)
