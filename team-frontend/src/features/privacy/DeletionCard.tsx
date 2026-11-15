@@ -74,10 +74,10 @@ export function DeletionCard({ status }: { status: DeletionStatus }) {
       <DeleteAccountModal
         isOpen={open}
         onClose={() => setOpen(false)}
-        onScheduled={() => {
+        onScheduled={(at) => {
           setOpen(false);
           setPending(true);
-          setEraseAfter(new Date(Date.now() + 7 * 86400000).toISOString());
+          setEraseAfter(at ?? "");
           router.refresh();
         }}
       />

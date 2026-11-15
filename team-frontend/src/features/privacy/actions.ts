@@ -62,9 +62,10 @@ export async function exportDataAction(): Promise<
 
 export async function requestDeletionAction(
   password: string,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ eraseAfter: string }>> {
+  let eraseAfter: string;
   try {
-    await requestDeletion(password);
+    ({ eraseAfter } = await requestDeletion(password));
   } catch (e) {
     const code = codeOf(e);
     if (code === Code.Unauthenticated) return fail(SESSION_EXPIRED);
@@ -81,7 +82,7 @@ export async function requestDeletionAction(
     return fail("Chưa gửi được yêu cầu xóa tài khoản. Vui lòng thử lại sau.");
   }
   revalidatePath(PAGE);
-  return ok();
+  return ok({ eraseAfter });
 }
 
 export async function cancelDeletionAction(): Promise<ActionResult> {

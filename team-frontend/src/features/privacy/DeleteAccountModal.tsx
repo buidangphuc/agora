@@ -15,7 +15,7 @@ export function DeleteAccountModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onScheduled: () => void;
+  onScheduled: (eraseAfter?: string) => void;
 }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,7 +35,7 @@ export function DeleteAccountModal({
       const res = await requestDeletionAction(password);
       setPassword("");
       if (res.ok) {
-        onScheduled();
+        onScheduled(res.data?.eraseAfter);
       } else {
         setError(res.error);
       }
