@@ -23,7 +23,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq identity.events.team-verification.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -536,9 +536,19 @@ services:
     depends_on:
       team-verification-migrate:
         condition: service_completed_successfully
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_URL=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
+      - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_BUCKET=kyc-documents
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=minioadmin
+      - STORAGE_REGION=us-east-1
+      - STORAGE_USE_SSL=false
       - GRPC_PORT=50064
       - ENV=local
       - GRPC_REFLECTION_ENABLED=true
