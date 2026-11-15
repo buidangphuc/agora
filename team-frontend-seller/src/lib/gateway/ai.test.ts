@@ -87,6 +87,44 @@ describe("ai gateway wrapper", () => {
     });
   });
 
+  // Scenario: Shown beacon carries provenance (gateway mapping)
+  it("magicListing maps request id and model version into the view model", async () => {
+    stubAi({
+      magicListing: vi.fn().mockResolvedValue({
+        generatedTitle: "T",
+        generatedDescription: "D",
+        suggestedCategoryId: "c1",
+        suggestedPriceMin: 100n,
+        suggestedPriceMax: 200n,
+        highlightTags: [],
+        requestId: "req-1",
+        modelVersion: "mock:v1",
+      }),
+    });
+    const res = await magicListing("hint");
+    expect(res.requestId).toBe("req-1");
+    expect(res.modelVersion).toBe("mock:v1");
+  });
+
+  // Scenario: Older team-ai returns no provenance (gateway mapping)
+  it("magicListing keeps empty provenance empty and never invents an id", async () => {
+    stubAi({
+      magicListing: vi.fn().mockResolvedValue({
+        generatedTitle: "T",
+        generatedDescription: "D",
+        suggestedCategoryId: "c1",
+        suggestedPriceMin: 100n,
+        suggestedPriceMax: 200n,
+        highlightTags: [],
+        requestId: "",
+        modelVersion: "",
+      }),
+    });
+    const res = await magicListing("hint");
+    expect(res.requestId).toBe("");
+    expect(res.modelVersion).toBe("");
+  });
+
   it("chatCopilot returns the quick replies list", async () => {
     const ai = stubAi({
       chatCopilot: vi

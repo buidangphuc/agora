@@ -38,3 +38,11 @@ export function daysInRange(
 export function ratio(step: number, impressions: number): number {
   return impressions > 0 ? Math.min(100, (step / impressions) * 100) : 0;
 }
+
+/** Window [from, to] of the selected range ending at `now`. */
+export function rangeWindow(
+  range: Range,
+  now: number = Date.now(),
+): { from: Date; to: Date } {
+  return { from: new Date(now - DAYS[range] * DAY_MS), to: new Date(now) };
+}

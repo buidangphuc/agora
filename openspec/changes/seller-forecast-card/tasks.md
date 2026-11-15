@@ -9,7 +9,7 @@
 
 ## 2. E2E track (platform-e2e)
 
-- [ ] 2.1 New `tests/e2e/features/seller/seller_forecast_card.feature` with scenarios `Seller with history sees the forecast`, `Listing without a forecast key says there is not enough data`, `Forecast store down shows temporarily unavailable` (@destructive: stops Redis DB 3 access, restores in teardown), `A seller cannot read another seller's forecast`, `Magic Listing beacon carries request id and model version`.
+- [ ] 2.1 New `tests/e2e/features/seller/seller_forecast_card.feature` with scenarios `Seller with history sees the forecast`, `Listing without a forecast key`, `Store unavailable` (@destructive: stops Redis DB 3 access, restores in teardown), `Gateway rejects a foreign seller id`, `Provenance reaches the warehouse`.
 - [ ] 2.2 Seed: a seller with at least 14 days of paid `order_facts` lines on one listing and a forecast run written by the `forecast` profile job after them; a second listing with orders and no `fc:` key. Reuse the existing seeded-seller step definitions of `seller_analytics.feature`.
 - [ ] 2.3 Step definitions for the card states and for reading the stored `ai_interaction` event (type 21) `model_version` and `impression_id`; team-ai on its default mock backend.
 - [ ] 2.4 Owner `FEATURES.yaml`: the e2e-author adds `seller.forecast-card` entries (entry route `/seller/analytics`, services team-frontend-seller, team-analytics, team-gateway) covering every scenario above, and keeps `analytics.demand-forecast` entry route consistent.

@@ -4,7 +4,13 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AnalyticsView } from "@/features/seller/AnalyticsView";
-import { getRevenueBreakdown, getSellerFunnel } from "@/lib/gateway/analytics";
+import { redirect } from "next/navigation";
+
+import {
+  getDemandForecast,
+  getRevenueBreakdown,
+  getSellerFunnel,
+} from "@/lib/gateway/analytics";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 import SellerAnalyticsPage from "./page";
 
@@ -20,6 +26,7 @@ vi.mock("@/lib/gateway/session", () => ({
 vi.mock("@/lib/gateway/analytics", () => ({
   getSellerFunnel: vi.fn(),
   getRevenueBreakdown: vi.fn(),
+  getDemandForecast: vi.fn(),
 }));
 
 const iso = (daysAgo: number) =>
@@ -34,6 +41,26 @@ const revenue = {
   ],
   topSkus: [{ sku: "SKU-1", listingId: "l1", revenue: 500000, unitsSold: 4 }],
 };
+
+const warmForecast = {
+  sellerId: "me",
+  listingId: "l1",
+  dailyForecasts: [{ date: "2026-11-15", p10: 1, p50: 2.5, p90: 4 }],
+  suggestedReorderPoint: 12.2,
+  safetyStock: 3,
+  modelVersion: "baseline-v1",
+  isColdStart: false,
+  generatedAt: "2026-11-13T18:30:00.000Z",
+};
+
+const sku = (n: number, rev: number) => ({
+  sku: `SKU-${n}`,
+  listingId: `l${n}`,
+  revenue: rev,
+  unitsSold: n,
+});
+const sections = () => screen.getAllByTestId("forecast-section");
+const ERR = "Dự báo tạm thời không khả dụng";
 
 async function renderPage(searchParams: { range?: string } = {}) {
   render(
@@ -51,6 +78,13 @@ beforeEach(() => {
   vi.mocked(hasScope).mockReturnValue(true);
   vi.mocked(getSellerFunnel).mockResolvedValue(funnel);
   vi.mocked(getRevenueBreakdown).mockResolvedValue(revenue);
+  vi.mocked(getDemandForecast).mockImplementation(
+    async (sellerId, listingId) => ({
+      ...warmForecast,
+      sellerId,
+      listingId,
+    }),
+  );
 });
 
 describe("/seller/analytics", () => {
@@ -144,5 +178,151 @@ describe("AnalyticsView", () => {
     );
     expect(screen.queryByText("Tỷ lệ chuyển đổi")).toBeNull();
     expect(screen.getByText("Chưa có dữ liệu phễu")).toBeInTheDocument();
+  });
+});
+
+describe("/seller/analytics forecast card", () => {
+  it("Card covers only the top five listings of the range: forecasts only the top five listings of the range", async () => {
+    vi.mocked(getRevenueBreakdown).mockResolvedValue({
+      days: revenue.days,
+      topSkus: [
+        sku(1, 100),
+        sku(2, 700),
+        sku(3, 300),
+        sku(4, 600),
+        sku(5, 200),
+        sku(6, 500),
+        sku(7, 400),
+      ],
+    });
+    await renderPage();
+    expect(getDemandForecast).toHaveBeenCalledTimes(5);
+    expect(sections().map((e) => e.getAttribute("data-listing-id"))).toEqual([
+      "l2",
+      "l4",
+      "l6",
+      "l7",
+      "l3",
+    ]);
+  });
+
+  it("Range tab selects the candidate listings: range tab scopes the listing pick", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-15T03:00:00Z"));
+    try {
+      await renderPage({ range: "30d" });
+    } finally {
+      vi.useRealTimers();
+    }
+    const scoped = vi
+      .mocked(getRevenueBreakdown)
+      .mock.calls.map((c) => c[1])
+      .filter((o) => o?.from !== undefined);
+    expect(scoped).toHaveLength(1);
+    const { from, to } = scoped[0] as { from: Date; to: Date };
+    expect((to.getTime() - from.getTime()) / 86_400_000).toBe(30);
+  });
+
+  it("One listing fails, others render: one failed forecast does not hide the others", async () => {
+    vi.mocked(getRevenueBreakdown).mockResolvedValue({
+      days: revenue.days,
+      topSkus: [sku(1, 300), sku(2, 200), sku(3, 100)],
+    });
+    vi.mocked(getDemandForecast).mockImplementation(
+      async (sellerId, listingId) => {
+        if (listingId === "l2") throw new Error("down");
+        return { ...warmForecast, sellerId, listingId };
+      },
+    );
+    await renderPage();
+    const [a, b, c] = sections();
+    expect(within(a).getByText(/Điểm đặt hàng lại/)).toBeInTheDocument();
+    expect(within(b).getByText(ERR)).toBeInTheDocument();
+    expect(within(b).queryByText(/Điểm đặt hàng lại/)).toBeNull();
+    expect(within(c).getByText(/Điểm đặt hàng lại/)).toBeInTheDocument();
+  });
+
+  it("Forecast failure leaves funnel and revenue intact: forecast failure does not touch funnel and revenue", async () => {
+    vi.mocked(getDemandForecast).mockRejectedValue(new Error("down"));
+    await renderPage({ range: "30d" });
+    expect(screen.getByTestId("kpi-row")).toBeInTheDocument();
+    expect(screen.getAllByRole("progressbar")).toHaveLength(4);
+    expect(
+      screen.getByRole("table", { name: "Doanh thu theo ngày" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Không tải được dữ liệu phễu chuyển đổi."),
+    ).toBeNull();
+    expect(screen.queryByText("Không tải được dữ liệu doanh thu.")).toBeNull();
+    expect(within(sections()[0]).getByText(ERR)).toBeInTheDocument();
+  });
+
+  it("Revenue read fails: revenue failure shows the forecast alert", async () => {
+    vi.mocked(getRevenueBreakdown).mockImplementation(async (_id, opts) => {
+      if (opts && "from" in opts && opts.from) throw new Error("down");
+      return revenue;
+    });
+    await renderPage();
+    expect(screen.getByText(ERR)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Thử lại" })).toHaveAttribute(
+      "href",
+      "/seller/analytics?range=7d",
+    );
+    expect(getDemandForecast).not.toHaveBeenCalled();
+  });
+
+  it("New seller without orders: no revenue means an empty forecast card", async () => {
+    vi.mocked(getRevenueBreakdown).mockResolvedValue({ days: [], topSkus: [] });
+    await renderPage();
+    expect(screen.getByText("Chưa có đơn hàng để dự báo")).toBeInTheDocument();
+    expect(getDemandForecast).not.toHaveBeenCalled();
+  });
+
+  it("Top SKU without a listing id is skipped: skips SKU rows without a listing id", async () => {
+    vi.mocked(getRevenueBreakdown).mockResolvedValue({
+      days: revenue.days,
+      topSkus: [
+        { sku: "ONLY-SKU", listingId: "", revenue: 900, unitsSold: 1 },
+        sku(2, 100),
+      ],
+    });
+    await renderPage();
+    expect(getDemandForecast).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(getDemandForecast).mock.calls[0][1]).toBe("l2");
+    expect(sections()).toHaveLength(1);
+  });
+
+  it("Query string cannot select another seller: ignores seller and listing ids from the URL", async () => {
+    await renderPage({
+      range: "30d",
+      sellerId: "other",
+      listingId: "other-1",
+    } as { range?: string });
+    expect(getDemandForecast).toHaveBeenCalled();
+    for (const [sellerId, listingId] of vi.mocked(getDemandForecast).mock
+      .calls) {
+      expect(sellerId).toBe("me");
+      expect(listingId).toBe("l1");
+    }
+  });
+
+  it("Guest is redirected: guest triggers no forecast call", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+    await expect(
+      SellerAnalyticsPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(getDemandForecast).not.toHaveBeenCalled();
+  });
+
+  it("Buyer without seller scope is denied: no listing.write scope triggers no forecast call", async () => {
+    vi.mocked(hasScope).mockReturnValue(false);
+    const out = await SellerAnalyticsPage({
+      searchParams: Promise.resolve({}),
+    });
+    expect(out).toBeNull();
+    expect(getDemandForecast).not.toHaveBeenCalled();
   });
 });
