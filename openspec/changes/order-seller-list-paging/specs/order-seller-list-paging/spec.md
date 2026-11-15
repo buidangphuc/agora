@@ -6,7 +6,7 @@ When `ListSellerOrdersRequest.page` is set, `OrderService.ListSellerOrders` SHAL
 own orders ordered by `created_at` descending then id descending, and `page.next_cursor` SHALL be non-empty exactly when more
 orders follow. `page_size` 0 SHALL mean 20, values above 100 SHALL be clamped to 100, and a negative value SHALL fail with
 INVALID_ARGUMENT. A `cursor` that cannot be decoded SHALL fail with INVALID_ARGUMENT. `page.total` SHALL be the number of the
-seller's orders matching `statuses`/`status_filter` and `query`. The seller SHALL come from the principal. Index `orders (seller_id, status, created_at DESC, id DESC)` SHALL exist (migration `0025`, with a down migration that drops it).
+seller's orders matching `statuses`/`status_filter` and `query`. The seller SHALL come from the principal. Index `orders (seller_id, status, created_at DESC, id DESC)` SHALL exist (migration `0026`, with a down migration that drops it).
 
 #### Scenario: Pages cover the seller's orders exactly once
 
@@ -55,9 +55,9 @@ seller's orders matching `statuses`/`status_filter` and `query`. The seller SHAL
 
 #### Scenario: Migration applies and reverts
 
-- **WHEN** migrations run up to 0025 and down one step on a database holding orders
+- **WHEN** migrations run up to 0026 and down one step on a database holding orders
 - **THEN** the index exists after up, is absent after down, and no order row changes
-- **VERIFIED BY**: team-order migrations TestMigration0025_AppliesAndReverts
+- **VERIFIED BY**: team-order migrations TestMigration0026_AppliesAndReverts
 
 ### Requirement: ListSellerOrders filters by status
 

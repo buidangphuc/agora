@@ -480,11 +480,11 @@ func TestMigration0023_BackfilledOrderCancelledLaterIsSubtractedOnce(t *testing.
 }
 
 const (
-	sellerIdxUp   = "0025_orders_seller_status_created_idx.up.sql"
-	sellerIdxDown = "0025_orders_seller_status_created_idx.down.sql"
+	sellerIdxUp   = "0026_orders_seller_status_created_idx.up.sql"
+	sellerIdxDown = "0026_orders_seller_status_created_idx.down.sql"
 )
 
-func newMigDB0025(t *testing.T) *mdb {
+func newMigDB0026(t *testing.T) *mdb {
 	t.Helper()
 	dsn := testkit.Schema(t, testkit.SharedPostgres(t))
 	pool, err := pgxpool.New(t.Context(), dsn)
@@ -498,7 +498,7 @@ func newMigDB0025(t *testing.T) *mdb {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() >= "0025" {
+		if e.Name() >= "0026" {
 			continue
 		}
 		b, err := fs.ReadFile(migrations.FS, e.Name())
@@ -508,7 +508,7 @@ func newMigDB0025(t *testing.T) *mdb {
 		before[e.Name()] = &fstest.MapFile{Data: b}
 	}
 	if err := migrate.Up(t.Context(), dsn, before); err != nil {
-		t.Fatalf("migrate to 0024: %v", err)
+		t.Fatalf("migrate to 0025: %v", err)
 	}
 	return &mdb{t: t, ctx: context.Background(), pool: pool}
 }
@@ -539,14 +539,14 @@ func (m *mdb) ordersFingerprint() string {
 	return fp
 }
 
-func TestMigration0025_AppliesAndReverts(t *testing.T) {
-	m := newMigDB0025(t)
+func TestMigration0026_AppliesAndReverts(t *testing.T) {
+	m := newMigDB0026(t)
 	m.order("o1", stPaid, mMomo, true)
 	m.order("o2", stShipped, mCOD, false)
 	m.line("o1", "L", 1)
 	before := m.ordersFingerprint()
 	if n := m.sellerStatusIndexes(); n != 0 {
-		t.Fatalf("index exists before 0025: %d", n)
+		t.Fatalf("index exists before 0026: %d", n)
 	}
 
 	m.applyFile(sellerIdxUp)

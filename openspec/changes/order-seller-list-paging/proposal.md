@@ -14,7 +14,7 @@ initiative: seller-centre
 - The response carries `page` (`next_cursor`, `total` of the filtered set) and `status_counts` (one entry per real status,
   over all the seller's orders with `query` applied and `statuses` ignored, so tab counts stay stable).
 - An unset `page` keeps today's full-list behaviour (same order, same orders); `page` and `status_counts` are still filled.
-- New migration `0025_orders_seller_status_created_idx` adds index `orders (seller_id, status, created_at DESC, id DESC)`.
+- New migration `0026_orders_seller_status_created_idx` adds index `orders (seller_id, status, created_at DESC, id DESC)`.
 - Repository `ListSellerOrders` gains a filter struct, a paged variant and a counts query; fake repo in `internal/store/fake` mirrors them.
 
 ## Capabilities
@@ -28,7 +28,7 @@ none
 ## Impact
 
 - `team-order/internal/rpc/order.go`, `internal/order/order.go`, `internal/store/order.go`, `internal/store/fake/order.go`,
-  `migrations/0025_*`, `FEATURES.yaml` (by the e2e-author).
+  `migrations/0026_*`, `FEATURES.yaml` (by the e2e-author).
 - `platform-e2e` feature and steps (API level through the gateway; the gateway already forwards `ListSellerOrders`).
 - Depends on `seller-centre-contract` (proto fields). No new RPC, no event. Hot file `internal/store/order.go` is shared with
   `order-bundle-checkout`; initiative-build serialises them.

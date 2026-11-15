@@ -7537,7 +7537,7 @@ features:
       - "Migration applies and reverts"
     tags: [order, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order migrations TestMigration0025_AppliesAndReverts. Not producible black box: needs a database migrated up and down."
+    notes: "VERIFIED BY team-order migrations TestMigration0026_AppliesAndReverts. Not producible black box: needs a database migrated up and down."
 
   - id: order.slp-one-status-tab
     title: "One status tab"
