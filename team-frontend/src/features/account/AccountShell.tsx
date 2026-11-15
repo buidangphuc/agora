@@ -13,7 +13,8 @@ export type AccountMenuKey =
   | "following"
   | "favorites"
   | "notifications"
-  | "orders";
+  | "orders"
+  | "privacy";
 
 export interface AccountMenuItem {
   key: AccountMenuKey;
@@ -36,6 +37,7 @@ export const ACCOUNT_MENU: AccountMenuItem[] = [
   { key: "favorites", label: "Yêu thích", href: "/favorites" },
   { key: "notifications", label: "Thông báo", href: "/notifications" },
   { key: "orders", label: "Đơn hàng", href: "/account/orders" },
+  { key: "privacy", label: "Quyền riêng tư", href: "/account/privacy" },
 ];
 
 export interface AccountShellProps {

@@ -80,6 +80,20 @@ describe("AccountShell", () => {
   });
 });
 
+describe("AccountShell privacy entry", () => {
+  it("PV1 lists the privacy entry and marks it current", () => {
+    render(
+      <AccountShell current="privacy" title="Quyền riêng tư">
+        x
+      </AccountShell>,
+    );
+    const nav = screen.getByRole("navigation", { name: "Menu tài khoản" });
+    const link = within(nav).getByRole("link", { name: "Quyền riêng tư" });
+    expect(link).toHaveAttribute("href", "/account/privacy");
+    expect(link).toHaveAttribute("aria-current", "page");
+  });
+});
+
 describe("AccountShell welcome panel", () => {
   it("W10 mounts the WelcomePanel above the page content on every account page", () => {
     render(

@@ -6083,3 +6083,236 @@ features:
     tags: [auth, unit]
     status: not-testable
     notes: "identity-account-deletion: VERIFIED BY team-identity `internal/identity` TestFailedErasureLogsNoPersonalData. Not producible end to end: needs a database fault and captured log output inside the service."
+
+  # identity-data-export
+  - id: identity.data-export-export-lists-every-identity-held-record-of-the-caller
+    title: "E1 Export lists every identity-held record of the caller"
+    persona: buyer
+    priority: P1
+    summary: "Export lists every identity-held record of the caller (E1, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E1: Export lists every identity-held record of the caller"
+    tags: [auth, buyer]
+    status: planned
+
+  - id: identity.data-export-export-never-contains-credentials
+    title: "E2 Export never contains credentials"
+    persona: buyer
+    priority: P1
+    summary: "Export never contains credentials (E2, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E2: Export never contains credentials"
+    tags: [auth, buyer]
+    status: planned
+
+  - id: identity.data-export-consents-are-listed-newest-first-with-deletion-state
+    title: "E3 Consents are listed newest first with deletion state"
+    persona: buyer
+    priority: P1
+    summary: "Consents are listed newest first with deletion state (E3, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E3: Consents are listed newest first with deletion state"
+    tags: [auth, buyer]
+    status: planned
+
+  - id: identity.data-export-a-user-with-no-addresses-and-no-deletion-gets-empty-collections
+    title: "E4 A user with no addresses and no deletion gets empty collections"
+    persona: buyer
+    priority: P1
+    summary: "A user with no addresses and no deletion gets empty collections (E4, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A user with no addresses and no deletion gets empty collections (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E4: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataEmptyAccount. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-anonymous-caller-is-refused
+    title: "E5 Anonymous caller is refused"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous caller is refused (E5, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E5: Anonymous caller is refused"
+    tags: [auth, buyer]
+    status: planned
+
+  - id: identity.data-export-service-principal-is-refused
+    title: "E6 Service principal is refused"
+    persona: buyer
+    priority: P1
+    summary: "Service principal is refused (E6, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Service principal is refused (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E6: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataServicePrincipalDenied. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-one-user-never-sees-another-user-s-data
+    title: "E7 One user never sees another user's data"
+    persona: buyer
+    priority: P1
+    summary: "One user never sees another user's data (E7, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E7: One user never sees another user's data"
+    tags: [auth, buyer]
+    status: planned
+
+  - id: identity.data-export-a-user-with-a-pending-deletion-can-still-export
+    title: "E8 A user with a pending deletion can still export"
+    persona: buyer
+    priority: P1
+    summary: "A user with a pending deletion can still export (E8, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A user with a pending deletion can still export (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E8: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataAllowedWhileDeletionPending. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-login-history-over-the-cap-is-truncated-and-flagged
+    title: "E9 Login history over the cap is truncated and flagged"
+    persona: buyer
+    priority: P1
+    summary: "Login history over the cap is truncated and flagged (E9, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E9: Login history over the cap is truncated and flagged"
+    tags: [auth, buyer]
+    status: planned
+
+  - id: identity.data-export-exactly-1000-login-events-are-not-truncated
+    title: "E10 Exactly 1000 login events are not truncated"
+    persona: buyer
+    priority: P1
+    summary: "Exactly 1000 login events are not truncated (E10, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Exactly 1000 login events are not truncated (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E10: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataCapBoundary. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-oversized-document-is-shrunk-below-1-mib
+    title: "E11 Oversized document is shrunk below 1 MiB"
+    persona: buyer
+    priority: P1
+    summary: "Oversized document is shrunk below 1 MiB (E11, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Oversized document is shrunk below 1 MiB (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E11: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataShrinksOversizedDocument. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-latency-for-the-reference-account
+    title: "E12 Latency for the reference account"
+    persona: buyer
+    priority: P1
+    summary: "Latency for the reference account (E12, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Latency for the reference account (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E12: VERIFIED BY team-identity `team-identity/internal/store/export_pg_test.go` TestExportMyDataLatencyP95. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-a-database-error-returns-no-partial-file
+    title: "E13 A database error returns no partial file"
+    persona: buyer
+    priority: P1
+    summary: "A database error returns no partial file (E13, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A database error returns no partial file (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E13: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataDatabaseErrorReturnsNoData. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-the-edge-response-is-not-cacheable
+    title: "E14 The edge response is not cacheable"
+    persona: buyer
+    priority: P1
+    summary: "The edge response is not cacheable (E14, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E14: The edge response is not cacheable"
+    tags: [auth, buyer]
+    status: planned
+
+  - id: identity.data-export-logs-carry-no-personal-data
+    title: "E15 Logs carry no personal data"
+    persona: buyer
+    priority: P1
+    summary: "Logs carry no personal data (E15, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Logs carry no personal data (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E15: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataLogsNoPersonalData. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."

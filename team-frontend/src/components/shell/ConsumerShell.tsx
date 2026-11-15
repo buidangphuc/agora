@@ -71,6 +71,13 @@ async function AuthNav() {
         Bảo Mật
       </NextLink>
       <span className="hidden text-text-inverse/30 sm:inline">|</span>
+      <NextLink
+        href="/account/privacy"
+        className="hover:text-text-inverse/80 transition"
+      >
+        Quyền riêng tư
+      </NextLink>
+      <span className="hidden text-text-inverse/30 sm:inline">|</span>
       <div className="flex items-center gap-1.5 font-semibold">
         <div className="grid h-5 w-5 place-items-center rounded-full bg-text-inverse/20 text-xs text-text-inverse">
           👤

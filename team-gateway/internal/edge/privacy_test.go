@@ -200,24 +200,3 @@ func TestPrivacyForwarderSpoofedHeadersRefused(t *testing.T) {
 		t.Fatalf("identity calls = %d, want 0", n)
 	}
 }
-
-// Scenario: Later-slice RPCs are not exposed yet (every other PrivacyService RPC is UNIMPLEMENTED and never reaches identity).
-func TestPrivacyForwarderLaterSliceRPCsUnimplemented(t *testing.T) {
-	f := newPrivacyFixture(t)
-	auth := f.userBearer(t)
-	ctx := context.Background()
-	calls := map[string]func() error{
-		"ExportMyData": func() error {
-			_, err := f.client.ExportMyData(ctx, privacyReq(&identityv1.ExportMyDataRequest{}, auth))
-			return err
-		},
-	}
-	for name, call := range calls {
-		if got := connect.CodeOf(call()); got != connect.CodeUnimplemented {
-			t.Errorf("%s = %v, want unimplemented", name, got)
-		}
-	}
-	if n := f.spy.otherCalls.Load(); n != 0 {
-		t.Fatalf("identity calls for later-slice RPCs = %d, want 0", n)
-	}
-}
