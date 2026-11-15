@@ -1,10 +1,7 @@
 import { trackEcommerce } from "@/lib/analytics";
 
 export type AiSurface =
-  | "assistant"
-  | "chat_copilot"
-  | "magic_listing"
-  | "review_summary";
+  "assistant" | "chat_copilot" | "magic_listing" | "review_summary";
 export type AiAction = "shown" | "accepted" | "edited";
 
 /**
@@ -12,15 +9,33 @@ export type AiAction = "shown" | "accepted" | "edited";
  * the listing id are sent; never free text. A tracker failure never breaks
  * the AI action.
  */
+export interface AiProvenance {
+  impressionId?: string;
+  modelVersion?: string;
+}
+
 export function trackAiInteraction(
   surface: AiSurface,
   action: AiAction,
   listingId?: string,
+  provenance?: AiProvenance,
 ): void {
   try {
+    const prov = {
+      ...(provenance?.impressionId
+        ? { impressionId: provenance.impressionId }
+        : {}),
+      ...(provenance?.modelVersion
+        ? { modelVersion: provenance.modelVersion }
+        : {}),
+    };
+    const hasProv = Object.keys(prov).length > 0;
     trackEcommerce("ai_interaction", {
       properties: { surface, action },
-      items: listingId ? [{ itemId: listingId }] : undefined,
+      items:
+        listingId || hasProv
+          ? [{ itemId: listingId ?? "", ...prov }]
+          : undefined,
     });
   } catch {
     // analytics must never break the AI feature
