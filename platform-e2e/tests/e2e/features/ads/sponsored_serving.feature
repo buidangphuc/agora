@@ -11,4 +11,4 @@ Feature: Sponsored slots are served end to end
     And the slots expose only the listing id, the campaign id and the impression token
     And the seller's campaign reads impressions 1 and spent 0
     When an anonymous caller lists the sponsored slots for placement "home" with limit 4
-    Then the slots contain that listing with a non-empty impression token
+    Then the slots hold 1 to 4 entries that expose only the listing id, the campaign id and a non-empty impression token
