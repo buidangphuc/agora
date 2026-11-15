@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { DeletionStatus } from "@/lib/gateway/privacy";
 import { usePendingAction } from "../account/usePendingAction";
-import { cancelDeletionAction } from "./actions";
 import { DeleteAccountModal } from "./DeleteAccountModal";
+import { cancelDeletionAction } from "./actions";
 
 function formatWhen(iso: string): string {
   const d = new Date(iso);

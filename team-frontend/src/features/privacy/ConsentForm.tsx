@@ -8,8 +8,8 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { readConsent, writeConsent } from "@/lib/consent/consent";
 import type { ConsentEntry } from "@/lib/gateway/privacy";
 import { useRouter } from "next/navigation";
-import { saveConsentAction } from "./actions";
 import { usePendingAction } from "../account/usePendingAction";
+import { saveConsentAction } from "./actions";
 
 const CHANGE_EVENT = "agora:consent:change";
 
@@ -37,7 +37,12 @@ const ROWS: { purpose: Purpose; label: string; hint: string }[] = [
 function fromRecords(records: ConsentEntry[]): Partial<Values> {
   const out: Partial<Values> = {};
   for (const r of records) {
-    if (r.purpose !== "ANALYTICS" && r.purpose !== "MARKETING" && r.purpose !== "PERSONALIZATION") continue;
+    if (
+      r.purpose !== "ANALYTICS" &&
+      r.purpose !== "MARKETING" &&
+      r.purpose !== "PERSONALIZATION"
+    )
+      continue;
     if (!(r.purpose in out)) out[r.purpose] = r.granted;
   }
   return out;
@@ -58,6 +63,7 @@ export function ConsentForm({ records }: { records: ConsentEntry[] }) {
 
   useEffect(() => {
     const c = readConsent();
+    const recorded = fromRecords(records);
     const base: Values = {
       ANALYTICS: recorded.ANALYTICS ?? c.analytics,
       MARKETING: recorded.MARKETING ?? c.marketing,
@@ -65,12 +71,11 @@ export function ConsentForm({ records }: { records: ConsentEntry[] }) {
     };
     setSaved(base);
     setValues(base);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [records]);
 
-  const changes = ROWS.filter((r) => values[r.purpose] !== saved[r.purpose]).map(
-    (r) => ({ purpose: r.purpose, granted: values[r.purpose] }),
-  );
+  const changes = ROWS.filter(
+    (r) => values[r.purpose] !== saved[r.purpose],
+  ).map((r) => ({ purpose: r.purpose, granted: values[r.purpose] }));
 
   function save() {
     if (changes.length === 0) return;

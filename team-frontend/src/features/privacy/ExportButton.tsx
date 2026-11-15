@@ -15,7 +15,9 @@ export function ExportButton() {
       setError("");
       const res = await exportDataAction();
       if (!res.ok || !res.data) {
-        setError(res.ok ? "Chưa tải được dữ liệu. Vui lòng thử lại sau." : res.error);
+        setError(
+          res.ok ? "Chưa tải được dữ liệu. Vui lòng thử lại sau." : res.error,
+        );
         return;
       }
       const blob = new Blob([res.data.content], { type: "application/json" });

@@ -6,7 +6,11 @@ import { makeClients } from "./client.js";
 import { getToken } from "./session.js";
 
 export type ConsentPurposeName =
-  "ANALYTICS" | "MARKETING" | "PERSONALIZATION" | "TERMS" | "PRIVACY_POLICY";
+  | "ANALYTICS"
+  | "MARKETING"
+  | "PERSONALIZATION"
+  | "TERMS"
+  | "PRIVACY_POLICY";
 
 export interface ConsentEntry {
   purpose: ConsentPurposeName;

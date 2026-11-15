@@ -73,9 +73,7 @@ export default async function PrivacyPage(props: {
                 total={consents.data.records.length}
                 pageSize={PAGE_SIZE}
                 hrefFor={(p) =>
-                  p === 1
-                    ? "/account/privacy"
-                    : `/account/privacy?page=${p}`
+                  p === 1 ? "/account/privacy" : `/account/privacy?page=${p}`
                 }
               />
             </div>
