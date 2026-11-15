@@ -25,6 +25,8 @@ Implement OpenSpec change `buyer-sponsored-slots` test-first per its tasks.md; c
 - platform-e2e/tests/e2e/step_definitions/buyer_sponsored_slots_steps.py
 - platform-e2e/tests/e2e/support/buyer_sponsored_slots_support.py
 - platform-e2e/tests/e2e/step_definitions/test_buyer_sponsored_slots.py
+- widened (P1):
+  - openspec/changes/buyer-sponsored-slots/tasks.md — this change's own OpenSpec folder (task ticks)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend`
