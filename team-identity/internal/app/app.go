@@ -145,6 +145,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 		Users:       deletionRepo{PostgresUserRepository: users, pool: pool},
 		Obligations: upstream.NewObligations(orderConn, paymentConn),
 		Window:      s.AccountDeletion.CancelWindow,
+		Gate:        gate,
 	})
 	sessions := store.NewPostgresSessionRepository(pool)
 	svc, err := identity.NewAuthService(users, sessions, signer, ttl, gate)

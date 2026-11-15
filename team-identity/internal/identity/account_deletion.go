@@ -9,6 +9,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+
 	"github.com/buidangphuc/team-identity/internal/store"
 	"github.com/buidangphuc/team-identity/internal/upstream"
 )
@@ -44,6 +46,7 @@ type AccountDeletionDeps struct {
 	Obligations ObligationSource
 	Window      time.Duration
 	Now         func() time.Time
+	Gate        *auditx.Gate
 }
 
 type AccountDeletionService struct {
@@ -51,6 +54,7 @@ type AccountDeletionService struct {
 	obligations ObligationSource
 	window      time.Duration
 	now         func() time.Time
+	gate        *auditx.Gate
 }
 
 func NewAccountDeletionService(deps AccountDeletionDeps) *AccountDeletionService {
@@ -58,7 +62,11 @@ func NewAccountDeletionService(deps AccountDeletionDeps) *AccountDeletionService
 	if now == nil {
 		now = time.Now
 	}
-	return &AccountDeletionService{users: deps.Users, obligations: deps.Obligations, window: deps.Window, now: now}
+	gate := deps.Gate
+	if gate == nil {
+		gate = auditx.NewGate(nil, nil)
+	}
+	return &AccountDeletionService{users: deps.Users, obligations: deps.Obligations, window: deps.Window, now: now, gate: gate}
 }
 
 func (s *AccountDeletionService) Request(ctx context.Context, userID, sessionID, password string) (time.Time, error) {
@@ -106,4 +114,9 @@ func (s *AccountDeletionService) Cancel(ctx context.Context, userID string) erro
 
 func (s *AccountDeletionService) Status(ctx context.Context, userID string) (time.Time, error) {
 	return s.users.DeletionEraseAfter(ctx, userID)
+}
+
+func (s *AccountDeletionService) Audited(ctx context.Context, actorID, action string, fn func(context.Context) error) error {
+	ev := auditx.Event{ActorID: actorID, Action: action, TargetType: "user", TargetID: actorID}
+	return s.gate.Do(ctx, ev, fn)
 }

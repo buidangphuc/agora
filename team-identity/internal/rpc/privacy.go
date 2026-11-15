@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -164,8 +165,21 @@ func (h *PrivacyHandler) RequestAccountDeletion(ctx context.Context, req *identi
 	if req.GetPassword() == "" {
 		return nil, status.Error(codes.InvalidArgument, "password is required")
 	}
-	erase, err := h.deletion.Request(ctx, p.ID, p.SessionID, req.GetPassword())
+	var erase time.Time
+	run := func(ctx context.Context) error {
+		var rerr error
+		erase, rerr = h.deletion.Request(ctx, p.ID, p.SessionID, req.GetPassword())
+		return rerr
+	}
+	if p.HasScope(scopeAdmin) {
+		err = h.deletion.Audited(ctx, p.ID, "account.deletion_request", run)
+	} else {
+		err = run(ctx)
+	}
 	if err != nil {
+		if status.Code(err) == codes.Unavailable {
+			return nil, err
+		}
 		var blocked *identity.DeletionBlockedError
 		switch {
 		case errors.Is(err, identity.ErrDeletionPasswordMismatch):
@@ -186,7 +200,16 @@ func (h *PrivacyHandler) CancelAccountDeletion(ctx context.Context, _ *identityv
 	if err != nil {
 		return nil, err
 	}
-	if err := h.deletion.Cancel(ctx, p.ID); err != nil {
+	run := func(ctx context.Context) error { return h.deletion.Cancel(ctx, p.ID) }
+	if p.HasScope(scopeAdmin) {
+		err = h.deletion.Audited(ctx, p.ID, "account.deletion_cancel", run)
+	} else {
+		err = run(ctx)
+	}
+	if err != nil {
+		if status.Code(err) == codes.Unavailable {
+			return nil, err
+		}
 		if errors.Is(err, identity.ErrNoPendingDeletion) {
 			return nil, status.Error(codes.FailedPrecondition, "no pending account deletion")
 		}
