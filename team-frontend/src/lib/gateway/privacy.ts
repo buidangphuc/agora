@@ -52,3 +52,47 @@ export async function recordConsents(records: ConsentEntry[]): Promise<void> {
     })),
   });
 }
+
+function iso(ts?: { toDate(): Date }): string {
+  return ts ? ts.toDate().toISOString() : "";
+}
+
+export interface DeletionStatus {
+  pending: boolean;
+  eraseAfter: string;
+}
+
+export async function getDeletionStatus(): Promise<DeletionStatus> {
+  const res = await makeClients(getToken()).privacy.getAccountDeletionStatus(
+    {},
+  );
+  return { pending: res.pending, eraseAfter: iso(res.eraseAfter) };
+}
+
+export async function requestDeletion(
+  password: string,
+): Promise<{ eraseAfter: string }> {
+  const res = await makeClients(getToken()).privacy.requestAccountDeletion({
+    password,
+  });
+  return { eraseAfter: iso(res.eraseAfter) };
+}
+
+export async function cancelDeletion(): Promise<void> {
+  await makeClients(getToken()).privacy.cancelAccountDeletion({});
+}
+
+export interface ExportedData {
+  content: string;
+  contentType: string;
+  generatedAt: string;
+}
+
+export async function exportMyData(): Promise<ExportedData> {
+  const res = await makeClients(getToken()).privacy.exportMyData({});
+  return {
+    content: new TextDecoder().decode(res.data),
+    contentType: res.contentType,
+    generatedAt: iso(res.generatedAt),
+  };
+}
