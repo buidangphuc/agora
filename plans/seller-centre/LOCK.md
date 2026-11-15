@@ -18,7 +18,7 @@ spec: plans/seller-centre/00-spec.md (Locked 2026-11-13)
 | order-bundle-checkout | team-order | [seller-centre-contract, domain-bundle-integrity] | 1 | pass | pass | pass | ENGINE_DOWN | 0c3095790822 | [x] |
 | shop-bundle-purchase-ui | team-frontend | [order-bundle-checkout, shop-page-featured-theme] | 1 | pass | pass | pass | ENGINE_DOWN | ada306a5c726 | [x] |
 | order-seller-list-paging | team-order | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 307b8332526a | [x] |
-| seller-server-paging-ui | team-frontend-seller | [order-seller-list-paging, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | 4301e73500fb | [x] |
+| seller-server-paging-ui | team-frontend-seller | [order-seller-list-paging, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | a791d8a98a72 | [x] |
 | seller-bulk-ship | team-frontend-seller | [seller-server-paging-ui] | 1 | pass | pass | pass | ENGINE_DOWN | 34c482424858 | [x] |
 
 decide (spec) = ENGINE_DOWN for every slice: scripts/asdlc/decide.py needs `--units`/`--out` and the default python3 lacks `yaml`; each spec-quality-reviewer applied its own checklist by hand.
