@@ -13434,3 +13434,94 @@ features:
     tags: [buyer, privacy, unit]
     status: not-testable
     notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"unmapped errors show only the fixed text\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: seller-kyc-ui.the-buyer-route-is-gone
+    title: "The buyer route is gone"
+    persona: buyer
+    priority: P1
+    summary: "The buyer route is gone"
+    entry_route: /account/verification
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer requests `/account/verification` on the buyer app"
+      - "Then the response is 404"
+    tags: [seller-kyc-ui]
+    status: planned
+
+  - id: seller-kyc-ui.buyer-navigation-has-no-verification-link
+    title: "Buyer navigation has no verification link"
+    persona: buyer
+    priority: P1
+    summary: "Buyer navigation has no verification link"
+    entry_route: /account
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer opens any `/account/*` page"
+      - "Then the account nav and the top bar contain 0 links to `/account/verification`"
+    tags: [seller-kyc-ui]
+    status: planned
+
+  - id: seller-kyc-ui.verified-seller-s-shop-shows-the-badge
+    title: "Verified seller's shop shows the badge"
+    persona: guest
+    priority: P1
+    summary: "Verified seller's shop shows the badge"
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When anyone, including an anonymous visitor, opens the shop page of a `VERIFIED` seller"
+      - "Then the page contains exactly 1 \"Đã xác minh\" badge"
+    tags: [seller-kyc-ui]
+    status: planned
+
+  - id: seller-kyc-ui.non-verified-shops-show-no-badge-and-no-status
+    title: "Non-verified shops show no badge and no status"
+    persona: guest
+    priority: P1
+    summary: "Non-verified shops show no badge and no status"
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When anyone opens the shop page of a seller who is `PENDING`, `REJECTED` or `NOT_SUBMITTED`"
+      - "Then the page contains 0 badges and none of the words \"Đang chờ duyệt\", \"Bị từ chối\" or \"Chưa gửi hồ sơ\""
+    tags: [seller-kyc-ui]
+    status: planned
+
+  - id: seller-kyc-ui.badge-lookup-failure-does-not-break-the-page
+    title: "Badge lookup failure does not break the page"
+    persona: seller
+    priority: P1
+    summary: "Badge lookup failure does not break the page"
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `GetPublicBadges` fails or times out"
+      - "Then the shop page still renders with HTTP 200 and 0 badges"
+    tags: [seller-kyc-ui]
+    status: planned
+
+  - id: seller-kyc-ui.the-badge-call-asks-for-the-shop-seller-only
+    title: "The badge call asks for the shop seller only"
+    persona: seller
+    priority: P1
+    summary: "The badge call asks for the shop seller only"
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the shop page is rendered"
+      - "Then exactly 1 `GetPublicBadges` call is made with 1 user id equal to the shop's seller id"
+    tags: [seller-kyc-ui, unit]
+    status: not-testable
+    notes: "seller-kyc-ui: unit-verified, not producible end to end (the server-side gateway call is not observable from the browser). VERIFIED BY `team-frontend/src/app/shop/[id]/page.test.tsx` `asks GetPublicBadges for the shop seller only`."
