@@ -8494,18 +8494,6 @@ features:
     covered_by: "tracking/ai_interaction_events.feature::Two replies report two shown events"
     notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Two replies report two shown events"
 
-  - id: frontend-ai-interaction-events.streamed-text-whose-final-message-has-no-cards-reports-nothing
-    title: "Streamed text whose final message has no cards reports nothing"
-    persona: buyer
-    priority: P2
-    entry_route: "/"
-    services: [team-frontend]
-    acceptance:
-      - "Streamed text whose final message has no cards reports nothing"
-    tags: [tracking, ai-interaction, unit]
-    status: not-testable
-    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `streamed text without cards reports nothing`"
-
   - id: frontend-ai-interaction-events.suggestions-render-and-are-reported-once
     title: "Suggestions render and are reported once"
     persona: seller
@@ -12610,3 +12598,371 @@ features:
     status: automated
     covered_by: frontend/cart_cross_sell_ui.feature::Beacons carry the recommendation identity
     notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
+
+  # ---- buyer-ai-surfaces-ui (grounded unary assistant, provenance in wire fields, home entry, flag exposure)
+  - id: buyer-ai-surfaces-ui.one-call-per-question-and-no-stream
+    title: "One call per question and no stream"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "One call per question and no stream"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: planned
+    covered_by: "frontend/buyer_ai_surfaces.feature::One call per question and no stream"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::One call per question and no stream"
+
+  - id: buyer-ai-surfaces-ui.the-stream-route-is-gone
+    title: "The stream route is gone"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "The stream route is gone"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: planned
+    covered_by: "frontend/buyer_ai_surfaces.feature::The stream route is gone"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The stream route is gone"
+
+  - id: buyer-ai-surfaces-ui.a-card-without-a-rating-shows-no-rating-line
+    title: "A card without a rating shows no rating line"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A card without a rating shows no rating line"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `hides the rating line when empty` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-rated-card-shows-exactly-the-returned-rating-text
+    title: "A rated card shows exactly the returned rating text"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A rated card shows exactly the returned rating text"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shows the returned rating text` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-failed-call-shows-the-apology-and-no-cards
+    title: "A failed call shows the apology and no cards"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A failed call shows the apology and no cards"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shows the apology on failure` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-reply-without-cards-is-shown-as-text-only
+    title: "A reply without cards is shown as text only"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A reply without cards is shown as text only"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `renders a text-only reply` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.card-impressions-carry-the-placement-and-the-request-id
+    title: "Card impressions carry the placement and the request id"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Card impressions carry the placement and the request id"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: planned
+    covered_by: "frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id"
+
+  - id: buyer-ai-surfaces-ui.a-reply-without-a-request-id-sends-no-impression-id
+    title: "A reply without a request id sends no impression id"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A reply without a request id sends no impression id"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `omits empty provenance` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-reply-without-cards-queues-no-impression
+    title: "A reply without cards queues no impression"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A reply without cards queues no impression"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `reports nothing without cards` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.the-helper-puts-provenance-in-wire-fields-only
+    title: "The helper puts provenance in wire fields only"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "The helper puts provenance in wire fields only"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends provenance in wire fields only` in `team-frontend/src/lib/analytics/ai.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.empty-provenance-sends-nothing-extra
+    title: "Empty provenance sends nothing extra"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "Empty provenance sends nothing extra"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `omits empty provenance` in `team-frontend/src/lib/analytics/ai.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.the-assistant-accepted-click-reuses-the-reply-provenance
+    title: "The assistant accepted click reuses the reply provenance"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "The assistant accepted click reuses the reply provenance"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: planned
+    covered_by: "tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance"
+
+  - id: buyer-ai-surfaces-ui.copilot-events-carry-the-copilot-response-provenance
+    title: "Copilot events carry the copilot response provenance"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend]
+    acceptance:
+      - "Copilot events carry the copilot response provenance"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `copilot events carry provenance` in `team-frontend/src/features/chat/ChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.the-review-summary-shown-event-carries-the-summary-provenance
+    title: "The review summary shown event carries the summary provenance"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "The review summary shown event carries the summary provenance"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shown carries provenance` in `team-frontend/src/features/review/AiReviewSummary.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.provenance-never-enters-properties-or-free-text
+    title: "Provenance never enters properties or free text"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Provenance never enters properties or free text"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: planned
+    covered_by: "tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
+
+  - id: buyer-ai-surfaces-ui.a-viewer-without-the-seller-role-emits-no-copilot-provenance
+    title: "A viewer without the seller role emits no copilot provenance"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend]
+    acceptance:
+      - "A viewer without the seller role emits no copilot provenance"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `buyer quick replies emit nothing` in `team-frontend/src/features/chat/ChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-tracker-failure-still-leaves-the-ai-action-working
+    title: "A tracker failure still leaves the AI action working"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A tracker failure still leaves the AI action working"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `swallows tracker failure` in `team-frontend/src/lib/analytics/ai.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.the-home-entry-points-to-the-assistant-page
+    title: "The home entry points to the assistant page"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-ai]
+    acceptance:
+      - "The home entry points to the assistant page"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: planned
+    covered_by: "frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page"
+
+  - id: buyer-ai-surfaces-ui.no-invented-score-is-rendered
+    title: "No invented score is rendered"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "No invented score is rendered"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `renders no match score` in `team-frontend/src/features/home/AssistantBlock.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.the-entry-does-not-load-the-feed
+    title: "The entry does not load the feed"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "The entry does not load the feed"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `does not depend on the feed` in `team-frontend/src/features/home/AssistantBlock.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.the-listing-id-reaches-the-copilot-call
+    title: "The listing id reaches the copilot call"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend]
+    acceptance:
+      - "The listing id reaches the copilot call"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `passes the thread listing` in `team-frontend/src/features/chat/actions.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.a-failed-copilot-call-shows-no-suggestions
+    title: "A failed copilot call shows no suggestions"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend]
+    acceptance:
+      - "A failed copilot call shows no suggestions"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `reports nothing for empty or failed copilot` in `team-frontend/src/features/chat/ChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-buyer-has-no-copilot
+    title: "A buyer has no copilot"
+    persona: buyer
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A buyer has no copilot"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: planned
+    covered_by: "tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
+
+  - id: buyer-ai-surfaces-ui.a-resolved-variant-is-returned-and-the-id-is-hashed
+    title: "A resolved variant is returned and the id is hashed"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A resolved variant is returned and the id is hashed"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `hashes the entity id` in `team-frontend/src/lib/flags/variant.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.a-slow-or-failing-flipt-yields-no-variant
+    title: "A slow or failing Flipt yields no variant"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A slow or failing Flipt yields no variant"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `times out to null` in `team-frontend/src/lib/flags/variant.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.disabled-flags-or-an-empty-entity-yield-no-variant
+    title: "Disabled flags or an empty entity yield no variant"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Disabled flags or an empty entity yield no variant"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `returns null when disabled or without entity` in `team-frontend/src/lib/flags/variant.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.exposure-is-sent-once-per-mount-with-only-flag-and-variant
+    title: "Exposure is sent once per mount with only flag and variant"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Exposure is sent once per mount with only flag and variant"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends one exposure per mount` in `team-frontend/src/features/tracking/ExperimentExposure.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.no-variant-sends-no-exposure
+    title: "No variant sends no exposure"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "No variant sends no exposure"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends nothing without a variant` in `team-frontend/src/features/tracking/ExperimentExposure.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-browser-bundle-never-contains-the-flag-client
+    title: "A browser bundle never contains the flag client"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A browser bundle never contains the flag client"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `is server-only` in `team-frontend/src/lib/flags/variant.test.ts`"

@@ -38,6 +38,29 @@ Feature: AI surfaces report shown, accepted and edited as ai_interaction beacons
     And the buyer asks the assistant a second question and more product cards are shown
     Then exactly 2 "assistant" "shown" AI events are captured
 
+  @needsBuyer
+  Scenario: The assistant accepted click reuses the reply provenance
+    Given a buyer is logged in
+    And the browser records AI beacons
+    And the browser records assistant replies
+    When the buyer asks the assistant for a product and a product card is shown
+    And the buyer clicks "Xem Ngay" on the first product card without leaving
+    Then exactly 1 "assistant" "accepted" AI events are captured
+    And every captured "assistant" "accepted" AI event carries the id of the clicked card's listing
+    And every captured "assistant" "accepted" AI event carries an impressionId equal to the reply request id
+    And every captured "assistant" "accepted" AI event carries a non-empty modelVersion
+
+  @needsBuyer
+  Scenario: The shown event carries the reply provenance in wire fields only
+    Given a buyer is logged in
+    And the browser records AI beacons
+    And the browser records assistant replies
+    When the buyer asks the assistant for a product and a product card is shown
+    Then exactly 1 "assistant" "shown" AI events are captured
+    And every captured "assistant" "shown" AI event carries an impressionId equal to the reply request id
+    And every captured "assistant" "shown" AI event carries a non-empty modelVersion
+    And no captured "assistant" AI event has impressionId or modelVersion in its properties
+
   # ── Seller chat copilot ───────────────────────────────────────────────
 
   Scenario: Suggestions render and are reported once
@@ -183,6 +206,19 @@ Feature: AI surfaces report shown, accepted and edited as ai_interaction beacons
     And the browser records AI beacons
     When the buyer asks the assistant "SECRET-PROMPT-7" and a product card is shown
     Then at least 1 "assistant" "shown" AI events are captured
+    And every /api/track batch holding an ai_interaction beacon was answered 2xx by the gateway
+    And no captured beacon body contains "SECRET-PROMPT-7" or the assistant reply text
+    And every captured AI event has exactly the keys surface and action in its properties
+
+  @needsBuyer
+  Scenario: Provenance never enters properties or free text
+    Given a buyer is logged in
+    And the browser records AI beacons
+    And the browser records assistant replies
+    When the buyer asks the assistant "SECRET-PROMPT-7" and a product card is shown
+    And the buyer clicks "Xem Ngay" on the first product card without leaving
+    Then at least 1 "assistant" "accepted" AI events are captured
+    And every captured "assistant" "shown" AI event carries an impressionId equal to the reply request id
     And every /api/track batch holding an ai_interaction beacon was answered 2xx by the gateway
     And no captured beacon body contains "SECRET-PROMPT-7" or the assistant reply text
     And every captured AI event has exactly the keys surface and action in its properties
