@@ -70,12 +70,18 @@ describe("SponsoredClickGuard", () => {
 
     const notPrevented = fireEvent(
       link,
-      new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }),
+      new MouseEvent("auxclick", {
+        bubbles: true,
+        cancelable: true,
+        button: 1,
+      }),
     );
 
     expect(notPrevented).toBe(true);
     expect(sendBeacon).toHaveBeenCalledTimes(1);
-    expect(await bodyOf(sendBeacon.mock.calls[0][1])).toEqual({ token: "tok-1" });
+    expect(await bodyOf(sendBeacon.mock.calls[0][1])).toEqual({
+      token: "tok-1",
+    });
   });
 
   it("falls back to keepalive fetch when sendBeacon is missing (Click beacon fires once per gesture and does not prevent navigation)", async () => {
@@ -103,7 +109,11 @@ describe("SponsoredClickGuard", () => {
     const notPrevented = fireEvent.click(screen.getByTestId("organic-link"));
     fireEvent(
       screen.getByTestId("organic-link"),
-      new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }),
+      new MouseEvent("auxclick", {
+        bubbles: true,
+        cancelable: true,
+        button: 1,
+      }),
     );
 
     expect(notPrevented).toBe(true);

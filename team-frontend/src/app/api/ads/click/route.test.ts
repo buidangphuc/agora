@@ -40,7 +40,9 @@ function captureLogs() {
   logged = [];
   for (const m of ["log", "info", "warn", "error", "debug"] as const) {
     vi.spyOn(console, m).mockImplementation((...a: unknown[]) => {
-      logged.push(a.map((x) => (x instanceof Error ? x.message : String(x))).join(" "));
+      logged.push(
+        a.map((x) => (x instanceof Error ? x.message : String(x))).join(" "),
+      );
     });
   }
 }

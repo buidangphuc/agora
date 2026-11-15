@@ -205,7 +205,8 @@ export async function listVouchers(sellerId?: string): Promise<ViewVoucher[]> {
 }
 
 export type MyVouchersResult =
-  { ok: true; vouchers: ViewVoucher[] } | { ok: false };
+  | { ok: true; vouchers: ViewVoucher[] }
+  | { ok: false };
 
 export async function listMyVouchers(): Promise<MyVouchersResult> {
   if (!getPrincipal()) return { ok: true, vouchers: [] };

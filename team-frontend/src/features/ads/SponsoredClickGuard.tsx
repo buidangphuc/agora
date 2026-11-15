@@ -31,11 +31,23 @@ function tokenOf(target: EventTarget | null): string | null {
   return slot?.getAttribute("data-impression-token") || null;
 }
 
+function activatesWithClick(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest("a[href], button, input, select, textarea, summary") !== null
+  );
+}
+
 export function SponsoredClickGuard({ children }: { children: ReactNode }) {
   return (
     <div
       style={{ display: "contents" }}
       onClick={(e) => {
+        const token = tokenOf(e.target);
+        if (token) send(token);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" || activatesWithClick(e.target)) return;
         const token = tokenOf(e.target);
         if (token) send(token);
       }}

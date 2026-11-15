@@ -43,7 +43,12 @@ afterEach(() => vi.useRealTimers());
 
 describe("loadSponsored", () => {
   it("requests and renders at most two slots", async () => {
-    listSponsoredSlotSet.mockResolvedValue([slot(1), slot(2), slot(3), slot(4)]);
+    listSponsoredSlotSet.mockResolvedValue([
+      slot(1),
+      slot(2),
+      slot(3),
+      slot(4),
+    ]);
 
     const out = await loadSponsored("search", "cat-1");
 

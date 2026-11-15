@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getListing, type ViewListing } from "@/lib/gateway/listings";
+import { type ViewListing, getListing } from "@/lib/gateway/listings";
 import { listSponsoredSlotSet } from "@/lib/gateway/promotion";
 
 import { MAX_SPONSORED_SLOTS, SPONSORED_TIMEOUT_MS } from "./constants";
