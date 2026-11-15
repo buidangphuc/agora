@@ -110,6 +110,8 @@ type AdCampaignRepository interface {
 	// ListActive returns the active campaigns ordered by bid descending (best bid
 	// first), bounded by limit. Ties break on newest-first for a stable order.
 	ListActive(ctx context.Context, limit int) ([]AdCampaign, error)
+	Pause(ctx context.Context, id, sellerID string) (AdCampaign, error)
+	Resume(ctx context.Context, id, sellerID string) (AdCampaign, error)
 	ListServable(ctx context.Context, category string, limit int) ([]AdCampaign, error)
 	IssueImpressions(ctx context.Context, issues []ImpressionIssue) error
 	// RecordClick consumes token at instant now and charges the campaign's bid in one

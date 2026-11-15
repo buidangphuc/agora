@@ -80,3 +80,53 @@ func (h *SponsoredHandler) RecordAdClick(ctx context.Context, req *promotionv1.R
 	}
 	return &promotionv1.RecordAdClickResponse{ListingId: res.ListingID, Charged: res.Charged}, nil
 }
+
+func (h *SponsoredHandler) ListMyAdCampaigns(ctx context.Context, req *promotionv1.ListMyAdCampaignsRequest) (*promotionv1.ListMyAdCampaignsResponse, error) {
+	principal, err := requireSeller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res, err := h.svc.ListMyAdCampaigns(ctx, sponsored.ListMyAdCampaignsParams{
+		SellerID: principal.ID,
+		PageSize: req.GetPage().GetPageSize(),
+		Cursor:   req.GetPage().GetCursor(),
+	})
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	out := &promotionv1.ListMyAdCampaignsResponse{Page: pageResponse(res.NextCursor)}
+	for _, c := range res.Campaigns {
+		out.Campaigns = append(out.Campaigns, adCampaignToProto(c))
+	}
+	return out, nil
+}
+
+func (h *SponsoredHandler) PauseAdCampaign(ctx context.Context, req *promotionv1.PauseAdCampaignRequest) (*promotionv1.PauseAdCampaignResponse, error) {
+	principal, err := requireSeller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetCampaignId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "campaign_id is required")
+	}
+	c, err := h.svc.PauseAdCampaign(ctx, principal.ID, req.GetCampaignId())
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.PauseAdCampaignResponse{Campaign: adCampaignToProto(c)}, nil
+}
+
+func (h *SponsoredHandler) ResumeAdCampaign(ctx context.Context, req *promotionv1.ResumeAdCampaignRequest) (*promotionv1.ResumeAdCampaignResponse, error) {
+	principal, err := requireSeller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetCampaignId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "campaign_id is required")
+	}
+	c, err := h.svc.ResumeAdCampaign(ctx, principal.ID, req.GetCampaignId())
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.ResumeAdCampaignResponse{Campaign: adCampaignToProto(c)}, nil
+}

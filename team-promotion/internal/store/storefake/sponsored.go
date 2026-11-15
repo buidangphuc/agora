@@ -182,3 +182,30 @@ func (r *InMemoryAdCampaignRepository) RecordClick(_ context.Context, token, pri
 	res.Charged = true
 	return res, nil
 }
+
+func (r *InMemoryAdCampaignRepository) transition(id, sellerID string, allowed func(store.AdCampaign) bool, to int32) (store.AdCampaign, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	c, ok := r.campaigns[id]
+	if !ok || c.SellerID != sellerID {
+		return store.AdCampaign{}, store.ErrAdCampaignNotFound
+	}
+	if !allowed(c) {
+		return c, store.ErrAdCampaignState
+	}
+	c.Status = to
+	r.campaigns[id] = c
+	return c, nil
+}
+
+func (r *InMemoryAdCampaignRepository) Pause(_ context.Context, id, sellerID string) (store.AdCampaign, error) {
+	return r.transition(id, sellerID, func(c store.AdCampaign) bool {
+		return c.Status == store.AdCampaignStatusActive || c.Status == store.AdCampaignStatusPaused || c.Status == store.AdCampaignStatusPausedBudget
+	}, store.AdCampaignStatusPaused)
+}
+
+func (r *InMemoryAdCampaignRepository) Resume(_ context.Context, id, sellerID string) (store.AdCampaign, error) {
+	return r.transition(id, sellerID, func(c store.AdCampaign) bool {
+		return c.Status == store.AdCampaignStatusActive || (c.Status == store.AdCampaignStatusPaused && c.Budget-c.Spent >= c.Bid)
+	}, store.AdCampaignStatusActive)
+}

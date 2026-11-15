@@ -46,6 +46,8 @@ func mustErrorTable() grpcx.ErrorTable {
 		grpcx.Rule{Target: store.ErrCampaignCancelled, Code: codes.FailedPrecondition, Message: "campaign is cancelled"},
 		grpcx.Rule{Target: store.ErrIdempotencyMismatch, Code: codes.AlreadyExists, Message: "idempotency_key already used with a different payload"},
 		grpcx.Rule{Target: sponsored.ErrInvalidAdCampaign, Code: codes.InvalidArgument, Message: "invalid ad campaign"},
+		grpcx.Rule{Target: store.ErrAdCampaignNotFound, Code: codes.NotFound, Message: "ad campaign not found"},
+		grpcx.Rule{Target: store.ErrAdCampaignState, Code: codes.FailedPrecondition, Message: "ad campaign state forbids this transition"},
 		grpcx.Rule{Target: subscription.ErrInvalidSubscription, Code: codes.InvalidArgument, Message: "invalid subscription"},
 		grpcx.Rule{Target: subscription.ErrInsufficientBalance, Code: codes.FailedPrecondition, Message: "insufficient withdrawable balance"},
 		grpcx.Rule{Target: subscription.ErrPaymentUnavailable, Code: codes.Unavailable, Message: "payment service unavailable"},
@@ -213,6 +215,11 @@ func adCampaignToProto(c store.AdCampaign) *promotionv1.AdCampaign {
 		Bid:       c.Bid,
 		Status:    promotionv1.AdCampaignStatus(c.Status),
 		CreatedAt: protoTime(c.CreatedAt),
+
+		Spent:       c.Spent,
+		Impressions: c.Impressions,
+		Clicks:      c.Clicks,
+		CategoryId:  c.CategoryID,
 	}
 }
 
