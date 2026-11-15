@@ -6,5 +6,6 @@ from tests.e2e.step_definitions.common_steps import *  # noqa: F401,F403
 from tests.e2e.step_definitions.magic_listing_steps import *  # noqa: F401,F403
 from tests.e2e.step_definitions.seller_steps import *  # noqa: F401,F403 (reuses seller login)
 from tests.e2e.step_definitions.seller_cockpit_steps import *  # noqa: F401,F403
+from tests.e2e.step_definitions.ccg_steps import *  # noqa: F401,F403
 
 scenarios("ai/magic_listing.feature")
