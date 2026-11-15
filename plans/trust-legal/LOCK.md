@@ -16,7 +16,7 @@ spec: plans/trust-legal/00-spec.md (Locked 2026-11-13)
 | domain-seller-erasure | team-domain | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 699ad0004057 | [x] |
 | analytics-user-erasure | team-analytics | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c4fede24e7aa | [x] |
 | verification-kyc-documents | team-verification | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | ccf049b79966 | [x] |
-| payment-payout-kyc-gate | team-payment | [verification-kyc-documents] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 77906935b59e | [x] |
+| payment-payout-kyc-gate | team-payment | [verification-kyc-documents] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4d9b7a7e990e | [x] |
 | frontend-legal-pages | team-frontend | [identity-legal-consent] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | e2e7ff15f69a | [x] |
 | frontend-account-privacy | team-frontend | [identity-data-export, frontend-legal-pages] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d996a770553e | [x] |
 | seller-kyc-ui | team-frontend-seller | [verification-kyc-documents, payment-payout-kyc-gate] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | fa44b614550e | [x] |
