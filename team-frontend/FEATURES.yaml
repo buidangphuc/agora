@@ -12610,3 +12610,341 @@ features:
     status: automated
     covered_by: frontend/cart_cross_sell_ui.feature::Beacons carry the recommendation identity
     notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
+
+  - id: legal.pages.renders-title-version-placeholder
+    title: "A legal page renders title, version and placeholder"
+    persona: guest
+    priority: P1
+    summary: "A legal page renders title, version and placeholder"
+    entry_route: /dieu-khoan-su-dung
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An anonymous visitor opens /dieu-khoan-su-dung; the response is 200 with a Vietnamese h1, a Phiên bản version and the legal placeholder body"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.pages.all-seven-slugs-resolve
+    title: "All seven slugs resolve"
+    persona: guest
+    priority: P1
+    summary: "All seven slugs resolve"
+    entry_route: /dieu-khoan-su-dung
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Each of the seven legal slugs returns 200 and the sitemap lists exactly those 7 legal URLs"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.pages.unknown-slug-not-found
+    title: "An unknown legal slug is not found"
+    persona: guest
+    priority: P2
+    summary: "An unknown legal slug is not found"
+    entry_route: /chinh-sach-khong-ton-tai
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A visitor opens /chinh-sach-khong-ton-tai; the response is 404 and the not-found page renders"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.pages.need-no-login
+    title: "Legal pages need no login"
+    persona: guest
+    priority: P1
+    summary: "Legal pages need no login"
+    entry_route: /chinh-sach-bao-mat
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A visitor without a session cookie opens /chinh-sach-bao-mat; 200 with no redirect to /login"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.footer.exposes-legal-links
+    title: "Footer exposes the legal links"
+    persona: guest
+    priority: P1
+    summary: "Footer exposes the legal links"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The footer links the seven legal slugs and the RMA link targets /chinh-sach-doi-tra"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.footer.operator-placeholders
+    title: "Footer shows the operator placeholders"
+    persona: guest
+    priority: P2
+    summary: "Footer shows the operator placeholders"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The footer shows four labelled operator fields each with the operator placeholder"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.footer.never-links-missing-pages
+    title: "Footer never links legal pages that are missing"
+    persona: guest
+    priority: P2
+    summary: "Footer never links legal pages that are missing"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Every footer legal link resolves to a page and the RMA entry does not point to /account/orders"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.signup.both-boxes-record-two-consents
+    title: "Registering with both boxes checked records two consents"
+    persona: guest
+    priority: P1
+    summary: "Registering with both boxes checked records two consents"
+    entry_route: /register
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Submitting the register form with both boxes checked creates the account and ListMyConsents returns TERMS and PRIVACY_POLICY at the current versions with source register"
+    tags: [auth, buyer, legal]
+    status: planned
+
+  - id: legal.signup.unchecked-box-blocks-submission
+    title: "Unchecked box blocks submission"
+    persona: guest
+    priority: P1
+    summary: "Unchecked box blocks submission"
+    entry_route: /register
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "With the Terms box unchecked a field error is shown, no Register call reaches the gateway and no account is created"
+    tags: [auth, buyer, legal]
+    status: planned
+
+  - id: legal.signup.forged-post-refused
+    title: "A forged post without acceptance fields is refused"
+    persona: guest
+    priority: P1
+    summary: "A forged post without acceptance fields is refused"
+    entry_route: /register
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A register post without the acceptance fields returns a field error, 0 Register calls reach the gateway and no account is created"
+    tags: [auth, buyer, legal]
+    status: planned
+
+  - id: legal.signup.stale-version-reported
+    title: "A stale version is reported to the user"
+    persona: guest
+    priority: P1
+    summary: "A stale version is reported to the user"
+    entry_route: /register
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When identity requires a newer terms version the form shows the Vietnamese update message and no account is created"
+    tags: [auth, buyer, legal]
+    status: planned
+
+  - id: legal.reacceptance.legacy-user-prompted-and-accepts
+    title: "A legacy user is prompted and accepts"
+    persona: buyer
+    priority: P1
+    summary: "A legacy user is prompted and accepts"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A signed-in user with no TERMS or PRIVACY_POLICY row sees the dialog, clicks Đồng ý, RecordConsent is called once and the dialog does not return on reload"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.reacceptance.newer-terms-triggers-prompt
+    title: "A newer Terms version triggers the prompt"
+    persona: buyer
+    priority: P1
+    summary: "A newer Terms version triggers the prompt"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A user whose latest TERMS version differs from the current one sees the dialog on non-legal pages while legal pages stay readable"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.reacceptance.up-to-date-not-prompted
+    title: "Up-to-date users are not prompted"
+    persona: buyer
+    priority: P1
+    summary: "Up-to-date users are not prompted"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "An up-to-date user loading 3 pages sees no dialog and ListMyConsents is called at most once"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.reacceptance.anonymous-never-prompted
+    title: "Anonymous visitors are never prompted"
+    persona: guest
+    priority: P1
+    summary: "Anonymous visitors are never prompted"
+    entry_route: /
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An anonymous visitor sees no dialog and the gateway receives 0 PrivacyService calls"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.reacceptance.lookup-failure-does-not-block
+    title: "Consent lookup failure does not block browsing"
+    persona: buyer
+    priority: P2
+    summary: "Consent lookup failure does not block browsing"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When ListMyConsents fails the page renders normally with no dialog and no error"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: legal.reacceptance.declining-signs-out
+    title: "Declining signs the user out"
+    persona: buyer
+    priority: P1
+    summary: "Declining signs the user out"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Clicking Đăng xuất clears the session, lands the user on / as anonymous and writes no consent row"
+    tags: [buyer, legal]
+    status: planned
+
+  - id: consent.banner-ledger.text-is-vietnamese
+    title: "Banner text is Vietnamese"
+    persona: guest
+    priority: P2
+    summary: "Banner text is Vietnamese"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The banner title is Tùy chọn cookie, the groups are Phân tích, Tiếp thị, Cá nhân hóa and no English label remains"
+    tags: [buyer, consent]
+    status: planned
+
+  - id: consent.banner-ledger.signed-in-save-changed-only
+    title: "Signed-in save records only changed purposes"
+    persona: buyer
+    priority: P1
+    summary: "Signed-in save records only changed purposes"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Turning on Cá nhân hóa and saving updates the cookie, calls RecordConsent once with 1 record and lists it as the newest row"
+    tags: [buyer, consent]
+    status: planned
+
+  - id: consent.banner-ledger.first-choice-records-all-three
+    title: "First choice records all three purposes"
+    persona: buyer
+    priority: P1
+    summary: "First choice records all three purposes"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Từ chối tất cả without a prior cookie calls RecordConsent once with 3 denied records"
+    tags: [buyer, consent]
+    status: planned
+
+  - id: consent.banner-ledger.anonymous-cookie-only
+    title: "Anonymous choice is cookie only"
+    persona: guest
+    priority: P1
+    summary: "Anonymous choice is cookie only"
+    entry_route: /
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Chấp nhận tất cả sets the cookie and the gateway receives 0 PrivacyService calls"
+    tags: [buyer, consent]
+    status: planned
+
+  - id: consent.banner-ledger.write-failure-keeps-cookie
+    title: "Ledger write failure keeps the cookie choice"
+    persona: buyer
+    priority: P2
+    summary: "Ledger write failure keeps the cookie choice"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When RecordConsent fails the cookie still holds the choice, the banner closes and no error shows"
+    tags: [buyer, consent]
+    status: planned
+
+  - id: legal.pages.unit-versions-equal-configured
+    title: "Terms and privacy page versions equal the configured versions"
+    persona: buyer
+    priority: P2
+    summary: "Terms and privacy page versions equal the configured versions"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The unit suite compares the dieu-khoan-su-dung and chinh-sach-bao-mat front-matter versions with the configured NEXT_PUBLIC versions (unit-verified)"
+    tags: [buyer, legal, unit]
+    status: not-testable
+    notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/legal/content.test.ts \"Terms and privacy page versions equal the configured versions\". Not producible end to end: reads content files and build-time env, not observable through the running app."
+
+  - id: legal.signup.unit-boundary-version-length
+    title: "Boundary version length"
+    persona: buyer
+    priority: P2
+    summary: "Boundary version length"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The register request carries each configured version unchanged and at most 32 characters (unit-verified)"
+    tags: [auth, buyer, legal, unit]
+    status: not-testable
+    notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/auth/actions.test.ts \"Boundary version length\". Not producible end to end: asserts the outgoing server-action request argument, not observable end to end."

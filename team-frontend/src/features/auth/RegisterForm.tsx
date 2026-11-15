@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { type RefObject, useActionState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Input } from "@/components/ui/Input";
@@ -19,6 +19,49 @@ const ROLE_OPTIONS = [
   { value: "buyer", label: "Người mua (buyer)" },
   { value: "seller", label: "Người bán (seller)" },
 ];
+
+function AcceptBox({
+  name,
+  inputRef,
+  error,
+  onChange,
+  href,
+  label,
+}: {
+  name: string;
+  inputRef: RefObject<HTMLInputElement | null>;
+  error?: string;
+  onChange: () => void;
+  href: string;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          name={name}
+          ref={inputRef}
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby={error ? `${name}-error` : undefined}
+          onChange={onChange}
+          className="mt-1"
+        />
+        <span>
+          Tôi đã đọc và chấp nhận{" "}
+          <a href={href} target="_blank" rel="noreferrer" className="underline">
+            {label}
+          </a>
+        </span>
+      </label>
+      {error ? (
+        <p id={`${name}-error`} className="text-xs text-text-danger">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 export function RegisterForm({
   returnUrl,
@@ -87,6 +130,23 @@ export function RegisterForm({
           name="role"
           defaultValue="buyer"
           options={ROLE_OPTIONS}
+        />
+
+        <AcceptBox
+          name="acceptTerms"
+          inputRef={form.termsRef}
+          error={form.errors.acceptTerms}
+          onChange={() => form.onChange("acceptTerms")}
+          href="/dieu-khoan-su-dung"
+          label="Điều khoản sử dụng"
+        />
+        <AcceptBox
+          name="acceptPrivacy"
+          inputRef={form.privacyRef}
+          error={form.errors.acceptPrivacy}
+          onChange={() => form.onChange("acceptPrivacy")}
+          href="/chinh-sach-bao-mat"
+          label="Chính sách bảo mật"
         />
 
         {state.error && !form.hasFieldErrors && (

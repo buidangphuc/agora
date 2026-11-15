@@ -33,7 +33,7 @@ _CLS_OBSERVER = """
   } catch (e) {}
 })();
 """
-_GROUPS = ("analytics", "marketing", "personali[sz]ation")
+_GROUPS = ("analytics|phân tích", "marketing|tiếp thị", "personali[sz]ation|cá nhân hóa")
 
 
 def _x(world: World) -> dict:
@@ -90,12 +90,12 @@ def view_listing(world: World) -> None:
 
 @when("the visitor grants personalization through the Cookie settings link")
 def grant_personalization(world: World) -> None:
-    world.page.get_by_text(re.compile(r"cookie settings", re.I)).first.click()
+    world.page.get_by_text(re.compile(r"cookie settings|cài đặt cookie", re.I)).first.click()
     expect(_banner(world)).to_be_visible(timeout=timeouts.NAVIGATION)
     box = _banner(world).get_by_role("checkbox", name=re.compile(_GROUPS[2], re.I))
     box.check()
     _x(world)["grant_ts"] = time.time()
-    _banner(world).get_by_role("button", name=re.compile("save choices", re.I)).click()
+    _banner(world).get_by_role("button", name=re.compile("save choices|lưu lựa chọn", re.I)).click()
     world.page.wait_for_timeout(500)
 
 

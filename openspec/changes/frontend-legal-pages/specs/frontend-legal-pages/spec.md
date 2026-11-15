@@ -10,27 +10,27 @@ statically rendered, SHALL make no gateway call, and SHALL be listed in the site
 #### Scenario: A legal page renders title, version and placeholder
 - **WHEN** an anonymous visitor opens `/dieu-khoan-su-dung`
 - **THEN** the response is 200 with an `h1` in Vietnamese, the text "Phiên bản" followed by the front-matter version, and the text "NỘI DUNG DO BỘ PHẬN PHÁP CHẾ CUNG CẤP"
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_pages.feature::A legal page renders title, version and placeholder
 
 #### Scenario: All seven slugs resolve
 - **WHEN** an anonymous visitor requests each of the seven slugs
 - **THEN** each response is 200 and the sitemap contains exactly those 7 legal URLs
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_pages.feature::All seven slugs resolve
 
 #### Scenario: An unknown legal slug is not found
 - **WHEN** a visitor opens `/chinh-sach-khong-ton-tai`
 - **THEN** the response is 404 and the not-found page renders
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_pages.feature::An unknown legal slug is not found
 
 #### Scenario: Legal pages need no login
 - **WHEN** a visitor without a session cookie opens `/chinh-sach-bao-mat`
 - **THEN** the response is 200 with no redirect to `/login`
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_pages.feature::Legal pages need no login
 
 #### Scenario: Terms and privacy page versions equal the configured versions
 - **WHEN** the unit suite reads `content/legal/dieu-khoan-su-dung.md` and `chinh-sach-bao-mat.md`
 - **THEN** their `version` values equal `NEXT_PUBLIC_LEGAL_TERMS_VERSION` and `NEXT_PUBLIC_PRIVACY_POLICY_VERSION` and each is 1 to 32 characters, else the test fails
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: team-frontend/src/features/legal/content.test.ts "Terms and privacy page versions equal the configured versions"
 
 ### Requirement: The footer links the legal pages and carries the operator block
 
@@ -41,17 +41,17 @@ of Industry and Trade registration notice, each "[DO BỘ PHẬN PHÁP CHẾ CUN
 #### Scenario: Footer exposes the legal links
 - **WHEN** any consumer page renders
 - **THEN** the footer contains 7 links whose targets are the seven legal slugs and the RMA link target is `/chinh-sach-doi-tra`
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_pages.feature::Footer exposes the legal links
 
 #### Scenario: Footer shows the operator placeholders
 - **WHEN** any consumer page renders
 - **THEN** the footer contains the four labelled operator fields and each shows "[DO BỘ PHẬN PHÁP CHẾ CUNG CẤP]"
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_pages.feature::Footer shows the operator placeholders
 
 #### Scenario: Footer never links legal pages that are missing
 - **WHEN** the unit suite compares the footer link targets with the seven slugs
 - **THEN** every footer legal link resolves to an existing page, no link points to `/account/orders` for the RMA entry, and an anonymous visitor sees the same footer without error
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_pages.feature::Footer never links legal pages that are missing
 
 ### Requirement: Sign-up requires accepting the current Terms and Privacy Policy
 
@@ -62,27 +62,27 @@ of Industry and Trade registration notice, each "[DO BỘ PHẬN PHÁP CHẾ CUN
 #### Scenario: Registering with both boxes checked records two consents
 - **WHEN** a visitor submits a valid username and password with both checkboxes checked
 - **THEN** the account is created, the visitor is redirected as before, and `ListMyConsents` for that user returns 2 records (TERMS, PRIVACY_POLICY) at the current versions with source `register`
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_signup.feature::Registering with both boxes checked records two consents
 
 #### Scenario: Unchecked box blocks submission
 - **WHEN** a visitor submits the form with the Terms box unchecked
 - **THEN** a Vietnamese field error is shown on that box, 0 requests reach the gateway and no account is created
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_signup.feature::Unchecked box blocks submission
 
 #### Scenario: A forged post without acceptance fields is refused
 - **WHEN** a client posts the register server action without the `acceptTerms` or `acceptPrivacy` field
 - **THEN** the action returns `ok:false` with a field error and the gateway receives 0 `Register` calls
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_signup.feature::A forged post without acceptance fields is refused
 
 #### Scenario: A stale version is reported to the user
 - **WHEN** the build-time terms version differs from the identity current version and a visitor submits the form with both boxes checked
 - **THEN** the identity response `INVALID_ARGUMENT` is shown as "Điều khoản đã được cập nhật. Vui lòng tải lại trang và đồng ý lại." and no account is created
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_signup.feature::A stale version is reported to the user
 
 #### Scenario: Boundary version length
 - **WHEN** the unit suite builds the register request with the configured versions
 - **THEN** each version string is sent unchanged and is at most 32 characters
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: team-frontend/src/features/auth/actions.test.ts "Boundary version length"
 
 ### Requirement: Users with stale acceptance are asked to accept again
 
@@ -94,32 +94,32 @@ source `account`. An anonymous visitor SHALL never see the dialog and SHALL caus
 #### Scenario: A legacy user is prompted and accepts
 - **WHEN** a signed-in user with no TERMS or PRIVACY_POLICY row loads `/`, then clicks "Đồng ý"
 - **THEN** the dialog appeared before the click, `RecordConsent` was called once with 2 records, the dialog closes within 1 second, and a reload shows no dialog
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_reacceptance.feature::A legacy user is prompted and accepts
 
 #### Scenario: A newer Terms version triggers the prompt
 - **WHEN** a signed-in user whose latest TERMS version is older than the current version loads any non-legal page
 - **THEN** the dialog shows with 2 actions and the legal pages stay readable without it
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_reacceptance.feature::A newer Terms version triggers the prompt
 
 #### Scenario: Up-to-date users are not prompted
 - **WHEN** a signed-in user whose latest TERMS and PRIVACY_POLICY versions equal the current ones loads 3 pages in one tab
 - **THEN** no dialog shows and `ListMyConsents` is called at most once
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_reacceptance.feature::Up-to-date users are not prompted
 
 #### Scenario: Anonymous visitors are never prompted
 - **WHEN** an anonymous visitor loads `/`
 - **THEN** no dialog shows and the gateway receives 0 `PrivacyService` calls
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_reacceptance.feature::Anonymous visitors are never prompted
 
 #### Scenario: Consent lookup failure does not block browsing
 - **WHEN** `ListMyConsents` fails with `UNAVAILABLE` for a signed-in user
 - **THEN** no dialog shows, the page renders normally and no error is surfaced to the user
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_reacceptance.feature::Consent lookup failure does not block browsing
 
 #### Scenario: Declining signs the user out
 - **WHEN** a prompted user clicks "Đăng xuất"
 - **THEN** the session cookies are cleared, the user lands on `/` as anonymous and no consent row is written
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/legal_reacceptance.feature::Declining signs the user out
 
 ### Requirement: The consent banner is Vietnamese and records signed-in choices
 
@@ -131,27 +131,27 @@ source `banner`. For an anonymous visitor it SHALL make no `PrivacyService` call
 #### Scenario: Banner text is Vietnamese
 - **WHEN** the banner opens for a visitor with no cookie
 - **THEN** the dialog title is "Tùy chọn cookie", the three groups are labelled "Phân tích", "Tiếp thị", "Cá nhân hóa", and no English label from the previous banner remains
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/consent_banner_ledger.feature::Banner text is Vietnamese
 
 #### Scenario: Signed-in save records only changed purposes
 - **WHEN** a signed-in user whose cookie is `a=1&m=0&p=0` turns on "Cá nhân hóa" and clicks "Lưu lựa chọn"
 - **THEN** the cookie becomes `a=1&m=0&p=1`, `RecordConsent` is called once with exactly 1 record (PERSONALIZATION, granted, source `banner`) and `ListMyConsents` shows it as the newest row
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/consent_banner_ledger.feature::Signed-in save records only changed purposes
 
 #### Scenario: First choice records all three purposes
 - **WHEN** a signed-in user with no consent cookie clicks "Từ chối tất cả"
 - **THEN** `RecordConsent` is called once with 3 records, all `granted=false`
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/consent_banner_ledger.feature::First choice records all three purposes
 
 #### Scenario: Anonymous choice is cookie only
 - **WHEN** an anonymous visitor clicks "Chấp nhận tất cả"
 - **THEN** the cookie is `v=1&a=1&m=1&p=1&ts=<unix>` and the gateway receives 0 `PrivacyService` calls
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/consent_banner_ledger.feature::Anonymous choice is cookie only
 
 #### Scenario: Ledger write failure keeps the cookie choice
 - **WHEN** a signed-in user commits a choice and `RecordConsent` fails with `UNAVAILABLE`
 - **THEN** the cookie still holds the new choice, the banner closes and no error dialog is shown
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/frontend/consent_banner_ledger.feature::Ledger write failure keeps the cookie choice
 
 ### Requirement: Seller onboarding links the seller terms and records acceptance
 
@@ -161,19 +161,19 @@ team-frontend-seller SHALL link the seller terms text to `/dieu-khoan-nguoi-ban`
 #### Scenario: Terms link opens the seller terms page
 - **WHEN** a user on `/seller/new` follows the terms link
 - **THEN** the link target is the buyer app URL ending in `/dieu-khoan-nguoi-ban`, it opens in a new tab and the page returns 200
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/seller/seller_terms_consent.feature::Terms link opens the seller terms page
 
 #### Scenario: Accepting seller terms records a ledger row
 - **WHEN** a buyer clicks "Đồng ý và trở thành Người Bán" and `BecomeSeller` succeeds
 - **THEN** `ListMyConsents` returns a SELLER_TERMS row with the seller terms version and source `seller_onboarding`
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/seller/seller_terms_consent.feature::Accepting seller terms records a ledger row
 
 #### Scenario: Denied BecomeSeller writes no consent row
 - **WHEN** `BecomeSeller` fails with `PERMISSION_DENIED`
 - **THEN** the denied screen shows and `RecordConsent` is called 0 times
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/seller/seller_terms_consent.feature::Denied BecomeSeller writes no consent row
 
 #### Scenario: Consent write failure does not undo seller status
 - **WHEN** `BecomeSeller` succeeds and `RecordConsent` fails with `UNAVAILABLE`
 - **THEN** the user is redirected as a seller and no error is shown to the user
-- **VERIFIED BY**: TBD by e2e-author
+- **VERIFIED BY**: platform-e2e/tests/e2e/features/seller/seller_terms_consent.feature::Consent write failure does not undo seller status

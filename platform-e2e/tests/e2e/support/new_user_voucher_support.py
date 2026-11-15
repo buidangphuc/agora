@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from config.settings import get_settings
+from src.constants import legal_versions as legal
 from tests.e2e.support import oic_order_support as s
 from tests.e2e.support import plp_stack as stack
 
@@ -30,6 +31,7 @@ def register(oic: s.OicWorld, name: str, code: str | None = None) -> s.Actor:
         "username": f"nuv_{uuid.uuid4().hex[:10]}",
         "password": get_settings().seed_password,
         "role": "buyer",
+        **legal.versions(),
     }
     if code is not None:
         body["referralCode"] = code

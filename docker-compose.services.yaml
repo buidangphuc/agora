@@ -23,7 +23,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq identity.events.order.dlq identity.events.payment.dlq identity.events.referral.dlq identity.events.engagement.dlq identity.events.chat.dlq identity.events.notification.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq identity.events.team-verification.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq identity.events.order.dlq identity.events.payment.dlq identity.events.referral.dlq identity.events.engagement.dlq identity.events.chat.dlq identity.events.team-domain.dlq identity.events.notification.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq identity.events.team-verification.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   minio:
@@ -228,6 +228,8 @@ services:
       - JWT_KID=dev-2026
       - JWKS_HTTP_PORT=50063
       - SELLER_TERMS_VERSIONS=2026-11-02
+      - LEGAL_TERMS_VERSIONS=2026-11
+      - PRIVACY_POLICY_VERSIONS=2026-11
       - GRPC_PORT=50053
       - ENV=local
       # SessionRevoked outbox relayer (ADR-0003 addendum): RevokeSession writes the
@@ -265,6 +267,7 @@ services:
       - UPSTREAM_AI_ADDR=team-ai-svc:50060
       - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
       - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_ERASURE_GROUP=team-domain-erasure
       - GRPC_PORT=50051
       - ENV=local
       - GRPC_REFLECTION_ENABLED=true
@@ -938,6 +941,9 @@ services:
     build:
       context: ./team-frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_LEGAL_TERMS_VERSION: "2026-11"
+        NEXT_PUBLIC_PRIVACY_POLICY_VERSION: "2026-11"
     image: team-frontend:local
     container_name: team-frontend-svc
     environment:

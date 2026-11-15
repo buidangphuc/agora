@@ -39,6 +39,7 @@ Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order`, 
 | Produces | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` (`CHANGE_TYPE_CREATED/UPDATED/DELETED`) in a `platform.events.v1.EventEnvelope` | listing id |
 | Produces | `listing.events` | `platform.listing.v1.ListingStockChanged` in a `platform.events.v1.EventEnvelope` | listing id |
 | Consumes | `identity.events` (`KAFKA_IDENTITY_TOPIC`) | `platform.identity.v1.UserStatusChanged` (holds or restores the seller's listings) | user id |
+| Consumes | `identity.events` (own group `KAFKA_ERASURE_GROUP`, DLQ `identity.events.team-domain.dlq`) | `platform.identity.v1.UserErased` (erases the seller's listings, storefront and bundles) | user id |
 
 `ListingChanged` is emitted on Create/Update/Delete and on `ModerateListing`. `ListingStockChanged` is written to the outbox inside every reserve, release and TTL-sweep transaction that changes stock: one per affected listing, with the listing's stock after the change and only the variants that changed. Idempotent no-ops (repeat reserve, repeated or unknown release, commit) emit nothing. `ListingBaseInfoChanged`, `ListingPricingChanged` and `ListingStatusChanged` exist in the proto but are reserved.
 
@@ -90,6 +91,7 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `KAFKA_LISTING_TOPIC` | `listing.events` |
 | `KAFKA_IDENTITY_TOPIC` | `identity.events` |
 | `KAFKA_IDENTITY_GROUP` | `team-domain-identity` |
+| `KAFKA_ERASURE_GROUP` | `team-domain-erasure` |
 | `OUTBOX_POLL_INTERVAL` | `1s` (Go duration) |
 | `OUTBOX_BATCH_SIZE` | `100` |
 | `OUTBOX_CLAIM_LOCK_SECONDS` | `60` |
