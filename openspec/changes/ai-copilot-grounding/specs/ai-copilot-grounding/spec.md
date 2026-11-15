@@ -13,7 +13,7 @@
 - **THEN** the response has 3 drafts and each confirms the item is in stock without stating a quantity above 12
 - **VERIFIED BY**: `team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py` `test_in_stock_listing_confirms_stock`
 
-#### Scenario: Unknown listing
+#### Scenario: Copilot stock question for an unknown listing
 - **WHEN** a seller calls `ChatCopilot` with a stock question and a `listing_id` that team-domain answers with `NOT_FOUND`
 - **THEN** no returned draft makes a stock claim and the call succeeds with 3 drafts
 - **VERIFIED BY**: `team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py` `test_unknown_listing_makes_no_stock_claim`

@@ -3269,7 +3269,7 @@ features:
     notes: "VERIFIED BY test_in_stock_listing_confirms_stock in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
 
   - id: ai.ccg-unknown-listing
-    title: "Unknown listing"
+    title: "Copilot stock question for an unknown listing"
     persona: seller
     entry_route: /
     services: [team-ai]

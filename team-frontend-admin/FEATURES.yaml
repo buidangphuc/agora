@@ -3790,10 +3790,10 @@ features:
     notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cockpit/page.test.tsx` `gateway permission denied renders 403`. Asserts server-side mapping or component rendering that no browser-level e2e can force (upstream errors, parameter allowlists, escaped text)."
 
   - id: admin-insights.anonymous-visitor-is-redirected
-    title: "Anonymous visitor is redirected"
+    title: "Anonymous visitor is redirected from the cockpit"
     persona: admin
     priority: P2
-    summary: "Scenario Anonymous visitor is redirected of change admin-insights-panels."
+    summary: "Scenario Anonymous visitor is redirected from the cockpit of change admin-insights-panels."
     entry_route: /admin/cockpit
     services: [team-frontend-admin, team-gateway, team-analytics]
     acceptance:

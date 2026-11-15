@@ -13,12 +13,14 @@ spec: plans/docs-ai-data/00-spec.md (Locked 2026-11-13)
 | recs-experiment-arms | team-ai | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 31f1eb885578 → d0d3b3fb68d1 | [x] |
 | analytics-experiment-reports | team-analytics | [docs-ai-data-contract, analytics-forecast-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c06fea1873ba → 7994db0f075c | [x] |
 | ai-assistant-grounding | team-ai | [docs-ai-data-contract, recs-experiment-arms] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6e5b9b48e616 → 343d735f6f25 | [x] |
-| ai-copilot-grounding | team-ai | [docs-ai-data-contract, ai-assistant-grounding] | 1 | pass | pass (1 PERM warning, false positive) | pass | ENGINE_DOWN (LLM fallback) | f1c635233431 → cbb14e16cbf4 | [x] |
+| ai-copilot-grounding | team-ai | [docs-ai-data-contract, ai-assistant-grounding] | 1 | pass | pass (1 PERM warning, false positive) | pass | ENGINE_DOWN (LLM fallback) | f1c635233431 → dfc3e8444b6b | [x] |
 | seller-forecast-card | team-frontend-seller | [analytics-forecast-serving, ai-copilot-grounding] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c22f5e119ead → 1e60e2e9b35a | [x] |
-| admin-insights-panels | team-frontend-admin | [analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4f298a3bd310 → 76bde5374028 | [x] |
+| admin-insights-panels | team-frontend-admin | [analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4f298a3bd310 → 165b23297301 | [x] |
 | buyer-ai-surfaces-ui | team-frontend | [ai-assistant-grounding, ai-copilot-grounding, analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 89bc443965e2 → 8b93728ef3f4 | [x] |
 
 Digest update 2026-11-16 (converge): every slice's openspec/changes/<slice>/** changed (tasks.md ticks; VERIFIED BY citation lines in spec.md for forecast-nightly-job, ai-assistant-grounding, ai-copilot-grounding, admin-insights-panels and buyer-ai-surfaces-ui; renamed e2e scenario names in tasks.md); the digest cell shows old → new.
+
+Digest update 2026-11-16 (CI): two scenario titles renamed so each matches exactly one FEATURES.yaml (cross_change_check ownership), wording of the steps unchanged: ai-copilot-grounding `Unknown listing` → `Copilot stock question for an unknown listing` (collided with team-promotion), admin-insights-panels `Anonymous visitor is redirected` → `Anonymous visitor is redirected from the cockpit` (collided with team-frontend).
 
 decide.py was ENGINE_DOWN for every slice (no Kev engine or units file; system python lacks `yaml`). Each verdict is the spec-quality-reviewer's own checklist.
 

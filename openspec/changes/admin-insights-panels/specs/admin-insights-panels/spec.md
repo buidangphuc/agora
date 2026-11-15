@@ -175,7 +175,7 @@ The five report calls SHALL run only in server code with the per-request session
 - **THEN** the page shows the 403 result and no report numbers
 - **VERIFIED BY**: `team-frontend-admin/src/app/admin/cockpit/page.test.tsx` "gateway permission denied renders 403"
 
-#### Scenario: Anonymous visitor is redirected
+#### Scenario: Anonymous visitor is redirected from the cockpit
 - **WHEN** a visitor with no session opens `/admin/cockpit`
 - **THEN** the response redirects to the login page and no report RPC is called
 - **VERIFIED BY**: `team-frontend-admin/src/app/admin/cockpit/page.test.tsx` "guest is redirected to login"

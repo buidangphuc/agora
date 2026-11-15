@@ -149,7 +149,7 @@ async def test_in_stock_listing_confirms_stock():
 
 
 async def test_unknown_listing_makes_no_stock_claim():
-    """Scenario: Unknown listing"""
+    """Scenario: Copilot stock question for an unknown listing"""
     drafts = await _ask(FakeListing(None))
 
     assert len(drafts) == 3
@@ -432,7 +432,7 @@ async def test_reader_marks_draft_listing_unpublished():
 
 
 async def test_reader_not_found_returns_none():
-    """Scenario: Unknown listing"""
+    """Scenario: Copilot stock question for an unknown listing"""
     reader = _reader(_Channel(_RpcError(grpc.StatusCode.NOT_FOUND)))
 
     assert await reader.get(LISTING, timeout_s=0.2) is None
