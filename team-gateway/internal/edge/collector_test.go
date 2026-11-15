@@ -552,3 +552,72 @@ func TestHandleTrackAIInteractionExtraKeyBatch(t *testing.T) {
 func TestHandleTrackAIInteractionTypeCasingValidated(t *testing.T) {
 	loopWantRejected(t, `{"type":" AI_Interaction ","properties":{"surface":"search_bar","action":"shown"}}`)
 }
+
+func expBody(props string) string {
+	return `{"type":"experiment_exposure","sessionId":"s","properties":` + props + `}`
+}
+
+func expProps(flag, variant string) string {
+	return fmt.Sprintf(`{"flag":%q,"variant":%q}`, flag, variant)
+}
+
+// Scenario: A valid exposure is accepted and published as EXPERIMENT_EXPOSURE.
+func TestCollector_ExperimentExposureAccepted(t *testing.T) {
+	pub, rec := loopPost(t, &Edge{}, expBody(expProps("home-feed-ranker", "treatment")), nil)
+	if rec.Code != http.StatusAccepted || len(pub.got) != 1 {
+		t.Fatalf("code %d published %d", rec.Code, len(pub.got))
+	}
+	ev := pub.got[0].ev
+	if ev.GetEventType() != analyticsv1.EventType_EVENT_TYPE_EXPERIMENT_EXPOSURE {
+		t.Errorf("event type %v", ev.GetEventType())
+	}
+	if p := ev.GetProperties(); len(p) != 2 || p["flag"] != "home-feed-ranker" || p["variant"] != "treatment" {
+		t.Errorf("properties %v", p)
+	}
+}
+
+// Scenario: A third property is rejected.
+func TestCollector_ExperimentExposureRejectsExtraProperty(t *testing.T) {
+	loopWantRejected(t, expBody(`{"flag":"f","variant":"v","note":"x"}`))
+}
+
+// Scenario: Free text or an email in a value is rejected.
+func TestCollector_ExperimentExposureRejectsFreeText(t *testing.T) {
+	loopWantRejected(t, expBody(expProps("f", "Jane Doe jane@example.com")))
+	loopWantRejected(t, expBody(expProps("Flag", "v")))
+	loopWantRejected(t, expBody(expProps("f", "-lead")))
+	loopWantRejected(t, expBody(expProps("f", "")))
+}
+
+// Scenario: Missing property is rejected.
+func TestCollector_ExperimentExposureRejectsMissingVariant(t *testing.T) {
+	loopWantRejected(t, expBody(`{"flag":"f"}`))
+	loopWantRejected(t, expBody(`{"variant":"v"}`))
+	loopWantRejected(t, `{"type":"experiment_exposure","sessionId":"s"}`)
+}
+
+// Scenario: Value length boundary (64 accepted, 65 dropped).
+func TestCollector_ExperimentExposureValueLengthBoundary(t *testing.T) {
+	pub, rec := loopPost(t, &Edge{}, expBody(expProps("f", strings.Repeat("a", 64))), nil)
+	if rec.Code != http.StatusAccepted || len(pub.got) != 1 {
+		t.Fatalf("64 chars: code %d published %d", rec.Code, len(pub.got))
+	}
+	loopWantRejected(t, expBody(expProps("f", strings.Repeat("a", 65))))
+	loopWantRejected(t, expBody(expProps(strings.Repeat("a", 65), "v")))
+}
+
+// Scenario: Existing event types are unaffected.
+func TestCollector_ExperimentExposureExistingTypesUnchanged(t *testing.T) {
+	for _, ty := range []string{"view", "click", "sign_up", "purchase", "view_item"} {
+		pub, rec := loopPost(t, &Edge{}, `{"type":"`+ty+`","sessionId":"s"}`, nil)
+		if rec.Code != http.StatusAccepted || len(pub.got) != 1 {
+			t.Errorf("%s: code %d published %d", ty, rec.Code, len(pub.got))
+		}
+	}
+	pub, rec := loopPost(t, &Edge{}, aiBody("assistant", "shown"), nil)
+	if rec.Code != http.StatusAccepted || len(pub.got) != 1 {
+		t.Errorf("ai_interaction: code %d published %d", rec.Code, len(pub.got))
+	}
+	loopWantRejected(t, aiBody("assistant", "hovered"))
+	loopWantRejected(t, `{"type":"teleport","sessionId":"s"}`)
+}
