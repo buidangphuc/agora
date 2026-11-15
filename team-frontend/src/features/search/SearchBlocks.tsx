@@ -5,6 +5,9 @@ import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
 import { Link } from "@/components/ui/Link";
 import { Pagination } from "@/components/ui/Pagination";
+import { SponsoredSlots } from "@/features/ads/SponsoredSlots";
+import { loadSponsored } from "@/features/ads/data";
+import { dedupe } from "@/features/ads/dedupe";
 import { ListingGrid } from "@/features/listing/ListingGrid";
 import { EMPTY_FACETS } from "@/lib/gateway/search";
 import { batchGetShopNames, shopLabel } from "@/lib/gateway/shops";
@@ -117,6 +120,12 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
 
   const hrefFor = (page: number) => buildSearchHref(state, { page });
 
+  const sponsored =
+    result.page === 1 && result.items.length > 0
+      ? await loadSponsored("search", state.category ?? "")
+      : [];
+  const organic = dedupe(result.items, sponsored);
+
   return (
     <div className="space-y-6">
       <SortBar
@@ -148,13 +157,16 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
             />
           </Card>
         ) : (
-          <ListingGrid
-            listings={result.items}
-            placementId="search_results"
-            impressionId={result.requestId || undefined}
-            modelVersion={result.modelVersion}
-            query={state.q}
-          />
+          <>
+            <SponsoredSlots items={sponsored} />
+            <ListingGrid
+              listings={organic}
+              placementId="search_results"
+              impressionId={result.requestId || undefined}
+              modelVersion={result.modelVersion}
+              query={state.q}
+            />
+          </>
         )}
       </div>
 
