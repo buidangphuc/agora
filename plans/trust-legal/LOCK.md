@@ -10,7 +10,7 @@ spec: plans/trust-legal/00-spec.md (Locked 2026-11-13)
 | trust-legal-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 425fcffef071 | [x] |
 | identity-legal-consent | team-identity | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3e3f92c8141c | [x] |
 | commerce-user-erasure | team-order | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9abf97b39733 | [x] |
-| identity-account-deletion | team-identity | [identity-legal-consent, commerce-user-erasure] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 7b5734cf00b7 | [x] |
+| identity-account-deletion | team-identity | [identity-legal-consent, commerce-user-erasure] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | ffbbf2109eb7 | [x] |
 | identity-data-export | team-identity | [identity-account-deletion] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 8017c6e363c0 | [x] |
 | content-user-erasure | team-engagement | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 1951045e455b | [x] |
 | domain-seller-erasure | team-domain | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 699ad0004057 | [x] |
