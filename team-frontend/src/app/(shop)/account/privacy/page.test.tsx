@@ -126,9 +126,7 @@ describe("/account/privacy", () => {
     );
     unmount();
 
-    render(
-      await PrivacyPage({ searchParams: Promise.resolve({ page: "2" }) }),
-    );
+    render(await PrivacyPage({ searchParams: Promise.resolve({ page: "2" }) }));
     expect(screen.getAllByText(/^Phiên bản h\d+$/)).toHaveLength(5);
     expect(screen.getByText("Phiên bản h20")).toBeInTheDocument();
     expect(screen.queryByText("Phiên bản h19")).toBeNull();

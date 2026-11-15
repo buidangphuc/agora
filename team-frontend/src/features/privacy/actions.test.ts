@@ -252,7 +252,10 @@ describe("cancelDeletionAction", () => {
 
 describe("every action", () => {
   const cases: [string, () => Promise<{ ok: boolean; error?: string }>][] = [
-    ["save", () => saveConsentAction([{ purpose: "MARKETING", granted: true }])],
+    [
+      "save",
+      () => saveConsentAction([{ purpose: "MARKETING", granted: true }]),
+    ],
     ["export", () => exportDataAction()],
     ["request", () => requestDeletionAction("pw")],
     ["cancel", () => cancelDeletionAction()],

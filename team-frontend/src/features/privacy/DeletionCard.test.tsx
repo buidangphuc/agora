@@ -73,7 +73,9 @@ describe("DeletionCard", () => {
   });
 
   it("PV23 pending state hides the delete offer and shows the vi-VN erase time", () => {
-    render(<DeletionCard status={{ pending: true, eraseAfter: ERASE_AFTER }} />);
+    render(
+      <DeletionCard status={{ pending: true, eraseAfter: ERASE_AFTER }} />,
+    );
     expect(screen.queryByRole("button", { name: "Xóa tài khoản" })).toBeNull();
     expect(
       screen.getByRole("button", { name: /Hủy yêu cầu xóa/i }),
@@ -87,7 +89,9 @@ describe("DeletionCard", () => {
   it("PV21 cancel returns to the delete offer", async () => {
     const user = userEvent.setup();
     h.cancel.mockResolvedValue({ ok: true });
-    render(<DeletionCard status={{ pending: true, eraseAfter: ERASE_AFTER }} />);
+    render(
+      <DeletionCard status={{ pending: true, eraseAfter: ERASE_AFTER }} />,
+    );
     await user.click(screen.getByRole("button", { name: /Hủy yêu cầu xóa/i }));
     const dialog = screen.queryByRole("dialog");
     if (dialog) {

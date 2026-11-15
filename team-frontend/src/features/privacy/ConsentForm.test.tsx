@@ -24,7 +24,12 @@ import { serializeConsent } from "@/lib/consent/consent";
 import { ConsentForm } from "./ConsentForm";
 import { ConsentHistory } from "./ConsentHistory";
 
-type Rec = { purpose: string; granted: boolean; version: string; source: string };
+type Rec = {
+  purpose: string;
+  granted: boolean;
+  version: string;
+  source: string;
+};
 const rec = (purpose: string, granted: boolean, version = "1"): Rec => ({
   purpose,
   granted,
@@ -151,9 +156,7 @@ describe("ConsentForm", () => {
   it("PV4 the newest record per purpose sets the toggle (records are newest first)", () => {
     render(
       <ConsentForm
-        records={
-          [rec("ANALYTICS", false), rec("ANALYTICS", true)] as never
-        }
+        records={[rec("ANALYTICS", false), rec("ANALYTICS", true)] as never}
       />,
     );
     expect(analytics()).not.toBeChecked();

@@ -83,7 +83,11 @@ describe("DeleteAccountModal", () => {
     const { rerender } = mount();
     await user.type(field(), "bi-mat");
     rerender(
-      <DeleteAccountModal isOpen={false} onClose={() => {}} onScheduled={() => {}} />,
+      <DeleteAccountModal
+        isOpen={false}
+        onClose={() => {}}
+        onScheduled={() => {}}
+      />,
     );
     rerender(
       <DeleteAccountModal isOpen onClose={() => {}} onScheduled={() => {}} />,
@@ -94,7 +98,11 @@ describe("DeleteAccountModal", () => {
   it("PV25 blocks a double submit", async () => {
     const user = userEvent.setup();
     let release!: (v: unknown) => void;
-    h.request.mockReturnValue(new Promise((r) => (release = r)));
+    h.request.mockReturnValue(
+      new Promise((r) => {
+        release = r;
+      }),
+    );
     mount();
     await user.type(field(), "mat-khau-dung");
     const btn = confirm();

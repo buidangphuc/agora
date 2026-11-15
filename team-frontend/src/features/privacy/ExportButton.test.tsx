@@ -76,7 +76,11 @@ describe("ExportButton", () => {
 
   it("PV14 blocks a second click while pending", async () => {
     let release!: (v: unknown) => void;
-    h.exportData.mockReturnValue(new Promise((r) => (release = r)));
+    h.exportData.mockReturnValue(
+      new Promise((r) => {
+        release = r;
+      }),
+    );
     render(<ExportButton />);
     const btn = screen.getByRole("button", { name: label });
     await act(async () => {
