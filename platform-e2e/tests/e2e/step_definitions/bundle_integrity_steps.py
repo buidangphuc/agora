@@ -25,7 +25,7 @@ from tests.e2e.support.oic_order_support import (
 def _psql(sql: str) -> str:
     out = subprocess.run(
         [
-            "docker", "exec", os.getenv("BDL_POSTGRES_CONTAINER", "agora-postgres-1"),
+            "docker", "exec", os.getenv("BDL_POSTGRES_CONTAINER") or os.getenv("POSTGRES_CONTAINER", "agora-postgres-1"),
             "psql", "-U", "postgres", "-d", "listing_db", "-v", "ON_ERROR_STOP=1", "-At", "-c", sql,
         ],
         capture_output=True, text=True, timeout=60, check=True,
