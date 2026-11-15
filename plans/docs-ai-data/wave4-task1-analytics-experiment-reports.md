@@ -32,6 +32,15 @@ Implement OpenSpec change `analytics-experiment-reports` test-first per its task
 - platform-e2e/tests/e2e/step_definitions/test_experiment_exposure.py
 - platform-e2e/tests/e2e/step_definitions/experiment_reports_steps.py
 - platform-e2e/tests/e2e/step_definitions/tracking_steps.py
+- widened (P1):
+  - openspec/changes/analytics-experiment-reports/design.md — file of this change's OpenSpec folder: Clarifications entry recording the user's D4 answer (no requirement or scenario wording change)
+  - openspec/changes/analytics-experiment-reports/specs/analytics-experiment-reports/spec.md — file of this change's OpenSpec folder: VERIFIED BY citations corrected to the real e2e scenario and Go test names
+  - platform-e2e/tests/e2e/step_definitions/test_analytics_ai_surface_report.py — e2e step file of this change (analytics/ai_surface_report.feature), named differently from the packet
+  - platform-e2e/tests/e2e/step_definitions/test_analytics_experiment_readout.py — e2e step file of this change (analytics/experiment_readout.feature), named differently from the packet
+  - platform-e2e/tests/e2e/step_definitions/test_analytics_experiment_reports_access.py — e2e step file of this change (analytics/experiment_reports_access.feature), named differently from the packet
+  - platform-e2e/tests/e2e/step_definitions/test_analytics_retention_cohorts.py — e2e step file of this change (analytics/retention_cohorts.feature), named differently from the packet
+  - platform-e2e/tests/e2e/step_definitions/test_tracking_experiment_exposure.py — e2e step file of this change (tracking/experiment_exposure.feature), named differently from the packet
+  - platform-e2e/tests/e2e/support/experiment_reports_support.py — e2e support file of this change
 
 ## Verify
 - `cd team-analytics && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`
