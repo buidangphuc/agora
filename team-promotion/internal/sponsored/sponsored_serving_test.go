@@ -144,7 +144,7 @@ func TestCreateAdCampaignBelowMinBidRejected(t *testing.T) {
 	if !errors.Is(err, ErrInvalidAdCampaign) {
 		t.Fatalf("err = %v, want ErrInvalidAdCampaign", err)
 	}
-	if rows, _ := repo.ListBySeller(t.Context(), "s1", 10, 0); len(rows) != 0 {
+	if rows, _ := repo.ListBySeller(t.Context(), "s1", 10, nil); len(rows) != 0 {
 		t.Fatalf("%d rows written, want 0", len(rows))
 	}
 }
@@ -169,7 +169,7 @@ func TestCreateAdCampaignBudgetBelowBidRejected(t *testing.T) {
 	if !errors.Is(err, ErrInvalidAdCampaign) {
 		t.Fatalf("err = %v, want ErrInvalidAdCampaign", err)
 	}
-	if rows, _ := repo.ListBySeller(t.Context(), "s1", 10, 0); len(rows) != 0 {
+	if rows, _ := repo.ListBySeller(t.Context(), "s1", 10, nil); len(rows) != 0 {
 		t.Fatalf("%d rows written, want 0", len(rows))
 	}
 	if _, err := svc.CreateAdCampaign(t.Context(), CreateAdCampaignParams{SellerID: "s1", ListingID: "l1", Bid: 1000, Budget: 1000}); err != nil {
@@ -185,7 +185,7 @@ func TestCreateAdCampaignForeignListingDenied(t *testing.T) {
 	if !errors.Is(err, listing.ErrNotOwner) {
 		t.Fatalf("err = %v, want listing.ErrNotOwner", err)
 	}
-	if rows, _ := repo.ListBySeller(t.Context(), "s1", 10, 0); len(rows) != 0 {
+	if rows, _ := repo.ListBySeller(t.Context(), "s1", 10, nil); len(rows) != 0 {
 		t.Fatalf("%d rows written, want 0", len(rows))
 	}
 }

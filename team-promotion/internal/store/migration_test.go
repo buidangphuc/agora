@@ -55,8 +55,8 @@ func TestMigrateFromVersion4AppliesOutboxOnly(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT version, dirty FROM schema_migrations`).Scan(&version, &dirty); err != nil {
 		t.Fatalf("read schema_migrations: %v", err)
 	}
-	if version != 9 || dirty {
-		t.Fatalf("schema_migrations = version %d dirty %v, want 9 false", version, dirty)
+	if version != 10 || dirty {
+		t.Fatalf("schema_migrations = version %d dirty %v, want 10 false", version, dirty)
 	}
 	var exists bool
 	if err := pool.QueryRow(ctx, `SELECT to_regclass('`+outboxTable+`') IS NOT NULL`).Scan(&exists); err != nil || !exists {

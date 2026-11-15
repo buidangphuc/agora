@@ -23,6 +23,28 @@ const (
 	AdCampaignStatusPausedBudget int32 = 4
 )
 
+// AdCampaignCursor marks the last row of a page; the next page holds rows strictly
+// after it in (created_at DESC, id DESC) order. A nil cursor selects the first page.
+type AdCampaignCursor struct {
+	CreatedAt time.Time
+	ID        string
+}
+
+// ErrAdCampaignState is returned by Pause/Resume when the campaign's current state
+// forbids the transition; the returned AdCampaign is the unchanged row.
+var ErrAdCampaignState = errors.New("ad campaign state forbids transition")
+
+var errPauseResumeNotImplemented = errors.New("pause/resume not implemented")
+
+// Pause and Resume are red-phase stubs the implementer replaces (task 1.3).
+func (r *PostgresAdCampaignRepository) Pause(_ context.Context, _, _ string) (AdCampaign, error) {
+	return AdCampaign{}, errPauseResumeNotImplemented
+}
+
+func (r *PostgresAdCampaignRepository) Resume(_ context.Context, _, _ string) (AdCampaign, error) {
+	return AdCampaign{}, errPauseResumeNotImplemented
+}
+
 const ImpressionTTL = 30 * time.Minute
 
 var ErrImpressionNotFound = errors.New("impression token not found")
@@ -66,7 +88,7 @@ type AdCampaignRepository interface {
 	GetByID(ctx context.Context, id string) (AdCampaign, error)
 	// ListBySeller returns a seller's campaigns, newest first, bounded by
 	// limit/offset.
-	ListBySeller(ctx context.Context, sellerID string, limit, offset int) ([]AdCampaign, error)
+	ListBySeller(ctx context.Context, sellerID string, limit int, after *AdCampaignCursor) ([]AdCampaign, error)
 	// ListActive returns the active campaigns ordered by bid descending (best bid
 	// first), bounded by limit. Ties break on newest-first for a stable order.
 	ListActive(ctx context.Context, limit int) ([]AdCampaign, error)
@@ -128,12 +150,12 @@ func (r *PostgresAdCampaignRepository) GetByID(ctx context.Context, id string) (
 	return c, nil
 }
 
-func (r *PostgresAdCampaignRepository) ListBySeller(ctx context.Context, sellerID string, limit, offset int) ([]AdCampaign, error) {
+func (r *PostgresAdCampaignRepository) ListBySeller(ctx context.Context, sellerID string, limit int, _ *AdCampaignCursor) ([]AdCampaign, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	const q = `SELECT ` + adCampaignColumns + ` FROM ad_campaigns WHERE seller_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
-	rows, err := r.pool.Query(ctx, q, sellerID, limit, offset)
+	const q = `SELECT ` + adCampaignColumns + ` FROM ad_campaigns WHERE seller_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET 0`
+	rows, err := r.pool.Query(ctx, q, sellerID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list ad campaigns: %w", err)
 	}

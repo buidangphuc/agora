@@ -54,7 +54,7 @@ func (r *InMemoryAdCampaignRepository) GetByID(_ context.Context, id string) (st
 	return c, nil
 }
 
-func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID string, limit, offset int) ([]store.AdCampaign, error) {
+func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID string, limit int, _ *store.AdCampaignCursor) ([]store.AdCampaign, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var all []store.AdCampaign
@@ -71,10 +71,6 @@ func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID 
 		}
 		return all[i].ID < all[j].ID
 	})
-	if offset >= len(all) {
-		return nil, nil
-	}
-	all = all[offset:]
 	if limit > 0 && limit < len(all) {
 		all = all[:limit]
 	}
