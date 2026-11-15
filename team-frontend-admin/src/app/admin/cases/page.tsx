@@ -8,11 +8,13 @@ import {
   DisputeCasesPanel,
   type DisputeFilter,
 } from "@/features/admin/DisputeCasesPanel";
+import { KycQueueView } from "@/features/admin/KycQueueView";
 import { ModerationQueueView } from "@/features/admin/ModerationQueueView";
 import { ReportsView } from "@/features/admin/ReportsView";
-import { parseCasesParams } from "@/features/admin/casesParams";
+import { parseCasesParams, parseKycStatus } from "@/features/admin/casesParams";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { getDispute, listDisputes } from "@/lib/gateway/disputes";
+import { listKycSubmissions } from "@/lib/gateway/kyc";
 import { listModerationQueue } from "@/lib/gateway/moderation";
 import { listReports } from "@/lib/gateway/reports";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
@@ -40,7 +42,7 @@ function Unavailable({
   tab,
   message,
 }: {
-  tab: "reports" | "queue";
+  tab: "reports" | "queue" | "kyc";
   message: string;
 }) {
   return (
@@ -72,6 +74,11 @@ function DisputesTabs() {
     { label: "Báo cáo", href: "/admin/cases?tab=reports", active: false },
     { label: "Hàng chờ duyệt", href: "/admin/cases?tab=queue", active: false },
     { label: "Khiếu nại", href: "/admin/cases?tab=disputes", active: true },
+    {
+      label: "Xác minh người bán",
+      href: "/admin/cases?tab=kyc",
+      active: false,
+    },
   ];
   return (
     <nav aria-label="Hồ sơ cần xử lý" className="flex gap-4 border-b">
@@ -162,6 +169,34 @@ export default async function CasesPage({
           nextCursor={list.nextCursor}
           status={filter}
           detail={detail && detail.status === "ok" ? detail.dispute : undefined}
+        />
+      </>
+    );
+  }
+
+  if (tab === "kyc") {
+    const kycStatus = parseKycStatus(sp.status);
+    const result = await listKycSubmissions(kycStatus, cursor);
+    if (result.status === "unauthenticated") {
+      redirectGuestToLogin("/admin/cases", sp);
+      return null;
+    }
+    if (result.status === "forbidden") return denied;
+    if (result.status !== "ok") {
+      return (
+        <Unavailable
+          tab="kyc"
+          message="Không tải được danh sách hồ sơ xác minh. Vui lòng thử lại sau."
+        />
+      );
+    }
+    return (
+      <>
+        <AdminCasesTabs active="kyc" />
+        <KycQueueView
+          items={result.items}
+          nextCursor={result.nextCursor}
+          status={kycStatus}
         />
       </>
     );
