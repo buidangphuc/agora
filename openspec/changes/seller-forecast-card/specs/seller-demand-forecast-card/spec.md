@@ -39,7 +39,7 @@ The card SHALL show the text "Chưa đủ dữ liệu để dự báo" and no nu
 #### Scenario: Listing without a forecast key
 - **WHEN** a seller has paid orders on listing L but the forecast job wrote no key for L, so the RPC returns `is_cold_start=true` with no points
 - **THEN** L's section reads "Chưa đủ dữ liệu để dự báo" and contains no digit-bearing forecast cell, no reorder point and no model version
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/seller/seller_forecast_card.feature` `Listing without a forecast key says there is not enough data`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/seller/seller_forecast_card.feature` `Listing without a forecast key`
 
 #### Scenario: Cold start with stray points is not rendered
 - **WHEN** a response has `is_cold_start=true` and a non-empty `daily_forecasts` list
@@ -57,7 +57,7 @@ The card SHALL show the text "Dự báo tạm thời không khả dụng" and no
 #### Scenario: Store unavailable
 - **WHEN** team-analytics cannot read the forecast store and `GetDemandForecast` returns `Unavailable` for every listing
 - **THEN** every listing section reads "Dự báo tạm thời không khả dụng", no forecast number is shown, and the page responds 200
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/seller/seller_forecast_card.feature` `Forecast store down shows temporarily unavailable`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/seller/seller_forecast_card.feature` `Store unavailable`
 
 #### Scenario: One listing fails, others render
 - **WHEN** the call for the second of three listings rejects and the other two succeed
@@ -113,4 +113,4 @@ The page SHALL read forecasts only for the session principal's own id and for li
 #### Scenario: Gateway rejects a foreign seller id
 - **WHEN** a seller session calls `GetDemandForecast` through the gateway with another seller's id
 - **THEN** the call is denied with `PermissionDenied` and no forecast is returned
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/seller/seller_forecast_card.feature` `A seller cannot read another seller's forecast`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/seller/seller_forecast_card.feature` `Gateway rejects a foreign seller id`

@@ -138,3 +138,132 @@ describe("MagicListingAssist ai_interaction", () => {
     expect(events()).toEqual([]);
   });
 });
+
+describe("MagicListingAssist provenance", () => {
+  const withProv = {
+    ...suggestion,
+    requestId: "req-1",
+    modelVersion: "mock:v1",
+  };
+  const prov = { impressionId: "req-1", modelVersion: "mock:v1" };
+
+  // Scenario: Shown beacon carries provenance
+  it("shown beacon carries request id and model version", async () => {
+    vi.mocked(magicListingAction).mockResolvedValue({
+      ok: true,
+      data: withProv,
+    });
+    render(
+      <MagicListingAssist title="Phone" categoryId="" onApply={vi.fn()} />,
+    );
+    generate();
+    await screen.findByTestId("magic-suggestion");
+    await waitFor(() =>
+      expect(trackAiInteraction).toHaveBeenCalledWith(
+        "magic_listing",
+        "shown",
+        undefined,
+        prov,
+      ),
+    );
+  });
+
+  // Scenario: Accepted beacon reuses the same provenance
+  it("accepted beacon reuses the shown provenance", async () => {
+    vi.mocked(magicListingAction).mockResolvedValue({
+      ok: true,
+      data: withProv,
+    });
+    render(
+      <MagicListingAssist
+        title="Phone"
+        categoryId=""
+        listingId="lst_9"
+        onApply={vi.fn()}
+      />,
+    );
+    generate();
+    await screen.findByTestId("magic-suggestion");
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng: Tiêu đề" }));
+    expect(trackAiInteraction).toHaveBeenCalledWith(
+      "magic_listing",
+      "accepted",
+      "lst_9",
+      prov,
+    );
+  });
+
+  // Scenario: Older team-ai returns no provenance
+  it("empty provenance still shows the suggestion and sends no invented ids", async () => {
+    vi.mocked(magicListingAction).mockResolvedValue({
+      ok: true,
+      data: { ...suggestion, requestId: "", modelVersion: "" },
+    });
+    render(
+      <MagicListingAssist title="Phone" categoryId="" onApply={vi.fn()} />,
+    );
+    generate();
+    await screen.findByTestId("magic-suggestion");
+    await waitFor(() => expect(events("shown")).toHaveLength(1));
+    for (const call of vi.mocked(trackAiInteraction).mock.calls) {
+      const p = call[3] as Record<string, string> | undefined;
+      expect(p?.impressionId || undefined).toBeUndefined();
+      expect(p?.modelVersion || undefined).toBeUndefined();
+    }
+  });
+
+  // Scenario: Tracker failure never breaks the action
+  it("tracker failure does not break the assist", async () => {
+    vi.mocked(magicListingAction).mockResolvedValue({
+      ok: true,
+      data: withProv,
+    });
+    vi.mocked(trackAiInteraction).mockImplementation(() => {
+      throw new Error("tracker down");
+    });
+    const onApply = vi.fn();
+    render(
+      <MagicListingAssist title="Phone" categoryId="" onApply={onApply} />,
+    );
+    generate();
+    expect(await screen.findByTestId("magic-suggestion")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng: Tiêu đề" }));
+    expect(onApply).toHaveBeenCalledWith({ title: "Phone Pro - Chính hãng" });
+    vi.mocked(trackAiInteraction).mockReset();
+  });
+
+  // Scenario: AI failure sends no beacon
+  it("failed suggestion sends no beacon", async () => {
+    vi.mocked(magicListingAction).mockResolvedValue({
+      ok: false,
+      error: "AI tạm thời không phản hồi.",
+    });
+    render(
+      <MagicListingAssist title="Phone" categoryId="" onApply={vi.fn()} />,
+    );
+    generate();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Thử lại" })).toBeInTheDocument();
+    expect(trackAiInteraction).not.toHaveBeenCalled();
+  });
+
+  // Scenario: Suggestion never overwrites the form on its own
+  it("never overwrites the form on its own", async () => {
+    vi.mocked(magicListingAction).mockResolvedValue({
+      ok: true,
+      data: withProv,
+    });
+    const onApply = vi.fn();
+    render(
+      <MagicListingAssist
+        title="Điện thoại của tôi"
+        categoryId=""
+        onApply={onApply}
+      />,
+    );
+    generate();
+    await screen.findByTestId("magic-suggestion");
+    await waitFor(() => expect(events("shown")).toHaveLength(1));
+    expect(onApply).not.toHaveBeenCalled();
+  });
+});

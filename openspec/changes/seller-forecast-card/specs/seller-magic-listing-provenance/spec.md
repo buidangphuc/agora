@@ -26,7 +26,7 @@ The seller app SHALL map `request_id` and `model_version` from `MagicListingResp
 #### Scenario: Provenance reaches the warehouse
 - **WHEN** a seller generates a Magic Listing suggestion on the stack with team-ai on the mock backend
 - **THEN** the stored `ai_interaction` event has `model_version` equal to the response `model_version` and a non-empty `impression_id`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/seller/seller_forecast_card.feature` `Magic Listing beacon carries request id and model version`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/seller/seller_forecast_card.feature` `Provenance reaches the warehouse`
 
 ### Requirement: Missing provenance is omitted, not invented
 The seller app SHALL omit `impressionId` and `modelVersion` from the beacon when `request_id` or `model_version` is an empty string, and SHALL NOT substitute a placeholder or a client-generated id.
