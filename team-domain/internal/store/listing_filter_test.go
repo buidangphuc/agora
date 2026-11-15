@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -214,6 +215,18 @@ func TestListByOwnerFilterForeignCursorYieldsOnlyOwnRowsAfterIt(t *testing.T) {
 		p, got := listIDs(t, repo, "S1", store.ListingFilter{Statuses: []string{"published"}}, "m-1", 50)
 		if !equalStrings(got, []string{"m-2", "m-3"}) || p.Total != 3 {
 			t.Fatalf("ids = %v total %d, want [m-2 m-3] total 3", got, p.Total)
+		}
+	})
+}
+
+func TestListByOwnerUnknownCursorIsInvalid(t *testing.T) {
+	forEachRepo(t, func(t *testing.T, repo ownerRepo) {
+		seedMixed(t, repo)
+		for _, cursor := range []string{"not-a-cursor", "n-1"} {
+			_, err := repo.ListByOwner(t.Context(), "S1", store.ListingFilter{}, cursor, 50)
+			if !errors.Is(err, store.ErrInvalidCursor) {
+				t.Fatalf("cursor %q: err = %v, want ErrInvalidCursor", cursor, err)
+			}
 		}
 	})
 }

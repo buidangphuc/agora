@@ -138,6 +138,15 @@ func (r *PostgresListingRepository) ListByOwner(ctx context.Context, ownerID str
 	if filter.Query != "" {
 		pattern = "%" + likeEscaper.Replace(filter.Query) + "%"
 	}
+	if cursor != "" {
+		var known bool
+		if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM listings WHERE id = $1 AND seller_id = $2)`, cursor, ownerID).Scan(&known); err != nil {
+			return Page{}, fmt.Errorf("check cursor: %w", err)
+		}
+		if !known {
+			return Page{}, ErrInvalidCursor
+		}
+	}
 	const where = `seller_id = $1 AND (cardinality($2::text[]) = 0 OR status = ANY($2::text[])) AND ($3 = '' OR title ILIKE $3)`
 	const q = `SELECT ` + listingColumns + `
 		FROM listings

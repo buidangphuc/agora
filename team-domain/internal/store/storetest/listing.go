@@ -63,6 +63,14 @@ func (r *InMemoryListingRepository) List(_ context.Context, cursor string, pageS
 }
 
 func (r *InMemoryListingRepository) ListByOwner(_ context.Context, ownerID string, filter store.ListingFilter, cursor string, pageSize int32) (store.Page, error) {
+	if cursor != "" {
+		r.mu.RLock()
+		at, ok := r.byID[cursor]
+		r.mu.RUnlock()
+		if !ok || at.SellerID != ownerID {
+			return store.Page{}, store.ErrInvalidCursor
+		}
+	}
 	q := strings.ToLower(filter.Query)
 	return r.page(cursor, pageSize, func(l store.Listing) bool {
 		if l.SellerID != ownerID {

@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 
+	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-domain/internal/listing"
 	"github.com/buidangphuc/team-domain/internal/rpc"
@@ -208,5 +209,19 @@ func TestListMyListingsFilterQueryNotLogged(t *testing.T) {
 	})
 	if strings.Contains(buf.String(), "needle") {
 		t.Fatalf("query text found in log output: %s", buf.String())
+	}
+}
+
+func TestListMyListingsUnknownCursorIsInvalidArgument(t *testing.T) {
+	h := filterFixture(t)
+	for _, cursor := range []string{"not-a-cursor", "o1"} {
+		_, err := h.ListMyListings(sellerA(), &listingv1.ListMyListingsRequest{Page: &commonv1.PageRequest{Cursor: cursor, PageSize: 20}})
+		if code(err) != codes.InvalidArgument {
+			t.Errorf("cursor %q: code = %v, want InvalidArgument (%v)", cursor, code(err), err)
+		}
+	}
+	res, err := h.ListMyListings(sellerA(), &listingv1.ListMyListingsRequest{Page: &commonv1.PageRequest{Cursor: "d1", PageSize: 20}})
+	if err != nil || !sameIDs(idsOf(res), "h1", "p1", "p2", "pr1", "r1") {
+		t.Fatalf("own cursor: ids = %v err = %v", idsOf(res), err)
 	}
 }
