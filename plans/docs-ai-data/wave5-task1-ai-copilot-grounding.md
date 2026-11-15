@@ -24,6 +24,11 @@ Implement OpenSpec change `ai-copilot-grounding` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_magic_listing.py
 - platform-e2e/tests/e2e/step_definitions/magic_listing_steps.py
 - platform-e2e/tests/e2e/step_definitions/chat_copilot_steps.py
+- widened (P1):
+  - platform-e2e/tests/e2e/step_definitions/ccg_steps.py — e2e step file of this change (ai/chat_copilot.feature, area ccg)
+  - platform-e2e/tests/e2e/support/ccg_support.py — e2e support file of this change (area ccg)
+  - team-ai/app/modules/business/ai_assistant/copilot.py — user decision 2026-11-15: changed by T2 (model_version wiring)
+  - team-ai/app/modules/business/ai_assistant/schemas.py — user decision 2026-11-15: changed by T2 (model_version wiring)
 
 ## Verify
 - `cd team-ai && make ci && make eval`
