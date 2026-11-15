@@ -907,6 +907,9 @@ services:
     build:
       context: ./team-frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_LEGAL_TERMS_VERSION: "2026-11"
+        NEXT_PUBLIC_PRIVACY_POLICY_VERSION: "2026-11"
     image: team-frontend:local
     container_name: team-frontend-svc
     environment:
