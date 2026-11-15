@@ -405,6 +405,27 @@ describe("searchMyListingsAction", () => {
     expect(listMyListings).not.toHaveBeenCalled();
   });
 
+  it("searchMyListingsAction denies a principal without listing.write", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "buyer",
+      name: "B",
+      scopes: ["order.read"],
+    });
+    const res = await searchMyListingsAction("");
+    expect(res.ok).toBe(false);
+    expect(JSON.stringify(res)).not.toContain("Áo thun");
+    expect(listMyListings).not.toHaveBeenCalled();
+  });
+
+  it("Search fails: the action returns an error result and no listing", async () => {
+    vi.mocked(listMyListings).mockRejectedValue(
+      new ConnectError("down", Code.Unavailable),
+    );
+    const res = await searchMyListingsAction("");
+    expect(res.ok).toBe(false);
+    expect("data" in res && res.data).toBeFalsy();
+  });
+
   it("Seller shop UI: a principal without listing.write cannot search", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     expect((await searchMyListingsAction("áo")).ok).toBe(false);
