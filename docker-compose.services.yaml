@@ -226,6 +226,10 @@ services:
       - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-admin-dev-password-123}
       # SetUserStatus audits through team-audit and fails closed without it.
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
+      - UPSTREAM_ORDER_ADDR=team-order-svc:50055
+      - UPSTREAM_PAYMENT_ADDR=team-payment-svc:50056
+      - ACCOUNT_DELETION_CANCEL_WINDOW=${ACCOUNT_DELETION_CANCEL_WINDOW:-48h}
+      - ACCOUNT_ERASURE_SWEEP_INTERVAL=${ACCOUNT_ERASURE_SWEEP_INTERVAL:-1h}
       - GRPC_REFLECTION_ENABLED=true
 
   team-domain:
