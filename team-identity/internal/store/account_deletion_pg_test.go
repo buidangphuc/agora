@@ -51,7 +51,7 @@ func seedFootprint(t testing.TB, pool *pgxpool.Pool, id string) {
 	execAll(t, pool, `INSERT INTO user_addresses (id, user_id, recipient_name, phone, street, city) VALUES ($1, $2, 'n', 'p', 's', 'c')`, "addr-"+id, id)
 	execAll(t, pool, `INSERT INTO sessions (id, user_id) VALUES ($1, $2)`, "sess-"+id, id)
 	execAll(t, pool, `INSERT INTO login_history (id, user_id, ip) VALUES ($1, $2, '1.1.1.1')`, "lh-"+id, id)
-	execAll(t, pool, `INSERT INTO handoff_codes (code_hash, user_id, source_sid, target_app, expires_at) VALUES (decode('aa'||$1, 'hex'), $2, 's', 'seller', now() + interval '1 hour')`, "00", id)
+	execAll(t, pool, `INSERT INTO handoff_codes (code_hash, user_id, source_sid, target_app, expires_at) VALUES (decode(md5($1), 'hex'), $1, 's', 'seller', now() + interval '1 hour')`, id)
 	execAll(t, pool, `INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, now() + interval '1 hour')`, "tok-"+id, id)
 	execAll(t, pool, `INSERT INTO consents (user_id, purpose, granted, version, source) VALUES ($1, 'terms', true, 'v1', 'register')`, id)
 	execAll(t, pool, `UPDATE users SET seller_terms_version = 'V1', seller_terms_accepted_at = now() WHERE id = $1`, id)
