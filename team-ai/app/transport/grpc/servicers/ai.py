@@ -146,7 +146,7 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
         request: ai_pb2.ChatCopilotRequest,
         context: grpc.aio.ServicerContext,
     ) -> ai_pb2.ChatCopilotResponse:
-        result = self._services.copilot.suggest(
+        result = await self._services.copilot.suggest(
             ChatCopilotRequest(
                 seller_id=request.seller_id,
                 buyer_message=request.buyer_message,
