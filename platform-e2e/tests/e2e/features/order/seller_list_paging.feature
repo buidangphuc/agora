@@ -44,8 +44,8 @@ Feature: ListSellerOrders pages, filters, searches and counts the seller's own o
     And no order is returned
 
   Scenario: A cursor never reaches another seller's orders
-    Given a seller "A" owning 30 orders
-    And a seller "B" owning 2 orders
+    Given a seller "B" owning 2 orders
+    And a seller "A" owning 30 orders
     And "A" holds a next_cursor from a first page of 10
     And the request has an empty page
     And the request uses the cursor of "A"
