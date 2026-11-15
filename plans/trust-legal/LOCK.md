@@ -14,7 +14,7 @@ spec: plans/trust-legal/00-spec.md (Locked 2026-11-13)
 | identity-data-export | team-identity | [identity-account-deletion] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 8017c6e363c0 | [x] |
 | content-user-erasure | team-engagement | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 1951045e455b | [x] |
 | domain-seller-erasure | team-domain | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 699ad0004057 | [x] |
-| analytics-user-erasure | team-analytics | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c61a1f27101c | [x] |
+| analytics-user-erasure | team-analytics | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c4fede24e7aa | [x] |
 | verification-kyc-documents | team-verification | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3d3e8d5300ca | [x] |
 | payment-payout-kyc-gate | team-payment | [verification-kyc-documents] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 77906935b59e | [x] |
 | frontend-legal-pages | team-frontend | [identity-legal-consent] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | e2e7ff15f69a | [x] |
