@@ -1,7 +1,8 @@
 """Seller marketing hub (`/seller/marketing`, change seller-marketing-hub).
 
-Locators come from the visible texts the spec fixes (tab names, state labels, buttons, messages);
-no data-testid is assumed. Business assertions live in steps.
+Locators come from the visible texts the spec fixes (tab names, state labels, buttons, messages)
+and from the hub's list test ids (`voucher-row`, `campaign-row`) and the picker's
+(`listing-picker-option`). Business assertions live in steps.
 """
 
 from __future__ import annotations
@@ -61,15 +62,23 @@ class SellerMarketingPage(BasePage):
     def forbidden(self) -> Locator:
         return self.page.get_by_text(FORBIDDEN_TITLE).first
 
-    def row(self, text: str) -> Locator:
-        return self.page.get_by_role("row").filter(has_text=text)
-
-    def rows_with(self, prefix: str) -> Locator:
-        return self.page.get_by_role("row").filter(has_text=re.compile(re.escape(prefix)))
-
     @property
     def data_rows(self) -> Locator:
-        return self.page.locator("tbody").get_by_role("row")
+        return self.page.get_by_test_id("voucher-row").or_(self.page.get_by_test_id("campaign-row"))
+
+    def row(self, text: str) -> Locator:
+        return self.data_rows.filter(has_text=text)
+
+    def rows_with(self, prefix: str) -> Locator:
+        return self.data_rows.filter(has_text=re.compile(re.escape(prefix)))
+
+    @property
+    def picker_options(self) -> Locator:
+        return self.page.get_by_test_id("listing-picker-option")
+
+    @property
+    def alerts(self) -> Locator:
+        return self.page.locator('[role="alert"]:not(#__next-route-announcer__)')
 
     @property
     def next_page(self) -> Locator:

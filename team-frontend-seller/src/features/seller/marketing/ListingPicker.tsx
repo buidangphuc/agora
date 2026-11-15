@@ -42,7 +42,7 @@ export function ListingPicker({
   }, [query]);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid="listing-picker">
       <Input
         label="Tìm sản phẩm"
         value={query}
@@ -59,7 +59,7 @@ export function ListingPicker({
       {options.length > 0 && (
         <ul className="space-y-1">
           {options.map((o) => (
-            <li key={o.id}>
+            <li key={o.id} data-testid="listing-picker-option">
               <button
                 type="button"
                 className="w-full rounded px-2 py-1 text-left hover:bg-surface-muted"

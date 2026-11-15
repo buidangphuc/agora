@@ -123,6 +123,10 @@ function tsToString(ts?: Timestamp): string {
   return new Date(Number(ts.seconds) * 1000).toLocaleDateString("vi-VN");
 }
 
+function tsToIso(ts?: Timestamp): string {
+  return ts ? new Date(tsMs(ts)).toISOString() : "";
+}
+
 function mapVoucher(v: Voucher): ViewVoucher {
   return {
     id: v.id,
@@ -513,8 +517,8 @@ function mapMyVoucher(v: Voucher, now: Date): MyVoucherRow {
     maxDiscount: Number(v.maxDiscount),
     quota: Number(v.quota),
     used: Number(v.used),
-    startsAt: tsToString(v.startsAt),
-    endsAt: tsToString(v.endsAt),
+    startsAt: tsToIso(v.startsAt),
+    endsAt: tsToIso(v.endsAt),
     active: v.active,
     state,
     stateText: VOUCHER_STATE_TEXT[state],
@@ -596,8 +600,8 @@ function mapMyCampaign(c: FlashSaleCampaign): MyCampaignRow {
     stockCap: Number(c.stockCap),
     stockSold: Number(c.stockSold),
     soldText: `${Number(c.stockSold)}/${Number(c.stockCap)}`,
-    startsAt: tsToString(c.startsAt),
-    endsAt: tsToString(c.endsAt),
+    startsAt: tsToIso(c.startsAt),
+    endsAt: tsToIso(c.endsAt),
     status: c.status,
     statusText: campaignStatusText(c.status),
   };

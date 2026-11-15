@@ -127,6 +127,24 @@ describe("listMyShopVouchers", () => {
     expect(res.nextCursor).toBe("nx");
   });
 
+  it("voucher and campaign rows carry ISO window dates that the hub can format", async () => {
+    voucherRpc.listMyShopVouchers.mockResolvedValue({
+      vouchers: [voucher()],
+      page: { nextCursor: "", total: 1n },
+    });
+    flashRpc.listMyCampaigns.mockResolvedValue({
+      campaigns: [campaign()],
+      page: { nextCursor: "", total: 1n },
+    });
+    const vouchers = await listMyShopVouchers({}, NOW);
+    const campaigns = await listMyCampaigns({});
+    if (!vouchers.ok || !campaigns.ok) throw new Error("expected ok");
+    expect(vouchers.items[0].startsAt).toBe(at(-DAY).toISOString());
+    expect(vouchers.items[0].endsAt).toBe(at(DAY).toISOString());
+    expect(campaigns.items[0].startsAt).toBe(at(DAY).toISOString());
+    expect(campaigns.items[0].endsAt).toBe(at(2 * DAY).toISOString());
+  });
+
   it("Other sellers' vouchers are never shown: only the caller-scoped RPC with paging and no seller id", async () => {
     voucherRpc.listMyShopVouchers.mockResolvedValue({
       vouchers: [],

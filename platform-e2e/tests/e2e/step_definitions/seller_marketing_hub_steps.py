@@ -314,7 +314,7 @@ def creates_campaign(world: World) -> None:
     if cta.count():
         cta.first.click()
     page.field(r"sản phẩm|listing").fill(st["listing_title"])
-    world.page.get_by_role("option").filter(has_text=st["listing_title"]).first.click()
+    page.picker_options.filter(has_text=st["listing_title"]).first.click()
     page.field(r"giá").fill(str(sh.SALE_PRICE_FORM))
     page.field(r"giới hạn|số lượng|tồn kho|cap").fill("10")
     page.field(r"bắt đầu|start").fill(av.iso(days=1)[:16])
@@ -525,14 +525,14 @@ def stored_new_campaign(world: World) -> None:
 @then('the picker offers the "ao" listing and not the "quan" listing')
 def picker_options(world: World) -> None:
     st = _s(world)
-    options = world.page.get_by_role("option")
+    options = _page(world).picker_options
     expect(options.filter(has_text=st["ao_title"])).to_have_count(1, timeout=timeouts.DEFAULT)
     expect(options.filter(has_text=st["quan_title"])).to_have_count(0)
 
 
 @then("the picker offers at most 20 options")
 def picker_cap(world: World) -> None:
-    assert world.page.get_by_role("option").count() <= 20
+    assert _page(world).picker_options.count() <= 20
 
 
 @then("only the cancelled campaign row is shown")
@@ -684,7 +684,7 @@ def _empty_state(world: World, cta: str) -> None:
         pg.get_by_role("link", name=re.compile(cta, re.I))
     )
     expect(control.first).to_be_visible(timeout=timeouts.NAVIGATION)
-    expect(pg.get_by_role("alert")).to_have_count(0)
+    expect(_page(world).alerts).to_have_count(0)
 
 
 @then(
