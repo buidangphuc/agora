@@ -89,7 +89,7 @@ func requireAdmin(ctx context.Context) error {
 	return nil
 }
 
-func (f *VerificationForwarder) CreateKycUploadUrl(
+func (f *VerificationForwarder) CreateKycUploadUrl( //nolint:revive // bound to generated interface
 	ctx context.Context,
 	req *connect.Request[verificationv1.CreateKycUploadUrlRequest],
 ) (*connect.Response[verificationv1.CreateKycUploadUrlResponse], error) {
@@ -127,7 +127,7 @@ func (f *VerificationForwarder) ListKycSubmissions(
 	return connect.NewResponse(out), nil
 }
 
-func (f *VerificationForwarder) GetKycDocumentUrl(
+func (f *VerificationForwarder) GetKycDocumentUrl( //nolint:revive // bound to generated interface
 	ctx context.Context,
 	req *connect.Request[verificationv1.GetKycDocumentUrlRequest],
 ) (*connect.Response[verificationv1.GetKycDocumentUrlResponse], error) {

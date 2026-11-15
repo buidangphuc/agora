@@ -35,13 +35,13 @@ type Document struct {
 }
 
 type DocumentRepository interface {
-	CreateGrant(ctx context.Context, g *Grant, cap int, now time.Time) error
+	CreateGrant(ctx context.Context, g *Grant, limit int, now time.Time) error
 	GetGrant(ctx context.Context, key string) (*Grant, error)
 	SubmitWithDocuments(ctx context.Context, s *Submission, keys []string, now time.Time, verify func([]Grant) error) (*Submission, error)
 	ListDocuments(ctx context.Context, submissionID string) ([]Document, error)
 }
 
-func (r *PostgresKycRepo) CreateGrant(ctx context.Context, g *Grant, cap int, now time.Time) error {
+func (r *PostgresKycRepo) CreateGrant(ctx context.Context, g *Grant, limit int, now time.Time) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (r *PostgresKycRepo) CreateGrant(ctx context.Context, g *Grant, cap int, no
 		WHERE user_id = $1 AND used_at IS NULL AND expires_at > $2`, g.UserID, now).Scan(&open); err != nil {
 		return err
 	}
-	if open >= cap {
+	if open >= limit {
 		return ErrGrantCapReached
 	}
 	if _, err := tx.Exec(ctx, `

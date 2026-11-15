@@ -142,7 +142,7 @@ func (h *Handler) GetVerificationStatus(ctx context.Context, req *verificationv1
 	return resp, nil
 }
 
-func (h *Handler) CreateKycUploadUrl(ctx context.Context, req *verificationv1.CreateKycUploadUrlRequest) (*verificationv1.CreateKycUploadUrlResponse, error) {
+func (h *Handler) CreateKycUploadUrl(ctx context.Context, req *verificationv1.CreateKycUploadUrlRequest) (*verificationv1.CreateKycUploadUrlResponse, error) { //nolint:revive // bound to generated interface
 	if _, err := caller(ctx); err != nil {
 		return nil, err
 	}
@@ -184,7 +184,8 @@ func (h *Handler) ListKycSubmissions(ctx context.Context, req *verificationv1.Li
 	for _, s := range page.Submissions {
 		m := &verificationv1.KycSubmission{
 			Id: s.ID, UserId: s.UserID, DocType: s.DocType, Status: toProtoStatus(s.Status),
-			DocumentCount: int32(s.DocumentCount), ReasonCode: s.ReasonCode, CreatedAt: timestamppb.New(s.CreatedAt),
+			DocumentCount: int32(s.DocumentCount), //nolint:gosec // bounded by per-submission document cap
+			ReasonCode:    s.ReasonCode, CreatedAt: timestamppb.New(s.CreatedAt),
 		}
 		if s.ReviewedAt != nil {
 			m.ReviewedAt = timestamppb.New(*s.ReviewedAt)
@@ -197,7 +198,7 @@ func (h *Handler) ListKycSubmissions(ctx context.Context, req *verificationv1.Li
 	}, nil
 }
 
-func (h *Handler) GetKycDocumentUrl(ctx context.Context, req *verificationv1.GetKycDocumentUrlRequest) (*verificationv1.GetKycDocumentUrlResponse, error) {
+func (h *Handler) GetKycDocumentUrl(ctx context.Context, req *verificationv1.GetKycDocumentUrlRequest) (*verificationv1.GetKycDocumentUrlResponse, error) { //nolint:revive // bound to generated interface
 	if _, err := caller(ctx); err != nil {
 		return nil, err
 	}
