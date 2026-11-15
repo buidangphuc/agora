@@ -1,8 +1,8 @@
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
-import { formatPrice } from "@/components/ui/format";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatPrice } from "@/components/ui/format";
 import type { ViewOrderSettlement } from "@/lib/gateway/payment";
 
 const TITLE = "Đối soát thanh toán";
