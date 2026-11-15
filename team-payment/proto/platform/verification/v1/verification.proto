@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+// Seller/user KYC verification: document submission, status lookup, and review.
+package platform.verification.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+service VerificationService {
+  // Submit a KYC document for review (called by the user being verified).
+  rpc SubmitKyc(SubmitKycRequest) returns (SubmitKycResponse);
+  // Fetch the current verification status (and badge eligibility) for a user.
+  // A USER principal reads only its own status; another user's status needs
+  // the `verification.read` scope (service principal) or the admin scope.
+  // A user with no submission gets VERIFICATION_STATUS_NOT_SUBMITTED.
+  rpc GetVerificationStatus(GetVerificationStatusRequest) returns (GetVerificationStatusResponse);
+  // Approve/reject a submitted KYC document (called by a reviewer/admin).
+  rpc ReviewKyc(ReviewKycRequest) returns (ReviewKycResponse);
+  // Reserve an upload slot for a KYC document. Requires a USER principal; an
+  // unsupported content type or a size above 5 MiB is rejected with
+  // INVALID_ARGUMENT. The returned doc_ref is passed to SubmitKyc.
+  rpc CreateKycUploadUrl(CreateKycUploadUrlRequest) returns (CreateKycUploadUrlResponse);
+  // List KYC submissions for review, optionally filtered by status. admin only.
+  rpc ListKycSubmissions(ListKycSubmissionsRequest) returns (ListKycSubmissionsResponse);
+  // Mint a short-lived URL for one submitted document. admin only. The
+  // kyc.document_view audit event is written first and the call must fail closed:
+  // when the audit store cannot be written it returns UNAVAILABLE and no URL.
+  rpc GetKycDocumentUrl(GetKycDocumentUrlRequest) returns (GetKycDocumentUrlResponse);
+  // Report whether each requested user holds the verified badge. Open to
+  // anonymous callers and returns no other data; an empty list or more than
+  // the allowed number of ids is rejected with INVALID_ARGUMENT.
+  rpc GetPublicBadges(GetPublicBadgesRequest) returns (GetPublicBadgesResponse);
+}
+
+enum VerificationStatus {
+  VERIFICATION_STATUS_UNSPECIFIED = 0;
+  VERIFICATION_STATUS_PENDING = 1;
+  VERIFICATION_STATUS_VERIFIED = 2;
+  VERIFICATION_STATUS_REJECTED = 3;
+  VERIFICATION_STATUS_NOT_SUBMITTED = 4;
+}
+
+message SubmitKycRequest {
+  string doc_type = 1; // e.g. "national_id", "passport", "business_license"
+  string doc_ref = 2;  // storage key / reference to the uploaded document
+  repeated string additional_doc_refs = 3;
+}
+
+message SubmitKycResponse {
+  string id = 1;
+  VerificationStatus status = 2;
+}
+
+message GetVerificationStatusRequest {
+  string user_id = 1;
+}
+
+message GetVerificationStatusResponse {
+  VerificationStatus status = 1;
+  bool badge = 2; // true when the verified badge should be shown
+  string reject_reason_code = 3;
+}
+
+message ReviewKycRequest {
+  string id = 1;
+  string decision = 2; // "approve" | "reject"
+  string reason_code = 3;
+}
+
+message ReviewKycResponse {
+  VerificationStatus status = 1;
+}
+
+message CreateKycUploadUrlRequest {
+  string content_type = 1;
+  int64 size_bytes = 2;
+}
+
+message CreateKycUploadUrlResponse {
+  string upload_url = 1;
+  string doc_ref = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message ListKycSubmissionsRequest {
+  VerificationStatus status = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListKycSubmissionsResponse {
+  repeated KycSubmission submissions = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message KycSubmission {
+  string id = 1;
+  string user_id = 2;
+  string doc_type = 3;
+  VerificationStatus status = 4;
+  int32 document_count = 5;
+  string reason_code = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp reviewed_at = 8;
+}
+
+message GetKycDocumentUrlRequest {
+  string submission_id = 1;
+  int32 index = 2;
+}
+
+message GetKycDocumentUrlResponse {
+  string url = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message GetPublicBadgesRequest {
+  repeated string user_ids = 1;
+}
+
+message PublicBadge {
+  string user_id = 1;
+  bool verified = 2;
+}
+
+message GetPublicBadgesResponse {
+  repeated PublicBadge badges = 1;
+}

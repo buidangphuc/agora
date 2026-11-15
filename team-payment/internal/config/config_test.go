@@ -19,7 +19,7 @@ var managedKeys = []string{
 	"ENV", "LOG_LEVEL", "LOG_JSON", "GRPC_HOST", "GRPC_PORT", "SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY",
 	"GRPC_REFLECTION_ENABLED", "DATABASE_URL", "DB_MAX_CONNS", "DATABASE_ENABLED", "KAFKA_ENABLED",
 	"KAFKA_BROKERS", "PAYMENT_SETTLEMENT_CONSUMER_ENABLED", "MOCK_PAYMENTS", "MOCK_DATA",
-	"SHUTDOWN_GRACE_SECONDS", "UPSTREAM_CALL_TIMEOUT_SECONDS", "UPSTREAM_ORDER_ADDR", "UPSTREAM_AUDIT_ADDR",
+	"SHUTDOWN_GRACE_SECONDS", "UPSTREAM_CALL_TIMEOUT_SECONDS", "UPSTREAM_ORDER_ADDR", "UPSTREAM_AUDIT_ADDR", "UPSTREAM_VERIFICATION_ADDR",
 	"LOG_KEY_FP_SECRET", "OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME",
 	"PAYOUT_HOLD_DAYS", "PAYOUT_HOLD_WINDOW", "PAYMENT_EVENTS_TOPIC", "ORDER_EVENTS_TOPIC",
 	"PAYMENT_SETTLEMENT_CONSUMER_GROUP", "PAYMENT_SETTLEMENT_DLQ_TOPIC",
@@ -45,6 +45,7 @@ func localEnv(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 	t.Setenv("UPSTREAM_ORDER_ADDR", "order:50055")
 	t.Setenv("UPSTREAM_AUDIT_ADDR", "audit:50066")
+	t.Setenv("UPSTREAM_VERIFICATION_ADDR", "verification:50064")
 }
 
 func strictEnv(t *testing.T, env string) {
@@ -173,6 +174,33 @@ func TestUpstreamAddrsRequiredInEveryEnv(t *testing.T) {
 	}
 	if got := reflect.ValueOf(s).FieldByName("Kafka").FieldByName("Brokers").String(); got != "localhost:9092" {
 		t.Errorf("Kafka.Brokers = %q, want localhost:9092", got)
+	}
+}
+
+func TestVerificationAddrRequiredInEveryEnv(t *testing.T) {
+	// scenario: Boot fails without the verification address
+	for _, setup := range []func(){func() { localEnv(t) }, func() { strictEnv(t, "production") }} {
+		for _, val := range []string{"", "   "} {
+			setup()
+			t.Setenv("UPSTREAM_VERIFICATION_ADDR", val)
+			_, err := config.Load()
+			mustErrNaming(t, err, "UPSTREAM_VERIFICATION_ADDR")
+		}
+		setup()
+		if err := os.Unsetenv("UPSTREAM_VERIFICATION_ADDR"); err != nil {
+			t.Fatal(err)
+		}
+		_, err := config.Load()
+		mustErrNaming(t, err, "UPSTREAM_VERIFICATION_ADDR")
+	}
+
+	localEnv(t)
+	s, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load with verification address set: %v", err)
+	}
+	if got := reflect.ValueOf(s).FieldByName("Upstream").FieldByName("VerificationAddr").String(); got != "verification:50064" {
+		t.Errorf("Upstream.VerificationAddr = %q, want verification:50064", got)
 	}
 }
 
