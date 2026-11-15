@@ -532,7 +532,9 @@ describe("/seller/orders bulk ship mount", () => {
     expect(
       screen.getByRole("checkbox", { name: "Chọn đơn #cod1" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Chọn đơn #sh1" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: "Chọn đơn #sh1" }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Gửi hàng loạt" }),
     ).toBeDisabled();

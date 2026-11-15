@@ -57,8 +57,8 @@ describe("bulkShipOrdersAction", () => {
   const items = (n: number) =>
     Array.from({ length: n }, (_, i) => ({ orderId: `o${i + 1}` }));
   const results = (res: unknown) =>
-    (res as { ok: true; data: { results: Array<Record<string, unknown>> } }).data
-      .results;
+    (res as { ok: true; data: { results: Array<Record<string, unknown>> } })
+      .data.results;
 
   beforeEach(() => principal(["listing.write"]));
 
@@ -86,7 +86,8 @@ describe("bulkShipOrdersAction", () => {
 
   it("one failure does not stop the others", async () => {
     vi.mocked(updateOrderStatus).mockImplementation(async (id) => {
-      if (id === "o2") throw new ConnectError("cancelled", Code.FailedPrecondition);
+      if (id === "o2")
+        throw new ConnectError("cancelled", Code.FailedPrecondition);
       return {} as never;
     });
     const res = await bulkShipOrdersAction(items(3));
@@ -103,12 +104,16 @@ describe("bulkShipOrdersAction", () => {
 
   it("foreign order is denied per row", async () => {
     vi.mocked(updateOrderStatus).mockImplementation(async (id) => {
-      if (id === "o2") throw new ConnectError("seller x owns it", Code.PermissionDenied);
+      if (id === "o2")
+        throw new ConnectError("seller x owns it", Code.PermissionDenied);
       return {} as never;
     });
     const res = await bulkShipOrdersAction(items(3));
     const r = results(res);
-    expect(r[1]).toMatchObject({ ok: false, error: "Không có quyền với đơn này" });
+    expect(r[1]).toMatchObject({
+      ok: false,
+      error: "Không có quyền với đơn này",
+    });
     expect(JSON.stringify(res)).not.toContain("seller x owns it");
     expect(r[0]).toMatchObject({ ok: true });
     expect(r[2]).toMatchObject({ ok: true });
@@ -147,7 +152,10 @@ describe("bulkShipOrdersAction", () => {
 
   it("duplicate ids collapse", async () => {
     vi.mocked(updateOrderStatus).mockResolvedValue({} as never);
-    const res = await bulkShipOrdersAction([{ orderId: "o1" }, { orderId: "o1" }]);
+    const res = await bulkShipOrdersAction([
+      { orderId: "o1" },
+      { orderId: "o1" },
+    ]);
     expect(updateOrderStatus).toHaveBeenCalledTimes(1);
     expect(results(res)).toHaveLength(1);
   });

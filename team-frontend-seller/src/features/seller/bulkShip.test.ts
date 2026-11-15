@@ -14,7 +14,10 @@ const ids = (n: number) => Array.from({ length: n }, (_, i) => `o${i + 1}`);
 
 describe("parseIds", () => {
   it("splits, trims and dedupes keeping first-seen order", () => {
-    expect(parseIds(" a , b,a,,c ")).toEqual({ ok: true, ids: ["a", "b", "c"] });
+    expect(parseIds(" a , b,a,,c ")).toEqual({
+      ok: true,
+      ids: ["a", "b", "c"],
+    });
   });
 
   it("accepts exactly 50 distinct ids", () => {
@@ -33,7 +36,18 @@ describe("parseIds", () => {
   });
 
   it("parseIds rejects empty and malformed", () => {
-    for (const raw of [undefined, null, "", "   ", ",", " , ,", "a b", "a;b", "a/b", "<x>"]) {
+    for (const raw of [
+      undefined,
+      null,
+      "",
+      "   ",
+      ",",
+      " , ,",
+      "a b",
+      "a;b",
+      "a/b",
+      "<x>",
+    ]) {
       expect(parseIds(raw as string | undefined).ok).toBe(false);
     }
   });
@@ -72,7 +86,9 @@ describe("reasonForError", () => {
     [Code.DeadlineExceeded, "Dịch vụ đơn hàng đang bận"],
     [Code.Internal, "Cập nhật thất bại"],
   ])("maps connect code %s", (code, text) => {
-    expect(reasonForError(new ConnectError("raw upstream text", code))).toBe(text);
+    expect(reasonForError(new ConnectError("raw upstream text", code))).toBe(
+      text,
+    );
   });
 
   it("never leaks raw messages for non-connect errors", () => {

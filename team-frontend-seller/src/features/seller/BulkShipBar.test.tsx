@@ -73,9 +73,7 @@ describe("BulkShipBar", () => {
       screen.getByRole("checkbox", { name: "Chọn tất cả đơn có thể gửi" }),
     );
     expect(screen.getByText("Đã chọn 8 đơn")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Gửi hàng loạt" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Gửi hàng loạt" })).toBeEnabled();
     expect(
       screen.getByRole("button", { name: "In phiếu hàng loạt" }),
     ).toBeEnabled();
@@ -89,11 +87,13 @@ describe("BulkShipBar", () => {
     expect(
       screen.getByRole("button", { name: "In phiếu hàng loạt" }),
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Chọn đơn #pay00001" }));
-    expect(
-      screen.getByRole("button", { name: "Gửi hàng loạt" }),
-    ).toBeEnabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Chọn đơn #pay00001" }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Chọn đơn #pay00001" }),
+    );
+    expect(screen.getByRole("button", { name: "Gửi hàng loạt" })).toBeEnabled();
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Chọn đơn #pay00001" }),
+    );
     expect(
       screen.getByRole("button", { name: "Gửi hàng loạt" }),
     ).toBeDisabled();

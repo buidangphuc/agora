@@ -57,7 +57,7 @@ describe("SellerOrdersTable selection", () => {
     const orders = [
       order("paid0001", OrderStatus.PAID, PaymentMethod.COD),
       order("cod00001", OrderStatus.PENDING, PaymentMethod.COD),
-      order("onl00001", OrderStatus.PENDING, PaymentMethod.CARD),
+      order("onl00001", OrderStatus.PENDING, PaymentMethod.MOCK_MOMO),
       order("shp00001", OrderStatus.SHIPPED, PaymentMethod.COD),
       order("can00001", OrderStatus.CANCELLED, PaymentMethod.COD),
     ];
