@@ -6,6 +6,13 @@ import { ConsentPurpose } from "@/generated/platform/identity/v1/identity_pb.js"
 const rpc = vi.hoisted(() => ({
   listMyConsents: vi.fn(),
   recordConsent: vi.fn(),
+  getAccountDeletionStatus: vi.fn(),
+  requestAccountDeletion: vi.fn(),
+  cancelAccountDeletion: vi.fn(),
+  exportMyData: vi.fn(),
+  transportOpts: undefined as
+    | { interceptors?: ((next: unknown) => (req: unknown) => unknown)[] }
+    | undefined,
 }));
 
 vi.mock("@connectrpc/connect", async (importOriginal) => {
@@ -17,7 +24,10 @@ vi.mock("@connectrpc/connect", async (importOriginal) => {
   };
 });
 vi.mock("@connectrpc/connect-node", () => ({
-  createConnectTransport: () => ({}),
+  createConnectTransport: (o: typeof rpc.transportOpts) => {
+    rpc.transportOpts = o;
+    return {};
+  },
 }));
 vi.mock("./session.js", () => ({
   getToken: vi.fn(() => "test-token"),
@@ -25,7 +35,14 @@ vi.mock("./session.js", () => ({
 }));
 
 import { makeClients } from "./client.js";
-import { listConsents, recordConsents } from "./privacy.js";
+import {
+  cancelDeletion,
+  exportMyData,
+  getDeletionStatus,
+  listConsents,
+  recordConsents,
+  requestDeletion,
+} from "./privacy.js";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -153,5 +170,118 @@ describe("recordConsents", () => {
         },
       ]),
     ).rejects.toThrow("unavailable");
+  });
+});
+
+async function bearerSent(): Promise<string | null> {
+  const chain = rpc.transportOpts?.interceptors ?? [];
+  const req = { header: new Headers() };
+  const terminal = async (r: unknown) => r;
+  const call = chain.reduceRight(
+    (next, ic) => ic(next) as typeof terminal,
+    terminal,
+  );
+  await call(req);
+  return req.header.get("authorization");
+}
+
+describe("PrivacyService calls carry the session token and no user id", () => {
+  it("[PV27 No request carries a user id] sends the session token and no user id", async () => {
+    rpc.recordConsent.mockResolvedValue({});
+    rpc.getAccountDeletionStatus.mockResolvedValue({ pending: false });
+    rpc.requestAccountDeletion.mockResolvedValue({});
+    rpc.cancelAccountDeletion.mockResolvedValue({});
+    rpc.exportMyData.mockResolvedValue({
+      data: new Uint8Array(),
+      contentType: "application/json",
+    });
+    rpc.listMyConsents.mockResolvedValue({ records: [] });
+    await listConsents();
+    await recordConsents([
+      { purpose: "ANALYTICS", granted: true, version: "1", source: "account" },
+    ]);
+    await getDeletionStatus();
+    await requestDeletion("pw");
+    await cancelDeletion();
+    await exportMyData();
+    const reqs = [
+      rpc.listMyConsents,
+      rpc.recordConsent,
+      rpc.getAccountDeletionStatus,
+      rpc.requestAccountDeletion,
+      rpc.cancelAccountDeletion,
+      rpc.exportMyData,
+    ].map((f) => f.mock.calls[0][0] as Record<string, unknown>);
+    for (const r of reqs) {
+      expect(Object.keys(r)).not.toContain("userId");
+      expect(Object.keys(r)).not.toContain("user_id");
+    }
+    expect(await bearerSent()).toBe("bearer test-token");
+  });
+});
+
+describe("getDeletionStatus", () => {
+  it("[PV16 Confirming with the password schedules deletion] maps pending and erase time to ISO", async () => {
+    rpc.getAccountDeletionStatus.mockResolvedValue({
+      pending: true,
+      eraseAfter: Timestamp.fromDate(new Date("2026-11-16T10:00:00Z")),
+    });
+    await expect(getDeletionStatus()).resolves.toEqual({
+      pending: true,
+      eraseAfter: "2026-11-16T10:00:00.000Z",
+    });
+  });
+
+  it("[PV16 Confirming with the password schedules deletion] reports nothing pending with an empty erase time", async () => {
+    rpc.getAccountDeletionStatus.mockResolvedValue({ pending: false });
+    await expect(getDeletionStatus()).resolves.toEqual({
+      pending: false,
+      eraseAfter: "",
+    });
+  });
+});
+
+describe("requestDeletion", () => {
+  it("[PV16 Confirming with the password schedules deletion] sends only the password and returns the erase time", async () => {
+    rpc.requestAccountDeletion.mockResolvedValue({
+      eraseAfter: Timestamp.fromDate(new Date("2026-11-16T10:00:00Z")),
+    });
+    const res = await requestDeletion("s3cret");
+    expect(rpc.requestAccountDeletion).toHaveBeenCalledTimes(1);
+    expect(rpc.requestAccountDeletion.mock.calls[0][0]).toEqual({
+      password: "s3cret",
+    });
+    expect(res).toEqual({ eraseAfter: "2026-11-16T10:00:00.000Z" });
+  });
+
+  it("[PV19 An open obligation shows the reason] propagates the gateway error", async () => {
+    rpc.requestAccountDeletion.mockRejectedValue(new Error("blocked"));
+    await expect(requestDeletion("x")).rejects.toThrow("blocked");
+  });
+});
+
+describe("cancelDeletion", () => {
+  it("[PV22 Cancel with nothing pending is explained] calls CancelAccountDeletion once and propagates errors", async () => {
+    rpc.cancelAccountDeletion.mockResolvedValueOnce({});
+    await cancelDeletion();
+    expect(rpc.cancelAccountDeletion).toHaveBeenCalledTimes(1);
+    rpc.cancelAccountDeletion.mockRejectedValueOnce(new Error("none"));
+    await expect(cancelDeletion()).rejects.toThrow("none");
+  });
+});
+
+describe("exportMyData", () => {
+  it("[PV11 Export downloads one JSON file] decodes the bytes to text and maps type and generated time", async () => {
+    const json = '{"account":{"user_id":"u1"},"name":"Nguyễn"}';
+    rpc.exportMyData.mockResolvedValue({
+      data: new TextEncoder().encode(json),
+      contentType: "application/json",
+      generatedAt: Timestamp.fromDate(new Date("2026-11-14T10:00:00Z")),
+    });
+    await expect(exportMyData()).resolves.toEqual({
+      content: json,
+      contentType: "application/json",
+      generatedAt: "2026-11-14T10:00:00.000Z",
+    });
   });
 });
