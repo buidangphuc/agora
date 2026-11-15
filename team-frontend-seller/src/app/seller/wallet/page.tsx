@@ -2,7 +2,6 @@ import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { PriceTag } from "@/components/ui/PriceTag";
 import { Statistic } from "@/components/ui/Statistic";
 import { Table, type TableColumn } from "@/components/ui/Table";
 import { formatPrice } from "@/components/ui/format";
@@ -30,13 +29,21 @@ export const metadata = { title: "Ví người bán" };
 
 const LEDGER_PAGE_SIZE = 20;
 
+function formatSignedAmount(amount: number): string {
+  return amount < 0 ? `-${formatPrice(-amount)}` : formatPrice(amount);
+}
+
 const columns: TableColumn<ViewWalletEntry>[] = [
   { key: "type", title: "Loại", render: (e) => ledgerTypeLabel(e.type) },
   {
     key: "amount",
     title: "Số tiền",
     align: "right",
-    render: (e) => <PriceTag price={e.amount} size="md" />,
+    render: (e) => (
+      <span className="font-semibold tabular-nums">
+        {formatSignedAmount(e.amount)}
+      </span>
+    ),
   },
   { key: "status", title: "Trạng thái", render: (e) => e.status || "—" },
   { key: "createdAt", title: "Ngày", dataIndex: "createdAt" },

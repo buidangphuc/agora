@@ -67,6 +67,8 @@ describe("Wallet ledger type labels", () => {
     await renderPage();
     expect(screen.getByText("Thanh toán đơn hàng")).toBeTruthy();
     expect(screen.getByText("Phí hoa hồng")).toBeTruthy();
+    expect(screen.getByText("-₫14.000")).toBeTruthy();
+    expect(screen.getByText("₫310.000")).toBeTruthy();
     expect(screen.getByText("FUTURE_TYPE")).toBeTruthy();
     expect(screen.queryByText("COMMISSION")).toBeNull();
     expect(screen.queryByText("ORDER_SETTLEMENT")).toBeNull();
