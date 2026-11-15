@@ -150,8 +150,11 @@ def home_slot(world: World, heading: str, testid: str, label: str) -> None:
 def deduped(world: World, inside: str, outside: str) -> None:
     st = sup.state(world)
     expect(world.page.get_by_test_id(inside).first).to_be_visible(timeout=timeouts.DEFAULT)
-    anchor = f'a[href*="{st["sponsored"]}"]'
-    assert world.page.locator(anchor).count() == 1, "listing is not on the page exactly once"
+    anchor = f'h3 a[href*="/listing/{st["sponsored"]}"]'
+    expect(world.page.locator(f"[hidden] [data-testid='{inside}']")).to_have_count(
+        0, timeout=timeouts.DEFAULT
+    )
+    assert world.page.locator(anchor).count() == 1, "listing card is not on the page exactly once"
     assert world.page.get_by_test_id(inside).locator(anchor).count() == 1
     assert world.page.get_by_test_id(outside).locator(anchor).count() == 0
 

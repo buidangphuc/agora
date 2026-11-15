@@ -135,6 +135,8 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
       />
       {filters}
 
+      <SponsoredSlots items={sponsored} />
+
       <div data-testid="search-results">
         {result.items.length === 0 ? (
           <Card padded>
@@ -157,16 +159,13 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
             />
           </Card>
         ) : (
-          <>
-            <SponsoredSlots items={sponsored} />
-            <ListingGrid
-              listings={organic}
-              placementId="search_results"
-              impressionId={result.requestId || undefined}
-              modelVersion={result.modelVersion}
-              query={state.q}
-            />
-          </>
+          <ListingGrid
+            listings={organic}
+            placementId="search_results"
+            impressionId={result.requestId || undefined}
+            modelVersion={result.modelVersion}
+            query={state.q}
+          />
         )}
       </div>
 

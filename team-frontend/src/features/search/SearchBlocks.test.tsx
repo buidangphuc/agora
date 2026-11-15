@@ -428,6 +428,11 @@ describe("SearchResultsBlock sponsored slots", () => {
     expect(loadSponsored).toHaveBeenCalledWith("search", "c1");
     const slots = screen.getAllByTestId("sponsored-slot");
     expect(slots).toHaveLength(1);
+    expect(
+      within(screen.getByTestId("search-results")).queryByTestId(
+        "sponsored-slot",
+      ),
+    ).toBeNull();
     expect(within(slots[0]).getByText("Tài trợ")).toBeInTheDocument();
     expect(
       within(slots[0])
