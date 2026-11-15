@@ -256,7 +256,7 @@ func TestExistingEventTypeNamesUnchanged(t *testing.T) {
 
 // Scenario: Loop storage: an unrecognised enum value is stored as unspecified without failing
 func TestUnrecognisedEventTypeIsUnspecified(t *testing.T) {
-	for _, n := range []int32{0, 22, 99, -1} {
+	for _, n := range []int32{0, 23, 99, -1} {
 		te := &analyticsv1.TrackingEvent{EventType: analyticsv1.EventType(n), SessionId: "s-1"}
 		value := wrap(t, events.TrackingEventType, te, nil, time.Date(2026, 9, 2, 10, 30, 0, 0, time.UTC))
 		rec, ok, err := events.RecordFromEnvelope(value)
