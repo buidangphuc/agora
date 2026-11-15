@@ -19,8 +19,9 @@ from src.pages import SellerMarketingPage, SellerNewListingPage, SellerShopPage
 from src.pages.seller_getting_started_card import (
     CARD_TITLE,
     DONE_LABEL,
-    NOT_DONE_LABEL,
+    STEP_ACTION,
     STEPS,
+    UNKNOWN_LABEL,
     SellerGettingStartedPage,
 )
 from tests.e2e.support import admin_campaigns_support as ac
@@ -47,9 +48,15 @@ def _step(world: World, index: int):
 def _assert_state(world: World, index: int, done: bool) -> None:
     item = _step(world, index)
     expect(item).to_have_count(1, timeout=timeouts.NAVIGATION)
-    expect(item).to_contain_text(DONE_LABEL if done else NOT_DONE_LABEL)
-    if not done:
-        expect(item).not_to_contain_text(DONE_LABEL)
+    if done:
+        expect(item).to_have_attribute("data-state", "done")
+        expect(item.get_by_label(DONE_LABEL)).to_have_count(1)
+        expect(item.get_by_role("link", name=STEP_ACTION)).to_have_count(0)
+    else:
+        expect(item).to_have_attribute("data-state", "todo")
+        expect(item.get_by_label(DONE_LABEL)).to_have_count(0)
+        expect(item).not_to_contain_text(UNKNOWN_LABEL)
+        expect(item.get_by_role("link", name=STEP_ACTION)).to_be_visible()
 
 
 @given("the seller owns a published listing with a scheduled flash sale and nothing else")

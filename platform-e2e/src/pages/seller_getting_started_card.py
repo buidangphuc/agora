@@ -15,7 +15,8 @@ STEPS = (
     ("Tạo voucher hoặc flash sale đầu tiên", "/seller/marketing"),
 )
 DONE_LABEL = "Đã xong"
-NOT_DONE_LABEL = "Chưa xong"
+UNKNOWN_LABEL = "chưa rõ"
+STEP_ACTION = "Thực hiện"
 
 
 class SellerGettingStartedPage(BasePage):
@@ -29,7 +30,12 @@ class SellerGettingStartedPage(BasePage):
 
     @property
     def card(self) -> Locator:
-        return self.page.locator("section, div, aside").filter(has=self.title).last
+        return (
+            self.page.locator("section, div, aside")
+            .filter(has=self.title)
+            .filter(has=self.page.get_by_role("listitem"))
+            .last
+        )
 
     @property
     def kpi_heading(self) -> Locator:
@@ -40,7 +46,7 @@ class SellerGettingStartedPage(BasePage):
         return self.page.get_by_role("button", name=ONBOARD_BUTTON)
 
     def step(self, label: str) -> Locator:
-        return self.page.get_by_role("listitem").filter(has_text=label)
+        return self.card.get_by_role("listitem").filter(has_text=label)
 
     def is_displayed(self) -> bool:
         return self.title.is_visible()
