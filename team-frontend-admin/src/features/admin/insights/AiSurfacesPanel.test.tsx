@@ -35,7 +35,11 @@ describe("AiSurfacesPanel", () => {
   it("zero shown renders a dash share", () => {
     render(
       <AiSurfacesPanel
-        result={ok([row({ shown: 0n, accepted: 0n, edited: 0n, dismissed: 3n })]) as never}
+        result={
+          ok([
+            row({ shown: 0n, accepted: 0n, edited: 0n, dismissed: 3n }),
+          ]) as never
+        }
         rangeDays={7}
       />,
     );
@@ -48,22 +52,35 @@ describe("AiSurfacesPanel", () => {
 
   it("offers a GET form with the range selector", () => {
     render(<AiSurfacesPanel result={ok() as never} rangeDays={14} />);
-    const form = screen.getByTestId("insights_ai_surfaces").querySelector("form");
+    const form = screen
+      .getByTestId("insights_ai_surfaces")
+      .querySelector("form");
     expect(form?.getAttribute("method")?.toLowerCase()).toBe("get");
-    expect((form?.querySelector('select[name="range"]') as HTMLSelectElement).value).toBe("14");
+    expect(
+      (form?.querySelector('select[name="range"]') as HTMLSelectElement).value,
+    ).toBe("14");
   });
 
   // Scenario: No AI interactions in range
   it("empty result shows the empty state", () => {
-    render(<AiSurfacesPanel result={{ status: "empty" } as never} rangeDays={7} />);
+    render(
+      <AiSurfacesPanel result={{ status: "empty" } as never} rangeDays={7} />,
+    );
     const panel = screen.getByTestId("insights_ai_surfaces");
-    expect(panel.textContent).toContain("Chưa có tương tác AI trong khoảng này");
+    expect(panel.textContent).toContain(
+      "Chưa có tương tác AI trong khoảng này",
+    );
     expect(within(panel).queryAllByRole("row").length).toBe(0);
   });
 
   // Scenario: AI report unavailable
   it("unavailable shows a message without numbers", () => {
-    render(<AiSurfacesPanel result={{ status: "unavailable" } as never} rangeDays={7} />);
+    render(
+      <AiSurfacesPanel
+        result={{ status: "unavailable" } as never}
+        rangeDays={7}
+      />,
+    );
     const panel = screen.getByTestId("insights_ai_surfaces");
     expect(panel.textContent).toContain("Tạm thời không có số liệu");
     expect(panel.textContent).not.toContain("%");

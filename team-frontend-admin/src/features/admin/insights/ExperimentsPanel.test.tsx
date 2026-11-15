@@ -28,7 +28,13 @@ const ok = (variants = [variant()], windowDays = 7) => ({
 });
 
 const ui = (result: unknown, flag = "home_feed_ranker", rangeDays = 7) =>
-  render(<ExperimentsPanel result={result as never} flag={flag} rangeDays={rangeDays as never} />);
+  render(
+    <ExperimentsPanel
+      result={result as never}
+      flag={flag}
+      rangeDays={rangeDays as never}
+    />,
+  );
 
 describe("ExperimentsPanel", () => {
   // Scenario: Variant rows with interval
@@ -49,7 +55,17 @@ describe("ExperimentsPanel", () => {
 
   // Scenario: Interval is not recomputed
   it("renders the received interval", () => {
-    ui(ok([variant({ rate: 0.1, ciLow: 0.05, ciHigh: 0.2, exposed: 1000n, converted: 500n })]));
+    ui(
+      ok([
+        variant({
+          rate: 0.1,
+          ciLow: 0.05,
+          ciHigh: 0.2,
+          exposed: 1000n,
+          converted: 500n,
+        }),
+      ]),
+    );
     const text = screen.getByTestId("insights_experiments").textContent ?? "";
     expect(text).toContain("5.0% – 20.0%");
     expect(text).toContain("10.0%");
@@ -58,12 +74,16 @@ describe("ExperimentsPanel", () => {
 
   it("offers a GET form with flag input and range selector", () => {
     ui(ok(), "home_feed_ranker", 30);
-    const form = screen.getByTestId("insights_experiments").querySelector("form");
+    const form = screen
+      .getByTestId("insights_experiments")
+      .querySelector("form");
     expect(form?.getAttribute("method")?.toLowerCase()).toBe("get");
-    expect((form?.querySelector('input[name="flag"]') as HTMLInputElement).value).toBe(
-      "home_feed_ranker",
-    );
-    expect((form?.querySelector('select[name="range"]') as HTMLSelectElement).value).toBe("30");
+    expect(
+      (form?.querySelector('input[name="flag"]') as HTMLInputElement).value,
+    ).toBe("home_feed_ranker");
+    expect(
+      (form?.querySelector('select[name="range"]') as HTMLSelectElement).value,
+    ).toBe("30");
   });
 
   // Scenario: No flag entered
@@ -76,13 +96,15 @@ describe("ExperimentsPanel", () => {
 
   // Scenario: Malformed flag key is rejected
   it("rejects a malformed flag key", () => {
-    const evil = '<img src=x onerror=alert(1)> bad';
+    const evil = "<img src=x onerror=alert(1)> bad";
     ui({ status: "bad_flag" }, evil);
     const panel = screen.getByTestId("insights_experiments");
     expect(panel.textContent).toContain("Flag key không hợp lệ");
     expect(panel.querySelector("img")).toBeNull();
     expect(within(panel).queryAllByRole("table").length).toBe(0);
-    expect((panel.querySelector('input[name="flag"]') as HTMLInputElement).value).toBe(evil);
+    expect(
+      (panel.querySelector('input[name="flag"]') as HTMLInputElement).value,
+    ).toBe(evil);
   });
 
   // Scenario: Flag with no exposures

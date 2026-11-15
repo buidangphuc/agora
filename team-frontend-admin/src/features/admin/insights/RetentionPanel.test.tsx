@@ -19,7 +19,10 @@ const cohort = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const ok = (cohorts = [cohort()]) => ({ status: "ok" as const, data: { cohorts } });
+const ok = (cohorts = [cohort()]) => ({
+  status: "ok" as const,
+  data: { cohorts },
+});
 
 describe("RetentionPanel", () => {
   // Scenario: Cohort rows
@@ -46,7 +49,9 @@ describe("RetentionPanel", () => {
     render(<RetentionPanel result={ok() as never} weeks={26} />);
     const form = screen.getByTestId("insights_retention").querySelector("form");
     expect(form?.getAttribute("method")?.toLowerCase()).toBe("get");
-    expect((form?.querySelector('select[name="weeks"]') as HTMLSelectElement).value).toBe("26");
+    expect(
+      (form?.querySelector('select[name="weeks"]') as HTMLSelectElement).value,
+    ).toBe("26");
   });
 
   // Scenario: No cohorts yet
@@ -60,7 +65,9 @@ describe("RetentionPanel", () => {
 
   // Scenario: Retention report unavailable
   it("unavailable shows a message without numbers", () => {
-    render(<RetentionPanel result={{ status: "unavailable" } as never} weeks={12} />);
+    render(
+      <RetentionPanel result={{ status: "unavailable" } as never} weeks={12} />,
+    );
     const panel = screen.getByTestId("insights_retention");
     expect(panel.textContent).toContain("Tạm thời không có số liệu");
     expect(panel.textContent).not.toContain("%");

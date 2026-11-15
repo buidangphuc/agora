@@ -24,7 +24,12 @@ const row = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const rec = (rows = [row(), row({ modelVersion: "g1/std/rank-b/arm-2", impressions: 77n })]) => ({
+const rec = (
+  rows = [
+    row(),
+    row({ modelVersion: "g1/std/rank-b/arm-2", impressions: 77n }),
+  ],
+) => ({
   status: "ok" as const,
   data: {
     rows,
@@ -37,7 +42,13 @@ const rec = (rows = [row(), row({ modelVersion: "g1/std/rank-b/arm-2", impressio
 const search = () => ({
   status: "ok" as const,
   data: {
-    rows: [row({ placementId: "search", modelVersion: "search-model-z", impressions: 4321n })],
+    rows: [
+      row({
+        placementId: "search",
+        modelVersion: "search-model-z",
+        impressions: 4321n,
+      }),
+    ],
     windowHours: 24,
     attributionWindowHours: 24,
   },
@@ -91,7 +102,9 @@ describe("PlacementsPanel", () => {
     const panel = screen.getByTestId("insights_placements");
     const form = panel.querySelector("form");
     expect(form?.getAttribute("method")?.toLowerCase()).toBe("get");
-    const select = form?.querySelector('select[name="window"]') as HTMLSelectElement;
+    const select = form?.querySelector(
+      'select[name="window"]',
+    ) as HTMLSelectElement;
     expect(select.value).toBe("168");
     expect(panel.textContent).toContain("7 ngày");
   });
@@ -107,7 +120,10 @@ describe("PlacementsPanel", () => {
 
   // Scenario: Report service unavailable
   it("unavailable shows a message without numbers", () => {
-    ui({ recommendation: { status: "unavailable" }, search: { status: "unavailable" } });
+    ui({
+      recommendation: { status: "unavailable" },
+      search: { status: "unavailable" },
+    });
     const panel = screen.getByTestId("insights_placements");
     expect(panel.textContent).toContain("Tạm thời không có số liệu");
     expect(within(panel).queryAllByRole("table").length).toBe(0);

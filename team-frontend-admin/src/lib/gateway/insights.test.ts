@@ -43,11 +43,22 @@ const NOW = new Date("2026-11-14T10:00:00Z");
 
 function stub(over: Partial<Record<string, Fn>> = {}) {
   const analytics = {
-    getRecommendationPerformance: vi.fn().mockResolvedValue({ rows: [{ placementId: "home_feed" }], fallback: [] }),
-    getSearchPerformance: vi.fn().mockResolvedValue({ rows: [{ placementId: "search" }] }),
-    getRetentionCohorts: vi.fn().mockResolvedValue({ cohorts: [{ cohortWeek: "2026-11-02" }] }),
-    getExperimentReadout: vi.fn().mockResolvedValue({ variants: [{ variant: "control" }], windowDays: 7 }),
-    getAiSurfaceReport: vi.fn().mockResolvedValue({ rows: [{ surface: "assistant" }] }),
+    getRecommendationPerformance: vi.fn().mockResolvedValue({
+      rows: [{ placementId: "home_feed" }],
+      fallback: [],
+    }),
+    getSearchPerformance: vi
+      .fn()
+      .mockResolvedValue({ rows: [{ placementId: "search" }] }),
+    getRetentionCohorts: vi
+      .fn()
+      .mockResolvedValue({ cohorts: [{ cohortWeek: "2026-11-02" }] }),
+    getExperimentReadout: vi
+      .fn()
+      .mockResolvedValue({ variants: [{ variant: "control" }], windowDays: 7 }),
+    getAiSurfaceReport: vi
+      .fn()
+      .mockResolvedValue({ rows: [{ surface: "assistant" }] }),
     ...over,
   };
   vi.mocked(makeClients).mockReturnValue({ analytics } as never);
@@ -65,7 +76,12 @@ afterEach(() => vi.useRealTimers());
 
 describe("parseInsightParams", () => {
   it("defaults to 24 hours, 12 weeks, 7 days and no flag", () => {
-    expect(defaults()).toEqual({ windowHours: 24, weeks: 12, rangeDays: 7, flag: { kind: "none" } });
+    expect(defaults()).toEqual({
+      windowHours: 24,
+      weeks: 12,
+      rangeDays: 7,
+      flag: { kind: "none" },
+    });
   });
 
   // Scenario: Window selection is sent as hours
@@ -75,9 +91,12 @@ describe("parseInsightParams", () => {
   });
 
   // Scenario: Window outside the allowlist falls back to the default
-  it.each(["9999", "0", "-24", "abc", "", "25", "168.5"])("clamps window %j to 24", (v) => {
-    expect(parseInsightParams({ window: v }).windowHours).toBe(24);
-  });
+  it.each(["9999", "0", "-24", "abc", "", "25", "168.5"])(
+    "clamps window %j to 24",
+    (v) => {
+      expect(parseInsightParams({ window: v }).windowHours).toBe(24);
+    },
+  );
 
   // Scenario: Span selection is sent as weeks
   it("accepts 4 and 26 for weeks", () => {
@@ -113,7 +132,10 @@ describe("parseInsightParams", () => {
   // Scenario: Flag key at the length boundary
   it("accepts a 64 character flag", () => {
     const key = "a".repeat(64);
-    expect(parseInsightParams({ flag: key }).flag).toEqual({ kind: "valid", key });
+    expect(parseInsightParams({ flag: key }).flag).toEqual({
+      kind: "valid",
+      key,
+    });
   });
 
   // Scenario: Malformed flag key is rejected (parsing side)
@@ -144,15 +166,22 @@ describe("fetchers send the selected parameters", () => {
     const a = stub();
     const p = parseInsightParams({ window: "168" });
     await fetchInsights(p);
-    expect(a.getRecommendationPerformance.mock.calls[0][0]).toMatchObject({ windowHours: 168 });
-    expect(a.getSearchPerformance.mock.calls[0][0]).toMatchObject({ windowHours: 168 });
+    expect(a.getRecommendationPerformance.mock.calls[0][0]).toMatchObject({
+      windowHours: 168,
+    });
+    expect(a.getSearchPerformance.mock.calls[0][0]).toMatchObject({
+      windowHours: 168,
+    });
   });
 
   // Scenario: Window outside the allowlist falls back to the default
   it("clamps unknown window to 24", async () => {
     const a = stub();
     await fetchInsights(parseInsightParams({ window: "9999" }));
-    for (const call of [...a.getRecommendationPerformance.mock.calls, ...a.getSearchPerformance.mock.calls]) {
+    for (const call of [
+      ...a.getRecommendationPerformance.mock.calls,
+      ...a.getSearchPerformance.mock.calls,
+    ]) {
       expect(call[0].windowHours).toBe(24);
       expect(call[0].windowHours).toBeLessThanOrEqual(168);
     }
@@ -177,13 +206,17 @@ describe("fetchers send the selected parameters", () => {
   // Scenario: Range is sent as a time window (fixed clock)
   it("range becomes from and to", async () => {
     const a = stub();
-    await fetchInsights(parseInsightParams({ range: "30", flag: "home_feed_ranker" }));
+    await fetchInsights(
+      parseInsightParams({ range: "30", flag: "home_feed_ranker" }),
+    );
     for (const m of [a.getAiSurfaceReport, a.getExperimentReadout]) {
       const req = m.mock.calls[0][0];
       expect(req.to.toDate().getTime()).toBe(NOW.getTime());
       expect(req.from.toDate().getTime()).toBe(NOW.getTime() - 30 * DAY);
     }
-    expect(a.getExperimentReadout.mock.calls[0][0].flag).toBe("home_feed_ranker");
+    expect(a.getExperimentReadout.mock.calls[0][0].flag).toBe(
+      "home_feed_ranker",
+    );
   });
 
   // Scenario: Range outside the allowlist falls back
@@ -191,7 +224,9 @@ describe("fetchers send the selected parameters", () => {
     const a = stub();
     await fetchInsights(parseInsightParams({ range: "365" }));
     const req = a.getAiSurfaceReport.mock.calls[0][0];
-    expect(req.to.toDate().getTime() - req.from.toDate().getTime()).toBe(7 * DAY);
+    expect(req.to.toDate().getTime() - req.from.toDate().getTime()).toBe(
+      7 * DAY,
+    );
   });
 
   // Scenario: No flag entered
@@ -206,7 +241,9 @@ describe("fetchers send the selected parameters", () => {
   // Scenario: Malformed flag key is rejected (no upstream call)
   it("makes no call for a malformed flag", async () => {
     const a = stub();
-    const res = await fetchInsights(parseInsightParams({ flag: "a".repeat(65) }));
+    const res = await fetchInsights(
+      parseInsightParams({ flag: "a".repeat(65) }),
+    );
     expect(a.getExperimentReadout).not.toHaveBeenCalled();
     expect(res.experiment).toEqual({ status: "bad_flag" });
   });
@@ -250,18 +287,27 @@ describe("result union", () => {
   it("returns ok with the response data", async () => {
     stub();
     const r = await fetchRetentionCohorts(12);
-    expect(r).toEqual({ status: "ok", data: { cohorts: [{ cohortWeek: "2026-11-02" }] } });
+    expect(r).toEqual({
+      status: "ok",
+      data: { cohorts: [{ cohortWeek: "2026-11-02" }] },
+    });
   });
 
   it("returns empty when a response has zero rows", async () => {
     stub({
-      getRecommendationPerformance: vi.fn().mockResolvedValue({ rows: [], fallback: [] }),
+      getRecommendationPerformance: vi
+        .fn()
+        .mockResolvedValue({ rows: [], fallback: [] }),
       getSearchPerformance: vi.fn().mockResolvedValue({ rows: [] }),
       getRetentionCohorts: vi.fn().mockResolvedValue({ cohorts: [] }),
-      getExperimentReadout: vi.fn().mockResolvedValue({ variants: [], windowDays: 7 }),
+      getExperimentReadout: vi
+        .fn()
+        .mockResolvedValue({ variants: [], windowDays: 7 }),
       getAiSurfaceReport: vi.fn().mockResolvedValue({ rows: [] }),
     });
-    expect(await fetchRecommendationPerformance(24)).toEqual({ status: "empty" });
+    expect(await fetchRecommendationPerformance(24)).toEqual({
+      status: "empty",
+    });
     expect(await fetchSearchPerformance(24)).toEqual({ status: "empty" });
     expect(await fetchRetentionCohorts(12)).toEqual({ status: "empty" });
     expect(await fetchExperimentReadout("f", 7)).toEqual({ status: "empty" });
@@ -272,49 +318,85 @@ describe("result union", () => {
 describe("error mapping", () => {
   const SECRET = "dial tcp 10.1.2.3:9090: connection refused";
   const fetchers: Array<[string, string, () => Promise<unknown>]> = [
-    ["recommendation", "getRecommendationPerformance", () => fetchRecommendationPerformance(24)],
+    [
+      "recommendation",
+      "getRecommendationPerformance",
+      () => fetchRecommendationPerformance(24),
+    ],
     ["search", "getSearchPerformance", () => fetchSearchPerformance(24)],
     ["retention", "getRetentionCohorts", () => fetchRetentionCohorts(12)],
-    ["experiment", "getExperimentReadout", () => fetchExperimentReadout("f", 7)],
+    [
+      "experiment",
+      "getExperimentReadout",
+      () => fetchExperimentReadout("f", 7),
+    ],
     ["ai", "getAiSurfaceReport", () => fetchAiSurfaceReport(7)],
   ];
 
   // Scenario: Expired session is redirected
-  it.each(fetchers)("maps Unauthenticated to unauthenticated (%s)", async (_n, method, run) => {
-    stub({ [method]: vi.fn().mockRejectedValue(new ConnectError(SECRET, Code.Unauthenticated)) });
-    expect(await run()).toEqual({ status: "unauthenticated" });
-  });
+  it.each(fetchers)(
+    "maps Unauthenticated to unauthenticated (%s)",
+    async (_n, method, run) => {
+      stub({
+        [method]: vi
+          .fn()
+          .mockRejectedValue(new ConnectError(SECRET, Code.Unauthenticated)),
+      });
+      expect(await run()).toEqual({ status: "unauthenticated" });
+    },
+  );
 
-  it.each(fetchers)("maps PermissionDenied to forbidden (%s)", async (_n, method, run) => {
-    stub({ [method]: vi.fn().mockRejectedValue(new ConnectError(SECRET, Code.PermissionDenied)) });
-    expect(await run()).toEqual({ status: "forbidden" });
-  });
+  it.each(fetchers)(
+    "maps PermissionDenied to forbidden (%s)",
+    async (_n, method, run) => {
+      stub({
+        [method]: vi
+          .fn()
+          .mockRejectedValue(new ConnectError(SECRET, Code.PermissionDenied)),
+      });
+      expect(await run()).toEqual({ status: "forbidden" });
+    },
+  );
 
   // Scenario: Upstream rejects the request
-  it.each(fetchers)("maps InvalidArgument to invalid without a message (%s)", async (_n, method, run) => {
-    stub({ [method]: vi.fn().mockRejectedValue(new ConnectError(SECRET, Code.InvalidArgument)) });
-    const r = await run();
-    expect(r).toEqual({ status: "invalid" });
-    expect(JSON.stringify(r)).not.toContain("10.1.2.3");
-  });
+  it.each(fetchers)(
+    "maps InvalidArgument to invalid without a message (%s)",
+    async (_n, method, run) => {
+      stub({
+        [method]: vi
+          .fn()
+          .mockRejectedValue(new ConnectError(SECRET, Code.InvalidArgument)),
+      });
+      const r = await run();
+      expect(r).toEqual({ status: "invalid" });
+      expect(JSON.stringify(r)).not.toContain("10.1.2.3");
+    },
+  );
 
   // Scenario: Report service unavailable
-  it.each(fetchers)("maps Unavailable, timeout and unknown errors to unavailable (%s)", async (_n, method, run) => {
-    for (const err of [
-      new ConnectError(SECRET, Code.Unavailable),
-      new ConnectError(SECRET, Code.DeadlineExceeded),
-      new ConnectError(SECRET, Code.Internal),
-      new Error(SECRET),
-    ]) {
-      stub({ [method]: vi.fn().mockRejectedValue(err) });
-      const r = await run();
-      expect(r).toEqual({ status: "unavailable" });
-      expect(JSON.stringify(r)).not.toContain("10.1.2.3");
-    }
-  });
+  it.each(fetchers)(
+    "maps Unavailable, timeout and unknown errors to unavailable (%s)",
+    async (_n, method, run) => {
+      for (const err of [
+        new ConnectError(SECRET, Code.Unavailable),
+        new ConnectError(SECRET, Code.DeadlineExceeded),
+        new ConnectError(SECRET, Code.Internal),
+        new Error(SECRET),
+      ]) {
+        stub({ [method]: vi.fn().mockRejectedValue(err) });
+        const r = await run();
+        expect(r).toEqual({ status: "unavailable" });
+        expect(JSON.stringify(r)).not.toContain("10.1.2.3");
+      }
+    },
+  );
 
   it("one failing fetch does not change the others", async () => {
-    stub({ getRetentionCohorts: vi.fn().mockRejectedValue(new ConnectError(SECRET, Code.Unavailable)) });
+    stub({
+      getRetentionCohorts: vi
+        .fn()
+        .mockRejectedValue(new ConnectError(SECRET, Code.Unavailable)),
+    });
     const res = await fetchInsights(parseInsightParams({ flag: "f" }));
     expect(res.retention).toEqual({ status: "unavailable" });
     expect(res.recommendation.status).toBe("ok");

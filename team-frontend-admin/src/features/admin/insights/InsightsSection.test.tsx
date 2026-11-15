@@ -12,7 +12,12 @@ afterEach(cleanup);
 //   Renders the four panels (testids insights_placements, insights_retention,
 //   insights_experiments, insights_ai_surfaces) from already-fetched results.
 
-const params = { windowHours: 24, weeks: 12, rangeDays: 7, flag: { kind: "none" } } as const;
+const params = {
+  windowHours: 24,
+  weeks: 12,
+  rangeDays: 7,
+  flag: { kind: "none" },
+} as const;
 
 const base = () => ({
   recommendation: {
@@ -39,7 +44,15 @@ const base = () => ({
     status: "ok",
     data: {
       cohorts: [
-        { cohortWeek: "2026-11-02", cohortSize: 40n, d1: 0.5, d7: 0.25, d30: 0.1, repeatPurchase30d: 0.05, weeklyActive: [1] },
+        {
+          cohortWeek: "2026-11-02",
+          cohortSize: 40n,
+          d1: 0.5,
+          d7: 0.25,
+          d30: 0.1,
+          repeatPurchase30d: 0.05,
+          weeklyActive: [1],
+        },
       ],
     },
   },
@@ -48,10 +61,19 @@ const base = () => ({
 });
 
 const ui = (insights: unknown) => (
-  <InsightsSection insights={insights as never} params={params as never} flagText="" />
+  <InsightsSection
+    insights={insights as never}
+    params={params as never}
+    flagText=""
+  />
 );
 
-const IDS = ["insights_placements", "insights_retention", "insights_experiments", "insights_ai_surfaces"];
+const IDS = [
+  "insights_placements",
+  "insights_retention",
+  "insights_experiments",
+  "insights_ai_surfaces",
+];
 
 describe("InsightsSection", () => {
   // Scenario: Admin sees all four panels
@@ -66,10 +88,17 @@ describe("InsightsSection", () => {
     const retention = screen.getByTestId("insights_retention");
     expect(retention.textContent).toContain("Tạm thời không có số liệu");
     expect(retention.textContent).not.toContain("%");
-    expect(screen.getByTestId("insights_placements").textContent).toContain("g1/std/a/x");
-    expect(screen.getByTestId("insights_placements").textContent).toContain("25.0%");
+    expect(screen.getByTestId("insights_placements").textContent).toContain(
+      "g1/std/a/x",
+    );
+    expect(screen.getByTestId("insights_placements").textContent).toContain(
+      "25.0%",
+    );
     for (const id of IDS) expect(screen.getByTestId(id)).toBeTruthy();
-    expect(within(screen.getByTestId("insights_ai_surfaces")).queryAllByRole("row").length).toBe(0);
+    expect(
+      within(screen.getByTestId("insights_ai_surfaces")).queryAllByRole("row")
+        .length,
+    ).toBe(0);
   });
 
   // Scenario: Bearer and upstream text never reach the browser
