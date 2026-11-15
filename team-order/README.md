@@ -140,12 +140,12 @@ Postgres `order_db` (compose credentials `order_svc` / `order_pass`, shared Post
 | 0008 | `orders.payment_due_at` (NULL for COD and pre-migration orders, which are never auto-expired), `payment_reminder_sent_at`, `cancel_reason`; partial index on unpaid orders with a deadline |
 | 0009 | `orders.shipped_at`, `auto_complete_at`, `completed_at`, `return_window_ends_at`, `ship_by`; `order_returns.auto_approve_at`. Backfill runs only when the columns are first added and completes nothing |
 | 0010 | `orders.checkout_id`, `platform_voucher_code`, `platform_discount_amount` |
-
 | 0011 | `processed_events` primary key `(consumer, event_id)` |
 | 0012-0022 | Outbox upgrade to the SDK v1 `order_outbox_events` shape: prepare, backfill, switch, `seq` constraint and indexes, drop the old claim index, requeue failed rows |
 | 0023 | `listing_sales` (`listing_id`, `sold_count` >= 0) and `listing_sales_orders` (per `(order_id, listing_id)` ledger, state `counted` / `reversed`); backfill from orders with `paid_at` and non-COD PAID/SHIPPED/COMPLETED orders without it, marking cancelled and refunded ones `reversed`, and one `ListingSalesChanged` outbox row per listing |
 | 0024 | Backfill of COD orders already COMPLETED and missing from `listing_sales_orders`: inserts `counted` ledger rows, adds only the newly inserted quantity to `listing_sales`, and enqueues one `ListingSalesChanged` outbox row per changed listing (event id `hash(listing, sold_count, '0024-backfill-cod')`); idempotent, down is a no-op |
 | 0025 | `cart_items` and `order_items` gain `bundle_id` (default `''`) and `bundle_discount` (default 0); the cart unique key becomes `(user_id, listing_id, variant_id, bundle_id)` (`cart_items_unique_user_item_bundle`); idempotent. Down deletes bundle-tagged cart lines and restores `cart_items_unique_user_item` |
+| 0026 | index `orders (seller_id, status, created_at DESC, id DESC)` (`CREATE INDEX CONCURRENTLY`) for the paged seller order list |
 
 The service does **not** migrate on boot. The binary has a `migrate up` subcommand (`go run ./cmd/server migrate up`, `make migrate`) that applies the embedded `migrations/` against `DATABASE_URL`; compose runs it as the one-shot `team-order-migrate` job (the `team-order` image with `migrate up`), which `team-order` depends on, and gitops runs it as an Argo PreSync Job.
 

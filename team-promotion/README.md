@@ -110,6 +110,8 @@ Own database `promotion_db` (user `promotion_svc`). Migrations in `internal/stor
 | `0005_outbox` | `outbox` (transactional event outbox) |
 | `0006_voucher_active` | adds `vouchers.active` (default true), `deactivated_at` |
 | `0007_campaign_cancel_idempotency` | adds `flash_sale_campaigns.cancelled_at`; `campaign_idempotency` (PK `actor_id`, `key`; payload hash, campaign id) |
+| `0008_user_vouchers` | adds `vouchers.owner_user_id`, `kind`, `per_user_limit`, `new_user_only`; `voucher_reservations.expires_at`; `promotion_processed_events` |
+| `0009_campaign_seller` | adds `flash_sale_campaigns.seller_id` (default `''`) and a partial index on it |
 
 Migrations are embedded in `internal/store/migrations` and applied by `server migrate up` (the
 `team-promotion-migrate` one-shot container in the root compose runs it; it needs only `ENV` and
@@ -205,8 +207,8 @@ Database tests run against Docker Postgres and never skip; a skip is a gate fail
 
 ## Spec and verification
 
-- `FEATURES.yaml` declares 301 features: 130 `automated` (each with a `covered_by` scenario, mostly in
-  `platform-e2e/tests/e2e/features/promo/` and `security/promotion_access.feature`), 169 `not-testable` and 2 `planned`.
+- `FEATURES.yaml` declares 380 features: 164 `automated` (each with a `covered_by` scenario, mostly in
+  `platform-e2e/tests/e2e/features/promo/` and `security/promotion_access.feature`), 214 `not-testable` and 2 `planned` (`grep -c '^  - id:'` and `grep -c 'status: <s>'` on `FEATURES.yaml`).
 - Verify coverage with `make -C platform-e2e features-check` and, per change,
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC.

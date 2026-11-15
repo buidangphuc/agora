@@ -62,6 +62,8 @@ Postgres `listing_db` (role `listing_svc`). Migrations in `migrations/` (golang-
 | 0011 `listing_moderation` | `listings.moderation_reason_code`, `moderation_note`, `screen_flags`, `moderation_decided_at`, `submitted_at`; moderation queue index (`status = 'pending_review'`) |
 | 0012 `seller_enforcement_hold` | `listings.held_prior_status`; `processed_events` (dedupe of `UserStatusChanged`); `seller_status_applied` (stale-event guard) |
 | 0010 `reservation_lifecycle_constraints` | `NOT VALID` checks: `reservations.status IN ('active','committed','released')`, `listings.stock >= 0`, `listing_variants.stock >= 0`. Validate later with `psql "$DATABASE_URL" -f scripts/validate_0010_constraints.sql` (refuses unless every violation count is 0) |
+| 0013-0016 `outbox_v1_*` | `outbox_events.topic`, `traceparent`, `seq` (NOT NULL): SDK v1 outbox shape (columns, backfill, switch, finish) |
+| 0017 `listings_owner_status_idx` | index `listings (seller_id, status, id)` for the seller's filtered listing page |
 
 Applied by `make migrate` (`go run ./cmd/server migrate up`) locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/service/sweeper.go`, tick `RESERVATION_SWEEP_INTERVAL`, TTL `RESERVATION_TTL`; defaults 1m / 15m) runs inside this service and restores stock for expired `active` reservations only (committed ones are never swept).
 
@@ -143,7 +145,7 @@ Standalone, point `KAFKA_BROKERS` at a reachable broker (platform-core's Redpand
 
 ## Spec and verification
 
-- `FEATURES.yaml` (repo root): 229 features, 32 `automated`, 1 `planned` (`bundle.create`), 196 `not-testable`. For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
+- `FEATURES.yaml` (repo root): 271 features, 68 `automated`, 1 `planned` (`bundle.create`), 202 `not-testable` (`grep -c '^  - id:'` and `grep -c 'status: <s>'` on `FEATURES.yaml`). For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
 - E2E coverage lives in `platform-e2e`: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
 
