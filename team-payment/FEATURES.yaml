@@ -62,6 +62,7 @@ features:
     services: [team-payment, team-frontend]
     preconditions:
       login: seller
+      data: The seller is VERIFIED through the real KYC RPCs (payment-payout-kyc-gate); an unverified seller is refused FAILED_PRECONDITION.
     api:
       exercised: [payment.v1.RequestPayout, payment.v1.ListPayoutHistory]
     acceptance:
@@ -3539,3 +3540,352 @@ features:
     tags: [payment, user-erasure]
     status: planned
     notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."
+
+  - id: payment.payout-requires-kyc
+    title: Payouts require a VERIFIED seller
+    persona: seller
+    priority: P0
+    summary: RequestPayout and RequestWalletPayout proceed only for a VERIFIED seller and fail closed when verification cannot be read.
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose KYC status is not VERIFIED"
+      - "When the seller requests a bank or wallet payout"
+      - "Then the call fails FAILED_PRECONDITION \"seller verification required\" and no ledger or payout row is written"
+      - "And an unreadable status fails UNAVAILABLE (fail closed)"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate umbrella; per-scenario entries are payment.payout-kyc.*; e2e in payment/payout_kyc_gate.feature (red before implementation)."
+
+  - id: payment.payout-kyc.verified-bank
+    title: "Verified seller requests a bank payout"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verified seller requests a bank payout"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose KYC status is VERIFIED with an available balance covering the amount"
+      - "When the seller calls RequestPayout"
+      - "Then the call succeeds and ListPayoutHistory returns the new payout with the requested amount"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verified seller requests a bank payout (red before implementation); @destructive; needs compose/payment-ledger.override.yaml."
+
+  - id: payment.payout-kyc.verified-wallet
+    title: "Verified seller requests a wallet payout"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verified seller requests a wallet payout"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose KYC status is VERIFIED with an available balance covering the amount"
+      - "When the seller calls RequestWalletPayout"
+      - "Then the call succeeds and ListLedgerEntries shows one pending payout entry of minus the requested amount"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verified seller requests a wallet payout (red before implementation); @destructive; needs compose/payment-ledger.override.yaml."
+
+  - id: payment.payout-kyc.never-submitted
+    title: "Seller who never submitted is refused"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seller who never submitted is refused"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller with status NOT_SUBMITTED and a positive balance"
+      - "When the seller calls RequestPayout"
+      - "Then the call fails FAILED_PRECONDITION with message \"seller verification required\", ListPayoutHistory returns 0 payouts and the wallet balance is unchanged"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller who never submitted is refused (red before implementation)."
+
+  - id: payment.payout-kyc.pending
+    title: "Seller with a pending submission is refused"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seller with a pending submission is refused"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose latest submission is PENDING"
+      - "When the seller calls RequestWalletPayout"
+      - "Then the call fails FAILED_PRECONDITION and ListLedgerEntries contains 0 new entries"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller with a pending submission is refused (red before implementation)."
+
+  - id: payment.payout-kyc.rejected
+    title: "Seller with a rejected submission is refused"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seller with a rejected submission is refused"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose latest submission is REJECTED"
+      - "When the seller calls RequestPayout"
+      - "Then the call fails FAILED_PRECONDITION and the wallet balance is unchanged"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller with a rejected submission is refused (red before implementation)."
+
+  - id: payment.payout-kyc.loses-verification
+    title: "Seller who loses verification is refused on the next call"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seller who loses verification is refused on the next call"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller who completed one payout has a newer submission that is not VERIFIED"
+      - "When the seller calls RequestPayout again"
+      - "Then the second call fails FAILED_PRECONDITION and ListPayoutHistory still returns exactly 1 payout"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller who loses verification is refused on the next call (red before implementation); @destructive; needs compose/payment-ledger.override.yaml."
+
+  - id: payment.payout-kyc.verification-unreachable
+    title: "Verification service unreachable"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verification service unreachable"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given team-verification is stopped and a VERIFIED seller exists"
+      - "When the seller calls RequestPayout"
+      - "Then the call fails UNAVAILABLE within 3 seconds and ListPayoutHistory returns 0 new payouts"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verification service unreachable (red before implementation); @destructive; stops team-verification."
+
+  - id: payment.payout-kyc.gate-recovers
+    title: "Gate recovers after the outage"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Gate recovers after the outage"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given team-verification was stopped and is started again"
+      - "When the VERIFIED seller repeats the payout"
+      - "Then the call succeeds with no restart of team-payment"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Gate recovers after the outage (red before implementation); @destructive; stops team-verification; needs compose/payment-ledger.override.yaml."
+
+  - id: payment.payout-kyc.invalid-amount-before-gate
+    title: "Invalid amount is rejected before the gate"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Invalid amount is rejected before the gate"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller who is not verified"
+      - "When the seller calls RequestPayout with amount 0"
+      - "Then the call fails INVALID_ARGUMENT (not FAILED_PRECONDITION: validation runs before the gate)"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Invalid amount is rejected before the gate (red before implementation); the zero-status-calls count is unit-verified in the handler tests."
+
+  - id: payment.payout-kyc.other-wallet-before-gate
+    title: "Another seller's wallet is denied before the gate"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Another seller's wallet is denied before the gate"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a buyer and a seller who is not verified"
+      - "When the buyer calls RequestPayout with the seller's seller_id"
+      - "Then the call fails PERMISSION_DENIED"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Another seller's wallet is denied before the gate (red before implementation); the zero-status-calls count is unit-verified in the handler tests."
+
+  - id: payment.payout-kyc.no-write-scope-before-gate
+    title: "Missing listing write scope is denied before the gate"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Missing listing write scope is denied before the gate"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a user token without listing.write"
+      - "When it calls RequestWalletPayout"
+      - "Then the call fails PERMISSION_DENIED"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Missing listing write scope is denied before the gate (red before implementation); the zero-status-calls count is unit-verified in the handler tests."
+
+  - id: payment.payout-kyc.status-from-principal
+    title: "Status comes from the principal not the request"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Status comes from the principal not the request"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given an unverified seller and a verified seller"
+      - "When the unverified seller calls RequestPayout with seller_id set to the verified seller's id"
+      - "Then the call fails PERMISSION_DENIED and no payout exists for either seller"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Status comes from the principal not the request (red before implementation)."
+
+  - id: payment.payout-kyc.boot-needs-verification-addr
+    title: "Boot fails without the verification address"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Boot fails without the verification address"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given team-payment starts with UPSTREAM_VERIFICATION_ADDR unset or blank"
+      - "When configuration loads"
+      - "Then the process exits non-zero and its log names UPSTREAM_VERIFICATION_ADDR"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Boot fails without the verification address (red before implementation); also unit-verified in team-payment/internal/config/config_test.go."
+
+  - id: payment.payout-kyc.seeded-seller-pays-out
+    title: "Seeded demo seller can pay out"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seeded demo seller can pay out"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given the marketplace seed has run"
+      - "When a seeded shop seller requests a payout"
+      - "Then GetVerificationStatus returns VERIFIED and the call is not refused for seller verification"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seeded demo seller can pay out (red before implementation); depends on seed-marketplace.sh verifying sellers (task 1.9); payout success depends on the seeded balance."
+
+  - id: payment.payout-kyc.fresh-seller-blocked
+    title: "Freshly registered seller is blocked at rollout"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Freshly registered seller is blocked at rollout"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller registered after the seed and without a submission"
+      - "When the seller calls RequestWalletPayout"
+      - "Then the call fails FAILED_PRECONDITION and GetVerificationStatus returns NOT_SUBMITTED"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Freshly registered seller is blocked at rollout (red before implementation)."
+
+  - id: payment.payout-kyc.verification-deadline
+    title: "Verification call exceeds the deadline"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verification call exceeds the deadline"
+    entry_route: /
+    services: [team-payment, team-verification]
+    acceptance:
+      - "When team-verification answers GetVerificationStatus after 5 seconds"
+      - "Then the payout call fails UNAVAILABLE after at most 2.5 seconds and the call is attempted exactly once"
+    tags: [payment, kyc, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/upstream/verification_test.go TestPayoutGateSlowServerUnavailableOneAttempt. Not producible black box: needs a verification service that answers slowly; the stack has no slow-upstream tooling for team-verification."
+
+  - id: payment.payout-kyc.verification-denies-principal
+    title: "Verification rejects the service principal"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verification rejects the service principal"
+    entry_route: /
+    services: [team-payment, team-verification]
+    acceptance:
+      - "When team-verification answers PermissionDenied to the status call"
+      - "Then the payout call fails UNAVAILABLE with message \"verification unavailable\" and not FAILED_PRECONDITION"
+    tags: [payment, kyc, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/upstream/verification_test.go TestPayoutGatePermissionDeniedIsUnavailable. Not producible black box: needs team-verification to reject a valid service principal; not producible on a healthy stack."

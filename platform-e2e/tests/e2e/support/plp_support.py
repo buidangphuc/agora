@@ -215,11 +215,26 @@ def refund(
 
 
 # ── payouts ──────────────────────────────────────────────────────────────
+def ensure_verified(w: OicWorld, seller: Actor) -> None:
+    """Payouts need a VERIFIED seller (payment-payout-kyc-gate): do the real KYC sequence once.
+
+    Skipped for non-sellers and when the scenario controls verification itself
+    (`w.data["manual_kyc"]`).
+    """
+    if seller.role != "seller" or w.data.get("manual_kyc"):
+        return
+    from tests.e2e.flows.kyc_flow import verify_seller
+
+    verify_seller(seller.token)
+
+
 def wallet_payout(w: OicWorld, seller: Actor, amount: int) -> httpx.Response:
+    ensure_verified(w, seller)
     return post(w, seller, PAYMENT, "RequestWalletPayout", {"amount": amount})
 
 
 def bank_payout(w: OicWorld, seller: Actor, amount: int) -> httpx.Response:
+    ensure_verified(w, seller)
     return post(
         w,
         seller,
