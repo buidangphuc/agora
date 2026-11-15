@@ -59,15 +59,25 @@ func startMinio(t *testing.T) *objects.Minio {
 		}
 		t.Fatalf("start minio: %v", err)
 	}
+	deadline := time.Now().Add(30 * time.Second)
 	for _, args := range [][]string{
 		{"mc", "alias", "set", "local", "http://localhost:9000", rootUser, rootPass},
 		{"mc", "mb", "--ignore-existing", "local/" + bucket},
 		{"mc", "anonymous", "set", "none", "local/" + bucket},
 	} {
-		code, out, err := ctr.Exec(ctx, args)
-		if err != nil || code != 0 {
-			b, _ := io.ReadAll(out)
-			t.Fatalf("%v: code=%d err=%v out=%s", args, code, err, b)
+		for {
+			code, out, err := ctr.Exec(ctx, args)
+			if err == nil && code == 0 {
+				break
+			}
+			if time.Now().After(deadline) {
+				var b []byte
+				if out != nil {
+					b, _ = io.ReadAll(out)
+				}
+				t.Fatalf("%v: code=%d err=%v out=%s", args, code, err, b)
+			}
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 	endpoint, err := ctr.PortEndpoint(ctx, "9000/tcp", "")
