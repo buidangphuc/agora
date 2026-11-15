@@ -17,6 +17,7 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
 | `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
+| `POST /api/ads/click` | Sponsored-slot click beacon (`src/app/api/ads/click/route.ts`, sent by `src/features/ads/SponsoredClickGuard.tsx` via `sendBeacon`): body `{token}` is the slot's impression token, forwarded to `SponsoredService.RecordAdClick` (`recordAdClick` in `src/lib/gateway/promotion.ts`); always 204 for a well-formed body, charged or not; `GET` returns 405 | Public; session forwarded so the server skips a seller's own click; 400 on a missing or malformed token |
 | `GET /api/analytics/identity` | GA4 `user_id` from the verified principal (see GA4 via GTM) | Consent-gated; 204 when `GA4_USER_ID_HMAC_KEY` is unset |
 
 Route groups and page-level gates:
@@ -117,7 +118,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 ## 7. Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (785 features: 499 `automated`, 279 `not-testable`, 7 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest. Seller and admin entries live in `team-frontend-seller/FEATURES.yaml` and `team-frontend-admin/FEATURES.yaml`.
+- Feature manifest: `FEATURES.yaml` (807 features: 500 `automated`, 294 `not-testable`, 13 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest. Seller and admin entries live in `team-frontend-seller/FEATURES.yaml` and `team-frontend-admin/FEATURES.yaml`.
 - E2E: `platform-e2e` (pytest-bdd + Playwright) drives `team-frontend:3000` through the gateway `:8080`. Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes are specified through OpenSpec (`openspec/changes/<id>`), then `FEATURES.yaml`, then platform-e2e, then `npm run check`, per the root README's ASDLC.
 
@@ -134,7 +135,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 - `/api/suggest` and `/api/listings` swallow every error and return empty results, hiding gateway outages from the UI.
 - `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
-- `FEATURES.yaml` has 7 `planned` features with no automated coverage yet.
+- `FEATURES.yaml` has 13 `planned` features with no automated coverage yet.
 - `/seller*` and `/sell` moved to `team-frontend-seller` (`:3001`) and are a 404 here (`src/app/sellerRoutes.test.ts`).
 - `/vouchers` still renders `VoucherManager` (create a voucher) for a session with `listing.write`; it is seller work that has not moved to the seller app yet.
 - `/listing/[id]` still shows the admin review-moderation controls when the buyer session carries scope `admin`.
