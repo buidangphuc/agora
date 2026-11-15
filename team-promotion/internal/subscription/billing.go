@@ -49,9 +49,9 @@ func (s *Service) Charge(ctx context.Context, sellerID string, amount int64, key
 func Charge(ctx context.Context, p PaymentCharger, sellerID string, amount int64, key string) error {
 	if _, err := p.ChargeSellerFee(ctx, sellerID, amount, key); err != nil {
 		if status.Code(err).String() == failedPrecondition {
-			return fmt.Errorf("%w: %v", ErrInsufficientBalance, err)
+			return fmt.Errorf("%w: %s", ErrInsufficientBalance, err.Error())
 		}
-		return fmt.Errorf("%w: %v", ErrPaymentUnavailable, err)
+		return fmt.Errorf("%w: %s", ErrPaymentUnavailable, err.Error())
 	}
 	return nil
 }

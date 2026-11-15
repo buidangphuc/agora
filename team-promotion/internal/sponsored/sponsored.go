@@ -134,11 +134,12 @@ func (s *Service) CreateAdCampaign(ctx context.Context, p CreateAdCampaignParams
 	return created, nil
 }
 
+const DefaultMinAdBid int64 = 500
+
 const (
-	DefaultMinAdBid  int64 = 500
-	defaultSlotLimit       = 2
-	maxSlotLimit           = 4
-	servableFetch          = 200
+	defaultSlotLimit = 2
+	maxSlotLimit     = 4
+	servableFetch    = 200
 )
 
 type SlotsParams struct {
