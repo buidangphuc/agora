@@ -34,7 +34,7 @@ type faultRepo struct {
 	created     int
 }
 
-func (r *faultRepo) Create(ctx context.Context, s *store.Submission) (*store.Submission, error) {
+func (r *faultRepo) SubmitWithDocuments(ctx context.Context, s *store.Submission, keys []string, now time.Time, verify func([]store.Grant) error) (*store.Submission, error) {
 	r.created++
 	if r.createPanic && r.created == 1 {
 		panic("boom: nil pointer in repo")
@@ -42,7 +42,17 @@ func (r *faultRepo) Create(ctx context.Context, s *store.Submission) (*store.Sub
 	if r.createErr != nil {
 		return nil, r.createErr
 	}
-	return r.KycRepository.Create(ctx, s)
+	return r.KycRepository.SubmitWithDocuments(ctx, s, keys, now, verify)
+}
+
+func uploadedReq(ctx context.Context, t *testing.T, h *rpc.Handler) *verificationv1.SubmitKycRequest {
+	t.Helper()
+	up, err := h.CreateKycUploadUrl(ctx, &verificationv1.CreateKycUploadUrlRequest{ContentType: "image/jpeg", SizeBytes: 1024})
+	if err != nil {
+		t.Fatalf("CreateKycUploadUrl: %v", err)
+	}
+	objectsOf(h).Put(up.GetDocRef(), "image/jpeg", 1024)
+	return &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: up.GetDocRef()}
 }
 
 func newFault() *faultRepo { return &faultRepo{KycRepository: storetest.NewInMemoryKycRepo()} }
@@ -50,7 +60,8 @@ func newFault() *faultRepo { return &faultRepo{KycRepository: storetest.NewInMem
 func TestMapErrHidesInternalCause(t *testing.T) {
 	r := newFault()
 	r.createErr = errors.New("pq: connection refused 10.0.0.5")
-	_, err := buildHandler(t, r, &fakeAudit{}, quiet()).SubmitKyc(buyer("u"), &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"})
+	h := buildHandler(t, r, &fakeAudit{}, quiet())
+	_, err := h.SubmitKyc(buyer("u"), uploadedReq(buyer("u"), t, h))
 	st, _ := status.FromError(err)
 	if st.Code() != codes.Internal || st.Message() != "internal error" {
 		t.Fatalf("got %v %q", st.Code(), st.Message())
@@ -67,7 +78,7 @@ func TestErrorTableMapsDomainErrors(t *testing.T) {
 	_, e4 := h.ReviewKyc(admin("adm"), &verificationv1.ReviewKycRequest{Id: id, Decision: "maybe"})
 	_, e5 := h.ReviewKyc(admin("adm"), &verificationv1.ReviewKycRequest{Id: "kyc_missing", Decision: "approve"})
 	_, _ = h.ReviewKyc(admin("adm"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
-	_, e6 := h.ReviewKyc(admin("adm2"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
+	_, e6 := h.ReviewKyc(admin("adm2"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject", ReasonCode: "document_expired"})
 	want := []struct {
 		name string
 		err  error
@@ -95,7 +106,8 @@ func TestErrorTableMapsDomainErrors(t *testing.T) {
 func TestDuplicateIDIsAlreadyExists(t *testing.T) {
 	r := newFault()
 	r.createErr = &pgconn.PgError{Code: "23505", Message: "duplicate key value violates unique constraint kyc_pkey"}
-	_, err := buildHandler(t, r, &fakeAudit{}, quiet()).SubmitKyc(buyer("u"), &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"})
+	h := buildHandler(t, r, &fakeAudit{}, quiet())
+	_, err := h.SubmitKyc(buyer("u"), uploadedReq(buyer("u"), t, h))
 	wantCode(t, err, codes.AlreadyExists)
 }
 
@@ -123,31 +135,41 @@ func TestPanicReturnsInternalAndKeepsServing(t *testing.T) {
 	client := verificationv1.NewVerificationServiceClient(conn)
 	ctx := metadata.AppendToOutgoingContext(context.Background(),
 		"x-principal-id", "u-1", "x-principal-type", "user", "x-principal-scopes", "listing.read")
-	req := &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"}
+	mkReq := func() *verificationv1.SubmitKycRequest {
+		up, err := client.CreateKycUploadUrl(ctx, &verificationv1.CreateKycUploadUrlRequest{ContentType: "image/jpeg", SizeBytes: 1024})
+		if err != nil {
+			t.Fatalf("CreateKycUploadUrl: %v", err)
+		}
+		objectsOf(h).Put(up.GetDocRef(), "image/jpeg", 1024)
+		return &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: up.GetDocRef()}
+	}
 
-	_, err = client.SubmitKyc(ctx, req)
+	_, err = client.SubmitKyc(ctx, mkReq())
 	wantCode(t, err, codes.Internal)
 	wantMessage(t, err, "internal error")
-	if _, err = client.SubmitKyc(ctx, req); err != nil {
+	if _, err = client.SubmitKyc(ctx, mkReq()); err != nil {
 		t.Fatalf("server stopped serving after panic: %v", err)
 	}
 }
 
 // Scenario: Doc ref never logged.
 func TestDocRefNeverLogged(t *testing.T) {
-	const secret = "doc-ref-SECRET-9d41"
 	var buf bytes.Buffer
 	logger := logx.NewTo(&buf, config.Runtime{Env: "test", LogLevel: "debug", LogJSON: true}, "team-verification")
 	r := newFault()
 	r.createErr = errors.New("db down")
 	h := buildHandler(t, r, &fakeAudit{}, logger)
-	_, err := h.SubmitKyc(buyer("u-1"), &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: secret})
+	req1 := uploadedReq(buyer("u-1"), t, h)
+	secret := req1.GetDocRef()
+	_, err := h.SubmitKyc(buyer("u-1"), req1)
 	wantCode(t, err, codes.Internal)
 
 	e := newEnv()
 	e.h = buildHandler(t, e.repo, e.audit, logger)
 	e.audit.err = errors.New("audit down")
-	id, err := e.h.SubmitKyc(buyer("u-2"), &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: secret})
+	req2 := uploadedReq(buyer("u-2"), t, e.h)
+	secret2 := req2.GetDocRef()
+	id, err := e.h.SubmitKyc(buyer("u-2"), req2)
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -156,7 +178,7 @@ func TestDocRefNeverLogged(t *testing.T) {
 	if !strings.Contains(buf.String(), "db down") {
 		t.Fatalf("expected the failure to be logged, log = %q", buf.String())
 	}
-	if strings.Contains(buf.String(), secret) {
+	if strings.Contains(buf.String(), secret) || strings.Contains(buf.String(), secret2) {
 		t.Fatalf("doc ref leaked into logs: %s", buf.String())
 	}
 }

@@ -83,7 +83,7 @@ defaults are fixed in `infra/docker-compose.yaml`:
 | kafka-ui | `provectuslabs/kafka-ui:v0.7.2` | 8088 |
 | rabbitmq | `rabbitmq:3-management` | 5672, 15672 |
 | opensearch | `opensearchproject/opensearch:2.19.5` | 9200 |
-| minio | `cgr.dev/chainguard/minio` (pinned by digest, same as localinfra) | 9000 (S3), 9001 (console); `minio-init` creates public-read bucket `listing-images`; root `minioadmin`/`minioadmin` |
+| minio | `cgr.dev/chainguard/minio` (pinned by digest, same as localinfra) | 9000 (S3), 9001 (console); `minio-init` creates public-read bucket `listing-images`; `kyc-minio-init` (`docker-compose.services.yaml`) creates private SSE-S3 bucket `kyc-documents`; root `minioadmin`/`minioadmin` |
 | mlflow | `platform-core/mlflow:3.2.0` (built from `infra/mlflow`) | 5050 |
 | jaeger | `jaegertracing/all-in-one:1.57` | 16686 |
 | prometheus | `prom/prometheus:v2.55.1` | 9090 |

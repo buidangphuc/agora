@@ -1077,3 +1077,657 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestDocRefNeverLogged`. Not producible end to end."
+
+  - id: verification.kyc-upload.seller-receives-an-upload-url
+    title: "Seller receives an upload URL"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the response has a doc_ref matching kyc/<own id>/<uuid>, an expires_at 15 minutes (+-30 s) ahead, and a PUT of exactly 1048576 bytes of image/jpeg to upload_url returns 2xx"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a signed-in seller calls CreateKycUploadUrl with image/jpeg and size_bytes 1048576"
+      - "Then the response has a doc_ref matching kyc/<own id>/<uuid>, an expires_at 15 minutes (+-30 s) ahead, and a PUT of exactly 1048576 bytes of image/jpeg to upload_url returns 2xx"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.upload-that-differs-from-the-signature-is-refused-by-storage
+    title: "Upload that differs from the signature is refused by storage"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the storage endpoint refuses the request with 403 and no object exists under doc_ref"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When the seller PUTs a body of a different content type or length than the one requested to upload_url"
+      - "Then the storage endpoint refuses the request with 403 and no object exists under doc_ref"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.invalid-type-or-size-is-rejected
+    title: "Invalid type or size is rejected"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: each call fails INVALID_ARGUMENT and no grant row is created"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller calls CreateKycUploadUrl with image/gif, or with size_bytes 0, or with size_bytes 5242881"
+      - "Then each call fails INVALID_ARGUMENT and no grant row is created"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.maximum-size-is-accepted
+    title: "Maximum size is accepted"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call succeeds and returns a doc_ref"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller calls CreateKycUploadUrl with application/pdf and size_bytes 5242880"
+      - "Then the call succeeds and returns a doc_ref"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.open-grants-are-capped
+    title: "Open grants are capped"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails RESOURCE_EXHAUSTED and the 11th grant does not exist"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller who holds 10 unused unexpired grants calls CreateKycUploadUrl again"
+      - "Then the call fails RESOURCE_EXHAUSTED and the 11th grant does not exist"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.anonymous-and-service-callers-cannot-request-an-upload-url
+    title: "Anonymous and service callers cannot request an upload URL"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the anonymous call fails UNAUTHENTICATED and the service call fails PERMISSION_DENIED"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an anonymous caller, or a service principal, calls CreateKycUploadUrl"
+      - "Then the anonymous call fails UNAUTHENTICATED and the service call fails PERMISSION_DENIED"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.submit-with-one-uploaded-document
+    title: "Submit with one uploaded document"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call returns status PENDING and GetVerificationStatus for the seller returns PENDING"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller uploads one image to a granted doc_ref and calls SubmitKyc with doc_type national_id and that doc_ref"
+      - "Then the call returns status PENDING and GetVerificationStatus for the seller returns PENDING"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.submit-with-three-documents
+    title: "Submit with three documents"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the submission lists document_count 3 in ListKycSubmissions"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller uploads three granted objects and calls SubmitKyc with one doc_ref and two additional_doc_refs"
+      - "Then the submission lists document_count 3 in ListKycSubmissions"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.more-than-three-documents-are-rejected
+    title: "More than three documents are rejected"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails INVALID_ARGUMENT and no submission exists"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller calls SubmitKyc with a doc_ref and 3 additional_doc_refs"
+      - "Then the call fails INVALID_ARGUMENT and no submission exists"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.key-issued-to-another-user-is-rejected
+    title: "Key issued to another user is rejected"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails INVALID_ARGUMENT with the same message as for an unknown key and no submission exists for seller B"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When seller B calls SubmitKyc with a doc_ref that was issued to seller A"
+      - "Then the call fails INVALID_ARGUMENT with the same message as for an unknown key and no submission exists for seller B"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.free-text-doc-ref-is-rejected
+    title: "Free-text doc_ref is rejected"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails INVALID_ARGUMENT and no submission exists"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller calls SubmitKyc with doc_ref my-id-card.jpg"
+      - "Then the call fails INVALID_ARGUMENT and no submission exists"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.granted-but-not-uploaded-key-is-rejected
+    title: "Granted but not uploaded key is rejected"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails FAILED_PRECONDITION and the grant stays unused"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller calls SubmitKyc with a granted doc_ref to which no object was uploaded"
+      - "Then the call fails FAILED_PRECONDITION and the grant stays unused"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.oversize-or-mismatching-object-is-rejected-and-removed
+    title: "Oversize or mismatching object is rejected and removed"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails FAILED_PRECONDITION and the object no longer exists in the bucket"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller calls SubmitKyc for a key whose stored object size differs from the granted size"
+      - "Then the call fails FAILED_PRECONDITION and the object no longer exists in the bucket"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.a-key-cannot-be-submitted-twice
+    title: "A key cannot be submitted twice"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails INVALID_ARGUMENT and the number of submissions is unchanged"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller calls SubmitKyc with a doc_ref already used by an earlier submission, or lists the same key twice"
+      - "Then the call fails INVALID_ARGUMENT and the number of submissions is unchanged"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.concurrent-submits-cannot-share-a-key
+    title: "Concurrent submits cannot share a key"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: exactly 1 call succeeds and the other fails INVALID_ARGUMENT"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When two SubmitKyc calls with the same granted key are made concurrently"
+      - "Then exactly 1 call succeeds and the other fails INVALID_ARGUMENT"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.expired-grant-is-rejected
+    title: "Expired grant is rejected"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails FAILED_PRECONDITION and no submission exists"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller calls SubmitKyc with a key whose grant is older than 15 minutes"
+      - "Then the call fails FAILED_PRECONDITION and no submission exists"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.anonymous-caller-cannot-submit
+    title: "Anonymous caller cannot submit"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the call fails UNAUTHENTICATED"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an anonymous caller calls SubmitKyc"
+      - "Then the call fails UNAUTHENTICATED"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.seller-who-never-submitted-reads-not-submitted
+    title: "Seller who never submitted reads NOT_SUBMITTED"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the response has status NOT_SUBMITTED, badge false and an empty reject_reason_code"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a signed-in seller with no submission calls GetVerificationStatus with an empty user_id"
+      - "Then the response has status NOT_SUBMITTED, badge false and an empty reject_reason_code"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.rejected-seller-sees-the-reason-code
+    title: "Rejected seller sees the reason code"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: the response has status REJECTED and reject_reason_code document_unreadable"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an admin rejects a pending submission with reason_code document_unreadable and the seller calls GetVerificationStatus"
+      - "Then the response has status REJECTED and reject_reason_code document_unreadable"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.reject-without-a-reason-code-is-rejected
+    title: "Reject without a reason code is rejected"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: each call fails INVALID_ARGUMENT and the submission stays PENDING"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an admin calls ReviewKyc with decision reject and an empty reason_code, or a reason_code Bad Reason! or one of 65 characters"
+      - "Then each call fails INVALID_ARGUMENT and the submission stays PENDING"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.approve-with-a-reason-code-is-rejected
+    title: "Approve with a reason code is rejected"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: the call fails INVALID_ARGUMENT and the submission stays PENDING"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an admin calls ReviewKyc with decision approve and a non-empty reason_code"
+      - "Then the call fails INVALID_ARGUMENT and the submission stays PENDING"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.reason-code-is-audited
+    title: "Reason code is audited"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: team-audit holds one kyc.review event for that submission whose metadata reason_code is document_expired"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity, team-audit]
+    acceptance:
+      - "When an admin rejects a submission with reason_code document_expired"
+      - "Then team-audit holds one kyc.review event for that submission whose metadata reason_code is document_expired"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.another-user-cannot-read-a-status
+    title: "Another user cannot read a status"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails PERMISSION_DENIED"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When seller A calls GetVerificationStatus with the user_id of seller B"
+      - "Then the call fails PERMISSION_DENIED"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.payment-service-reads-any-seller-s-status
+    title: "Payment service reads any seller's status"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the response carries that seller's status and an empty reject_reason_code"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a service principal with scope verification.read calls GetVerificationStatus for a seller's user_id"
+      - "Then the response carries that seller's status and an empty reject_reason_code"
+    tags: [verification, kyc-documents, unit]
+    status: not-testable
+    notes: "kyc-documents: unit-verified: team-verification `internal/rpc` `TestGetVerificationStatusServiceWithScopeReadsAnyUser`. Needs a service principal or a storage fault not producible through the gateway."
+
+  - id: verification.kyc-upload.service-principal-without-the-scope-is-refused
+    title: "Service principal without the scope is refused"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the call fails PERMISSION_DENIED"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a service principal lacking verification.read calls GetVerificationStatus for another user"
+      - "Then the call fails PERMISSION_DENIED"
+    tags: [verification, kyc-documents, unit]
+    status: not-testable
+    notes: "kyc-documents: unit-verified: team-verification `internal/rpc` `TestGetVerificationStatusServiceWithoutScopeDenied`. Needs a service principal or a storage fault not producible through the gateway."
+
+  - id: verification.kyc-upload.reviewer-cannot-review-their-own-submission
+    title: "Reviewer cannot review their own submission"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: the call fails PERMISSION_DENIED and the submission stays PENDING"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an admin who submitted KYC calls ReviewKyc on their own submission"
+      - "Then the call fails PERMISSION_DENIED and the submission stays PENDING"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.admin-queue.pending-queue-is-paged-oldest-first
+    title: "Pending queue is paged oldest first"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: pages hold 10, 10 and 5 submissions in ascending created_at order with no duplicates, and the last page has an empty next_cursor"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an admin lists status PENDING with page_size 10 over 25 pending submissions, following next_cursor"
+      - "Then pages hold 10, 10 and 5 submissions in ascending created_at order with no duplicates, and the last page has an empty next_cursor"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.admin-queue.page-size-is-clamped-and-bad-cursor-rejected
+    title: "Page size is clamped and bad cursor rejected"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: the first call returns at most 100 submissions and the second fails INVALID_ARGUMENT"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an admin lists with page_size 500, and separately with cursor garbage"
+      - "Then the first call returns at most 100 submissions and the second fails INVALID_ARGUMENT"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.admin-queue.filtering-by-not-submitted-is-rejected
+    title: "Filtering by NOT_SUBMITTED is rejected"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: the call fails INVALID_ARGUMENT"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an admin lists with status NOT_SUBMITTED"
+      - "Then the call fails INVALID_ARGUMENT"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.admin-queue.non-admin-cannot-list
+    title: "Non-admin cannot list"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the seller call fails PERMISSION_DENIED and the anonymous call fails UNAUTHENTICATED, at the gateway and at the service"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller without the admin scope, or an anonymous caller, calls ListKycSubmissions"
+      - "Then the seller call fails PERMISSION_DENIED and the anonymous call fails UNAUTHENTICATED, at the gateway and at the service"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.document-audit.admin-opens-a-document
+    title: "Admin opens a document"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: the response expires_at is 5 minutes (+-30 s) ahead, a GET of url returns the uploaded bytes, and team-audit holds exactly one kyc.document_view event by that admin for that submission"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity, team-audit]
+    acceptance:
+      - "When an admin calls GetKycDocumentUrl with a pending submission id and index 0"
+      - "Then the response expires_at is 5 minutes (+-30 s) ahead, a GET of url returns the uploaded bytes, and team-audit holds exactly one kyc.document_view event by that admin for that submission"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.document-audit.audit-outage-blocks-the-document
+    title: "Audit outage blocks the document"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the call fails UNAVAILABLE and the response contains no url"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity, team-audit]
+    acceptance:
+      - "When team-audit is unavailable and an admin calls GetKycDocumentUrl"
+      - "Then the call fails UNAVAILABLE and the response contains no url"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.document-audit.index-out-of-range-or-unknown-submission
+    title: "Index out of range or unknown submission"
+    persona: admin
+    priority: P1
+    summary: "kyc-documents: the first call fails INVALID_ARGUMENT and the second fails NOT_FOUND, and neither writes an audit event"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity, team-audit]
+    acceptance:
+      - "When an admin calls GetKycDocumentUrl with index 3 on a submission with 3 documents, or with an unknown submission id"
+      - "Then the first call fails INVALID_ARGUMENT and the second fails NOT_FOUND, and neither writes an audit event"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.document-audit.expired-link-stops-working
+    title: "Expired link stops working"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the storage endpoint refuses it with 403"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a presigned GET is used more than 5 minutes after issue"
+      - "Then the storage endpoint refuses it with 403"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.document-audit.non-admin-cannot-obtain-a-document-url
+    title: "Non-admin cannot obtain a document URL"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the seller calls fail PERMISSION_DENIED, the anonymous call fails UNAUTHENTICATED, and no kyc.document_view event is written"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When the submission owner, another seller, or an anonymous caller calls GetKycDocumentUrl"
+      - "Then the seller calls fail PERMISSION_DENIED, the anonymous call fails UNAUTHENTICATED, and no kyc.document_view event is written"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.document-audit.bucket-is-not-publicly-readable
+    title: "Bucket is not publicly readable"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the storage endpoint refuses the request with 403 and the bucket is configured with default server-side encryption"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an anonymous client requests an object in kyc-documents without a signature"
+      - "Then the storage endpoint refuses the request with 403 and the bucket is configured with default server-side encryption"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.public-badge.verified-seller-shows-a-badge
+    title: "Verified seller shows a badge"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the response has 4 entries with verified true only for the verified seller"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When an anonymous caller calls GetPublicBadges with a verified seller, a pending seller, a rejected seller and an unknown id"
+      - "Then the response has 4 entries with verified true only for the verified seller"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.public-badge.empty-or-oversized-id-list-is-rejected
+    title: "Empty or oversized id list is rejected"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: each call fails INVALID_ARGUMENT"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a caller calls GetPublicBadges with 0 ids, or with 51 ids"
+      - "Then each call fails INVALID_ARGUMENT"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.public-badge.boundary-of-50-ids-is-accepted
+    title: "Boundary of 50 ids is accepted"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the call succeeds with 50 entries"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a caller calls GetPublicBadges with 50 distinct ids"
+      - "Then the call succeeds with 50 entries"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-erasure.rejected-documents-are-deleted-after-90-days
+    title: "Rejected documents are deleted after 90 days"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: its objects no longer exist in the bucket, GetKycDocumentUrl for it fails NOT_FOUND, and its status remains REJECTED"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When the sweeper runs on a submission rejected 91 days ago"
+      - "Then its objects no longer exist in the bucket, GetKycDocumentUrl for it fails NOT_FOUND, and its status remains REJECTED"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-erasure.documents-inside-the-window-are-kept
+    title: "Documents inside the window are kept"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: all their objects still exist"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When the sweeper runs on a submission rejected 89 days ago, and on a verified unsuperseded submission"
+      - "Then all their objects still exist"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-erasure.superseded-documents-are-deleted-after-90-days
+    title: "Superseded documents are deleted after 90 days"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the earlier submission's objects no longer exist and the newer submission's objects still exist"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller submitted again 91 days ago and the sweeper runs on the earlier submission"
+      - "Then the earlier submission's objects no longer exist and the newer submission's objects still exist"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-erasure.object-delete-failure-is-retried
+    title: "Object delete failure is retried"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the row is not marked deleted and the next run deletes it"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When the sweeper cannot delete an object from storage"
+      - "Then the row is not marked deleted and the next run deletes it"
+    tags: [verification, kyc-documents, unit]
+    status: not-testable
+    notes: "kyc-documents: unit-verified: team-verification `internal/retention` `TestSweeperRetriesFailedObjectDelete`. Needs a service principal or a storage fault not producible through the gateway."
+
+  - id: verification.kyc-erasure.usererased-removes-the-user-s-kyc-data
+    title: "UserErased removes the user's KYC data"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: within 1 hour no object under kyc/<user>/ exists, ListKycSubmissions holds no row of that user, and GetVerificationStatus returns NOT_SUBMITTED"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When UserErased for a seller with a verified and a rejected submission is consumed"
+      - "Then within 1 hour no object under kyc/<user>/ exists, ListKycSubmissions holds no row of that user, and GetVerificationStatus returns NOT_SUBMITTED"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-erasure.duplicate-usererased-is-harmless
+    title: "Duplicate UserErased is harmless"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the second delivery succeeds without error and the DLQ identity.events.team-verification.dlq has 0 messages"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When the same UserErased event is delivered twice"
+      - "Then the second delivery succeeds without error and the DLQ identity.events.team-verification.dlq has 0 messages"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-erasure.erasure-of-one-user-leaves-others-untouched
+    title: "Erasure of one user leaves others untouched"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: seller B's submissions and objects are unchanged"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When UserErased for seller A is consumed"
+      - "Then seller B's submissions and objects are unchanged"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-erasure.storage-outage-sends-the-event-to-retry-then-dlq
+    title: "Storage outage sends the event to retry then DLQ"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the event lands on identity.events.team-verification.dlq and no database row of that user was deleted before the object delete succeeded"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When MinIO is unavailable while UserErased is consumed and stays unavailable past the retry limit"
+      - "Then the event lands on identity.events.team-verification.dlq and no database row of that user was deleted before the object delete succeeded"
+    tags: [verification, kyc-documents, unit]
+    status: not-testable
+    notes: "kyc-documents: unit-verified: team-verification `internal/events` `TestUserErasedStorageOutageRetriesThenDLQ`. Needs a service principal or a storage fault not producible through the gateway."
+
+  - id: verification.kyc-upload.anonymous-public-badge-call-succeeds-through-the-gateway
+    title: "Anonymous public badge call succeeds through the gateway"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the response status is 200 and the body holds one entry"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a client without a token calls GetPublicBadges through the gateway with one id"
+      - "Then the response status is 200 and the body holds one entry"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.admin-only-rpcs-refuse-non-admins-at-the-edge
+    title: "Admin-only RPCs refuse non-admins at the edge"
+    persona: seller
+    priority: P1
+    summary: "kyc-documents: the gateway returns 403 and team-verification receives no call"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a seller token calls ListKycSubmissions through the gateway"
+      - "Then the gateway returns 403 and team-verification receives no call"
+    tags: [verification, kyc-documents]
+    status: planned
+
+  - id: verification.kyc-upload.unauthenticated-upload-url-request-is-refused-at-the-edge
+    title: "Unauthenticated upload URL request is refused at the edge"
+    persona: guest
+    priority: P1
+    summary: "kyc-documents: the gateway returns 401"
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    acceptance:
+      - "When a client without a token calls CreateKycUploadUrl through the gateway"
+      - "Then the gateway returns 401"
+    tags: [verification, kyc-documents]
+    status: planned

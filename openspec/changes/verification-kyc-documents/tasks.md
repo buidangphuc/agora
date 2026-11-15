@@ -19,8 +19,8 @@ Depends on slice trust-legal-contract (generated stubs and vendored protos in bo
 
 ## 2. E2E track (platform-e2e, compose; FEATURES.yaml by e2e-author)
 
-- [ ] 2.1 `docker-compose.services.yaml`: `kyc-documents` bucket + default encryption in the MinIO init job, topic init line for `identity.events.team-verification.dlq`, team-verification env and `depends_on` MinIO/Kafka (scenarios: Bucket is not publicly readable, Duplicate UserErased is harmless)
-- [ ] 2.2 Feature file `verification/kyc_documents.feature` covering every scenario in `specs/kyc-documents/spec.md`; replace each `VERIFIED BY: TBD` with its path and scenario title
-- [ ] 2.3 Steps: upload helper (presigned PUT), clock-shift for the 90-day sweeper and 15-min grant expiry through direct row updates in verification_db, audit outage by stopping team-audit, erasure via publishing `UserErased` on `identity.events` (scenarios: Rejected documents are deleted after 90 days, Expired grant is rejected, Audit outage blocks the document, UserErased removes the user's KYC data)
-- [ ] 2.4 Update existing e2e KYC steps that pass a free-text `doc_ref` (`services/verification_access.feature`) to use the upload path (scenarios: Submit with one uploaded document)
-- [ ] 2.5 `team-verification/FEATURES.yaml` entries: `verification.kyc-upload`, `verification.admin-queue`, `verification.document-audit`, `verification.public-badge`, `verification.kyc-erasure` (e2e-author)
+- [x] 2.1 `docker-compose.services.yaml`: `kyc-documents` bucket + default encryption in the MinIO init job, topic init line for `identity.events.team-verification.dlq`, team-verification env and `depends_on` MinIO/Kafka (scenarios: Bucket is not publicly readable, Duplicate UserErased is harmless)
+- [x] 2.2 Feature file `verification/kyc_documents.feature` covering every scenario in `specs/kyc-documents/spec.md`; replace each `VERIFIED BY: TBD` with its path and scenario title
+- [x] 2.3 Steps: upload helper (presigned PUT), clock-shift for the 90-day sweeper and 15-min grant expiry through direct row updates in verification_db, audit outage by stopping team-audit, erasure via publishing `UserErased` on `identity.events` (scenarios: Rejected documents are deleted after 90 days, Expired grant is rejected, Audit outage blocks the document, UserErased removes the user's KYC data)
+- [x] 2.4 Update existing e2e KYC steps that pass a free-text `doc_ref` (`services/verification_access.feature`) to use the upload path (scenarios: Submit with one uploaded document)
+- [x] 2.5 `team-verification/FEATURES.yaml` entries: `verification.kyc-upload`, `verification.admin-queue`, `verification.document-audit`, `verification.public-badge`, `verification.kyc-erasure` (e2e-author)
