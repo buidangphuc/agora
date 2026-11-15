@@ -47,7 +47,9 @@ beforeEach(() => {
     vi.spyOn(console, m).mockImplementation(() => {}),
   );
 });
-afterEach(() => spies.forEach((s) => s.mockRestore()));
+afterEach(() => {
+  for (const s of spies) s.mockRestore();
+});
 
 function logged() {
   return JSON.stringify(spies.flatMap((s) => s.mock.calls));
