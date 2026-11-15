@@ -6,7 +6,7 @@ import type { AuthState } from "./actions";
 import type {
   CredentialErrors,
   CredentialField,
-  CredentialValues,
+  RegisterValues,
 } from "./validation";
 
 /**
@@ -19,11 +19,13 @@ import type {
  */
 export function useCredentialForm(
   state: AuthState,
-  validate: (values: CredentialValues) => CredentialErrors,
+  validate: (values: RegisterValues) => CredentialErrors,
 ) {
   const [errors, setErrors] = useState<CredentialErrors>({});
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const termsRef = useRef<HTMLInputElement>(null);
+  const privacyRef = useRef<HTMLInputElement>(null);
 
   // A new server result: show any field help it names, and clear the password.
   useEffect(() => {
@@ -35,10 +37,12 @@ export function useCredentialForm(
     }
   }, [state]);
 
-  function values(): CredentialValues {
+  function values(): RegisterValues {
     return {
       username: usernameRef.current?.value ?? "",
       password: passwordRef.current?.value ?? "",
+      acceptTerms: termsRef.current?.checked ?? false,
+      acceptPrivacy: privacyRef.current?.checked ?? false,
     };
   }
 
@@ -48,7 +52,14 @@ export function useCredentialForm(
     if (Object.keys(found).length === 0) return;
     // Stops the form action: no request is sent.
     event.preventDefault();
-    (found.username ? usernameRef : passwordRef).current?.focus();
+    (found.username
+      ? usernameRef
+      : found.password
+        ? passwordRef
+        : found.acceptTerms
+          ? termsRef
+          : privacyRef
+    ).current?.focus();
   }
 
   function onBlur(field: CredentialField) {
@@ -64,6 +75,8 @@ export function useCredentialForm(
     errors,
     usernameRef,
     passwordRef,
+    termsRef,
+    privacyRef,
     onSubmit,
     onBlur,
     onChange,

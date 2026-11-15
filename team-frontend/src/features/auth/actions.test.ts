@@ -14,6 +14,11 @@ import {
   registerAction,
 } from "./actions";
 
+vi.hoisted(() => {
+  process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION = "T".repeat(32);
+  process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION = "2026-11-13";
+});
+
 vi.mock("@/lib/gateway/client", () => ({ makeClients: vi.fn() }));
 vi.mock("@/lib/gateway/refresh", () => ({ refreshSession: vi.fn() }));
 // Pass-through spy: real revoke behaviour (transport fake below), observable args.
@@ -78,8 +83,13 @@ vi.mock("@connectrpc/connect-node", () => ({
 }));
 
 const initial: AuthState = { ok: false };
+const ACCEPT = { acceptTerms: "on", acceptPrivacy: "on" };
 
 function form(fields: Record<string, string>): FormData {
+  return bare({ acceptTerms: "on", acceptPrivacy: "on", ...fields });
+}
+
+function bare(fields: Record<string, string>): FormData {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   return fd;
@@ -187,7 +197,12 @@ describe("client context forwarding", () => {
     await loginAction(initial, form({ username: "alice", password: "pw" }));
     await registerAction(
       initial,
-      form({ username: "alice", password: "pass1234", role: "buyer" }),
+      form({
+        username: "alice",
+        password: "pass1234",
+        role: "buyer",
+        ...ACCEPT,
+      }),
     );
 
     const want = {
@@ -202,7 +217,7 @@ describe("registerAction", () => {
   it("validates username/password length before calling the gateway", async () => {
     const res = await registerAction(
       initial,
-      form({ username: "ab", password: "123" }),
+      form({ username: "ab", password: "123", ...ACCEPT }),
     );
     expect(res.ok).toBe(false);
     expect(res.error).toContain("≥ 3 ký tự");
@@ -219,7 +234,12 @@ describe("registerAction", () => {
     });
     await registerAction(
       initial,
-      form({ username: "alice", password: "pass", role: "seller" }),
+      form({
+        username: "alice",
+        password: "pass",
+        role: "seller",
+        ...ACCEPT,
+      }),
     );
     expect((await cookies()).set).toHaveBeenCalledWith(
       "session",
@@ -237,7 +257,7 @@ describe("registerAction", () => {
     });
     const res = await registerAction(
       initial,
-      form({ username: "alice", password: "pass" }),
+      form({ username: "alice", password: "pass", ...ACCEPT }),
     );
     expect(res).toEqual({
       ok: false,
@@ -246,6 +266,96 @@ describe("registerAction", () => {
       fields: { username: "Tên đăng nhập đã tồn tại." },
     });
   });
+});
+
+describe("registerAction legal acceptance", () => {
+  const STALE =
+    "Điều khoản đã được cập nhật. Vui lòng tải lại trang và đồng ý lại.";
+
+  it("[Registering with both boxes checked records two consents] sends both configured versions on Register", async () => {
+    const register = vi.fn().mockResolvedValue({ result: { token: "jwt" } });
+    stubAuth({ register });
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ...ACCEPT }),
+    );
+    expect(register).toHaveBeenCalledTimes(1);
+    expect(register.mock.calls[0][0]).toMatchObject({
+      username: "alice",
+      termsVersion: "T".repeat(32),
+      privacyVersion: "2026-11-13",
+    });
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("[Boundary version length] each version string is sent unchanged and is at most 32 characters", async () => {
+    const register = vi.fn().mockResolvedValue({ result: { token: "jwt" } });
+    stubAuth({ register });
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", ...ACCEPT }),
+    );
+    const req = register.mock.calls[0][0] as {
+      termsVersion: string;
+      privacyVersion: string;
+    };
+    expect(req.termsVersion).toBe(process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION);
+    expect(req.privacyVersion).toBe(
+      process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION,
+    );
+    expect(req.termsVersion.length).toBeLessThanOrEqual(32);
+    expect(req.privacyVersion.length).toBeLessThanOrEqual(32);
+  });
+
+  it.each([
+    ["acceptTerms", { acceptPrivacy: "on" }],
+    ["acceptPrivacy", { acceptTerms: "on" }],
+    ["acceptTerms", {}],
+  ])(
+    "[A forged post without acceptance fields is refused] missing %s makes no Register call",
+    async (field, present) => {
+      const register = vi.fn();
+      stubAuth({ register });
+      const res = await registerAction(
+        initial,
+        bare({ username: "alice", password: "pass1234", ...present }),
+      );
+      expect(res.ok).toBe(false);
+      expect(
+        (res.fields as Record<string, string | undefined>)[field],
+      ).toBeTruthy();
+      expect(register).not.toHaveBeenCalled();
+      expect(redirect).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["terms_version", "privacy_version"])(
+    "[A stale version is reported to the user] INVALID_ARGUMENT on %s shows the reload message and creates no session",
+    async (name) => {
+      stubAuth({
+        register: vi
+          .fn()
+          .mockRejectedValue(
+            new ConnectError(
+              `${name}: not an accepted version`,
+              Code.InvalidArgument,
+            ),
+          ),
+      });
+      const res = await registerAction(
+        initial,
+        form({ username: "alice", password: "pass1234", ...ACCEPT }),
+      );
+      expect(res.ok).toBe(false);
+      expect(res.error).toBe(STALE);
+      expect(redirect).not.toHaveBeenCalled();
+      expect((await cookies()).set).not.toHaveBeenCalledWith(
+        "session",
+        expect.anything(),
+        expect.anything(),
+      );
+    },
+  );
 });
 
 describe("logoutAction", () => {
@@ -901,7 +1011,12 @@ describe("auth event cookie Secure (frontend-cookie-secure)", () => {
     });
     await registerAction(
       initial,
-      form({ username: "alice", password: "pass1234", role: "buyer" }),
+      form({
+        username: "alice",
+        password: "pass1234",
+        role: "buyer",
+        ...ACCEPT,
+      }),
     );
   };
   const sets = async (name: string) =>

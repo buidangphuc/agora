@@ -83,7 +83,9 @@ describe("AnalyticsProvider GTM gating", () => {
       </AnalyticsProvider>,
     );
     expect(gtmScripts()).toHaveLength(0);
-    await userEvent.click(screen.getByRole("button", { name: "Accept all" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Chấp nhận tất cả" }),
+    );
     const kinds = consentEntries().map((e) => e[1]);
     expect(kinds).toEqual(["default", "update"]);
     expect(consentEntries()[1][2]).toMatchObject({
@@ -118,7 +120,9 @@ describe("AnalyticsProvider GTM gating", () => {
         <ConsentBanner />
       </AnalyticsProvider>,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Reject all" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Từ chối tất cả" }),
+    );
     expect(gtmScripts()).toHaveLength(0);
   });
 
@@ -132,7 +136,9 @@ describe("AnalyticsProvider GTM gating", () => {
     act(() => {
       window.dispatchEvent(new CustomEvent("agora:consent:open"));
     });
-    await userEvent.click(screen.getByRole("button", { name: "Reject all" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Từ chối tất cả" }),
+    );
     const entries = consentEntries();
     expect(entries[entries.length - 1][1]).toBe("update");
     expect(entries[entries.length - 1][2].analytics_storage).toBe("denied");
@@ -203,7 +209,9 @@ describe("AnalyticsProvider user_id", () => {
         <ConsentBanner />
       </AnalyticsProvider>,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Accept all" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Chấp nhận tất cả" }),
+    );
     await waitFor(() => expect(userIds()).toHaveLength(1));
   });
 
