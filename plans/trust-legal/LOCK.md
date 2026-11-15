@@ -8,7 +8,7 @@ spec: plans/trust-legal/00-spec.md (Locked 2026-11-13)
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
 | trust-legal-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 425fcffef071 | [x] |
-| identity-legal-consent | team-identity | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 49f0b6b249ba | [x] |
+| identity-legal-consent | team-identity | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3e3f92c8141c | [x] |
 | commerce-user-erasure | team-order | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9abf97b39733 | [x] |
 | identity-account-deletion | team-identity | [identity-legal-consent, commerce-user-erasure] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 7b5734cf00b7 | [x] |
 | identity-data-export | team-identity | [identity-account-deletion] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 8017c6e363c0 | [x] |
