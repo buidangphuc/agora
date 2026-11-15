@@ -436,11 +436,11 @@ def p95_fast(world: World, ms: int) -> None:
 
 @when("the buyer withdraws analytics consent through the Cookie settings link")
 def withdraw_analytics(world: World) -> None:
-    world.page.get_by_text(re.compile(r"cookie settings", re.I)).first.click()
+    world.page.get_by_text(re.compile(r"cookie settings|cài đặt cookie", re.I)).first.click()
     dialog = world.page.get_by_role("dialog")
     expect(dialog).to_be_visible(timeout=timeouts.NAVIGATION)
     dialog.get_by_role("checkbox", name=re.compile(_GROUPS[0], re.I)).uncheck()
-    dialog.get_by_role("button", name=re.compile("save choices", re.I)).click()
+    dialog.get_by_role("button", name=re.compile("save choices|lưu lựa chọn", re.I)).click()
     world.page.wait_for_timeout(1_000)
 
 
