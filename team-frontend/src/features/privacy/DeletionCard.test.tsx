@@ -50,7 +50,10 @@ describe("DeletionCard", () => {
 
   it("PV16 shows the pending panel with the vi-VN erase time after scheduling", async () => {
     const user = userEvent.setup();
-    h.request.mockResolvedValue({ ok: true });
+    h.request.mockResolvedValue({
+      ok: true,
+      data: { eraseAfter: ERASE_AFTER },
+    });
     h.refresh.mockImplementation(() => {});
     render(<DeletionCard status={{ pending: false, eraseAfter: "" }} />);
     await user.click(screen.getByRole("button", { name: "Xóa tài khoản" }));
@@ -59,6 +62,14 @@ describe("DeletionCard", () => {
     expect(
       await screen.findByRole("button", { name: /Hủy yêu cầu xóa/i }),
     ).toBeInTheDocument();
+    const when = new Date(ERASE_AFTER);
+    expect(document.body.textContent).toContain(
+      when.toLocaleDateString("vi-VN"),
+    );
+    expect(document.body.textContent).toContain(
+      when.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+    );
+    expect(document.body.textContent).not.toContain("ngày đã hẹn");
   });
 
   it("PV23 pending state hides the delete offer and shows the vi-VN erase time", () => {

@@ -48,7 +48,13 @@ describe("ExportButton", () => {
     expect(downloads[0].name).toBe("agora-du-lieu-2026-11-13.json");
     expect(blobs).toHaveLength(1);
     expect(blobs[0].type).toBe("application/json");
-    expect(await blobs[0].text()).toBe(content);
+    const text = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(r.error);
+      r.readAsText(blobs[0]);
+    });
+    expect(text).toBe(content);
     expect(document.body.textContent).not.toContain("u-1");
   });
 
