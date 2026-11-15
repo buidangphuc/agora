@@ -99,3 +99,67 @@ describe("trackAiInteraction", () => {
     }
   });
 });
+
+describe("trackAiInteraction provenance", () => {
+  const prov = { impressionId: "req-1", modelVersion: "mock:v1" };
+
+  // Scenario: Shown beacon carries provenance
+  it("provenance on the beacon with a listing id", () => {
+    trackAiInteraction("magic_listing", "shown", "lst_1", prov);
+    const beacons = queued();
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0].listingId).toBe("lst_1");
+    expect(beacons[0].impressionId).toBe("req-1");
+    expect(beacons[0].modelVersion).toBe("mock:v1");
+  });
+
+  // Scenario: Create form has no listing yet
+  it("provenance without a listing id", () => {
+    trackAiInteraction("magic_listing", "shown", undefined, prov);
+    const beacons = queued();
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0].listingId).toBe("");
+    expect(beacons[0].impressionId).toBe("req-1");
+    expect(beacons[0].modelVersion).toBe("mock:v1");
+  });
+
+  // Scenario: Beacon properties stay allowlisted
+  it("provenance never enters properties", () => {
+    trackAiInteraction("magic_listing", "accepted", "lst_1", prov);
+    const beacons = queued();
+    expect(beacons[0].properties).toEqual({
+      surface: "magic_listing",
+      action: "accepted",
+    });
+    expect(Object.keys(beacons[0].properties as object).sort()).toEqual([
+      "action",
+      "surface",
+    ]);
+  });
+
+  // Scenario: Older team-ai returns no provenance
+  it("empty provenance is omitted", () => {
+    trackAiInteraction("magic_listing", "shown", "lst_1", {
+      impressionId: "",
+      modelVersion: "",
+    });
+    const beacons = queued();
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0].listingId).toBe("lst_1");
+    expect(beacons[0]).not.toHaveProperty("impressionId");
+    expect(beacons[0]).not.toHaveProperty("modelVersion");
+  });
+
+  // Scenario: Tracker failure never breaks the action
+  it("swallows tracker failure with provenance", async () => {
+    const trackEcommerce = vi.fn(() => {
+      throw new Error("tracker down");
+    });
+    vi.doMock("./dispatcher", () => ({ trackEcommerce }));
+    vi.doMock("@/lib/analytics", () => ({ trackEcommerce }));
+    const { trackAiInteraction: track } = await import("./ai");
+    expect(() =>
+      track("magic_listing", "shown", undefined, prov),
+    ).not.toThrow();
+  });
+});
