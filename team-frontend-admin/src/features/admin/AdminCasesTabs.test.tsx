@@ -31,4 +31,16 @@ describe("AdminCasesTabs", () => {
       "aria-current",
     );
   });
+
+  it("lists the KYC tab last and links it (KYC queue: Tab appears next to the existing tabs)", () => {
+    render(<AdminCasesTabs active="kyc" />);
+    const links = screen.getAllByRole("link").map((l) => l.textContent);
+    expect(links).toEqual(["Báo cáo", "Hàng chờ duyệt", "Xác minh người bán"]);
+    const kyc = screen.getByRole("link", { name: "Xác minh người bán" });
+    expect(kyc).toHaveAttribute("href", "/admin/cases?tab=kyc");
+    expect(kyc).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Báo cáo" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
 });
