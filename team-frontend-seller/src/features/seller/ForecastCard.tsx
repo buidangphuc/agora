@@ -81,7 +81,7 @@ export function ForecastCard({
     </LinkButton>
   );
   return (
-    <Card>
+    <Card data-testid="forecast-card">
       <CardHeader>
         <CardTitle>Dự báo nhu cầu 14 ngày</CardTitle>
       </CardHeader>

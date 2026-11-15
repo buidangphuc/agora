@@ -16,6 +16,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import PageName, timeouts
+from src.core.base_page import wait_streamed
 from src.pages.seller_analytics_page import SellerAnalyticsPage
 from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.step_definitions import fsv_steps as fsv
@@ -35,6 +36,7 @@ def fcc():
     c = fsv.Ctx()
     yield c
     if c.keys:
+        _start_forecast_store()
         r = fsv.job.Redis()
         try:
             r.delete(*c.keys)
@@ -80,13 +82,14 @@ def seller_in_browser(world: World, fcc: fsv.Ctx) -> None:
     world.service_factory.set_token(fcc.seller.token)
 
 
+def _start_forecast_store() -> None:
+    rss.compose("start", "redis")
+    pe.wait_healthy(rss.REDIS_CONTAINER, 120)
+
+
 @given("the forecast store is stopped")
 def forecast_store_stopped(world: World) -> None:
-    def restore() -> None:
-        rss.compose("start", "redis")
-        pe.wait_healthy(rss.REDIS_CONTAINER, 120)
-
-    world.add_cleanup(restore)
+    world.add_cleanup(_start_forecast_store)
     rss.compose("stop", "redis")
 
 
@@ -94,6 +97,7 @@ def forecast_store_stopped(world: World) -> None:
 def open_analytics(world: World) -> None:
     response = world.page.goto(app_url(world.settings, "/seller/analytics"))
     _x(world)["status"] = response.status if response else 0
+    wait_streamed(world.page, timeout=timeouts.NAVIGATION)
     expect(_page(world).kpi_row).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -122,7 +126,8 @@ def card_rows(world: World, fcc: fsv.Ctx) -> None:
     for i, point in enumerate(served):
         cells = page.forecast_rows.nth(i).get_by_role("cell").all_inner_texts()
         nums = [float(c.replace(",", ".")) for c in cells[1:4]]
-        assert nums == [float(point["p10"]), float(point["p50"]), float(point["p90"])], (i, cells, point)
+        want = [float(point.get(q, 0)) for q in ("p10", "p50", "p90")]
+        assert nums == want, (i, cells, point)
 
 
 @then("the forecast card shows the reorder point of the served forecast rounded up")

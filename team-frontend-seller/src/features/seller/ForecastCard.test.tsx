@@ -43,6 +43,18 @@ function show(
 }
 
 describe("ForecastCard", () => {
+  it("exposes the card hook that holds the title and every listing section", () => {
+    const section = show(failed);
+    const card = screen.getByTestId("forecast-card");
+    expect(
+      within(card).getByText("Dự báo nhu cầu 14 ngày"),
+    ).toBeInTheDocument();
+    expect(card).toContainElement(section);
+    expect(
+      within(card).getByText("Dự báo tạm thời không khả dụng"),
+    ).toBeInTheDocument();
+  });
+
   it("Seller with history sees the forecast: 14 rows, reorder point rounded up, model, run date in UTC+7", () => {
     const section = show(ok(warm));
     expect(screen.getByText("Dự báo nhu cầu 14 ngày")).toBeInTheDocument();
