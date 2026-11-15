@@ -11,7 +11,11 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { loginPath } from "@/features/auth/returnUrlShared";
-import { AuthService } from "@/generated/platform/identity/v1/identity_connect.js";
+import {
+  AuthService,
+  PrivacyService,
+} from "@/generated/platform/identity/v1/identity_connect.js";
+import { ConsentPurpose } from "@/generated/platform/identity/v1/identity_pb.js";
 import { authInterceptor } from "@/lib/gateway/auth";
 import { gatewayConfig } from "@/lib/gateway/config";
 import { getToken } from "@/lib/gateway/session";
@@ -61,6 +65,24 @@ export async function acceptSellerTerms(
     return { error: GENERIC_ERROR };
   }
   if (!newToken) return { error: GENERIC_ERROR };
+
+  try {
+    const transport = createConnectTransport({
+      baseUrl: gatewayConfig.gatewayUrl,
+      httpVersion: "1.1",
+      interceptors: [authInterceptor({ token: newToken }), bearer(newToken)],
+    });
+    await createPromiseClient(PrivacyService, transport).recordConsent({
+      records: [
+        {
+          purpose: ConsentPurpose.SELLER_TERMS,
+          granted: true,
+          version: termsVersion,
+          source: "seller_onboarding",
+        },
+      ],
+    });
+  } catch {}
 
   const jar = await cookies();
   const h = await headers();

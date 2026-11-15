@@ -6,6 +6,8 @@ import { Link } from "@/components/ui/Link";
 import { logoutAction } from "@/features/auth/actions";
 import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { SellerChannelLink } from "@/features/handoff/SellerChannelLink";
+import { LegalReacceptance } from "@/features/legal/LegalReacceptance";
+import { OPERATOR_FIELDS } from "@/features/legal/operator";
 import { SearchBar } from "@/features/search/SearchBar";
 import { getCart } from "@/lib/gateway/cart";
 import { getPrincipal } from "@/lib/gateway/session";
@@ -301,6 +303,8 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
         {children}
       </main>
 
+      <LegalReacceptance />
+
       {/* Floating Chat Bubble */}
       <FloatingChatBubble />
 
@@ -331,7 +335,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 </Link>
               </li>
               <li>
-                <Link href="/account/orders" variant="subtle">
+                <Link href="/chinh-sach-doi-tra" variant="subtle">
                   Chính Sách Trả Hàng & Hoàn Tiền (RMA)
                 </Link>
               </li>
@@ -361,6 +365,36 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
               <li>
                 <Link href="/vouchers" variant="subtle">
                   Kho Voucher Khuyến Mãi
+                </Link>
+              </li>
+              <li>
+                <Link href="/dieu-khoan-su-dung" variant="subtle">
+                  Điều Khoản Sử Dụng
+                </Link>
+              </li>
+              <li>
+                <Link href="/chinh-sach-bao-mat" variant="subtle">
+                  Chính Sách Bảo Mật
+                </Link>
+              </li>
+              <li>
+                <Link href="/quy-che-hoat-dong" variant="subtle">
+                  Quy Chế Hoạt Động
+                </Link>
+              </li>
+              <li>
+                <Link href="/hang-cam-kinh-doanh" variant="subtle">
+                  Hàng Cấm Kinh Doanh
+                </Link>
+              </li>
+              <li>
+                <Link href="/giai-quyet-khieu-nai" variant="subtle">
+                  Giải Quyết Khiếu Nại
+                </Link>
+              </li>
+              <li>
+                <Link href="/dieu-khoan-nguoi-ban" variant="subtle">
+                  Điều Khoản Người Bán
                 </Link>
               </li>
             </ul>
@@ -427,6 +461,13 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
         </div>
 
         <div className="border-t bg-surface-page py-6 text-center text-text-secondary text-xs space-y-1">
+          <ul data-testid="operator-info">
+            {OPERATOR_FIELDS.map((f) => (
+              <li key={f.label}>
+                {f.label}: {f.value}
+              </li>
+            ))}
+          </ul>
           <p>
             © 2026 Agora. Xây dựng phục vụ mục đích học tập & nghiên cứu kiến
             trúc hệ thống.

@@ -3060,3 +3060,252 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY team-domain `internal/app` `TestRunConsumesIdentityEvents`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller_erasure
+    title: Seller erasure deletes listings and shop data
+    persona: seller
+    priority: P1
+    summary: A UserErased event on identity.events makes team-domain delete the seller's listings, storefront and bundles (change domain-seller-erasure).
+    entry_route: /
+    services: [team-domain, team-identity]
+    acceptance:
+      - Given a seller owns listings, a storefront and bundles
+      - When a UserErased event for the seller is consumed
+      - Then every listing, the storefront and the bundles are deleted and one ListingChanged DELETED event is emitted per listing
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: umbrella entry; scenarios below, e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-erased-seller-s-listings-in-every-status-are-deleted
+    title: "Erased seller's listings in every status are deleted"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Erased seller's listings in every status are deleted"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Erased seller's listings in every status are deleted"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-deleted-listings-leave-the-store
+    title: "Deleted listings leave the store"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Deleted listings leave the store"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Deleted listings leave the store"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-delete-events-match-the-existing-delete-path
+    title: "Delete events match the existing delete path"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Delete events match the existing delete path"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Delete events match the existing delete path"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-other-sellers-listings-are-not-touched
+    title: "Other sellers' listings are not touched"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Other sellers' listings are not touched"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Other sellers' listings are not touched"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-erasure-has-no-rpc-entry-point-and-owner-checks-stay
+    title: "Erasure has no RPC entry point and owner checks stay"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Erasure has no RPC entry point and owner checks stay"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Erasure has no RPC entry point and owner checks stay"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-roles-in-the-event-do-not-widen-the-delete
+    title: "Roles in the event do not widen the delete"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Roles in the event do not widen the delete"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Roles in the event do not widen the delete"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-batch-boundary-of-500-listings
+    title: "Batch boundary of 500 listings"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Batch boundary of 500 listings"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Batch boundary of 500 listings"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-storefront-and-bundles-are-deleted
+    title: "Storefront and bundles are deleted"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Storefront and bundles are deleted"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Storefront and bundles are deleted"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-failed-shop-data-delete-rolls-back-the-listings-too
+    title: "Failed shop-data delete rolls back the listings too"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Failed shop-data delete rolls back the listings too"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Failed shop-data delete rolls back the listings too"
+    tags: [user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestEraseSellerListingsShopDataFailureRollsBackListings`. Needs an injected store failure; not producible end to end (unit level)."
+
+  - id: domain.dse-another-seller-s-storefront-and-bundles-survive
+    title: "Another seller's storefront and bundles survive"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Another seller's storefront and bundles survive"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Another seller's storefront and bundles survive"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-redelivered-event-is-a-no-op
+    title: "Redelivered event is a no-op"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Redelivered event is a no-op"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Redelivered event is a no-op"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-second-event-for-the-same-user-is-a-no-op
+    title: "Second event for the same user is a no-op"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Second event for the same user is a no-op"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Second event for the same user is a no-op"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-store-failure-rolls-back-and-retries
+    title: "Store failure rolls back and retries"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Store failure rolls back and retries"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Store failure rolls back and retries"
+    tags: [user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestEraseSellerListingsOutboxFailureRollsBackAndRetries`. Needs an injected store failure; not producible end to end (unit level)."
+
+  - id: domain.dse-erasure-of-a-user-with-no-listings
+    title: "Erasure of a user with no listings"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Erasure of a user with no listings"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Erasure of a user with no listings"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-malformed-event-goes-to-the-dlq
+    title: "Malformed event goes to the DLQ"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Malformed event goes to the DLQ"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Malformed event goes to the DLQ"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-other-event-types-are-ignored
+    title: "Seller erasure: Other event types are ignored"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Other event types are ignored"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Other event types are ignored"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-a-poison-erasure-event-does-not-block-seller-hold
+    title: "A poison erasure event does not block seller hold"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: A poison erasure event does not block seller hold"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A poison erasure event does not block seller hold"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+
+  - id: domain.dse-logs-carry-no-raw-identifiers
+    title: "Logs carry no raw identifiers"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Logs carry no raw identifiers"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Logs carry no raw identifiers"
+    tags: [user-erasure, seller]
+    status: planned
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
