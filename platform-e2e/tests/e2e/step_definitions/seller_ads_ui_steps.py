@@ -10,13 +10,14 @@ from __future__ import annotations
 import re
 
 from playwright.sync_api import Locator, expect
-from pytest_bdd import parsers, then, when
+from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.constants import timeouts
 from src.utils import data as fake
 from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.step_definitions.ad_campaign_management_steps import *  # noqa: F401,F403
+from tests.e2e.step_definitions.ad_campaign_management_steps import _manage
 from tests.e2e.step_definitions.sponsored_ads_steps import _x
 from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
@@ -104,7 +105,7 @@ def submit_form(world: World, bid: int, budget: int) -> None:
             listing.select_option(index=1 if listing.locator("option").count() > 1 else 0)
     page.get_by_label(re.compile("giá thầu", re.I)).first.fill(str(bid))
     page.get_by_label(re.compile("ngân sách", re.I)).first.fill(str(budget))
-    page.get_by_role("button", name=re.compile("tạo chiến dịch|tạo", re.I)).first.click()
+    page.get_by_role("button", name=re.compile("chạy quảng cáo|tạo chiến dịch", re.I)).first.click()
 
 
 @then(parsers.parse("the ads table shows exactly {count:d} campaign row"))
@@ -154,8 +155,10 @@ def row_status(world: World, status: str, button: str) -> None:
 
 @then(parsers.parse('the ads table shows "{text}" and no campaign row'))
 def table_empty(world: World, text: str) -> None:
-    expect(world.page.get_by_text(text)).to_be_visible(timeout=timeouts.NAVIGATION)
-    expect(_data_rows(world)).to_have_count(0)
+    expect(world.page.get_by_text(text).filter(visible=True).first).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
+    expect(_data_rows(world).filter(has_not_text=text)).to_have_count(0)
 
 
 @then(parsers.parse('the visitor is redirected to login with "{path}" as the return path'))
@@ -171,3 +174,10 @@ def no_campaign_data(world: World, amount: str) -> None:
     world.page.wait_for_load_state("domcontentloaded")
     expect(_data_rows(world)).to_have_count(0)
     assert amount not in _norm(world.page.locator("body").inner_text())
+
+
+@given("the seller pauses the campaign")
+def seller_paused_campaign(world: World) -> None:
+    _manage(world, _x(world)["ad_seller"], "PauseAdCampaign")
+    resp = _x(world)["mgmt_resp"]
+    assert resp.status_code == 200, f"{resp.status_code} {resp.text}"
