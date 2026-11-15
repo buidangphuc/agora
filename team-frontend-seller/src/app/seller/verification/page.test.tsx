@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { VerificationStatus } from "@/generated/platform/verification/v1/verification_pb.js";
-import { getVerificationStatus } from "@/lib/gateway/verification";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
+import { getVerificationStatus } from "@/lib/gateway/verification";
 
 import SellerVerificationPage from "./page";
 
@@ -44,7 +44,7 @@ async function renderPage(searchParams: Record<string, string> = {}) {
   const ui = await SellerVerificationPage({
     searchParams: Promise.resolve(searchParams),
   });
-  return render(<>{ui}</>);
+  return render(ui as React.ReactElement);
 }
 
 beforeEach(() => {
@@ -80,7 +80,9 @@ describe("/seller/verification page", () => {
   });
 
   it("Status read failure is shown as an error, not as not-submitted", async () => {
-    vi.mocked(getVerificationStatus).mockRejectedValue(new Error("UNAVAILABLE"));
+    vi.mocked(getVerificationStatus).mockRejectedValue(
+      new Error("UNAVAILABLE"),
+    );
     const { container } = await renderPage();
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Thử lại" })).toHaveAttribute(

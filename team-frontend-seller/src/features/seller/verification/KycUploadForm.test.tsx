@@ -39,7 +39,10 @@ function wireUploads() {
   let n = 0;
   vi.mocked(createKycUploadUrlAction).mockImplementation(async () => {
     n += 1;
-    return { ok: true, data: { uploadUrl: `https://s3/put-${n}`, docRef: `ref-${n}` } };
+    return {
+      ok: true,
+      data: { uploadUrl: `https://s3/put-${n}`, docRef: `ref-${n}` },
+    };
   });
   vi.mocked(submitKycAction).mockResolvedValue({ ok: true });
   fetchMock.mockResolvedValue({ ok: true, status: 200 });
@@ -66,9 +69,21 @@ describe("KycUploadForm", () => {
     await waitFor(() => expect(submitKycAction).toHaveBeenCalledTimes(1));
 
     expect(createKycUploadUrlAction).toHaveBeenCalledTimes(3);
-    expect(createKycUploadUrlAction).toHaveBeenNthCalledWith(1, "image/png", 1000);
-    expect(createKycUploadUrlAction).toHaveBeenNthCalledWith(2, "image/jpeg", 2000);
-    expect(createKycUploadUrlAction).toHaveBeenNthCalledWith(3, "application/pdf", 3000);
+    expect(createKycUploadUrlAction).toHaveBeenNthCalledWith(
+      1,
+      "image/png",
+      1000,
+    );
+    expect(createKycUploadUrlAction).toHaveBeenNthCalledWith(
+      2,
+      "image/jpeg",
+      2000,
+    );
+    expect(createKycUploadUrlAction).toHaveBeenNthCalledWith(
+      3,
+      "application/pdf",
+      3000,
+    );
     expect(fetchMock).toHaveBeenCalledTimes(3);
     fetchMock.mock.calls.forEach(([url, init], i) => {
       expect(url).toBe(`https://s3/put-${i + 1}`);

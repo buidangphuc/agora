@@ -1,6 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ACCOUNT_MENU, AccountShell } from "./AccountShell";
@@ -118,7 +118,9 @@ describe("AccountShell welcome panel", () => {
 
 describe("seller-kyc-ui buyer verification removal", () => {
   it("[Buyer navigation has no verification link] the account menu has 0 entries to /account/verification", () => {
-    expect(ACCOUNT_MENU.filter((m) => m.href.includes("verification"))).toHaveLength(0);
+    expect(
+      ACCOUNT_MENU.filter((m) => m.href.includes("verification")),
+    ).toHaveLength(0);
     render(
       <AccountShell current="addresses" title="Địa chỉ">
         x
@@ -134,7 +136,9 @@ describe("seller-kyc-ui buyer verification removal", () => {
 
   it("[The buyer route is gone] no /account/verification route or feature folder remains", () => {
     const src = join(__dirname, "..", "..");
-    expect(existsSync(join(src, "app/(shop)/account/verification"))).toBe(false);
+    expect(existsSync(join(src, "app/(shop)/account/verification"))).toBe(
+      false,
+    );
     expect(existsSync(join(src, "features/account/verification"))).toBe(false);
   });
 });

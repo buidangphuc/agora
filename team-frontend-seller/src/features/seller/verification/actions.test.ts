@@ -2,10 +2,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VerificationStatus } from "@/generated/platform/verification/v1/verification_pb.js";
-import {
-  createKycUploadUrl,
-  submitKyc,
-} from "@/lib/gateway/verification";
+import { createKycUploadUrl, submitKyc } from "@/lib/gateway/verification";
 
 import { createKycUploadUrlAction, submitKycAction } from "./actions";
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { Tag } from "@/components/ui/Tag";
 import { parseSort } from "@/features/listing/pdp";
 import { ShopStorefrontView } from "@/features/shop/ShopStorefrontView";
 import { isFollowing } from "@/lib/gateway/engagement";
@@ -8,7 +9,6 @@ import { getShopRatingSummary } from "@/lib/gateway/reviews";
 import { searchListings } from "@/lib/gateway/search";
 import { getPrincipal } from "@/lib/gateway/session";
 import { getPublicBadges } from "@/lib/gateway/verification";
-import { Tag } from "@/components/ui/Tag";
 import { pageMetadata } from "@/lib/seo";
 
 import { loadStorefront } from "./data";

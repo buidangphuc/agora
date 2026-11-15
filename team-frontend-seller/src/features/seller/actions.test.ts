@@ -7,7 +7,6 @@ import {
   getStorefront,
   upsertStorefront,
 } from "@/lib/gateway/listings";
-import { Code, ConnectError } from "@connectrpc/connect";
 import { requestWalletPayout } from "@/lib/gateway/payment";
 import { createAdCampaign, subscribe } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";

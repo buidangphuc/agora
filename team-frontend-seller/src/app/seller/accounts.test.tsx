@@ -1,12 +1,12 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { VerificationStatus } from "@/generated/platform/verification/v1/verification_pb.js";
 import { getStorefront, listBundlesBySeller } from "@/lib/gateway/listings";
 import { getWalletBalance, listLedgerEntries } from "@/lib/gateway/payment";
-import { VerificationStatus } from "@/generated/platform/verification/v1/verification_pb.js";
-import { getVerificationStatus } from "@/lib/gateway/verification";
 import { getEntitlements, listPlans } from "@/lib/gateway/promotion";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
+import { getVerificationStatus } from "@/lib/gateway/verification";
 import SellerPlansPage from "./plans/page";
 import SellerShopPage from "./shop/page";
 import SellerWalletPage from "./wallet/page";
@@ -132,9 +132,10 @@ describe("/seller/wallet verification notice (seller-kyc-ui)", () => {
     status(s);
     await open();
     expect(screen.getByText(NOTICE)).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /xác minh/i }),
-    ).toHaveAttribute("href", "/seller/verification");
+    expect(screen.getByRole("link", { name: /xác minh/i })).toHaveAttribute(
+      "href",
+      "/seller/verification",
+    );
     expect(getVerificationStatus).toHaveBeenCalledWith("me");
   });
 
