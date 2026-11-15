@@ -24,7 +24,7 @@ Implement OpenSpec change `ai-assistant-grounding` test-first per its tasks.md; 
 - platform-e2e/tests/e2e/step_definitions/test_assistant_grounding.py
 - platform-e2e/tests/e2e/step_definitions/test_assistant.py
 - platform-e2e/tests/e2e/step_definitions/assistant_steps.py
-- widened (P1):
+Widened (P1):
   - platform-e2e/compose/README.md — docs-sync: rag-off overlay row renamed to the no-RAG scenario this change introduced
   - platform-e2e/tests/e2e/step_definitions/agr_steps.py — e2e step file of this change (ai/assistant_grounding.feature)
   - platform-e2e/tests/e2e/support/agr_support.py — e2e support file of this change (area agr)

@@ -27,7 +27,7 @@ Implement OpenSpec change `recs-experiment-arms` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_rgp_generation_publish.py
 - platform-e2e/tests/e2e/step_definitions/recommendations_steps.py
 - platform-e2e/tests/e2e/flows/flipt_flow.py
-- widened (P1):
+Widened (P1):
   - platform-e2e/tests/e2e/step_definitions/era_steps.py — e2e step file of this change (experiment_arms.feature), named differently from the packet
   - platform-e2e/tests/e2e/step_definitions/test_era_experiment_arms.py — e2e scenario binding of this change, named differently from the packet
   - platform-e2e/tests/e2e/step_definitions/rgp_steps.py — e2e steps of generation_publish.feature; the new model_version wire format `<generation>/<tier>/<ranker>/<arm>` breaks the old exact-match step

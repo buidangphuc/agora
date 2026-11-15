@@ -32,7 +32,7 @@ Implement OpenSpec change `analytics-experiment-reports` test-first per its task
 - platform-e2e/tests/e2e/step_definitions/test_experiment_exposure.py
 - platform-e2e/tests/e2e/step_definitions/experiment_reports_steps.py
 - platform-e2e/tests/e2e/step_definitions/tracking_steps.py
-- widened (P1):
+Widened (P1):
   - openspec/changes/analytics-experiment-reports/design.md — file of this change's OpenSpec folder: Clarifications entry recording the user's D4 answer (no requirement or scenario wording change)
   - openspec/changes/analytics-experiment-reports/specs/analytics-experiment-reports/spec.md — file of this change's OpenSpec folder: VERIFIED BY citations corrected to the real e2e scenario and Go test names
   - platform-e2e/tests/e2e/step_definitions/test_analytics_ai_surface_report.py — e2e step file of this change (analytics/ai_surface_report.feature), named differently from the packet

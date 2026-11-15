@@ -19,7 +19,7 @@ Implement OpenSpec change `seller-forecast-card` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_seller_forecast_card.py
 - platform-e2e/tests/e2e/step_definitions/seller_forecast_card_steps.py
 - platform-e2e/tests/e2e/step_definitions/seller_analytics_steps.py
-- widened (P1):
+Widened (P1):
   - platform-e2e/src/pages/seller_analytics_page.py — e2e page object of this change (seller/seller_forecast_card.feature)
   - openspec/changes/seller-forecast-card/specs/seller-demand-forecast-card/spec.md — own OpenSpec folder: VERIFIED BY citations matched to real e2e scenario names
   - openspec/changes/seller-forecast-card/specs/seller-magic-listing-provenance/spec.md — own OpenSpec folder: VERIFIED BY citation matched to real e2e scenario name

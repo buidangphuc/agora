@@ -23,7 +23,7 @@ Implement OpenSpec change `buyer-ai-surfaces-ui` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_ai_interaction_events.py
 - platform-e2e/tests/e2e/step_definitions/ai_interaction_steps.py
 - platform-e2e/tests/e2e/step_definitions/frontend_steps.py
-- widened (P1):
+Widened (P1):
   - openspec/changes/buyer-ai-surfaces-ui/specs/buyer-ai-surfaces-ui/spec.md — own OpenSpec folder: VERIFIED BY citations matched to real e2e scenario names
 
 ## Verify

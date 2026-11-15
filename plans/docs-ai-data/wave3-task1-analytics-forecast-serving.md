@@ -28,9 +28,9 @@ Implement OpenSpec change `analytics-forecast-serving` test-first per its tasks.
 - platform-e2e/tests/e2e/step_definitions/forecast_serving_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_order_facts.py
 - platform-e2e/tests/e2e/step_definitions/order_facts_steps.py
-- widened (user-approved 2026-11-15):
+Widened (user-approved 2026-11-15):
   - team-analytics/internal/app/consumer.go — server wiring of the forecast store (the packet named cmd/consumer/** by mistake)
-- widened (P1):
+Widened (P1):
   - platform-e2e/tests/e2e/step_definitions/fsv_steps.py — e2e step file of this change (forecast_serving.feature), named differently from the packet
   - platform-e2e/tests/e2e/step_definitions/test_fsv_forecast_serving.py — e2e scenario binding of this change, named differently from the packet
   - platform-e2e/tests/e2e/step_definitions/journey_steps.py — e2e step broken by the new behaviour: a missing forecast key is now a cold start, so the seller cockpit journey seeds a key

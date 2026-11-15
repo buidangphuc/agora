@@ -22,7 +22,7 @@ Implement OpenSpec change `forecast-nightly-job` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_nightly_forecast.py
 - platform-e2e/tests/e2e/step_definitions/nightly_forecast_steps.py
 - platform-e2e/tests/e2e/flows/forecast_flow.py
-- widened (P1):
+Widened (P1):
   - docs/agents/project.md — docs-sync: platform-forecast unit loop and CI job rows
   - platform-core/README.md — docs-sync: ADR-0013 status Proposed to Accepted in the ADR table
   - platform-gitops/README.md — docs-sync: forecast raw-manifest app and platform/forecast kustomization
