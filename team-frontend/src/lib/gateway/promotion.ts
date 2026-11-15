@@ -321,3 +321,15 @@ export async function listSponsoredSlotSet(input: {
     return [];
   }
 }
+
+export interface AdClickResult {
+  listingId: string;
+  charged: boolean;
+}
+
+export async function recordAdClick(
+  impressionToken: string,
+): Promise<AdClickResult> {
+  const res = await promotion().sponsored.recordAdClick({ impressionToken });
+  return { listingId: res.listingId, charged: res.charged };
+}
