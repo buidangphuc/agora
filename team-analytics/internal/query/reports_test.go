@@ -11,8 +11,8 @@ import (
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 )
 
-func day(m time.Month, d, h, min int) time.Time {
-	return time.Date(2026, m, d, h, min, 0, 0, time.UTC)
+func day(m time.Month, d, h, mi int) time.Time {
+	return time.Date(2026, m, d, h, mi, 0, 0, time.UTC)
 }
 
 var (

@@ -164,7 +164,8 @@ func TestReports_NonAdminDenied(t *testing.T) {
 		_, e1 := h.GetRetentionCohorts(ctx, &analyticsv1.GetRetentionCohortsRequest{Weeks: 99})
 		_, e2 := h.GetExperimentReadout(ctx, &analyticsv1.GetExperimentReadoutRequest{Flag: ""})
 		_, e3 := h.GetAiSurfaceReport(ctx, &analyticsv1.GetAiSurfaceReportRequest{
-			From: timestamppb.New(rpNow), To: timestamppb.New(rpNow.Add(-time.Hour))})
+			From: timestamppb.New(rpNow), To: timestamppb.New(rpNow.Add(-time.Hour)),
+		})
 		for i, err := range []error{e1, e2, e3} {
 			if status.Code(err) == codes.OK || status.Code(err) == codes.InvalidArgument || status.Code(err) == codes.Unimplemented {
 				t.Errorf("%s rpc#%d: code = %v, want PermissionDenied/Unauthenticated before validation", name, i, status.Code(err))
@@ -294,7 +295,8 @@ func TestExperiment_WindowValidation(t *testing.T) {
 	for name, w := range cases {
 		repo := &reportsRepo{}
 		_, err := rpHandler(repo).GetExperimentReadout(rpAdmin(), &analyticsv1.GetExperimentReadoutRequest{
-			Flag: "f", From: timestamppb.New(w[0]), To: timestamppb.New(w[1])})
+			Flag: "f", From: timestamppb.New(w[0]), To: timestamppb.New(w[1]),
+		})
 		wantCode(t, err, codes.InvalidArgument)
 		if repo.total() != 0 {
 			t.Errorf("%s: repository queried", name)
@@ -307,7 +309,8 @@ func TestExperiment_WindowBoundaryAccepted(t *testing.T) {
 	repo := &reportsRepo{}
 	from := rpNow.Add(-366 * 24 * time.Hour)
 	_, err := rpHandler(repo).GetExperimentReadout(rpAdmin(), &analyticsv1.GetExperimentReadoutRequest{
-		Flag: "f", From: timestamppb.New(from), To: timestamppb.New(rpNow)})
+		Flag: "f", From: timestamppb.New(from), To: timestamppb.New(rpNow),
+	})
 	if err != nil {
 		t.Fatalf("366-day window rejected: %v", err)
 	}
@@ -339,10 +342,12 @@ func TestAiSurface_WindowValidation(t *testing.T) {
 	repo := &reportsRepo{}
 	h := rpHandler(repo)
 	_, err := h.GetAiSurfaceReport(rpAdmin(), &analyticsv1.GetAiSurfaceReportRequest{
-		From: timestamppb.New(rpNow), To: timestamppb.New(rpNow.Add(-time.Second))})
+		From: timestamppb.New(rpNow), To: timestamppb.New(rpNow.Add(-time.Second)),
+	})
 	wantCode(t, err, codes.InvalidArgument)
 	_, err = h.GetAiSurfaceReport(rpAdmin(), &analyticsv1.GetAiSurfaceReportRequest{
-		From: timestamppb.New(rpNow.AddDate(0, 0, -367)), To: timestamppb.New(rpNow)})
+		From: timestamppb.New(rpNow.AddDate(0, 0, -367)), To: timestamppb.New(rpNow),
+	})
 	wantCode(t, err, codes.InvalidArgument)
 	if repo.total() != 0 {
 		t.Errorf("repository queried")
@@ -353,7 +358,8 @@ func TestAiSurface_WindowValidation(t *testing.T) {
 func TestAiSurface_WindowValidation_ValidWindowMapsRows(t *testing.T) {
 	repo := &reportsRepo{ai: []query.AiSurfaceRow{{Surface: "assistant", ModelVersion: "", Shown: 5, Accepted: 2, Edited: 1, Dismissed: 1}}}
 	resp, err := rpHandler(repo).GetAiSurfaceReport(rpAdmin(), &analyticsv1.GetAiSurfaceReportRequest{
-		From: timestamppb.New(rpNow.Add(-time.Hour)), To: timestamppb.New(rpNow)})
+		From: timestamppb.New(rpNow.Add(-time.Hour)), To: timestamppb.New(rpNow),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,19 +379,26 @@ func TestReports_NoIdentifiersLeak(t *testing.T) {
 	recs := []*warehouse.TrackingRecord{
 		{EventID: "e1", EventType: "sign_up", PrincipalID: secrets[0], PrincipalType: "user", OccurredAt: at},
 		{EventID: "e2", EventType: "view", PrincipalID: secrets[0], PrincipalType: "user", OccurredAt: at.Add(24 * time.Hour)},
-		{EventID: "e3", EventType: "experiment_exposure", PrincipalID: secrets[0], PrincipalType: "user", OccurredAt: at.Add(time.Hour),
-			Properties: map[string]string{"flag": "home-ranker", "variant": "a"}},
-		{EventID: "e4", EventType: "experiment_exposure", AnonymousID: secrets[1], OccurredAt: at.Add(time.Hour),
-			Properties: map[string]string{"flag": "home-ranker", "variant": "b"}},
-		{EventID: "e5", EventType: "ai_interaction", AnonymousID: secrets[1], ModelVersion: "mock:v1", OccurredAt: at,
-			Properties: map[string]string{"surface": "assistant", "action": "shown"}},
+		{
+			EventID: "e3", EventType: "experiment_exposure", PrincipalID: secrets[0], PrincipalType: "user", OccurredAt: at.Add(time.Hour),
+			Properties: map[string]string{"flag": "home-ranker", "variant": "a"},
+		},
+		{
+			EventID: "e4", EventType: "experiment_exposure", AnonymousID: secrets[1], OccurredAt: at.Add(time.Hour),
+			Properties: map[string]string{"flag": "home-ranker", "variant": "b"},
+		},
+		{
+			EventID: "e5", EventType: "ai_interaction", AnonymousID: secrets[1], ModelVersion: "mock:v1", OccurredAt: at,
+			Properties: map[string]string{"surface": "assistant", "action": "shown"},
+		},
 	}
 	if err := w.Write(ctx, recs); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{{
 		EventID: "o1", OrderID: secrets[2], ListingID: "l1", SellerID: "s1", Quantity: 1, UnitPrice: 100, Currency: "VND",
-		OccurredAt: at.Add(2 * time.Hour), Status: "PAID", BuyerID: secrets[0]}}); err != nil {
+		OccurredAt: at.Add(2 * time.Hour), Status: "PAID", BuyerID: secrets[0],
+	}}); err != nil {
 		t.Fatal(err)
 	}
 	var logs bytes.Buffer
@@ -420,7 +433,8 @@ func TestReports_NoIdentifiersLeak(t *testing.T) {
 
 func mustJSON(t *testing.T, m interface {
 	ProtoReflect() protoreflect.Message
-}) []byte {
+},
+) []byte {
 	t.Helper()
 	b, err := protojson.Marshal(m)
 	if err != nil {
