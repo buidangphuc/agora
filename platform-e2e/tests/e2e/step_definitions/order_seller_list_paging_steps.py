@@ -12,6 +12,7 @@ import re
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -408,11 +409,18 @@ def _created(order: dict[str, Any]) -> str:
     return order.get("createdAt", "")
 
 
+def _instant(stamp: str) -> tuple[datetime, int]:
+    base, _, frac = stamp.rstrip("Z").partition(".")
+    nanos = int((frac + "000000000")[:9])
+    return datetime.fromisoformat(base).replace(tzinfo=UTC), nanos
+
+
 @then("created_at never increases across the pages")
 def created_desc(slp: s.OicWorld) -> None:
     stamps = [_created(o) for p in _d(slp)["pages"] for o in p.get("orders", [])]
     assert stamps and all(stamps), "orders carry no createdAt"
-    assert all(a >= b for a, b in zip(stamps, stamps[1:], strict=False))
+    instants = [_instant(x) for x in stamps]
+    assert all(a >= b for a, b in zip(instants, instants[1:], strict=False)), stamps
 
 
 @then(parsers.parse("every page reports page.total {n:d}"))
@@ -462,7 +470,9 @@ def p95(slp: s.OicWorld, ms: int) -> None:
 
 @then(parsers.parse('no team-order-svc log line since the call contains "{needle}"'))
 def log_clean(slp: s.OicWorld, needle: str) -> None:
-    container = os.getenv("ORDER_CONTAINER", "team-order-svc")
+    container = os.getenv("ORDER_CONTAINER") or os.getenv(
+        "PLP_TEAM_ORDER_CONTAINER", "team-order-svc"
+    )
     since = str(int(_d(slp)["since"]))
     proc = subprocess.run(
         ["docker", "logs", "--since", since, container],
