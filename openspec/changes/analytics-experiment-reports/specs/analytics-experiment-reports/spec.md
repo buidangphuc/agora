@@ -198,7 +198,7 @@ WHEN a request for `GetRetentionCohorts`, `GetExperimentReadout` or `GetAiSurfac
 #### Scenario: Upstream failure is surfaced, not masked
 - **WHEN** team-analytics answers `Unavailable` to a forwarded report call
 - **THEN** the gateway returns the same error code to the admin and no partial body
-- **VERIFIED BY**: `team-gateway/internal/edge/analytics_test.go` "TestReportForwarder_UnavailablePassesThrough"
+- **VERIFIED BY**: `team-gateway/internal/edge/analytics_test.go` "TestExperimentReportForwarder_UnavailablePassesThrough"
 
 ### Requirement: Collector accepts the experiment exposure beacon
 WHEN the beacon collector receives an `experiment_exposure` event, THE SYSTEM SHALL accept it only with properties of exactly `flag` and `variant`, each matching `^[a-z0-9][a-z0-9_.-]{0,63}$`, and publish it as `EVENT_TYPE_EXPERIMENT_EXPOSURE`; team-analytics SHALL store it with `event_type` `experiment_exposure` and the two properties.
@@ -211,27 +211,27 @@ WHEN the beacon collector receives an `experiment_exposure` event, THE SYSTEM SH
 #### Scenario: A third property is rejected
 - **WHEN** a beacon of type `experiment_exposure` carries `flag`, `variant` and `note`
 - **THEN** the collector drops it with the invalid-properties error and nothing is published
-- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExposureRejectsExtraProperty"
+- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExperimentExposureRejectsExtraProperty"
 
 #### Scenario: Free text or an email in a value is rejected
 - **WHEN** a beacon of type `experiment_exposure` has `variant` `Jane Doe jane@example.com`
 - **THEN** the collector drops it and nothing is published
-- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExposureRejectsFreeText"
+- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExperimentExposureRejectsFreeText"
 
 #### Scenario: Missing property is rejected
 - **WHEN** a beacon of type `experiment_exposure` has only `flag`
 - **THEN** the collector drops it and nothing is published
-- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExposureRejectsMissingVariant"
+- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExperimentExposureRejectsMissingVariant"
 
 #### Scenario: Value length boundary
 - **WHEN** beacons carry a 64-character `variant`, then a 65-character `variant`
 - **THEN** the first is published and the second is dropped
-- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExposureValueLengthBoundary"
+- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExperimentExposureValueLengthBoundary"
 
 #### Scenario: Existing event types are unaffected
 - **WHEN** the previously accepted beacon types, including `ai_interaction` with its closed properties, are posted after the change
 - **THEN** each is accepted or rejected exactly as before
-- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExistingTypesUnchanged"
+- **VERIFIED BY**: `team-gateway/internal/edge/collector_test.go` "TestCollector_ExperimentExposureExistingTypesUnchanged"
 
 #### Scenario: Consumer names the new event type
 - **WHEN** team-analytics maps a `TrackingEvent` of type `EVENT_TYPE_EXPERIMENT_EXPOSURE`

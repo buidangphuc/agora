@@ -31,7 +31,10 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 		analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure,
 		analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure,
 		analyticsv1connect.AnalyticsQueryServiceGetSearchPerformanceProcedure,
-		analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure, // Only admins can read the channel funnel
+		analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure,     // Only admins can read the channel funnel
+		analyticsv1connect.AnalyticsQueryServiceGetRetentionCohortsProcedure,  // analytics-experiment-reports
+		analyticsv1connect.AnalyticsQueryServiceGetExperimentReadoutProcedure, // analytics-experiment-reports
+		analyticsv1connect.AnalyticsQueryServiceGetAiSurfaceReportProcedure,   // analytics-experiment-reports
 		auditv1connect.AuditServiceQueryAuditLogProcedure,
 		engagementv1connect.EngagementServiceResolveDisputeProcedure,
 		engagementv1connect.EngagementServiceListDisputesProcedure,  // engagement-dispute-escalation
@@ -169,6 +172,43 @@ func TestPromotionAdminPolicyEntries(t *testing.T) {
 			t.Errorf("%s scope = %q, want %q", proc, scope, adminScope)
 		}
 		if err := requireProcedureScope(proc, adminOnly); err != nil {
+			t.Errorf("%s admin: %v", proc, err)
+		}
+	}
+}
+
+var reportProcedures = []string{
+	analyticsv1connect.AnalyticsQueryServiceGetRetentionCohortsProcedure,
+	analyticsv1connect.AnalyticsQueryServiceGetExperimentReadoutProcedure,
+	analyticsv1connect.AnalyticsQueryServiceGetAiSurfaceReportProcedure,
+}
+
+// Scenario: Procedures are registered as admin-gated.
+func TestPolicy_ReportProceduresAreAdminGated(t *testing.T) {
+	for _, proc := range reportProcedures {
+		if got := adminProcedures[proc]; got != adminScope {
+			t.Errorf("%s scope = %q, want %q", proc, got, adminScope)
+		}
+	}
+}
+
+// Scenario: Anonymous caller is refused at the edge (401); a buyer or seller is refused (403).
+func TestPolicy_ReportProceduresRequireAuthentication(t *testing.T) {
+	anon := resolvedPrincipal{id: "anonymous", ptype: "anonymous"}
+	buyer := resolvedPrincipal{id: "u-1", ptype: "user", scopes: []string{"listing.read"}}
+	seller := resolvedPrincipal{id: "u-3", ptype: "user", scopes: []string{"listing.read", "seller"}}
+	admin := resolvedPrincipal{id: "u-2", ptype: "user", scopes: []string{"admin"}}
+	for _, proc := range reportProcedures {
+		if c := connect.CodeOf(requireProcedureScope(proc, anon)); c != connect.CodeUnauthenticated {
+			t.Errorf("%s anonymous = %v, want unauthenticated", proc, c)
+		}
+		if c := connect.CodeOf(requireProcedureScope(proc, buyer)); c != connect.CodePermissionDenied {
+			t.Errorf("%s buyer = %v, want permission_denied", proc, c)
+		}
+		if c := connect.CodeOf(requireProcedureScope(proc, seller)); c != connect.CodePermissionDenied {
+			t.Errorf("%s seller = %v, want permission_denied", proc, c)
+		}
+		if err := requireProcedureScope(proc, admin); err != nil {
 			t.Errorf("%s admin: %v", proc, err)
 		}
 	}
