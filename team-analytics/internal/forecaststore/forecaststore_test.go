@@ -281,8 +281,15 @@ func TestGetAcceptsPayloadUnderCap_AMalformedPayloadReturnsUnavailable(t *testin
 // Scenario: An invalid listing or seller id is rejected (key built only from validated ids)
 func TestGetRejectsUnsafeIDsWithoutRead_KeyBuiltOnlyFromValidatedIDs(t *testing.T) {
 	cases := []struct{ seller, listing string }{
-		{"s-1", "x:*"}, {"", "l-1"}, {"s-1", ""}, {"s:1", "l-1"}, {"s-1", "l 1"},
-		{"s-1", "l\r\nDEL"}, {"*", "l-1"}, {"s-1", "../l"}, {"s-1", strings.Repeat("a", 300)},
+		{"s-1", "x:*"},
+		{"", "l-1"},
+		{"s-1", ""},
+		{"s:1", "l-1"},
+		{"s-1", "l 1"},
+		{"s-1", "l\r\nDEL"},
+		{"*", "l-1"},
+		{"s-1", "../l"},
+		{"s-1", strings.Repeat("a", 300)},
 	}
 	for _, c := range cases {
 		t.Run(fmt.Sprintf("%q/%q", c.seller, c.listing), func(t *testing.T) {

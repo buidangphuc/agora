@@ -79,7 +79,7 @@ func (s *Store) Get(ctx context.Context, sellerID, listingID string) (Forecast, 
 		return Forecast{}, false, nil
 	}
 	if err != nil {
-		return Forecast{}, false, fmt.Errorf("%w: %v", errUnavailable, err)
+		return Forecast{}, false, fmt.Errorf("%w: %w", errUnavailable, err)
 	}
 	f, err := decode(raw)
 	if err != nil {
