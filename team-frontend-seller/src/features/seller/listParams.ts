@@ -8,6 +8,7 @@ export interface ListParams {
   q: string;
   status: string;
   page: number;
+  cursor: string;
 }
 
 export const DEFAULT_STATUS = "all";
@@ -33,7 +34,7 @@ export function parseListParams(
   const rawPage = first(searchParams.page);
   const parsed = /^\d+$/.test(rawPage) ? Number.parseInt(rawPage, 10) : 1;
   const page = Math.min(MAX_PAGE, Math.max(1, parsed));
-  return { q, status, page };
+  return { q, status, page, cursor: first(searchParams.cursor) };
 }
 
 /** `/path?q=..&status=..&page=..` omitting empty and default values. */

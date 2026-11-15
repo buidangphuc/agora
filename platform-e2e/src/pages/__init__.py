@@ -25,6 +25,7 @@ from .seller_new_listing_page import SellerNewListingPage
 from .seller_order_detail_page import SellerOrderDetailPage
 from .seller_order_returns_page import SellerOrderReturnsPage
 from .seller_orders_page import SellerOrdersPage
+from .seller_paging_page import SellerPagingPage
 from .seller_shop_page import SellerShopPage
 from .seller_wallet_page import SellerWalletPage
 from .shop_profile_page import ShopProfilePage
@@ -54,6 +55,7 @@ __all__ = [
     "SellerMarketingPage",
     "SellerNewListingPage",
     "SellerOrdersPage",
+    "SellerPagingPage",
     "SellerAnalyticsPage",
     "SellerWalletPage",
     "SellerShopPage",

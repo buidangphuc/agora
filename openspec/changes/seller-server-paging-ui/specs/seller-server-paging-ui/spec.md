@@ -131,6 +131,7 @@ The ads and bundle pickers SHALL load at most 20 own `PUBLISHED` listings per re
 
 - **WHEN** a principal without the `listing.write` scope invokes `searchMyListingsAction`
 - **THEN** the action returns an error and no listing is returned
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/actions.test.ts` `searchMyListingsAction denies a principal without listing.write`
 
 ### Requirement: Query text is never logged or persisted
 
