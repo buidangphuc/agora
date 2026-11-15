@@ -2108,7 +2108,6 @@ features:
       - "Then the card lists L with 14 rows of date, p10, p50 and p90, a line \"Điểm đặt hàng lại: N đơn vị\" equal to the RPC `suggested_reorder_point` rounded up, the RPC `model_version` string and the `generated_at` date as `dd/mm/yyyy`"
     tags: [seller, forecast]
     status: planned
-    covered_by: "seller/seller_forecast_card.feature::Seller with history sees the forecast"
     notes: "e2e seller/seller_forecast_card.feature::Seller with history sees the forecast"
 
   - id: seller.forecast-card.values-are-rendered-exactly-as-served
@@ -2205,7 +2204,6 @@ features:
       - "Then L's section reads \"Chưa đủ dữ liệu để dự báo\" and contains no digit-bearing forecast cell, no reorder point and no model version"
     tags: [seller, forecast]
     status: planned
-    covered_by: "seller/seller_forecast_card.feature::Listing without a forecast key"
     notes: "e2e seller/seller_forecast_card.feature::Listing without a forecast key"
 
   - id: seller.forecast-card.cold-start-with-stray-points-is-not-rendered
@@ -2254,7 +2252,6 @@ features:
       - "Then every listing section reads \"Dự báo tạm thời không khả dụng\", no forecast number is shown, and the page responds 200"
     tags: [seller, forecast]
     status: planned
-    covered_by: "seller/seller_forecast_card.feature::Store unavailable"
     notes: "e2e seller/seller_forecast_card.feature::Store unavailable"
 
   - id: seller.forecast-card.one-listing-fails-others-render
@@ -2415,7 +2412,6 @@ features:
       - "Then the call is denied with `PermissionDenied` and no forecast is returned"
     tags: [seller, forecast]
     status: planned
-    covered_by: "seller/seller_forecast_card.feature::Gateway rejects a foreign seller id"
     notes: "e2e seller/seller_forecast_card.feature::Gateway rejects a foreign seller id"
 
   - id: seller.forecast-card.shown-beacon-carries-provenance
@@ -2496,7 +2492,6 @@ features:
       - "Then the stored `ai_interaction` event has `model_version` equal to the response `model_version` and a non-empty `impression_id`"
     tags: [seller, forecast]
     status: planned
-    covered_by: "seller/seller_forecast_card.feature::Provenance reaches the warehouse"
     notes: "e2e seller/seller_forecast_card.feature::Provenance reaches the warehouse"
 
   - id: seller.forecast-card.older-team-ai-returns-no-provenance
