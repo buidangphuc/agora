@@ -211,6 +211,19 @@ func TestNewLoopEventTypesMapToNames(t *testing.T) {
 	}
 }
 
+// Scenario: Consumer names the new event type
+func TestTracking_ExperimentExposureEventName(t *testing.T) {
+	rec := recordForType(t, analyticsv1.EventType_EVENT_TYPE_EXPERIMENT_EXPOSURE, func(te *analyticsv1.TrackingEvent) {
+		te.Properties = map[string]string{"flag": "home-feed-ranker", "variant": "treatment"}
+	})
+	if rec.EventType != "experiment_exposure" {
+		t.Fatalf("EventType = %q, want experiment_exposure", rec.EventType)
+	}
+	if rec.Properties["flag"] != "home-feed-ranker" || rec.Properties["variant"] != "treatment" {
+		t.Fatalf("Properties = %v, want flag and variant kept", rec.Properties)
+	}
+}
+
 // Scenario: Loop storage: existing types keep their names
 func TestExistingEventTypeNamesUnchanged(t *testing.T) {
 	cases := []struct {
