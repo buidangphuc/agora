@@ -19,6 +19,10 @@ Implement OpenSpec change `identity-data-export` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/features/identity/data_export.feature
 - platform-e2e/tests/e2e/step_definitions/test_data_export.py
 - platform-e2e/tests/e2e/step_definitions/data_export_steps.py
+- widened (P1):
+  - openspec/changes/identity-data-export/tasks.md — the slice's own OpenSpec folder; e2e task ticks 2.1 and 2.2 only
+  - platform-e2e/pyproject.toml — pytest marker registration (data_export)
+  - platform-e2e/tests/e2e/support/data_export_support.py — e2e support module of this change
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-identity --vet`
