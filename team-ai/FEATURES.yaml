@@ -42,6 +42,7 @@ features:
       - Given the new-listing form is open with a title
       - When the seller clicks the AI generate button
       - Then a description and suggested price are filled in
+      - "When the seller calls MagicListing, Then the response carries a 32-hex request id and model version rules-v1"
     tags: [seller, ai]
     status: automated
     covered_by: "ai/magic_listing.feature::AI fills the listing description"
@@ -61,6 +62,10 @@ features:
       - Given a seller is in a buyer conversation
       - When a buyer sends a question
       - Then the copilot offers 3 one-click reply drafts
+      - "When the seller asks a stock question about an own published listing with stock 0, Then no draft claims availability and one says out of stock"
+      - "When the seller asks about another seller's listing, Then no draft makes a stock claim or shows its fields"
+      - "When the seller asks a delivery-time question, Then no draft states a duration and one asks for the delivery address"
+      - "Then the response carries a 32-hex request id and model version rules-v1, and 200 mock calls have p95 at most 300 ms"
     tags: [seller, chat, ai]
     status: automated
     covered_by: "ai/chat_copilot.feature::Seller uses chat copilot to generate reply drafts"
@@ -150,6 +155,7 @@ features:
       - Given a listing has multiple customer reviews
       - When the PDP loads
       - Then an AI summary highlights key pros, cons, and overall sentiment
+      - "Then the response carries a 32-hex request id and model version (unit-verified, see ai.ccg-review-summary-carries-provenance)"
     tags: [ai, buyer, reviews]
     status: automated
     covered_by: "engagement/reviews_and_qa.feature::Buyer submits a product question and views reviews"
@@ -3219,3 +3225,357 @@ features:
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_unexpected_failure_reports_fallback_tier. Needs fault injection or internals the gateway does not expose."
+
+  - id: ai.ccg-out-of-stock
+    title: "Out-of-stock listing"
+    persona: seller
+    entry_route: /chat
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ChatCopilot]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with buyer message 'còn hàng không?' for a published own listing whose stock is 0"
+      - "Then none of the returned drafts contains a phrase claiming availability ('còn hàng', 'còn sẵn', 'có sẵn' without a negation) and at least one draft tells the buyer the item is out of stock"
+    tags: [ai, grounding]
+    status: planned
+    covered_by: null
+    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot does not claim stock for an out-of-stock listing"
+
+  - id: ai.ccg-in-stock-listing
+    title: "In-stock listing"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with 'còn hàng không?' for a published own listing whose stock is 12"
+      - "Then the response has 3 drafts and each confirms the item is in stock without stating a quantity above 12"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_in_stock_listing_confirms_stock in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-unknown-listing
+    title: "Unknown listing"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with a stock question and a `listing_id` that team-domain answers with `NOT_FOUND`"
+      - "Then no returned draft makes a stock claim and the call succeeds with 3 drafts"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_unknown_listing_makes_no_stock_claim in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-listing-lookup-fails
+    title: "Listing lookup fails"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with a stock question while the `GetListing` call times out after 200 ms"
+      - "Then no returned draft makes a stock claim and the response arrives within 500 ms with status OK"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_lookup_timeout_degrades_without_claim in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-no-listing-id-given
+    title: "No listing id given"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with a stock question and an empty `listing_id`"
+      - "Then no returned draft makes a stock claim and no `GetListing` call is made"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_empty_listing_id_skips_lookup in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-unpublished-listing
+    title: "Unpublished listing"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller asks a stock question about their own listing whose status is `DRAFT` or `HELD`"
+      - "Then no returned draft makes a stock claim"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_unpublished_listing_makes_no_stock_claim in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-other-seller
+    title: "Listing owned by another seller"
+    persona: seller
+    entry_route: /chat
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ChatCopilot]
+    acceptance:
+      - "When seller A calls `ChatCopilot` with a `listing_id` owned by seller B, with stock 5"
+      - "Then no returned draft makes a stock claim, no field of B's listing appears in the response, and no field of it is put in the LLM prompt"
+    tags: [ai, grounding]
+    status: planned
+    covered_by: null
+    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot ignores another seller's listing"
+
+  - id: ai.ccg-stock-boundary-of-one
+    title: "Stock boundary of one"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller asks a stock question about a published own listing whose stock is exactly 1"
+      - "Then the drafts confirm the item is in stock and none says it is out of stock"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_stock_of_one_is_in_stock in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-delivery-time
+    title: "Delivery-time question"
+    persona: seller
+    entry_route: /chat
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ChatCopilot]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with 'giao hàng bao lâu vậy shop?'"
+      - "Then no returned draft matches a duration, a cut-off hour or 'trong ngày' / 'hỏa tốc' / 'ngay hôm nay', and at least one draft asks the buyer for the delivery address"
+    tags: [ai, grounding]
+    status: planned
+    covered_by: null
+    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot makes no delivery-time promise"
+
+  - id: ai.ccg-default-drafts-carry-no-availability-claim
+    title: "Default drafts carry no availability claim"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with 'shop ơi' for a listing whose stock is 0"
+      - "Then no returned draft claims availability"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_default_drafts_have_no_availability_claim in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-delivery-question-with-a-failing-lookup
+    title: "Delivery question with a failing lookup"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller asks 'giao hàng bao lâu vậy shop?' while the `GetListing` call fails with `UNAVAILABLE`"
+      - "Then the call succeeds and no returned draft states a delivery duration"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_delivery_question_without_lookup_has_no_duration in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-mock-is-the-default-and-is-deterministic
+    title: "Mock is the default and is deterministic"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When team-ai boots with no `COPILOT_BACKEND` and two identical `ChatCopilot` calls are made"
+      - "Then both responses carry the same 3 drafts and no LLM call is recorded"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_mock_default_is_deterministic in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_backend.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-unknown-backend-value-is-rejected-at-boot
+    title: "Unknown backend value is rejected at boot"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When team-ai boots with `COPILOT_BACKEND=gpt`"
+      - "Then settings validation fails and the process exits before serving"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_unknown_backend_rejected in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_backend.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-llm-output-that-contradicts-the-facts-is-replaced
+    title: "LLM output that contradicts the facts is replaced"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When `COPILOT_BACKEND=llm_router` and the LLM returns a draft saying 'còn hàng' for a listing with stock 0"
+      - "Then the response carries the mock template drafts, none claims availability, and `model_version` is `rules-v1`"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_contradicting_llm_output_falls_back in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_backend.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-llm-timeout-falls-back
+    title: "LLM timeout falls back"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When `COPILOT_BACKEND=llm_router` and the LLM call exceeds `COPILOT_TIMEOUT_SECONDS`"
+      - "Then the call returns OK with the mock template drafts within `COPILOT_TIMEOUT_SECONDS` plus 200 ms"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_llm_timeout_falls_back in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_backend.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-prompt-carries-no-ids
+    title: "Prompt carries no ids"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When `COPILOT_BACKEND=llm_router` and a copilot call is made with a seller id and a buyer message containing a phone number"
+      - "Then the prompt sent to the LLM contains neither the seller id nor the phone number"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_prompt_has_no_ids_or_pii in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_backend.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-mock-latency
+    title: "Copilot latency with the mock backend"
+    persona: seller
+    entry_route: /chat
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ChatCopilot]
+    acceptance:
+      - "When 200 sequential `ChatCopilot` calls run with `COPILOT_BACKEND=mock` against a local team-domain"
+      - "Then the p95 latency is at most 300 ms"
+    tags: [ai, grounding]
+    status: planned
+    covered_by: null
+    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot answers within the mock latency budget"
+
+  - id: ai.ccg-seller-impersonation-is-denied
+    title: "Seller impersonation is denied"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When seller A calls `ChatCopilot` with `seller_id` of seller B"
+      - "Then the call fails with `PERMISSION_DENIED` and no `GetListing` call is made"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_other_seller_id_denied_before_lookup in team-ai/tests/unit/transport/test_ai_copilot_authz.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-caller-without-the-seller-scope-is-refused
+    title: "Caller without the seller scope is refused"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a buyer principal calls `ChatCopilot`"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_buyer_scope_denied in team-ai/tests/unit/transport/test_ai_copilot_authz.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-copilot-provenance
+    title: "Copilot response carries provenance"
+    persona: seller
+    entry_route: /chat
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ChatCopilot]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with the mock backend"
+      - "Then the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`"
+    tags: [ai, grounding]
+    status: planned
+    covered_by: null
+    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot response carries request id and model version"
+
+  - id: ai.ccg-copilot-llm-output-names-the-prompt-version
+    title: "Copilot LLM output names the prompt version"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When `COPILOT_BACKEND=llm_router` and a valid LLM draft set is returned"
+      - "Then `model_version` equals `llm_router:` followed by the copilot prompt version"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_llm_model_version_names_prompt_via_servicer in team-ai/tests/unit/transport/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-magic-provenance
+    title: "Magic Listing response carries provenance"
+    persona: seller
+    entry_route: /chat
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.MagicListing]
+    acceptance:
+      - "When a seller calls `MagicListing` with a title and category"
+      - "Then the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`, and the generated fields are unchanged"
+    tags: [ai, grounding]
+    status: planned
+    covered_by: null
+    notes: "ai-copilot-grounding: ai/magic_listing.feature::Magic Listing response carries request id and model version"
+
+  - id: ai.ccg-review-summary-carries-provenance
+    title: "Review summary carries provenance"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a buyer calls `SummarizeReviews` with 3 reviews"
+      - "Then the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_summarize_reviews_has_provenance in team-ai/tests/unit/transport/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-copilot-request-ids-are-unique-per-call
+    title: "Copilot request ids are unique per call"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the same `ChatCopilot` request is sent twice"
+      - "Then the two responses carry different `request_id` values"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_request_id_unique_per_call in team-ai/tests/unit/transport/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-failed-call-returns-no-provenance
+    title: "Failed call returns no provenance"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When `ChatCopilot` fails with `INVALID_ARGUMENT` because `buyer_message` is empty"
+      - "Then the call returns the error status and no response body"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_error_has_no_response_body in team-ai/tests/unit/transport/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-copilot-logs-are-redacted
+    title: "Copilot logs are redacted"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a seller calls `ChatCopilot` with a message containing a phone number and the listing lookup fails"
+      - "Then the captured log output contains neither the seller id, the phone number nor the listing id"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_logs_carry_no_raw_ids in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_grounding.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-eval-passes-on-the-grounded-copilot
+    title: "Eval passes on the grounded copilot"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When `run_eval --min-score 0.8` runs the copilot groundedness set with `COPILOT_BACKEND=mock`"
+      - "Then the score is 1.0 and the command exits 0"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_copilot_groundedness_set_passes in team-ai/tests/unit/test_run_eval_entry.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+
+  - id: ai.ccg-eval-fails-on-a-stock-contradicting-draft
+    title: "Eval fails on a stock-contradicting draft"
+    persona: seller
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the eval runs against a copilot stub that answers 'còn hàng' for a stock-0 case"
+      - "Then the score is below 0.8 and the command exits non-zero"
+    tags: [ai, grounding]
+    status: not-testable
+    notes: "VERIFIED BY test_copilot_groundedness_set_fails_on_contradiction in team-ai/tests/unit/test_run_eval_entry.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."

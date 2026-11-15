@@ -48,7 +48,7 @@ async def magic_listing(
 async def chat_copilot(
     payload: ChatCopilotRequest, request: Request
 ) -> ChatCopilotResponse:
-    return get_app_resources(request.app).ai_assistant.copilot.suggest(payload)
+    return await get_app_resources(request.app).ai_assistant.copilot.suggest(payload)
 
 
 @router.post(

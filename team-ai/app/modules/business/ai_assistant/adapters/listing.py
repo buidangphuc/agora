@@ -14,6 +14,8 @@ class ListingFacts:
     price: int
     currency: str
     published: bool
+    stock: int = 0
+    seller_id: str = ""
 
 
 class GrpcListingReader:
@@ -52,4 +54,10 @@ class GrpcListingReader:
             price=listing.price,
             currency=listing.currency,
             published=listing.status == listing_pb2.LISTING_STATUS_PUBLISHED,
+            stock=(
+                sum(v.stock for v in listing.variants)
+                if listing.variants
+                else listing.stock
+            ),
+            seller_id=listing.seller_id,
         )

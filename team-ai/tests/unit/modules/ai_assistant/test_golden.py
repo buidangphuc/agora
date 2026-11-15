@@ -34,7 +34,9 @@ async def _replay(case: dict[str, Any]) -> dict[str, Any]:
                 MagicListingRequest(**request)
             ).model_dump()
         case "copilot":
-            return services.copilot.suggest(ChatCopilotRequest(**request)).model_dump()
+            return (
+                await services.copilot.suggest(ChatCopilotRequest(**request))
+            ).model_dump()
         case "reviews":
             return services.reviews.summarize(
                 SummarizeReviewsRequest(**request)

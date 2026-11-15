@@ -9,6 +9,8 @@ never re-mapped.
 
 from __future__ import annotations
 
+import uuid
+
 import grpc
 from loguru import logger
 
@@ -29,7 +31,7 @@ from app.modules.business.tag_classifier.schemas import (
 )
 from app.modules.business.tag_classifier.service import TagClassifierService
 from app.transport.grpc._pb.platform.ai.v1 import ai_pb2, ai_pb2_grpc
-from app.transport.grpc.context import ensure_scopes
+from app.transport.grpc.context import current_principal, ensure_scopes
 from app.transport.grpc.errors import map_errors
 from app.transport.grpc.registry import GrpcServiceRegistration
 from app.transport.grpc.scopes import ADMIN_SCOPE, AI_SERVICE_SCOPES, ai_use_scopes
@@ -119,6 +121,8 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
             suggested_price_min=result.suggested_price_min,
             suggested_price_max=result.suggested_price_max,
             highlight_tags=result.highlight_tags,
+            request_id=uuid.uuid4().hex,
+            model_version="rules-v1",
         )
 
     async def ChatCopilot(
@@ -146,14 +150,20 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
         request: ai_pb2.ChatCopilotRequest,
         context: grpc.aio.ServicerContext,
     ) -> ai_pb2.ChatCopilotResponse:
-        result = self._services.copilot.suggest(
+        principal = current_principal()
+        seller_id = request.seller_id or (principal.id if principal else "")
+        result = await self._services.copilot.suggest(
             ChatCopilotRequest(
-                seller_id=request.seller_id,
+                seller_id=seller_id,
                 buyer_message=request.buyer_message,
                 listing_id=request.listing_id,
             )
         )
-        return ai_pb2.ChatCopilotResponse(quick_replies=result.quick_replies)
+        return ai_pb2.ChatCopilotResponse(
+            quick_replies=result.quick_replies,
+            request_id=uuid.uuid4().hex,
+            model_version=result.model_version,
+        )
 
     async def SummarizeReviews(
         self,
@@ -183,6 +193,8 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
             pros=result.pros,
             cons=result.cons,
             sentiment=result.sentiment,
+            request_id=uuid.uuid4().hex,
+            model_version="rules-v1",
         )
 
     async def ClassifyTags(
