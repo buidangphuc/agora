@@ -84,7 +84,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		return err
 	}
 	stack.Push(func(context.Context) error { return verificationConn.Close() })
-	_ = upstream.NewPayoutGate(verificationClient)
+	payoutGate := upstream.NewPayoutGate(verificationClient)
 
 	auditConn, err := auditx.Dial(sdkconfig.Audit{Addr: s.Upstream.AuditAddr}, "service-"+serviceName, "audit.write")
 	if err != nil {
@@ -123,7 +123,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	}
 	logger.InfoContext(ctx, "payout hold window", "window", s.Payout.Window.String(), "enabled", s.Payout.Window > 0)
 
-	h, err := rpc.NewHandler(svc, auditx.NewGate(writer, logger), logger)
+	h, err := rpc.NewHandler(svc, auditx.NewGate(writer, logger), payoutGate, logger)
 	if err != nil {
 		return err
 	}

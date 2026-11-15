@@ -19,21 +19,29 @@ import (
 	"github.com/buidangphuc/team-payment/internal/store"
 )
 
+type PayoutGate interface {
+	Require(ctx context.Context, sellerID string) error
+}
+
 type Handler struct {
 	paymentv1.UnimplementedPaymentServiceServer
 
 	svc    *payment.Service
 	gate   *auditx.Gate
+	payout PayoutGate
 	logger *slog.Logger
 	errs   grpcx.ErrorTable
 }
 
-func NewHandler(svc *payment.Service, gate *auditx.Gate, logger *slog.Logger) (*Handler, error) {
+func NewHandler(svc *payment.Service, gate *auditx.Gate, payoutGate PayoutGate, logger *slog.Logger) (*Handler, error) {
 	if svc == nil {
 		return nil, errors.New("rpc: payment service is required")
 	}
 	if gate == nil {
 		return nil, errors.New("rpc: audit gate is required")
+	}
+	if payoutGate == nil {
+		return nil, errors.New("rpc: payout gate is required")
 	}
 	if logger == nil {
 		return nil, errors.New("rpc: logger is required")
@@ -57,7 +65,7 @@ func NewHandler(svc *payment.Service, gate *auditx.Gate, logger *slog.Logger) (*
 	if err != nil {
 		return nil, err
 	}
-	return &Handler{svc: svc, gate: gate, logger: logger, errs: errs}, nil
+	return &Handler{svc: svc, gate: gate, payout: payoutGate, logger: logger, errs: errs}, nil
 }
 
 func Register(srv *grpc.Server, h *Handler) {
@@ -240,6 +248,9 @@ func (h *Handler) RequestPayout(ctx context.Context, req *paymentv1.RequestPayou
 	}
 	if req.GetBankCode() == "" || req.GetAccountNumber() == "" || req.GetAccountName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "bank_code, account_number, and account_name are required")
+	}
+	if err := h.payout.Require(ctx, sellerID); err != nil {
+		return nil, err
 	}
 	payout, err := h.svc.RequestPayout(ctx, sellerID, req.GetAmount(), req.GetBankCode(), req.GetAccountNumber(), req.GetAccountName())
 	if err != nil {
