@@ -34,10 +34,10 @@ type feeEnv struct {
 	seq    int
 }
 
-func feePool(t *testing.T) *pgxpool.Pool {
+func feePool(ctx context.Context, t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	dsn := testkit.Schema(t, testkit.SharedPostgres(t))
-	pool, err := pgxpool.New(context.Background(), dsn)
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -52,19 +52,19 @@ func feePool(t *testing.T) *pgxpool.Pool {
 		if err != nil {
 			t.Fatalf("read %s: %v", f, err)
 		}
-		if _, err := pool.Exec(context.Background(), string(body)); err != nil {
+		if _, err := pool.Exec(ctx, string(body)); err != nil {
 			t.Fatalf("apply %s: %v", filepath.Base(f), err)
 		}
 	}
 	return pool
 }
 
-func newFeeEnv(t *testing.T, backend string, hold time.Duration) *feeEnv {
+func newFeeEnv(ctx context.Context, t *testing.T, backend string, hold time.Duration) *feeEnv {
 	t.Helper()
 	st := newStores()
 	var ledger store.LedgerRepository = st.ledger
 	if backend == "postgres" {
-		ledger = store.NewPostgresLedgerRepository(feePool(t))
+		ledger = store.NewPostgresLedgerRepository(feePool(ctx, t))
 	}
 	orders := &mockOrderClient{orders: map[string]*orderv1.Order{}}
 	svc, err := payment.NewService(st.payRepo, st.wallets, orders, discardLogger(), st.writer, ledger, fake.NewInMemorySettlementLedger(st.payments, st.ledger),
@@ -75,10 +75,10 @@ func newFeeEnv(t *testing.T, backend string, hold time.Duration) *feeEnv {
 	return &feeEnv{h: newHandler(t, svc, permissiveAudit), ledger: ledger}
 }
 
-func (e *feeEnv) seed(t *testing.T, amount int64, age time.Duration) {
+func (e *feeEnv) seed(ctx context.Context, t *testing.T, amount int64, age time.Duration) {
 	t.Helper()
 	e.seq++
-	if _, err := e.ledger.AppendEntry(context.Background(), store.LedgerEntry{
+	if _, err := e.ledger.AppendEntry(ctx, store.LedgerEntry{
 		SellerID: feeSeller, Type: store.LedgerTypeOrderSettlement, Amount: amount,
 		Status: store.LedgerStatusCompleted, ReferenceID: fmt.Sprintf("seed-tx-%d", e.seq),
 		CreatedAt: time.Now().Add(-age),
@@ -87,12 +87,12 @@ func (e *feeEnv) seed(t *testing.T, amount int64, age time.Duration) {
 	}
 }
 
-func svcCtx() context.Context {
-	return principalCtx("svc-promotion", auth.TypeService, "payment:write")
+func svcCtx(parent context.Context) context.Context {
+	return auth.WithPrincipal(parent, auth.Principal{ID: "svc-promotion", Type: auth.TypeService, Scopes: []string{"payment:write"}})
 }
 
-func sellerCtx() context.Context {
-	return principalCtx(feeSeller, auth.TypeUser, "payment:read", "payment:write", "listing.write")
+func sellerCtx(parent context.Context) context.Context {
+	return auth.WithPrincipal(parent, auth.Principal{ID: feeSeller, Type: auth.TypeUser, Scopes: []string{"payment:read", "payment:write", "listing.write"}})
 }
 
 func feeReq(amount int64, ref string) *paymentv1.ChargeSellerFeeRequest {
@@ -102,18 +102,18 @@ func feeReq(amount int64, ref string) *paymentv1.ChargeSellerFeeRequest {
 	}
 }
 
-func (e *feeEnv) balance(t *testing.T) int64 {
+func (e *feeEnv) balance(ctx context.Context, t *testing.T) int64 {
 	t.Helper()
-	b, err := e.h.GetWalletBalance(sellerCtx(), &paymentv1.GetWalletBalanceRequest{})
+	b, err := e.h.GetWalletBalance(sellerCtx(ctx), &paymentv1.GetWalletBalanceRequest{})
 	if err != nil {
 		t.Fatalf("GetWalletBalance: %v", err)
 	}
 	return b.GetBalance()
 }
 
-func (e *feeEnv) feeEntries(t *testing.T) []*paymentv1.WalletEntry {
+func (e *feeEnv) feeEntries(ctx context.Context, t *testing.T) []*paymentv1.WalletEntry {
 	t.Helper()
-	res, err := e.h.ListLedgerEntries(sellerCtx(), &paymentv1.ListLedgerEntriesRequest{Page: &commonv1.PageRequest{PageSize: 100}})
+	res, err := e.h.ListLedgerEntries(sellerCtx(ctx), &paymentv1.ListLedgerEntriesRequest{Page: &commonv1.PageRequest{PageSize: 100}})
 	if err != nil {
 		t.Fatalf("ListLedgerEntries: %v", err)
 	}
@@ -133,12 +133,13 @@ func feeBackends() []string { return []string{"memory", "postgres"} }
 // balance dropped; Reusing a reference with a different amount is rejected.
 // req2: A fee above the balance is refused.
 func TestChargeSellerFee(t *testing.T) {
-	ctx := svcCtx()
+	base := t.Context()
+	ctx := svcCtx(base)
 	for _, backend := range feeBackends() {
 		t.Run(backend, func(t *testing.T) {
 			t.Run("A fee is debited from the wallet", func(t *testing.T) {
-				e := newFeeEnv(t, backend, 0)
-				e.seed(t, 500000, 0)
+				e := newFeeEnv(base, t, backend, 0)
+				e.seed(base, t, 500000, 0)
 				res, err := e.h.ChargeSellerFee(ctx, feeReq(199000, "sub:a:1"))
 				if err != nil {
 					t.Fatalf("ChargeSellerFee: %v", err)
@@ -146,19 +147,19 @@ func TestChargeSellerFee(t *testing.T) {
 				if !res.GetCreated() || res.GetEntryId() == "" {
 					t.Fatalf("want created with entry id, got %+v", res)
 				}
-				fees := e.feeEntries(t)
+				fees := e.feeEntries(base, t)
 				if len(fees) != 1 || fees[0].GetAmount() != -199000 || fees[0].GetStatus() != store.LedgerStatusCompleted ||
 					fees[0].GetId() != res.GetEntryId() || fees[0].GetReferenceId() != "sub:a:1" {
 					t.Fatalf("fee entries: %+v", fees)
 				}
-				if got := e.balance(t); got != 301000 {
+				if got := e.balance(base, t); got != 301000 {
 					t.Fatalf("balance: want 301000, got %d", got)
 				}
 			})
 
 			t.Run("Replaying a reference books nothing", func(t *testing.T) {
-				e := newFeeEnv(t, backend, 0)
-				e.seed(t, 500000, 0)
+				e := newFeeEnv(base, t, backend, 0)
+				e.seed(base, t, 500000, 0)
 				first, err := e.h.ChargeSellerFee(ctx, feeReq(199000, "sub:a:1"))
 				if err != nil {
 					t.Fatal(err)
@@ -170,17 +171,17 @@ func TestChargeSellerFee(t *testing.T) {
 				if again.GetCreated() || again.GetEntryId() != first.GetEntryId() {
 					t.Fatalf("replay: want created=false id %s, got %+v", first.GetEntryId(), again)
 				}
-				if n := len(e.feeEntries(t)); n != 1 {
+				if n := len(e.feeEntries(base, t)); n != 1 {
 					t.Fatalf("want 1 fee entry, got %d", n)
 				}
-				if got := e.balance(t); got != 301000 {
+				if got := e.balance(base, t); got != 301000 {
 					t.Fatalf("balance: want 301000, got %d", got)
 				}
 			})
 
 			t.Run("Concurrent charges of one reference book once", func(t *testing.T) {
-				e := newFeeEnv(t, backend, 0)
-				e.seed(t, 500000, 0)
+				e := newFeeEnv(base, t, backend, 0)
+				e.seed(base, t, 500000, 0)
 				const workers = 8
 				var wg sync.WaitGroup
 				var mu sync.Mutex
@@ -206,23 +207,23 @@ func TestChargeSellerFee(t *testing.T) {
 				if created != 1 || replays != workers-1 {
 					t.Fatalf("want 1 created and %d replays, got %d and %d", workers-1, created, replays)
 				}
-				fees := e.feeEntries(t)
+				fees := e.feeEntries(base, t)
 				if len(fees) != 1 || fees[0].GetAmount() != -199000 {
 					t.Fatalf("fee entries: %+v", fees)
 				}
 			})
 
 			t.Run("A replay still succeeds after the balance dropped", func(t *testing.T) {
-				e := newFeeEnv(t, backend, 0)
-				e.seed(t, 300000, 0)
+				e := newFeeEnv(base, t, backend, 0)
+				e.seed(base, t, 300000, 0)
 				first, err := e.h.ChargeSellerFee(ctx, feeReq(199000, "sub:a:1"))
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := e.h.RequestWalletPayout(sellerCtx(), &paymentv1.RequestWalletPayoutRequest{Amount: 101000}); err != nil {
+				if _, err := e.h.RequestWalletPayout(sellerCtx(base), &paymentv1.RequestWalletPayoutRequest{Amount: 101000}); err != nil {
 					t.Fatalf("payout: %v", err)
 				}
-				if got := e.balance(t); got != 0 {
+				if got := e.balance(base, t); got != 0 {
 					t.Fatalf("balance before replay: want 0, got %d", got)
 				}
 				again, err := e.h.ChargeSellerFee(ctx, feeReq(199000, "sub:a:1"))
@@ -235,8 +236,8 @@ func TestChargeSellerFee(t *testing.T) {
 			})
 
 			t.Run("Reusing a reference with a different amount is rejected", func(t *testing.T) {
-				e := newFeeEnv(t, backend, 0)
-				e.seed(t, 500000, 0)
+				e := newFeeEnv(base, t, backend, 0)
+				e.seed(base, t, 500000, 0)
 				if _, err := e.h.ChargeSellerFee(ctx, feeReq(199000, "sub:a:1")); err != nil {
 					t.Fatal(err)
 				}
@@ -244,26 +245,26 @@ func TestChargeSellerFee(t *testing.T) {
 				if status.Code(err) != codes.AlreadyExists {
 					t.Fatalf("want AlreadyExists, got %v", err)
 				}
-				fees := e.feeEntries(t)
+				fees := e.feeEntries(base, t)
 				if len(fees) != 1 || fees[0].GetAmount() != -199000 {
 					t.Fatalf("fee entries: %+v", fees)
 				}
-				if got := e.balance(t); got != 301000 {
+				if got := e.balance(base, t); got != 301000 {
 					t.Fatalf("balance: want 301000, got %d", got)
 				}
 			})
 
 			t.Run("A fee above the balance is refused", func(t *testing.T) {
-				e := newFeeEnv(t, backend, 0)
-				e.seed(t, 100000, 0)
+				e := newFeeEnv(base, t, backend, 0)
+				e.seed(base, t, 100000, 0)
 				_, err := e.h.ChargeSellerFee(ctx, feeReq(199000, "sub:a:1"))
 				if status.Code(err) != codes.FailedPrecondition {
 					t.Fatalf("want FailedPrecondition, got %v", err)
 				}
-				if n := len(e.feeEntries(t)); n != 0 {
+				if n := len(e.feeEntries(base, t)); n != 0 {
 					t.Fatalf("want no fee entry, got %d", n)
 				}
-				if got := e.balance(t); got != 100000 {
+				if got := e.balance(base, t); got != 100000 {
 					t.Fatalf("balance: want 100000, got %d", got)
 				}
 			})
@@ -274,35 +275,36 @@ func TestChargeSellerFee(t *testing.T) {
 // seller-fee-charge req2: A fee against funds still on hold is refused; A fee equal to the
 // withdrawable balance is accepted.
 func TestChargeSellerFeeWithdrawable(t *testing.T) {
-	ctx := svcCtx()
+	base := t.Context()
+	ctx := svcCtx(base)
 	const hold = 24 * time.Hour
 	for _, backend := range feeBackends() {
 		t.Run(backend, func(t *testing.T) {
 			t.Run("A fee against funds still on hold is refused", func(t *testing.T) {
-				e := newFeeEnv(t, backend, hold)
-				e.seed(t, 50000, 3*hold)
-				e.seed(t, 250000, 0)
+				e := newFeeEnv(base, t, backend, hold)
+				e.seed(base, t, 50000, 3*hold)
+				e.seed(base, t, 250000, 0)
 				_, err := e.h.ChargeSellerFee(ctx, feeReq(199000, "sub:a:1"))
 				if status.Code(err) != codes.FailedPrecondition {
 					t.Fatalf("want FailedPrecondition, got %v", err)
 				}
-				if n := len(e.feeEntries(t)); n != 0 {
+				if n := len(e.feeEntries(base, t)); n != 0 {
 					t.Fatalf("want no fee entry, got %d", n)
 				}
-				if got := e.balance(t); got != 300000 {
+				if got := e.balance(base, t); got != 300000 {
 					t.Fatalf("balance: want 300000, got %d", got)
 				}
 			})
 
 			t.Run("A fee equal to the withdrawable balance is accepted", func(t *testing.T) {
-				e := newFeeEnv(t, backend, hold)
-				e.seed(t, 50000, 3*hold)
-				e.seed(t, 250000, 0)
+				e := newFeeEnv(base, t, backend, hold)
+				e.seed(base, t, 50000, 3*hold)
+				e.seed(base, t, 250000, 0)
 				res, err := e.h.ChargeSellerFee(ctx, feeReq(50000, "sub:a:1"))
 				if err != nil || !res.GetCreated() {
 					t.Fatalf("want created, got %+v err=%v", res, err)
 				}
-				if got := e.balance(t); got != 250000 {
+				if got := e.balance(base, t); got != 250000 {
 					t.Fatalf("balance: want 250000 (held amount), got %d", got)
 				}
 				_, err = e.h.ChargeSellerFee(ctx, feeReq(1, "sub:a:2"))
@@ -316,11 +318,12 @@ func TestChargeSellerFeeWithdrawable(t *testing.T) {
 
 // seller-fee-charge req2: Concurrent fees and payouts cannot overdraw.
 func TestChargeSellerFeeConcurrentWithPayout(t *testing.T) {
-	ctx := svcCtx()
+	base := t.Context()
+	ctx := svcCtx(base)
 	for _, backend := range feeBackends() {
 		t.Run(backend, func(t *testing.T) {
-			e := newFeeEnv(t, backend, 0)
-			e.seed(t, 300000, 0)
+			e := newFeeEnv(base, t, backend, 0)
+			e.seed(base, t, 300000, 0)
 
 			var wg sync.WaitGroup
 			var mu sync.Mutex
@@ -346,7 +349,7 @@ func TestChargeSellerFeeConcurrentWithPayout(t *testing.T) {
 				}(i)
 				go func() {
 					defer wg.Done()
-					_, err := e.h.RequestWalletPayout(sellerCtx(), &paymentv1.RequestWalletPayoutRequest{Amount: 100000})
+					_, err := e.h.RequestWalletPayout(sellerCtx(base), &paymentv1.RequestWalletPayoutRequest{Amount: 100000})
 					record(err)
 				}()
 			}
@@ -355,11 +358,11 @@ func TestChargeSellerFeeConcurrentWithPayout(t *testing.T) {
 			if ok > 3 || ok+refused != 8 {
 				t.Fatalf("want at most 3 successes of 8, got ok=%d refused=%d", ok, refused)
 			}
-			bal, err := e.ledger.Balance(context.Background(), feeSeller)
+			bal, err := e.ledger.Balance(base, feeSeller)
 			if err != nil {
 				t.Fatal(err)
 			}
-			entries, _, err := e.ledger.ListEntries(context.Background(), feeSeller, 0, 100)
+			entries, _, err := e.ledger.ListEntries(base, feeSeller, 0, 100)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -383,11 +386,12 @@ func TestChargeSellerFeeConcurrentWithPayout(t *testing.T) {
 // rejected; A missing reference or seller is rejected; A reference of 65 characters is
 // rejected and 64 is accepted.
 func TestChargeSellerFeeValidation(t *testing.T) {
-	ctx := svcCtx()
+	base := t.Context()
+	ctx := svcCtx(base)
 	for _, backend := range feeBackends() {
 		t.Run(backend, func(t *testing.T) {
-			e := newFeeEnv(t, backend, 0)
-			e.seed(t, 500000, 0)
+			e := newFeeEnv(base, t, backend, 0)
+			e.seed(base, t, 500000, 0)
 
 			rejected := []struct {
 				name string
@@ -396,12 +400,15 @@ func TestChargeSellerFeeValidation(t *testing.T) {
 				{"A zero amount is rejected", feeReq(0, "sub:v:zero")},
 				{"A negative amount is rejected", feeReq(-1, "sub:v:neg")},
 				{"The reserved ad-spend kind is rejected", &paymentv1.ChargeSellerFeeRequest{
-					SellerId: feeSeller, Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_AD_SPEND, ReferenceId: "sub:v:ad"}},
+					SellerId: feeSeller, Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_AD_SPEND, ReferenceId: "sub:v:ad",
+				}},
 				{"An unspecified kind is rejected", &paymentv1.ChargeSellerFeeRequest{
-					SellerId: feeSeller, Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_UNSPECIFIED, ReferenceId: "sub:v:unspec"}},
+					SellerId: feeSeller, Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_UNSPECIFIED, ReferenceId: "sub:v:unspec",
+				}},
 				{"A missing reference is rejected", feeReq(1000, "")},
 				{"A missing seller is rejected", &paymentv1.ChargeSellerFeeRequest{
-					SellerId: "", Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_SUBSCRIPTION, ReferenceId: "sub:v:noseller"}},
+					SellerId: "", Amount: 1000, Kind: paymentv1.SellerFeeKind_SELLER_FEE_KIND_SUBSCRIPTION, ReferenceId: "sub:v:noseller",
+				}},
 				{"A reference of 65 characters is rejected", feeReq(1000, strings.Repeat("r", 65))},
 			}
 			for _, tc := range rejected {
@@ -412,10 +419,10 @@ func TestChargeSellerFeeValidation(t *testing.T) {
 					}
 				})
 			}
-			if n := len(e.feeEntries(t)); n != 0 {
+			if n := len(e.feeEntries(base, t)); n != 0 {
 				t.Fatalf("rejected requests must write nothing, got %d fee entries", n)
 			}
-			if got := e.balance(t); got != 500000 {
+			if got := e.balance(base, t); got != 500000 {
 				t.Fatalf("balance: want 500000, got %d", got)
 			}
 
@@ -425,7 +432,7 @@ func TestChargeSellerFeeValidation(t *testing.T) {
 				if err != nil || !res.GetCreated() {
 					t.Fatalf("want created, got %+v err=%v", res, err)
 				}
-				fees := e.feeEntries(t)
+				fees := e.feeEntries(base, t)
 				if len(fees) != 1 || fees[0].GetReferenceId() != ref {
 					t.Fatalf("fee entries: %+v", fees)
 				}
@@ -438,22 +445,23 @@ func TestChargeSellerFeeValidation(t *testing.T) {
 // unauthenticated call is rejected. The principal check precedes validation, and nothing is
 // written on denial.
 func TestChargeSellerFeeAuthz(t *testing.T) {
+	base := t.Context()
 	cases := []struct {
 		name string
 		ctx  context.Context
 		req  *paymentv1.ChargeSellerFeeRequest
 		want codes.Code
 	}{
-		{"A seller cannot charge a fee", sellerCtx(), feeReq(1000, "sub:z:seller"), codes.PermissionDenied},
-		{"An admin cannot charge a fee", principalCtx("admin-1", auth.TypeUser, "payment:write", "admin"), feeReq(1000, "sub:z:admin"), codes.PermissionDenied},
-		{"A seller with an invalid request is denied before validation", sellerCtx(), feeReq(0, ""), codes.PermissionDenied},
-		{"An unauthenticated call is rejected", context.Background(), feeReq(1000, "sub:z:anon"), codes.Unauthenticated},
-		{"A gateway anonymous principal is rejected", principalCtx("anonymous", auth.TypeAnonymous), feeReq(1000, "sub:z:anon2"), codes.Unauthenticated},
+		{"A seller cannot charge a fee", sellerCtx(base), feeReq(1000, "sub:z:seller"), codes.PermissionDenied},
+		{"An admin cannot charge a fee", auth.WithPrincipal(base, auth.Principal{ID: "admin-1", Type: auth.TypeUser, Scopes: []string{"payment:write", "admin"}}), feeReq(1000, "sub:z:admin"), codes.PermissionDenied},
+		{"A seller with an invalid request is denied before validation", sellerCtx(base), feeReq(0, ""), codes.PermissionDenied},
+		{"An unauthenticated call is rejected", base, feeReq(1000, "sub:z:anon"), codes.Unauthenticated},
+		{"A gateway anonymous principal is rejected", auth.WithPrincipal(base, auth.Principal{ID: "anonymous", Type: auth.TypeAnonymous}), feeReq(1000, "sub:z:anon2"), codes.Unauthenticated},
 	}
 	for _, backend := range feeBackends() {
 		t.Run(backend, func(t *testing.T) {
-			e := newFeeEnv(t, backend, 0)
-			e.seed(t, 500000, 0)
+			e := newFeeEnv(base, t, backend, 0)
+			e.seed(base, t, 500000, 0)
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
 					_, err := e.h.ChargeSellerFee(tc.ctx, tc.req)
@@ -462,10 +470,10 @@ func TestChargeSellerFeeAuthz(t *testing.T) {
 					}
 				})
 			}
-			if n := len(e.feeEntries(t)); n != 0 {
+			if n := len(e.feeEntries(base, t)); n != 0 {
 				t.Fatalf("denied calls must write nothing, got %d fee entries", n)
 			}
-			if got := e.balance(t); got != 500000 {
+			if got := e.balance(base, t); got != 500000 {
 				t.Fatalf("balance: want 500000, got %d", got)
 			}
 		})
