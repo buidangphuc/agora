@@ -219,11 +219,11 @@ describe("AssistantChatView ai_interaction", () => {
   // Scenario: A card without a rating shows no rating line
   it("hides the rating line when empty", async () => {
     vi.mocked(askAssistantAction).mockResolvedValue(
-      reply([{ ...card("lst_1", "Không đánh giá"), ratingText: "" }]),
+      reply([{ ...card("lst_1", "Sản phẩm không xếp hạng"), ratingText: "" }]),
     );
     const { container } = render(<AssistantChatView />);
     await ask("q");
-    await screen.findByText("Không đánh giá");
+    await screen.findByText("Sản phẩm không xếp hạng");
     expect(container.textContent).not.toContain("★");
     expect(container.textContent).not.toMatch(/đánh giá/);
     expect(container.textContent).not.toContain("4.5");
