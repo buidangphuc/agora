@@ -1,7 +1,10 @@
 import { trackEcommerce } from "@/lib/analytics";
 
 export type AiSurface =
-  "assistant" | "chat_copilot" | "magic_listing" | "review_summary";
+  | "assistant"
+  | "chat_copilot"
+  | "magic_listing"
+  | "review_summary";
 export type AiAction = "shown" | "accepted" | "edited";
 
 /**
