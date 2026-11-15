@@ -1,12 +1,18 @@
 import { Alert } from "@/components/ui/Alert";
 import { Link } from "@/components/ui/Link";
+import { SponsoredSlots } from "@/features/ads/SponsoredSlots";
+import { loadSponsored } from "@/features/ads/data";
+import { dedupe } from "@/features/ads/dedupe";
 import { ListingGrid } from "@/features/listing/ListingGrid";
 import { SectionHeading } from "./SectionHeading";
 import { loadFeed } from "./data";
 
 /** "Gợi ý hôm nay": the published-listings feed with its own failure state. */
 export async function FeedBlock() {
-  const { items, failed } = await loadFeed();
+  const [{ items, failed }, sponsored] = await Promise.all([
+    loadFeed(),
+    loadSponsored("home", ""),
+  ]);
 
   return (
     <section aria-labelledby="home-feed-title" className="space-y-5">
@@ -29,8 +35,9 @@ export async function FeedBlock() {
         />
       ) : (
         <>
+          <SponsoredSlots items={sponsored} />
           <ListingGrid
-            listings={items}
+            listings={dedupe(items, sponsored)}
             placementId="home_latest"
             empty="Hiện chưa có sản phẩm nào được đăng bán."
           />

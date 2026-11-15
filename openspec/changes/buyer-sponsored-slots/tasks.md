@@ -12,7 +12,7 @@
 
 ## 2. e2e track (platform-e2e)
 
-- [ ] 2.1 `tests/e2e/features/frontend/buyer_sponsored_slots.feature` with scenarios Search shows a sponsored slot in its category, Sponsored listing is not duplicated in organic results, Home feed shows a sponsored slot, Click charges the campaign once and opens the listing, Second click on the same slot charges nothing, Rendering the page charges nothing, Seller clicking their own ad is not charged; campaigns are created through the real `CreateAdCampaign` API, no route fulfils
-- [ ] 2.2 Step definitions, reusing seller login, listing seeding and campaign creation steps; read spent back through `ListMyAdCampaigns`
-- [ ] 2.3 FEATURES.yaml entry for team-frontend (written by the e2e author)
+- [x] 2.1 `tests/e2e/features/frontend/buyer_sponsored_slots.feature` with scenarios Search shows a sponsored slot in its category, Sponsored listing is not duplicated in organic results, Home feed shows a sponsored slot, Click charges the campaign once and opens the listing, Second click on the same slot charges nothing, Rendering the page charges nothing, Seller clicking their own ad is not charged; campaigns are created through the real `CreateAdCampaign` API, no route fulfils
+- [x] 2.2 Step definitions, reusing seller login, listing seeding and campaign creation steps; read spent back through `ListMyAdCampaigns`
+- [x] 2.3 FEATURES.yaml entry for team-frontend (written by the e2e author)
 - [ ] 2.4 `openspec validate buyer-sponsored-slots --strict`; run the feature on a dev env after `promotion-ads-serving` is deployed
