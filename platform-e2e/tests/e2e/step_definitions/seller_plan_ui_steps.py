@@ -14,7 +14,6 @@ from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
 from src.constants.pages import PageName
-from src.models import Listing
 from src.pages import SellerNewListingPage
 from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.step_definitions.listing_plan_cap_steps import _my_listing_ids
@@ -71,6 +70,12 @@ def upgrade_to_pro(world: World) -> None:
     dialog = world.page.get_by_role("dialog")
     expect(dialog).to_contain_text("₫199.000", timeout=timeouts.DEFAULT)
     _confirm(world).click()
+    expect(
+        world.page.get_by_role("status")
+        .filter(has_text="Đã đăng ký gói")
+        .or_(world.page.get_by_text(INSUFFICIENT))
+        .first
+    ).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
 @when("the plan-ui seller cancels renewal and confirms")
@@ -88,12 +93,8 @@ def insufficient(world: World) -> None:
     expect(page.get_by_text(INSUFFICIENT).first).to_be_visible(timeout=timeouts.NAVIGATION)
     link = page.get_by_role("link", name="Xem ví")
     expect(link).to_have_attribute("href", "/seller/wallet")
-    expect(
-        page.get_by_role("alert")
-        .filter(has_text="Đăng ký gói")
-        .or_(page.get_by_role("status").filter(has_text="Đăng ký gói"))
-        .first
-    ).to_be_visible(timeout=timeouts.DEFAULT)
+    toasts = page.get_by_role("region", name=re.compile("Notifications"), include_hidden=True)
+    expect(toasts.get_by_text(INSUFFICIENT).first).to_be_visible(timeout=timeouts.DEFAULT)
 
 
 @then("the plan-ui FREE card is the current plan")
@@ -114,7 +115,9 @@ def _period_end(world: World) -> datetime:
 @then("the plan-ui PRO card is the current plan with a period end about 30 days ahead")
 def pro_current(world: World) -> None:
     pro = _card(world, "PRO")
-    expect(pro.get_by_text("Gói hiện tại", exact=True)).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(pro.get_by_text("Gói hiện tại", exact=True).first).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
     expect(pro.get_by_role("button").first).to_be_disabled()
     expect(pro).to_contain_text("Tự động gia hạn: Bật")
     delta = _period_end(world) - datetime.now(timezone.utc)
@@ -124,7 +127,9 @@ def pro_current(world: World) -> None:
 @then("the plan-ui PRO card is the current plan with renewal off and a lapse date")
 def pro_renewal_off(world: World) -> None:
     pro = _card(world, "PRO")
-    expect(pro.get_by_text("Gói hiện tại", exact=True)).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(pro.get_by_text("Gói hiện tại", exact=True).first).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
     expect(pro).to_contain_text("Tự động gia hạn: Tắt")
     expect(pro).to_contain_text("Sẽ chuyển về Miễn phí ngày")
     expect(pro.get_by_role("button", name="Hủy gia hạn")).to_have_count(0)
@@ -147,7 +152,12 @@ def submit_new_listing(world: World) -> None:
     world.state.extra["spu_title"] = title
     page: SellerNewListingPage = world.navigate_to(PageName.SELLER_NEW_LISTING)  # type: ignore[assignment]
     expect(page.title_input).to_be_visible(timeout=timeouts.NAVIGATION)
-    page.fill_and_submit(Listing(title=title, category_id="cat-laptop", price=1_000_000, stock=5))
+    page.wait_until_interactive(page.submit_button)
+    page.title_input.fill(title)
+    page.category_select.select_option("cat-laptop")
+    page.price_input.fill("1000000")
+    page.stock_input.fill("5")
+    page.submit_button.click()
 
 
 @then("the plan-ui form shows the cap message and an upgrade link to the plans page")
