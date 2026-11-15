@@ -172,7 +172,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 		Session: rpc.NewSessionHandler(sessions, logger).WithTokenTTL(ttl),
 		Profile: rpc.NewProfileHandler(users, logger),
 		Admin:   rpc.NewAccountAdminHandler(svc, users, logger),
-		Privacy: rpc.NewPrivacyHandler(users, s.LegalTerms, s.PrivacyPolicy, s.SellerTerms, logger).WithAccountDeletion(deletion),
+		Privacy: rpc.NewPrivacyHandler(users, s.LegalTerms, s.PrivacyPolicy, s.SellerTerms, logger).WithAccountDeletion(deletion).WithExport(store.NewPostgresExportRepository(pool)),
 	})
 
 	relayer, err := outbox.NewRelayer(outStore, pub, outbox.RelayerOptions{

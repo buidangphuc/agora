@@ -10,6 +10,6 @@
 
 ## 2. E2E track
 
-- [ ] 2.1 `platform-e2e/tests/e2e/features/identity/data_export.feature` with scenarios E1, E2, E3, E5, E7, E9, E14 written against real RPCs through the gateway; steps registered in the identity steps module (E1, E2, E3, E5, E7, E9, E14)
-- [ ] 2.2 Seed helpers in the step file: create users, addresses, login events through real Login calls, a deletion request through `PrivacyService.RequestAccountDeletion` (E1, E3, E9)
+- [x] 2.1 `platform-e2e/tests/e2e/features/identity/data_export.feature` with scenarios E1, E2, E3, E5, E7, E9, E14 written against real RPCs through the gateway; steps registered in the identity steps module (E1, E2, E3, E5, E7, E9, E14)
+- [x] 2.2 Seed helpers in the step file: create users, addresses, login events through real Login calls, a deletion request through `PrivacyService.RequestAccountDeletion` (E1, E3, E9)
 - [ ] 2.3 Run the feature on the `mainx` stack with only team-identity, team-gateway, Postgres and Kafka up (E1-E14)

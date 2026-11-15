@@ -55,6 +55,7 @@ markers = [
     "freshVisitor: starts with no agora_consent cookie so the consent banner shows (default pre-seeds a grant)",
     "legal_consent: legal versions at Register and the PrivacyService consent ledger (change identity-legal-consent)",
     "account_deletion: account deletion lifecycle, obligations and erasure sweeper (change identity-account-deletion)",
+    "data_export: identity data export through the gateway (change identity-data-export)",
     "deletion_default: needs the default 48 h cancel window on team-identity (no account-deletion override)",
     "deletion_sweep_override: needs compose/account-deletion.override.yaml on team-identity (20 s cancel window, 2 s sweep)",
     "legal_versions_override: needs compose/legal-versions.override.yaml on team-identity (LEGAL_TERMS_VERSIONS=2026-11,2026-05)",
