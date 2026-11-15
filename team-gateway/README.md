@@ -47,7 +47,8 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 Upstream calls get a deadline (`CALL_TIMEOUT_SECONDS`). Idempotent reads (`callRead`) retry up to
 `RETRY_MAX` times on `Unavailable`; writes (`callWrite`) never retry. Upstream gRPC statuses map to
 the matching Connect codes. An upstream `Unavailable` keeps its first `ErrorInfo` detail (domain, reason)
-behind the sanitized message; the promotion forwarders add `promotion.platform/PROMOTION_UNAVAILABLE`
+behind the sanitized message, and every client-meaningful code (for example `RESOURCE_EXHAUSTED` with
+`team-domain/PLAN_LISTING_LIMIT`) keeps its first `ErrorInfo` next to the upstream message (`internal/edge/forward.go`); the promotion forwarders add `promotion.platform/PROMOTION_UNAVAILABLE`
 when the upstream sent none (`internal/edge/promotion.go`).
 `VoucherService.ListMyVouchers` needs any authenticated principal (no scope; `UNAUTHENTICATED` for anonymous) and is forwarded with the verified principal. `OrderService.HasCompletedOrder` is an internal RPC and is not routed (`501`).
 

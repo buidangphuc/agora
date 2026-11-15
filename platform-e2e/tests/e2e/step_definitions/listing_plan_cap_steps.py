@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import json
+import os
+import time
 
 import httpx
 from pytest_bdd import given, parsers, then, when
@@ -12,10 +14,16 @@ from src.api.services import ListingService
 from src.constants import gateway_endpoints as ep
 from src.models import Listing
 from tests.e2e.step_definitions.commerce_steps import _call, _user
+from tests.e2e.support import flash_hold_support as fh
+from tests.e2e.support import plp_support as p
+from tests.e2e.support.oic_order_support import OicWorld
 from tests.e2e.support.world import World
 
 _SUBSCRIPTION = "/platform.promotion.v1.SubscriptionService/"
 _STATUSES = ("published", "draft")
+_FREE_PLAN = "plan_free"
+_FUND_AMOUNT = 500_000
+_SWEEP_WAIT_S = float(os.getenv("PLAN_SWEEP_WAIT_S", "150"))
 
 
 _EXTRA_PAYLOAD = {
@@ -50,14 +58,53 @@ def _subscribe(token: str, plan_id: str) -> None:
     assert resp.status_code == 200, f"Subscribe {plan_id}: {resp.status_code} {resp.text}"
 
 
+def _funded_seller() -> dict:
+    w = OicWorld()
+    w.data.update(paid=[], credited=[], inserted=[])
+    actor = p.seller_with_listing(w, _FUND_AMOUNT, "fund")
+    p.credit_and_age(w, actor, p.buyer(w, "fund_buyer"), "fund", _FUND_AMOUNT)
+    return {"token": actor.token, "id": actor.user_id, "listing_ids": [w.listings["fund"]["id"]]}
+
+
 def _seed_seller(plan_id: str, count: int) -> dict:
-    seller = _user("seller")
+    if plan_id == _FREE_PLAN:
+        seller = _user("seller")
+        seller["listing_ids"] = []
+    else:
+        seller = _funded_seller()
     _subscribe(seller["token"], plan_id)
     svc = ListingService(token=seller["token"])
-    ids = [svc.create_listing(_new_listing(i, _STATUSES[i % len(_STATUSES)])) for i in range(count)]
+    seeded = len(seller["listing_ids"])
+    ids = [
+        svc.create_listing(_new_listing(i, _STATUSES[i % len(_STATUSES)]))
+        for i in range(seeded, count)
+    ]
     assert all(ids), "seeding a listing failed"
-    seller["listing_ids"] = ids
+    seller["listing_ids"] += ids
     return seller
+
+
+def _entitlement_tier(seller: dict) -> str:
+    resp = _call(seller["token"], _SUBSCRIPTION + "GetEntitlements", {"sellerId": seller["id"]})
+    assert resp.status_code == 200, f"GetEntitlements: {resp.status_code} {resp.text}"
+    return resp.json().get("plan", "")
+
+
+def _lapse_to_free(seller: dict) -> None:
+    resp = _call(seller["token"], _SUBSCRIPTION + "GetMySubscription", {})
+    assert resp.status_code == 200, f"GetMySubscription: {resp.status_code} {resp.text}"
+    sub = resp.json().get("subscription") or {}
+    assert sub.get("id"), f"no subscription to lapse: {resp.text}"
+    fh.psql(
+        "UPDATE seller_subscriptions SET current_period_end = now() - interval '1 minute' "
+        f"WHERE id = {fh.sql_lit(sub['id'])}"
+    )
+    deadline = time.monotonic() + _SWEEP_WAIT_S
+    while time.monotonic() < deadline:
+        if _entitlement_tier(seller) == "PLAN_TIER_FREE":
+            return
+        time.sleep(3)
+    raise AssertionError(f"plan did not move to FREE within {_SWEEP_WAIT_S}s")
 
 
 def _my_listing_ids(token: str) -> list[str]:
@@ -113,7 +160,10 @@ def other_plan_cap_seller(world: World, plan_id: str, count: int) -> None:
 
 @given(parsers.parse('the plan-cap seller moves to the plan "{plan_id}"'))
 def plan_cap_seller_moves(world: World, plan_id: str) -> None:
-    _subscribe(_x(world)["pc_seller"]["token"], plan_id)
+    seller = _x(world)["pc_seller"]
+    _subscribe(seller["token"], plan_id)
+    if plan_id == _FREE_PLAN:
+        _lapse_to_free(seller)
 
 
 @when("the plan-cap seller creates another listing")
