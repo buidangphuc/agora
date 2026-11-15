@@ -397,6 +397,9 @@ export interface ViewAdCampaign {
   listingId: string;
   budget: number;
   bid: number;
+  spent: number;
+  impressions: number;
+  clicks: number;
   status: AdCampaignStatus;
   statusText: string;
   createdAt: string;
@@ -408,6 +411,8 @@ export function adCampaignStatusText(s: AdCampaignStatus): string {
       return "Đang chạy";
     case AdCampaignStatus.PAUSED:
       return "Tạm dừng";
+    case AdCampaignStatus.PAUSED_BUDGET:
+      return "Hết ngân sách";
     case AdCampaignStatus.ENDED:
       return "Đã kết thúc";
     default:
@@ -422,6 +427,9 @@ function mapAdCampaign(c: AdCampaign): ViewAdCampaign {
     listingId: c.listingId,
     budget: Number(c.budget),
     bid: Number(c.bid),
+    spent: Number(c.spent),
+    impressions: Number(c.impressions),
+    clicks: Number(c.clicks),
     status: c.status,
     statusText: adCampaignStatusText(c.status),
     createdAt: tsToString(c.createdAt),
@@ -439,6 +447,46 @@ export async function createAdCampaign(
     bid: BigInt(Math.max(0, Math.round(bid))),
   });
   if (!res.campaign) throw new Error("create ad campaign failed");
+  return mapAdCampaign(res.campaign);
+}
+
+const AD_TIMEOUT_MS = 2000;
+
+export type ListAdCampaignsResult =
+  | { ok: true; campaigns: ViewAdCampaign[] }
+  | { ok: false };
+
+export async function listMyAdCampaigns(): Promise<ListAdCampaignsResult> {
+  try {
+    const res = await promotion().sponsored.listMyAdCampaigns(
+      {},
+      { timeoutMs: AD_TIMEOUT_MS },
+    );
+    return { ok: true, campaigns: res.campaigns.map(mapAdCampaign) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function pauseAdCampaign(
+  campaignId: string,
+): Promise<ViewAdCampaign> {
+  const res = await promotion().sponsored.pauseAdCampaign(
+    { campaignId },
+    { timeoutMs: AD_TIMEOUT_MS },
+  );
+  if (!res.campaign) throw new Error("pause ad campaign failed");
+  return mapAdCampaign(res.campaign);
+}
+
+export async function resumeAdCampaign(
+  campaignId: string,
+): Promise<ViewAdCampaign> {
+  const res = await promotion().sponsored.resumeAdCampaign(
+    { campaignId },
+    { timeoutMs: AD_TIMEOUT_MS },
+  );
+  if (!res.campaign) throw new Error("resume ad campaign failed");
   return mapAdCampaign(res.campaign);
 }
 
