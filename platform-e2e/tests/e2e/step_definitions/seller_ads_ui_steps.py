@@ -16,24 +16,8 @@ from config.settings import get_settings
 from src.constants import timeouts
 from src.utils import data as fake
 from tests.e2e.flows.auth_flow import session_cookies
-from tests.e2e.step_definitions.test_ad_campaign_management_steps import (  # noqa: F401
-    call_fails,
-    listed,
-    other_pauses,
-    other_resumes,
-    second_seller,
-    seller_pauses,
-)
-from tests.e2e.step_definitions.test_sponsored_ads_steps import (  # noqa: F401
-    _x,
-    ads_campaign,
-    ads_seller,
-    buyer_clicks,
-    buyer_lists,
-    buyer_served,
-    click_charged,
-    slots_absent,
-)
+from tests.e2e.step_definitions.ad_campaign_management_steps import *  # noqa: F401,F403
+from tests.e2e.step_definitions.sponsored_ads_steps import _x
 from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
