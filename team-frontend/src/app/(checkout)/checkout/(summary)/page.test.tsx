@@ -940,6 +940,11 @@ describe("/checkout combo discount", () => {
       "30.000",
     );
     expect(
+      within(screen.getByTestId("order-summary")).getByTestId(
+        "bundle-discount",
+      ),
+    ).toHaveTextContent("30.000");
+    expect(
       within(screen.getByTestId("order-summary")).getByText(/120\.000/),
     ).toBeInTheDocument();
   });

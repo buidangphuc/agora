@@ -37,6 +37,7 @@ export function CartSelection({
   checkoutEnabled,
   discount,
   voucherCode,
+  bundleDiscount = 0,
   children,
 }: {
   lines: SelectionLine[];
@@ -44,6 +45,7 @@ export function CartSelection({
   checkoutEnabled: boolean;
   discount: number;
   voucherCode?: string;
+  bundleDiscount?: number;
   children: ReactNode;
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => {
@@ -111,6 +113,7 @@ export function CartSelection({
             subtotal={subtotal}
             discount={partial ? 0 : discount}
             hideDiscount={partial}
+            bundleDiscount={partial ? 0 : bundleDiscount}
             voucherCode={partial ? undefined : voucherCode}
             shipping={null}
             notice={notices}

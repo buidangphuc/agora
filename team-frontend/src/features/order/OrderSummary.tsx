@@ -26,6 +26,8 @@ export interface OrderSummaryProps {
   notice?: ReactNode;
   /** Omit the discount row (cart partial selection). */
   hideDiscount?: boolean;
+  /** Server bundle discount total; the "Giảm giá combo" row shows when > 0. */
+  bundleDiscount?: number;
 }
 
 function SummaryRows({
@@ -36,6 +38,7 @@ function SummaryRows({
   voucherCode,
   shipping,
   hideDiscount,
+  bundleDiscount = 0,
 }: Omit<OrderSummaryProps, "action" | "mobileAction" | "notice">) {
   const total = serverTotal ?? subtotal - discount;
   return (
@@ -48,6 +51,19 @@ function SummaryRows({
           label: `Tạm tính (${itemCount} sản phẩm)`,
           children: formatPrice(subtotal),
         },
+        ...(bundleDiscount > 0
+          ? [
+              {
+                key: "bundle-discount",
+                label: "Giảm giá combo",
+                children: (
+                  <span data-testid="bundle-discount">
+                    -{formatPrice(bundleDiscount)}
+                  </span>
+                ),
+              },
+            ]
+          : []),
         ...(hideDiscount
           ? []
           : [

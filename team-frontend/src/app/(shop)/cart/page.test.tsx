@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { isCheckoutEnabled } from "@/lib/flags";
@@ -283,6 +283,11 @@ describe("/cart page combos", () => {
     expect(screen.getAllByTestId("bundle-discount")[0]).toHaveTextContent(
       "30.000",
     );
+    expect(
+      within(screen.getByTestId("order-summary")).getByTestId(
+        "bundle-discount",
+      ),
+    ).toHaveTextContent("30.000");
   });
 
   it("C9 shows no Combo label and no Giảm giá combo row without bundles", async () => {
