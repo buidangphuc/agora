@@ -147,3 +147,16 @@ def await_serving_again(world: World, timeout_s: float = 90.0) -> None:
 def ai_log_lines(needle: str) -> list[str]:
     out = pe.docker("logs", "--tail", "5000", pe.ai_container(), check=False)
     return [line for line in (out.stdout + out.stderr).splitlines() if needle in line]
+
+
+def in_stock_listing_ids(world: World, count: int, tag: str) -> list[str]:
+    """Publish `count` listings with stock 5 and wait until search reports that stock, so an
+    in-stock-only placement keeps them."""
+    from tests.e2e.support import srm_support as srm
+
+    labels = [f"{tag}-{n}" for n in range(count)]
+    for label in labels:
+        srm.create_listing(world, label, stock=5)
+    for label in labels:
+        srm.wait_stock(world, label, 5)
+    return [srm.listing(world, label).id for label in labels]

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import time
-import uuid
 
 from playwright.sync_api import expect
 from pytest_bdd import parsers, then, when
@@ -60,9 +59,9 @@ def rss_call_succeeds_with_version(world: World, prefix: str) -> None:
     "the serving generation's popular list is L and a buyer with no recommendations of their own requests homepage recommendations"
 )
 def rss_cold_start(world: World) -> None:
+    popular = rss.in_stock_listing_ids(world, 6, "rss-pop")
     redis = rss.keys(world, rss.SERVING_DB)
     prefix = rss.serving_prefix(redis)
-    popular = [f"e2e-rss-pop-{uuid.uuid4().hex[:8]}-{n}" for n in range(6)]
     redis.remove(f"{prefix}:user:{rss.buyer_id(world)}")
     redis.put(
         f"{prefix}:popular",
@@ -120,7 +119,7 @@ def rss_distinct_request_ids(world: World) -> None:
 def rss_tie_break(world: World) -> None:
     serving = rss.keys(world, rss.SERVING_DB)
     features = rss.keys(world, rss.FEATURES_DB)
-    first, second = (f"e2e-rss-tie-{uuid.uuid4().hex[:8]}-{n}" for n in ("a", "b"))
+    first, second = rss.in_stock_listing_ids(world, 2, "rss-tie")
     version = features.get("fs:item_popularity:current")
     if not version:
         version = "1"

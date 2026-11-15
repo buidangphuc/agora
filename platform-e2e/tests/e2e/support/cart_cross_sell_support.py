@@ -110,7 +110,7 @@ class Catalogue:
         self.world = world
         self.run = uuid.uuid4().hex[:8]
         data = recommend(world, {"context": CONTEXT_HOMEPAGE, "limit": 5})
-        version = data.get("modelVersion", "")
+        version = data.get("modelVersion", "").split("/")[0]
         assert re.fullmatch(r"als-.+", version), f"no trained generation is serving: {data}"
         self.model_version = version
         self.collection = f"item_als_vectors__{version}"

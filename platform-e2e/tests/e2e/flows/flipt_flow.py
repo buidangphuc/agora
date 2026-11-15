@@ -74,11 +74,9 @@ def flipt_container() -> str:
 
 
 def run_seed_script() -> subprocess.CompletedProcess[str]:
-    """Run team-ai's idempotent flag seeding against the stack's Flipt (RECS_FLIPT_URL)."""
-    env = {**os.environ, "RECS_FLIPT_URL": get_settings().flipt_url.rstrip("/")}
+    """Run team-ai's idempotent flag seeding against the stack's Flipt."""
     return subprocess.run(
-        [sys.executable, str(SEED_SCRIPT)],
-        env=env,
+        [sys.executable, str(SEED_SCRIPT), "--url", get_settings().flipt_url.rstrip("/")],
         capture_output=True,
         text=True,
         timeout=60,

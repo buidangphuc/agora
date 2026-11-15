@@ -15,14 +15,15 @@ from typing import Any
 import httpx
 from pytest_bdd import given, parsers, then, when
 
+from config.settings import get_settings
 from src.api.services.recommendation_service import CONTEXT_HOMEPAGE
 from src.constants import gateway_endpoints as ep
-from config.settings import get_settings
 from tests.e2e.flows import flipt_flow as ff
+from tests.e2e.flows import recsys_stock_flow as rsf
 from tests.e2e.flows.stack_flow import stop_container
 from tests.e2e.step_definitions import in_stock_recommendations_steps as isr
-from tests.e2e.support import cart_cross_sell_support as cx
 from tests.e2e.support import rss_support as rss
+from tests.e2e.support import srm_support as srm
 from tests.e2e.support.world import World
 
 FLAG = ff.EXPERIMENT_FLAG
@@ -54,7 +55,14 @@ def anonymous_recommend(anon: str) -> dict[str, Any]:
     return resp.json()
 
 
+def _ensure_generation(world: World) -> None:
+    user = world.state.current_user
+    buyer_id = user.user_id if user is not None and user.user_id else srm.buyer_of(world).id
+    rsf.ensure_serving_generation(world, buyer_id)
+
+
 def _seed_flag(world: World) -> None:
+    _ensure_generation(world)
     world.add_cleanup(ff.restore_experiment_flag_disabled)
     seeded = ff.run_seed_script()
     assert seeded.returncode == 0, f"seed script failed: {seeded.stdout}{seeded.stderr}"
@@ -208,11 +216,12 @@ def era_seed_idempotent(world: World) -> None:
     "a buyer with a precomputed list requests homepage recommendations through the gateway"
 )
 def era_precomputed(world: World) -> None:
+    rsf.ensure_serving_generation(world)
+    listed = rss.in_stock_listing_ids(world, 5, "era-pre")
     serving = rss.keys(world, rss.SERVING_DB)
     pointer = serving.get(rss.SERVING_KEY)
     assert pointer, "the stack serves no generation pointer"
     prefix = rss.serving_prefix(serving)
-    listed = [f"e2e-era-{uuid.uuid4().hex[:8]}-{n}" for n in range(5)]
     serving.put(
         f"{prefix}:user:{rss.buyer_id(world)}",
         json.dumps(

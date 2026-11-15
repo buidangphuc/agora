@@ -251,6 +251,23 @@ async def test_floor_reports_popular_tier():
     assert result.model_version == "g1"
 
 
+class _DownRedis(aioredis.FakeRedis):
+    async def get(self, *args, **kwargs):
+        raise ConnectionError("redis is down")
+
+
+async def test_unreadable_cache_reports_fallback_generation_and_tier():
+    service = build_service(redis=_DownRedis(decode_responses=True))
+
+    result = await service.recommend(
+        RecommendationQuery(user_id="u1", placement_id="home_feed")
+    )
+
+    assert result.model_version == "serving-fallback"
+    assert result.tier == "serving-fallback"
+    assert result.ranker == "similarity"
+
+
 async def test_untrained_gbdt_reports_fixed_weights():
     redis = await _redis_with_user_list("l1", "l2")
     service = build_service(redis=redis)

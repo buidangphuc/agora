@@ -217,7 +217,9 @@ class RecommendationService:
                 return RecommendationResult(
                     items=items, model_version=model_version, placement_id=placement_id
                 )
-        served.tier = "popular"
+        served.tier = (
+            SERVING_FALLBACK if model_version == SERVING_FALLBACK else "popular"
+        )
         return await self._popular_result(
             query,
             placement_id,
