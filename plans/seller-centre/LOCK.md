@@ -17,7 +17,7 @@ spec: plans/seller-centre/00-spec.md (Locked 2026-11-13)
 | seller-getting-started | team-frontend-seller | [seller-marketing-hub, seller-shop-customisation-ui] | 1 | pass | pass | pass | ENGINE_DOWN | fa2485d9f803 | [x] |
 | order-bundle-checkout | team-order | [seller-centre-contract, domain-bundle-integrity] | 1 | pass | pass | pass | ENGINE_DOWN | 0c3095790822 | [x] |
 | shop-bundle-purchase-ui | team-frontend | [order-bundle-checkout, shop-page-featured-theme] | 1 | pass | pass | pass | ENGINE_DOWN | ada306a5c726 | [x] |
-| order-seller-list-paging | team-order | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 664ebea0e750 | [x] |
+| order-seller-list-paging | team-order | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 307b8332526a | [x] |
 | seller-server-paging-ui | team-frontend-seller | [order-seller-list-paging, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | 4301e73500fb | [x] |
 | seller-bulk-ship | team-frontend-seller | [seller-server-paging-ui] | 1 | pass | pass | pass | ENGINE_DOWN | 34c482424858 | [x] |
 
