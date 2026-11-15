@@ -16,6 +16,12 @@ from app.bootstrap.resources import (
 from app.core.config import Settings
 from app.core.telemetry import FanOutSink, LogCompletionSink
 from app.modules.business.ai_assistant.factory import build_ai_assistant_services
+from app.modules.business.ai_assistant.grounding import ListingGrounding
+from app.modules.business.ai_assistant.shopping import (
+    AssistantReplier,
+    LLMAssistantReplier,
+    MockAssistantReplier,
+)
 from app.modules.business.chat.factory import build_chat_service
 from app.modules.business.completions.guards import CompletionGuard
 from app.modules.business.completions.handlers.echo import EchoCompletionHandler
@@ -53,6 +59,20 @@ def default_completion_handler_factory(
     return EchoCompletionHandler()
 
 
+def _build_assistant_replier(settings: Settings) -> AssistantReplier:
+    if settings.ASSISTANT_BACKEND != "llm_router":
+        return MockAssistantReplier()
+    from app.modules.ai.llm.runtime import build_llm_instance
+
+    llm = build_llm_instance(
+        settings,
+        instance_id="grpc-assistant",
+        service_name="team-ai.assistant",
+        tags=("grpc", "assistant"),
+    )
+    return LLMAssistantReplier(llm, timeout_seconds=settings.ASSISTANT_TIMEOUT_SECONDS)
+
+
 def compose_business_services(
     resources: ApplicationResources,
     settings: Settings,
@@ -74,8 +94,19 @@ def compose_business_services(
             idle_timeout=settings.STREAM_IDLE_TIMEOUT_SECONDS,
         ),
     )
+    clients = resources.assistant_clients
     resources.ai_assistant = build_ai_assistant_services(
-        resources.rag_service, rag_min_score=settings.ASSISTANT_RAG_MIN_SCORE
+        grounding=(
+            ListingGrounding(
+                search=clients.search,
+                listing=clients.listing,
+                search_timeout_s=settings.ASSISTANT_SEARCH_TIMEOUT_SECONDS,
+                listing_timeout_s=settings.ASSISTANT_LISTING_TIMEOUT_SECONDS,
+            )
+            if clients
+            else None
+        ),
+        replier=_build_assistant_replier(settings),
     )
     resources.chat = build_chat_service(
         settings,
@@ -86,12 +117,12 @@ def compose_business_services(
         store=opened(resources.taxonomy_store, "taxonomy store")
     )
     resources.screen = build_screen_service(settings)
-    clients = opened(resources.recommendation_clients, "recommendation clients")
+    rec_clients = opened(resources.recommendation_clients, "recommendation clients")
     resources.recommendation = build_recommendation_service(
         settings,
-        source=build_candidate_source(settings, clients),
+        source=build_candidate_source(settings, rec_clients),
         serving_redis=opened(resources.redis, "redis"),
-        clients=clients,
+        clients=rec_clients,
     )
 
 

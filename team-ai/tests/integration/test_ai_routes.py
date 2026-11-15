@@ -4,7 +4,7 @@ from app.bootstrap.application import create_app
 from tests.factories import api_client_for, build_test_settings
 
 
-async def test_assistant_returns_cards_and_followups():
+async def test_assistant_returns_no_cards_when_grounding_unavailable():
     app = create_app(settings=build_test_settings())
 
     async with api_client_for(app) as client:
@@ -14,7 +14,7 @@ async def test_assistant_returns_cards_and_followups():
 
     assert response.status_code == 200
     body = response.json()
-    assert 1 <= len(body["product_cards"]) <= 2
+    assert body["product_cards"] == []
     assert body["reply_text"]
     assert body["suggested_followups"]
 
