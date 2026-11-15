@@ -3,7 +3,8 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import { Link } from "@/components/ui/Link";
-import { trackAiInteraction } from "@/lib/analytics/ai";
+import { trackEcommerce } from "@/lib/analytics";
+import { type AiProvenance, trackAiInteraction } from "@/lib/analytics/ai";
 import { askAssistantAction } from "./actions";
 
 interface ProductCard {
@@ -22,8 +23,14 @@ interface ChatMessage {
   text: string;
   product_cards?: ProductCard[];
   suggested_followups?: string[];
+  provenance?: AiProvenance;
   time: string;
 }
+
+const PLACEMENT = "assistant.suggestions";
+
+const APOLOGY =
+  "Xin lỗi, trợ lý AI đang tạm thời không phản hồi. Vui lòng thử lại.";
 
 export function AssistantChatView() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -43,8 +50,6 @@ export function AssistantChatView() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Report each AI message that carries product cards once, after render
-  // (never during streaming patches, which carry no cards).
   const reportedShown = useRef<Set<string>>(new Set());
   useEffect(() => {
     for (const m of messages) {
@@ -55,7 +60,21 @@ export function AssistantChatView() {
         !reportedShown.current.has(m.id)
       ) {
         reportedShown.current.add(m.id);
-        trackAiInteraction("assistant", "shown");
+        trackAiInteraction("assistant", "shown", undefined, m.provenance);
+        trackEcommerce("view_item_list", {
+          items: m.product_cards.map((c, i) => ({
+            itemId: c.listing_id,
+            index: i + 1,
+            itemListId: PLACEMENT,
+            placementId: PLACEMENT,
+            ...(m.provenance?.requestId
+              ? { impressionId: m.provenance.requestId }
+              : {}),
+            ...(m.provenance?.modelVersion
+              ? { modelVersion: m.provenance.modelVersion }
+              : {}),
+          })),
+        });
       }
     }
   }, [messages]);
@@ -85,45 +104,15 @@ export function AssistantChatView() {
       minute: "2-digit",
     });
     const aiId = `ai_${Date.now()}`;
-    // Placeholder AI bubble we fill token-by-token as the stream arrives.
-    setMessages((prev) => [
-      ...prev,
-      { id: aiId, sender: "ai", text: "", time: now },
-    ]);
 
-    const patchAi = (patch: Partial<ChatMessage>) =>
-      setMessages((prev) =>
-        prev.map((m) => (m.id === aiId ? { ...m, ...patch } : m)),
-      );
-
-    // 1) Stream reply text token-by-token (gateway → team-ai ChatService.StreamChat).
-    let streamed = "";
-    try {
-      const res = await fetch("/api/assistant/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query }),
-      });
-      if (res.ok && res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          streamed += decoder.decode(value, { stream: true });
-          patchAi({ text: streamed });
-        }
-      }
-    } catch {
-      // fall through to the unary call below
-    }
-
-    // 2) Unary call for the grounded reply + product cards + follow-ups.
     const result = await askAssistantAction(query, history);
+    let aiMsg: ChatMessage;
     if (result.ok && result.reply) {
       const { reply } = result;
-      patchAi({
-        text: reply.replyText || streamed,
+      aiMsg = {
+        id: aiId,
+        sender: "ai",
+        text: reply.replyText || APOLOGY,
         product_cards: reply.productCards.map((c) => ({
           listing_id: c.listingId,
           title: c.title,
@@ -134,14 +123,16 @@ export function AssistantChatView() {
           rating_text: c.ratingText,
         })),
         suggested_followups: reply.suggestedFollowups,
-      });
-    } else if (!streamed) {
-      patchAi({
-        text:
-          result.message ||
-          "Xin lỗi, trợ lý AI đang tạm thời không phản hồi. Vui lòng thử lại.",
-      });
+        provenance: {
+          requestId: reply.requestId ?? "",
+          modelVersion: reply.modelVersion ?? "",
+        },
+        time: now,
+      };
+    } else {
+      aiMsg = { id: aiId, sender: "ai", text: APOLOGY, time: now };
     }
+    setMessages((prev) => [...prev, aiMsg]);
     setLoading(false);
   };
 
@@ -206,9 +197,11 @@ export function AssistantChatView() {
                           <h4 className="font-bold text-text-primary text-sm line-clamp-1">
                             {p.title}
                           </h4>
-                          <div className="text-xs text-text-warning font-medium mt-0.5">
-                            {p.rating_text}
-                          </div>
+                          {p.rating_text && (
+                            <div className="text-xs text-text-warning font-medium mt-0.5">
+                              {p.rating_text}
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-base font-black text-text-danger">
                               {p.price.toLocaleString()} ₫
@@ -230,6 +223,7 @@ export function AssistantChatView() {
                                   "assistant",
                                   "accepted",
                                   p.listing_id,
+                                  msg.provenance,
                                 )
                               }
                               variant="primary"
@@ -247,6 +241,7 @@ export function AssistantChatView() {
                                   "assistant",
                                   "accepted",
                                   p.listing_id,
+                                  msg.provenance,
                                 )
                               }
                               variant="danger"
@@ -278,7 +273,8 @@ export function AssistantChatView() {
                     onClick={() => handleSend(f)}
                     className="px-3 py-1 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-full text-xs font-medium transition-all shadow-2xs text-left"
                   >
-                    💡 {f}
+                    <span aria-hidden="true">💡 </span>
+                    <span>{f}</span>
                   </button>
                 ))}
               </div>
