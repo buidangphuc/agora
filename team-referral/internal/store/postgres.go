@@ -176,3 +176,18 @@ func (r *PostgresReferralRepo) PurgeProcessedEvents(ctx context.Context, before 
 	}
 	return tag.RowsAffected(), nil
 }
+
+func (r *PostgresReferralRepo) EraseUser(ctx context.Context, userID string) error {
+	return r.inTx(ctx, func(tx pgx.Tx) error {
+		for _, q := range []string{
+			`DELETE FROM referral_codes WHERE user_id = $1`,
+			`DELETE FROM referral_accounts WHERE user_id = $1`,
+			`DELETE FROM referral_buyer_orders WHERE buyer_id = $1`,
+		} {
+			if _, err := tx.Exec(ctx, q, userID); err != nil {
+				return fmt.Errorf("erase user: %w", err)
+			}
+		}
+		return nil
+	})
+}

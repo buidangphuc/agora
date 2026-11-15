@@ -56,6 +56,8 @@ type Events struct {
 	EngagementTopic string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
 	DisputeGroup    string `env:"ORDER_DISPUTE_CONSUMER_GROUP" default:"team-order.dispute"`
 	EngagementDLQ   string `env:"ENGAGEMENT_EVENTS_DLQ_TOPIC" default:"engagement.events.order.dlq"`
+	ErasureGroup    string `env:"ORDER_ERASURE_CONSUMER_GROUP" default:"team-order.erasure"`
+	ErasureDLQ      string `env:"ORDER_ERASURE_DLQ_TOPIC" default:"identity.events.order.dlq"`
 }
 
 type Reservation struct {

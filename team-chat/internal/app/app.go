@@ -2,10 +2,12 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
@@ -82,6 +84,11 @@ func RunWithOptions(ctx context.Context, s config.Settings, o Options) (err erro
 		stack.Push(func(context.Context) error { c.Close(); return nil })
 	}
 
+	dlq, ok := pub.(consume.DLQProducer)
+	if !ok {
+		return errors.New("kafka: publisher cannot produce to the DLQ")
+	}
+
 	repo := store.NewPostgresChatRepository(pool, store.WithMessageOutbox(events.BuildMessageOutboxRow))
 	h, err := rpc.NewHandler(chat.NewService(repo, logger), logger)
 	if err != nil {
@@ -116,6 +123,28 @@ func RunWithOptions(ctx context.Context, s config.Settings, o Options) (err erro
 		return err
 	}
 
+	var fp *kafkax.Fingerprinter
+	if s.Events.LogKeyFPSecret != "" {
+		if fp, err = kafkax.NewFingerprinter(s.Events.LogKeyFPSecret); err != nil {
+			return fmt.Errorf("log key fingerprint: %w", err)
+		}
+	}
+	if s.Events.IdentityTopic == "" {
+		s.Events.IdentityTopic = "identity.events"
+	}
+	if s.Events.ErasureConsumerGroup == "" {
+		s.Events.ErasureConsumerGroup = "team-chat-erasure"
+	}
+	identityClient, err := events.NewIdentityClient(s.Kafka, s.Events.ErasureConsumerGroup, s.Events.IdentityTopic)
+	if err != nil {
+		return fmt.Errorf("kafka: %w", err)
+	}
+	stack.Push(func(context.Context) error { identityClient.Close(); return nil })
+	erasureConsumer, err := events.NewIdentityConsumer(identityClient, repo, dlq, s.Events.IdentityTopic, fp, logger)
+	if err != nil {
+		return fmt.Errorf("consumer %s: %w", s.Events.ErasureConsumerGroup, err)
+	}
+
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace + 2*closeGrace,
 		CloseGrace:    closeGrace,
@@ -123,5 +152,5 @@ func RunWithOptions(ctx context.Context, s config.Settings, o Options) (err erro
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, erasureConsumer))
 }

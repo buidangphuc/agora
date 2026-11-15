@@ -151,3 +151,19 @@ func TestCoverageSummaryHasNoRemovedPackages_SmokeWholeService(t *testing.T) {
 		}
 	}
 }
+
+func TestReadmeDocumentsPayoutObligationsAndErasure(t *testing.T) {
+	// PAY-7, PAY-8, PER-1: contract table and events table
+	md := read(t, "README.md")
+	contract := section(t, md, "Contract")
+	for _, want := range []string{"GetPayoutObligations", "payment.internal.read"} {
+		if !strings.Contains(contract, want) {
+			t.Errorf("README Contract section does not mention %q", want)
+		}
+	}
+	for _, want := range []string{"identity.events", "UserErased", "team-payment.erasure", "identity.events.payment.dlq", "PAYMENT_ERASURE_CONSUMER_GROUP", "PAYMENT_ERASURE_DLQ_TOPIC", "Đã xóa"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("README does not mention %q", want)
+		}
+	}
+}

@@ -24,6 +24,9 @@ type Notification struct {
 	OrderTopic           string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
 	OrderDLQTopic        string `env:"ORDER_EVENTS_DLQ_TOPIC" default:"order.events.dlq"`
 	OrderConsumerGroup   string `env:"NOTIFICATION_ORDER_CONSUMER_GROUP" default:"team-notification.order"`
+
+	IdentityTopic        string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
+	ErasureConsumerGroup string `env:"KAFKA_ERASURE_CONSUMER_GROUP" default:"team-notification-erasure"`
 }
 
 func (n Notification) Validate() error {

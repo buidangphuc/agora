@@ -33,6 +33,8 @@ type Events struct {
 	OrderTopic    string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
 	ConsumerGroup string `env:"PAYMENT_SETTLEMENT_CONSUMER_GROUP" default:"team-payment.settlement"`
 	DLQTopic      string `env:"PAYMENT_SETTLEMENT_DLQ_TOPIC" default:"order.events.payment-settlement.dlq"`
+	ErasureGroup  string `env:"PAYMENT_ERASURE_CONSUMER_GROUP" default:"team-payment.erasure"`
+	ErasureDLQ    string `env:"PAYMENT_ERASURE_DLQ_TOPIC" default:"identity.events.payment.dlq"`
 }
 
 type Payout struct {

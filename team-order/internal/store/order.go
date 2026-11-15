@@ -756,3 +756,56 @@ func (r *PostgresOrderRepository) MarkReminderSent(ctx context.Context, id strin
 	}
 	return o, nil
 }
+
+type UserObligations struct {
+	OpenBuyerOrders  int32
+	OpenSellerOrders int32
+	OpenReturns      int32
+}
+
+func (r *PostgresOrderRepository) UserObligations(ctx context.Context, userID string) (UserObligations, error) {
+	const q = `SELECT
+		(SELECT count(*) FROM orders WHERE buyer_id = $1 AND status = ANY($2)),
+		(SELECT count(*) FROM orders WHERE seller_id = $1 AND status = ANY($2)),
+		(SELECT count(*) FROM order_returns WHERE (buyer_id = $1 OR seller_id = $1) AND status = ANY($3))`
+	openOrders := []int32{int32(OrderStatusPending), int32(OrderStatusPaid), int32(OrderStatusShipped)}
+	openReturns := []int32{int32(ReturnStatusPending), int32(ReturnStatusApproved)}
+	var out UserObligations
+	if err := r.pool.QueryRow(ctx, q, userID, openOrders, openReturns).Scan(&out.OpenBuyerOrders, &out.OpenSellerOrders, &out.OpenReturns); err != nil {
+		return UserObligations{}, fmt.Errorf("user obligations: %w", err)
+	}
+	return out, nil
+}
+
+const erasedMask = "Đã xóa"
+
+func (r *PostgresOrderRepository) EraseUser(ctx context.Context, userID string) (err error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("erase user: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	const maskAddress = `UPDATE orders SET shipping_address = jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+		shipping_address,
+		'{recipient_name}', to_jsonb($2::text), false),
+		'{phone}', to_jsonb($2::text), false),
+		'{street}', to_jsonb($2::text), false),
+		'{ward}', to_jsonb($2::text), false),
+		'{district}', to_jsonb($2::text), false),
+		'{city}', to_jsonb($2::text), false)
+		WHERE buyer_id = $1`
+	if _, err := tx.Exec(ctx, maskAddress, userID, erasedMask); err != nil {
+		return fmt.Errorf("erase user: mask addresses: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE order_returns SET reason = $2 WHERE buyer_id = $1`, userID, erasedMask); err != nil {
+		return fmt.Errorf("erase user: mask return reasons: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM cart_items WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("erase user: delete cart: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("erase user: commit: %w", err)
+	}
+	return nil
+}

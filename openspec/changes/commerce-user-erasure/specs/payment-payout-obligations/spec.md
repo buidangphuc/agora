@@ -20,20 +20,24 @@ with scope `payment.internal.read` and SHALL NOT be routed at the gateway.
 - **GIVEN** S has payout requests in COMPLETED and REJECTED status only
 - **WHEN** the service calls `GetPayoutObligations` for S
 - **THEN** `pending_payouts` is 0
+- **VERIFIED BY**: team-payment/internal/store TestPayoutObligationsBalances
 
 #### Scenario: PAY-4 A negative balance reads as no available money
 - **GIVEN** S's ledger sum is -50000 after a refund deduction
 - **WHEN** the service calls `GetPayoutObligations` for S
 - **THEN** `available_balance` is 0
+- **VERIFIED BY**: team-payment/internal/store TestPayoutObligationsBalances
 
 #### Scenario: PAY-5 Another seller's money is not included
 - **GIVEN** S has ledger credits of 100000 outside the hold window and T has ledger credits of 900000
 - **WHEN** the service calls `GetPayoutObligations` for S
 - **THEN** `available_balance` is 100000 and `held_balance` is 0
+- **VERIFIED BY**: team-payment/internal/store TestPayoutObligationsBalances
 
 #### Scenario: PAY-6 An empty user id is rejected
 - **WHEN** the service calls `GetPayoutObligations` with `user_id` ""
 - **THEN** the call fails with `INVALID_ARGUMENT`
+- **VERIFIED BY**: team-payment/internal/rpc TestGetPayoutObligationsRejectsEmptyUserID
 
 #### Scenario: PAY-7 A user principal is refused
 - **WHEN** a signed-in USER principal, including a seller reading its own wallet, calls `GetPayoutObligations`
@@ -55,3 +59,5 @@ with scope `payment.internal.read` and SHALL NOT be routed at the gateway.
 - **GIVEN** the payment database is unreachable
 - **WHEN** the service calls `GetPayoutObligations` for S
 - **THEN** the call fails with a non-OK gRPC status and the response carries no balances
+- **VERIFIED BY**: team-payment/internal/rpc TestGetPayoutObligationsStoreFailure
+
