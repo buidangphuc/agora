@@ -16,7 +16,7 @@ spec: plans/docs-ai-data/00-spec.md (Locked 2026-11-13)
 | ai-copilot-grounding | team-ai | [docs-ai-data-contract, ai-assistant-grounding] | 1 | pass | pass (1 PERM warning, false positive) | pass | ENGINE_DOWN (LLM fallback) | f1c635233431 | [x] |
 | seller-forecast-card | team-frontend-seller | [analytics-forecast-serving, ai-copilot-grounding] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c22f5e119ead | [x] |
 | admin-insights-panels | team-frontend-admin | [analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4f298a3bd310 | [x] |
-| buyer-ai-surfaces-ui | team-frontend | [ai-assistant-grounding, ai-copilot-grounding, analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a20103630a0a | [x] |
+| buyer-ai-surfaces-ui | team-frontend | [ai-assistant-grounding, ai-copilot-grounding, analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 89bc443965e2 | [x] |
 
 decide.py was ENGINE_DOWN for every slice (no Kev engine or units file; system python lacks `yaml`). Each verdict is the spec-quality-reviewer's own checklist.
 
