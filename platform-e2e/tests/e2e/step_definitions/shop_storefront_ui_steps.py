@@ -19,6 +19,7 @@ from tests.e2e.step_definitions.storefront_customisation_steps import (
     _ids,
     _save,
     _seller_id,
+    seller_moves_to_draft,
 )
 from tests.e2e.support.world import World
 
@@ -56,6 +57,11 @@ def _goto(world: World, seller_id: str) -> None:
 @given(parsers.parse('the seller sets the storefront theme to "{theme}"'))
 def seller_sets_theme(world: World, theme: str) -> None:
     _save(world, theme=theme)
+
+
+@given(parsers.parse('the seller moves listing "{letter}" to draft'))
+def seller_moved_to_draft(world: World, letter: str) -> None:
+    seller_moves_to_draft(world, letter)
 
 
 @given("a second seller with a default theme storefront")

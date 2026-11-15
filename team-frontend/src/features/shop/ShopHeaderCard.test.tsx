@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { ViewStorefront } from "@/lib/gateway/listings";
 import type { ViewShopRatingSummary } from "@/lib/gateway/reviews";
 import { ShopHeaderCard } from "./ShopHeaderCard";
+import { SHOP_THEMES } from "./shopTheme";
 
 const rated: ViewShopRatingSummary = {
   sellerId: "seller-abcdef123",
@@ -219,5 +220,24 @@ describe("ShopHeaderCard hero theme", () => {
     };
     expect(cls("festive")).not.toEqual(cls("default"));
     expect(cls("dark")).not.toEqual(cls("default"));
+  });
+
+  it("[A themed shop renders its theme] the header strip carries the theme colour without a tagline", () => {
+    const strip = (theme: string) => {
+      const { unmount } = render(
+        <ShopHeaderCard
+          variant="hero"
+          sellerId="seller-abcdef123"
+          storefront={storefront({ theme, tagline: "" })}
+          summary={rated}
+        />,
+      );
+      const cls = screen.getByTestId("shop-header-strip").className;
+      unmount();
+      return cls;
+    };
+    expect(strip("festive")).toContain(SHOP_THEMES.festive.headerBg);
+    expect(strip("default")).toContain(SHOP_THEMES.default.headerBg);
+    expect(strip("festive")).not.toEqual(strip("default"));
   });
 });

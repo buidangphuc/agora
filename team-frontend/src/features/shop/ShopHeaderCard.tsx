@@ -76,13 +76,15 @@ export function ShopHeaderCard({
           radius="none"
         />
       )}
-      {storefront?.tagline && (
-        <p
-          className={`border-b border-border-subtle px-5 py-3 text-sm font-medium ${theme.headerBg} ${theme.headerText}`}
-        >
-          {storefront.tagline}
-        </p>
-      )}
+      <div
+        data-testid="shop-header-strip"
+        aria-hidden={storefront?.tagline ? undefined : true}
+        className={`border-b border-border-subtle ${theme.headerBg} ${theme.headerText} ${storefront?.tagline ? "px-5 py-3" : "h-2"}`}
+      >
+        {storefront?.tagline && (
+          <p className="text-sm font-medium">{storefront.tagline}</p>
+        )}
+      </div>
       <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-12 md:items-center">
         <div className="flex min-w-0 items-center gap-4 md:col-span-5">
           <Avatar name={name} size="xl" />
