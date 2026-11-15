@@ -45,8 +45,12 @@ func (h *AuthHandler) WithExposeResetToken(on bool) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(ctx context.Context, req *identityv1.RegisterRequest) (*identityv1.RegisterResponse, error) {
-	res, err := h.svc.RegisterWithReferral(withClient(ctx), req.GetUsername(), req.GetPassword(), req.GetRole(), req.GetReferralCode())
+	res, err := h.svc.RegisterWithConsent(withClient(ctx), req.GetUsername(), req.GetPassword(), req.GetRole(), req.GetReferralCode(), req.GetTermsVersion(), req.GetPrivacyVersion())
 	if err != nil {
+		var fe *identity.FieldError
+		if errors.As(err, &fe) {
+			return nil, status.Error(codes.InvalidArgument, fe.Error())
+		}
 		return nil, statusErr(ctx, h.logger, err)
 	}
 	return &identityv1.RegisterResponse{Result: toResult(res)}, nil

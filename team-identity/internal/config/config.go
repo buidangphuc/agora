@@ -157,6 +157,29 @@ func (s SellerTerms) Validate() error {
 	return errors.New("SELLER_TERMS_VERSIONS is required (comma-separated accepted terms versions)")
 }
 
+func requireVersions(key string, versions []string) error {
+	for _, v := range versions {
+		if strings.TrimSpace(v) != "" {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s is required (comma-separated versions, first entry is current)", key)
+}
+
+type LegalTerms struct {
+	Versions []string `env:"LEGAL_TERMS_VERSIONS"`
+}
+
+func (l LegalTerms) Validate() error { return requireVersions("LEGAL_TERMS_VERSIONS", l.Versions) }
+
+type PrivacyPolicy struct {
+	Versions []string `env:"PRIVACY_POLICY_VERSIONS"`
+}
+
+func (p PrivacyPolicy) Validate() error {
+	return requireVersions("PRIVACY_POLICY_VERSIONS", p.Versions)
+}
+
 type Settings struct {
 	sdkconfig.Runtime
 	sdkconfig.GRPC
@@ -174,6 +197,8 @@ type Settings struct {
 	Retention     Retention
 	Handoff       Handoff
 	SellerTerms   SellerTerms
+	LegalTerms    LegalTerms
+	PrivacyPolicy PrivacyPolicy
 }
 
 func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

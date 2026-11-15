@@ -131,7 +131,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 	if err != nil {
 		return nil, err
 	}
-	svc.WithHandoff(store.NewPostgresHandoffRepository(pool)).WithSellerTerms(s.SellerTerms.Versions)
+	svc.WithHandoff(store.NewPostgresHandoffRepository(pool)).WithSellerTerms(s.SellerTerms.Versions).WithLegalVersions(s.LegalTerms.Versions, s.PrivacyPolicy.Versions)
 	if s.Handoff.TTLOverride > 0 {
 		svc.WithHandoffTTL(s.Handoff.TTLOverride)
 	}
@@ -151,6 +151,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 		Session: rpc.NewSessionHandler(sessions, logger).WithTokenTTL(ttl),
 		Profile: rpc.NewProfileHandler(users, logger),
 		Admin:   rpc.NewAccountAdminHandler(svc, users, logger),
+		Privacy: rpc.NewPrivacyHandler(users, s.LegalTerms, s.PrivacyPolicy, s.SellerTerms, logger),
 	})
 
 	relayer, err := outbox.NewRelayer(outStore, pub, outbox.RelayerOptions{

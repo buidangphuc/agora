@@ -112,6 +112,8 @@ func localEnv(t *testing.T) {
 	t.Setenv("JWT_PRIVATE_KEY", freshPEM(t))
 	t.Setenv("JWT_KID", "k1")
 	t.Setenv("SELLER_TERMS_VERSIONS", "V1")
+	t.Setenv("LEGAL_TERMS_VERSIONS", "2026-11,2026-05")
+	t.Setenv("PRIVACY_POLICY_VERSIONS", "2026-11")
 }
 
 func strictEnv(t *testing.T, env string) {

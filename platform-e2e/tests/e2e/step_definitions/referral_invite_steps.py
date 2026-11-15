@@ -35,6 +35,7 @@ from src.api.services.base_service import BaseService, GatewayError
 from src.api.services.referral_service import ReferralService
 from src.api.services.sharing_service import SharingService
 from src.constants import gateway_endpoints as ep
+from src.constants import legal_versions as legal
 from src.constants import timeouts
 from src.core.base_page import goto_streamed
 from src.models import User
@@ -87,6 +88,7 @@ def _register_api(username: str, referral_code: str = "") -> str:
         "username": username,
         "password": SETTINGS.seed_password,
         "role": "buyer",
+        **legal.versions(),
     }
     if referral_code:
         body["referralCode"] = referral_code
