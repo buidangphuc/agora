@@ -132,3 +132,51 @@ func (f *AnalyticsQueryForwarder) GetChannelFunnel(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *AnalyticsQueryForwarder) GetRetentionCohorts(
+	ctx context.Context,
+	req *connect.Request[analyticsv1.GetRetentionCohortsRequest],
+) (*connect.Response[analyticsv1.GetRetentionCohortsResponse], error) {
+	var out *analyticsv1.GetRetentionCohortsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetRetentionCohorts(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *AnalyticsQueryForwarder) GetExperimentReadout(
+	ctx context.Context,
+	req *connect.Request[analyticsv1.GetExperimentReadoutRequest],
+) (*connect.Response[analyticsv1.GetExperimentReadoutResponse], error) {
+	var out *analyticsv1.GetExperimentReadoutResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetExperimentReadout(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *AnalyticsQueryForwarder) GetAiSurfaceReport(
+	ctx context.Context,
+	req *connect.Request[analyticsv1.GetAiSurfaceReportRequest],
+) (*connect.Response[analyticsv1.GetAiSurfaceReportResponse], error) {
+	var out *analyticsv1.GetAiSurfaceReportResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetAiSurfaceReport(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}

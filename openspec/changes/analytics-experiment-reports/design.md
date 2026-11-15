@@ -27,3 +27,7 @@ D9. No BigQuery implementation: `OpenWarehouse` for BigQuery yields a repository
 - Anonymous exposure rows are not stitched until sign-in, so early readouts undercount conversions; documented in the README.
 - Small cohorts give wide intervals by design; the interval conveys it.
 - Hot files shared with `analytics-forecast-serving`: serialised by initiative-build; new code lives in new files.
+
+## Clarifications
+
+- D4 (user, 2026-11-15): a visitor whose earliest exposure to the flag has variant `unassigned` is excluded from the readout entirely; they are not re-counted under a later exposure's variant.

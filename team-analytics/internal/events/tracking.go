@@ -93,6 +93,8 @@ func eventTypeName(t analyticsv1.EventType) string {
 		return "daily_check_in"
 	case analyticsv1.EventType_EVENT_TYPE_ALERT_SUBSCRIBE:
 		return "alert_subscribe"
+	case analyticsv1.EventType_EVENT_TYPE_EXPERIMENT_EXPOSURE:
+		return "experiment_exposure"
 	case analyticsv1.EventType_EVENT_TYPE_AI_INTERACTION:
 		return "ai_interaction"
 	case analyticsv1.EventType_EVENT_TYPE_VIEW:

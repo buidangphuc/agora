@@ -3177,3 +3177,179 @@ features:
     status: automated
     covered_by: recommendations/cart_cross_sell.feature::Gateway forwards context ids
     notes: "recsys-cart-cross-sell: recommendations/cart_cross_sell.feature. Red until the change is implemented."
+
+  - id: gateway.aer-admin-reads-each-report-through-the-gateway
+    title: "Admin reads each report through the gateway"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Admin reads each report through the gateway"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the seeded admin calls the three procedures through the gateway"
+      - "Then each returns 200 with the team-analytics response unchanged"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/experiment_reports_access.feature. Red until the change is implemented."
+
+  - id: gateway.aer-buyer-or-seller-is-refused-at-the-edge
+    title: "Buyer or seller is refused at the edge"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Buyer or seller is refused at the edge"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a logged-in buyer, then a logged-in seller, calls each of the three procedures through the gateway"
+      - "Then every call returns 403 and team-analytics receives no request"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/experiment_reports_access.feature. Red until the change is implemented."
+
+  - id: gateway.aer-anonymous-caller-is-refused-at-the-edge
+    title: "Anonymous caller is refused at the edge"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Anonymous caller is refused at the edge"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a caller without a token calls each of the three procedures through the gateway"
+      - "Then every call returns 401"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/policy_test.go TestPolicy_ReportProceduresRequireAuthentication. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: gateway.aer-procedures-are-registered-as-admin-gated
+    title: "Procedures are registered as admin-gated"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Procedures are registered as admin-gated"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When `adminProcedures` is inspected"
+      - "Then the three report procedures map to `adminScope`"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/policy_test.go TestPolicy_ReportProceduresAreAdminGated. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: gateway.aer-upstream-failure-is-surfaced-not-masked
+    title: "Upstream failure is surfaced, not masked"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Upstream failure is surfaced, not masked"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When team-analytics answers `Unavailable` to a forwarded report call"
+      - "Then the gateway returns the same error code to the admin and no partial body"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/analytics_test.go TestReportForwarder_UnavailablePassesThrough. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: gateway.aer-a-valid-exposure-is-stored
+    title: "A valid exposure is stored"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: A valid exposure is stored"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts a beacon of type `experiment_exposure` with properties `flag` `home-feed-ranker` and `variant` `treatment`"
+      - "Then the warehouse holds one row with `event_type` `experiment_exposure` and `properties` equal to those two keys and values"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: tracking/experiment_exposure.feature. Red until the change is implemented."
+
+  - id: gateway.aer-a-third-property-is-rejected
+    title: "A third property is rejected"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: A third property is rejected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a beacon of type `experiment_exposure` carries `flag`, `variant` and `note`"
+      - "Then the collector drops it with the invalid-properties error and nothing is published"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExposureRejectsExtraProperty. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: gateway.aer-free-text-or-an-email-in-a-value-is-rejected
+    title: "Free text or an email in a value is rejected"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Free text or an email in a value is rejected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a beacon of type `experiment_exposure` has `variant` `Jane Doe jane@example.com`"
+      - "Then the collector drops it and nothing is published"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExposureRejectsFreeText. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: gateway.aer-missing-property-is-rejected
+    title: "Missing property is rejected"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Missing property is rejected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a beacon of type `experiment_exposure` has only `flag`"
+      - "Then the collector drops it and nothing is published"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExposureRejectsMissingVariant. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: gateway.aer-value-length-boundary
+    title: "Value length boundary"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Value length boundary"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When beacons carry a 64-character `variant`, then a 65-character `variant`"
+      - "Then the first is published and the second is dropped"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExposureValueLengthBoundary. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: gateway.aer-existing-event-types-are-unaffected
+    title: "Existing event types are unaffected"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Existing event types are unaffected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the previously accepted beacon types, including `ai_interaction` with its closed properties, are posted after the change"
+      - "Then each is accepted or rejected exactly as before"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExistingTypesUnchanged. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
