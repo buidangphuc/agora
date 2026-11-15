@@ -121,9 +121,7 @@ def _seed_orders(w: s.OicWorld, plan: list[str]) -> None:
         return {"id": oid, "status": status, "title": title}
 
     def run(worker: int) -> list[tuple[int, dict[str, str]]]:
-        return [
-            (n, place((worker, n, plan[n]))) for n in range(worker, len(plan), workers)
-        ]
+        return [(n, place((worker, n, plan[n]))) for n in range(worker, len(plan), workers)]
 
     with ThreadPoolExecutor(workers) as pool:
         placed = [row for rows in pool.map(run, range(workers)) for row in rows]
@@ -611,10 +609,12 @@ def _wait_ready(w: s.OicWorld, timeout_s: float = 90.0) -> None:
     probes = [
         lambda: s.post(w, seller, s.ORDER, "ListSellerOrders", {}).status_code == 200,
         lambda: s.post(w, seller, s.LISTING, "ListMyListings", {}).status_code == 200,
-        lambda: s.post(
-            w, seller, s.CART, "AddToCart", {"listingId": str(uuid.uuid4()), "quantity": 1}
-        ).status_code
-        not in (502, 503, 504),
+        lambda: (
+            s.post(
+                w, seller, s.CART, "AddToCart", {"listingId": str(uuid.uuid4()), "quantity": 1}
+            ).status_code
+            not in (502, 503, 504)
+        ),
     ]
     deadline = time.monotonic() + timeout_s
     for probe in probes:
