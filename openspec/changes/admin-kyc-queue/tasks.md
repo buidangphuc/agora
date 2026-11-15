@@ -15,9 +15,9 @@ and on verification-kyc-documents for the gateway routes. Regenerate stubs with 
 
 ## 2. E2E track (platform-e2e; FEATURES.yaml by e2e-author)
 
-- [ ] 2.1 Feature file `admin/kyc_queue.feature` covering every scenario in `specs/admin-kyc-queue-ui/spec.md`; replace each `VERIFIED BY: TBD` with its path and scenario title
-- [ ] 2.2 Steps that create pending submissions through the real RPCs (seller `CreateKycUploadUrl`, presigned PUT, `SubmitKyc`), no route fulfils or fake services; reuse the seller/admin login helpers (scenarios: Pending submissions are listed oldest first, Page boundary at 20 rows)
-- [ ] 2.3 Step asserting audit entries via the existing audit query RPC filtered by action `kyc.document_view` (scenarios: Viewing a document reveals a 5-minute link and writes the audit entry, Each view is a separate audited call)
-- [ ] 2.4 Step that stops team-audit (or uses the existing audit-down overlay) for the fail-closed case (scenarios: Audit store down fails closed, Review failure leaves the row unchanged)
-- [ ] 2.5 Two-admin race and self-review steps (scenarios: Second decision on the same submission fails, Reviewing your own submission is refused)
-- [ ] 2.6 `team-frontend-admin/FEATURES.yaml` entry `admin.kyc-queue` (e2e-author)
+- [x] 2.1 Feature file `admin/kyc_queue.feature` covering every scenario in `specs/admin-kyc-queue-ui/spec.md`; replace each `VERIFIED BY: TBD` with its path and scenario title
+- [x] 2.2 Steps that create pending submissions through the real RPCs (seller `CreateKycUploadUrl`, presigned PUT, `SubmitKyc`), no route fulfils or fake services; reuse the seller/admin login helpers (scenarios: Pending submissions are listed oldest first, Page boundary at 20 rows)
+- [x] 2.3 Step asserting audit entries via the existing audit query RPC filtered by action `kyc.document_view` (scenarios: Viewing a document reveals a 5-minute link and writes the audit entry, Each view is a separate audited call)
+- [x] 2.4 Step that stops team-audit (or uses the existing audit-down overlay) for the fail-closed case (scenarios: Audit store down fails closed, Review failure leaves the row unchanged)
+- [x] 2.5 Two-admin race and self-review steps (scenarios: Second decision on the same submission fails, Reviewing your own submission is refused)
+- [x] 2.6 `team-frontend-admin/FEATURES.yaml` entry `admin.kyc-queue` (e2e-author)

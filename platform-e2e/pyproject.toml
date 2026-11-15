@@ -64,6 +64,7 @@ markers = [
     "retention_default: control that needs the default stack (no session-retention override)",
     "handoff_ttl_override: needs compose/handoff-ttl.override.yaml on team-identity (ENV=test, HANDOFF_TTL_OVERRIDE=5s)",
     "slow: waits on a real timer (a prune cycle, an expiry) and takes over a minute",
+    "kyc_queue: admin KYC verification tab at /admin/cases?tab=kyc (change admin-kyc-queue)",
     "lifecycle_timers: waits on the short order-lifecycle timers of compose/order-inventory.override.yaml (payment deadline, auto-complete, return window, ship-by)",
     "lifecycle_ui: order lifecycle buyer and seller UI (change frontend-order-lifecycle)",
     "checkout_coherence: checkout groups, scoped vouchers, delivery dates, address integrity and per-order payment in the buyer UI (change frontend-checkout-coherence)",

@@ -3325,3 +3325,437 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-admin/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: admin.kyc-queue-anonymous-redirect
+    title: "KYC queue: Anonymous visitor is redirected to login"
+    persona: admin
+    priority: P1
+    summary: "Anonymous visitor is redirected to login"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When a request with no session cookie opens `/admin/cases?tab=kyc`"
+      - "Then the page redirects to `/login` with a return URL for the same page and `ListKycSubmissions` is called 0 times"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-non-admin-403
+    title: "KYC queue: Non-admin sees the 403 result"
+    persona: admin
+    priority: P1
+    summary: "Non-admin sees the 403 result"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When a signed-in buyer or seller without the `admin` scope opens `/admin/cases?tab=kyc`"
+      - "Then the page renders status 403 titled \"Cần tài khoản Quản trị\" and `ListKycSubmissions` is called 0 times"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-unit-gateway-refusal-is-shown-as-the-same-403
+    title: "KYC queue: Gateway refusal is shown as the same 403"
+    persona: admin
+    priority: P2
+    summary: "Gateway refusal is shown as the same 403 (unit-verified)"
+    entry_route: /admin/cases
+    services: [team-frontend-admin]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the principal carries the `admin` scope but the gateway answers `PermissionDenied` to `ListKycSubmissions`"
+      - "Then the page renders the 403 result with the sub-text \"Gateway từ chối quyền admin cho phiên đăng nhập này.\" and no table"
+    tags: [admin, kyc_queue, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cases/page.test.tsx` `kyc tab: gateway PermissionDenied renders the 403 result`. Needs a gateway refusal, a forged server-action call or an unavailable upstream that the real stack cannot be driven into from the browser."
+
+  - id: admin.kyc-queue-unit-expired-session-is-sent-to-login
+    title: "KYC queue: Expired session is sent to login"
+    persona: admin
+    priority: P2
+    summary: "Expired session is sent to login (unit-verified)"
+    entry_route: /admin/cases
+    services: [team-frontend-admin]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the gateway answers `Unauthenticated` to `ListKycSubmissions` for an admin principal"
+      - "Then the page redirects to `/login`"
+    tags: [admin, kyc_queue, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cases/page.test.tsx` `kyc tab: Unauthenticated redirects to login`. Needs a gateway refusal, a forged server-action call or an unavailable upstream that the real stack cannot be driven into from the browser."
+
+  - id: admin.kyc-queue-tab-strip
+    title: "KYC queue: Tab appears next to the existing tabs"
+    persona: admin
+    priority: P1
+    summary: "Tab appears next to the existing tabs"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin opens `/admin/cases?tab=reports`"
+      - "Then the tab strip shows \"Báo cáo\", \"Hàng chờ duyệt\" and \"Xác minh người bán\" and the last links to `/admin/cases?tab=kyc`"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-oldest-first
+    title: "KYC queue: Pending submissions are listed oldest first"
+    persona: admin
+    priority: P1
+    summary: "Pending submissions are listed oldest first"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin opens `/admin/cases?tab=kyc` while 3 submissions are `PENDING`, created at t1 < t2 < t3"
+      - "Then the table shows 3 rows in the order t1, t2, t3, each with its user id, document count and time in UTC+07:00"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-page-boundary
+    title: "KYC queue: Page boundary at 20 rows"
+    persona: admin
+    priority: P1
+    summary: "Page boundary at 20 rows"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When 21 submissions are `PENDING` and the admin opens the tab"
+      - "Then the table shows 20 rows and a \"Trang sau\" link, and following it shows the 21st row and no \"Trang sau\" link"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-unit-unknown-status-or-oversized-cursor-falls-back
+    title: "KYC queue: Unknown status or oversized cursor falls back"
+    persona: admin
+    priority: P2
+    summary: "Unknown status or oversized cursor falls back (unit-verified)"
+    entry_route: /admin/cases
+    services: [team-frontend-admin]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin opens `/admin/cases?tab=kyc&status=bogus&cursor=` followed by 300 characters"
+      - "Then the page does not error, calls `ListKycSubmissions` with status `PENDING` and a cursor of exactly 256 characters"
+    tags: [admin, kyc_queue, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cases/casesParams.test.ts` `kyc status falls back to PENDING and cursor is capped at 256`. Needs a gateway refusal, a forged server-action call or an unavailable upstream that the real stack cannot be driven into from the browser."
+
+  - id: admin.kyc-queue-empty-queue
+    title: "KYC queue: Empty queue"
+    persona: admin
+    priority: P1
+    summary: "Empty queue"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When no submission is `PENDING` and an admin opens the tab"
+      - "Then the page shows the empty message \"Không có hồ sơ nào đang chờ duyệt.\" and no table rows"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-decided-filter
+    title: "KYC queue: Decided submissions are reachable through the filter"
+    persona: admin
+    priority: P1
+    summary: "Decided submissions are reachable through the filter"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin opens `/admin/cases?tab=kyc&status=REJECTED` while one submission was rejected with reason code `document_unreadable`"
+      - "Then the row shows status \"Đã từ chối\", the reason code and no \"Duyệt\" or \"Từ chối\" buttons"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-unit-list-failure-shows-a-retry-message
+    title: "KYC queue: List failure shows a retry message"
+    persona: admin
+    priority: P2
+    summary: "List failure shows a retry message (unit-verified)"
+    entry_route: /admin/cases
+    services: [team-frontend-admin]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When `ListKycSubmissions` fails with `UNAVAILABLE` or times out after 5 seconds"
+      - "Then the tab strip stays visible and the page shows the alert \"Không tải được danh sách hồ sơ xác minh. Vui lòng thử lại sau.\" with no upstream address or stack text"
+    tags: [admin, kyc_queue, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cases/page.test.tsx` `kyc tab: list failure shows the retry alert`. Needs a gateway refusal, a forged server-action call or an unavailable upstream that the real stack cannot be driven into from the browser."
+
+  - id: admin.kyc-queue-view-document-audited
+    title: "KYC queue: Viewing a document reveals a 5-minute link and writes the audit entry"
+    persona: admin
+    priority: P1
+    summary: "Viewing a document reveals a 5-minute link and writes the audit entry"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin clicks \"Xem tài liệu 1\" on a pending submission with 2 documents"
+      - "Then one `kyc.document_view` audit entry exists with the admin as actor and that submission id, and the row shows a \"Mở tài liệu\" link whose expiry is at most 5 minutes after the click"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-each-view-audited
+    title: "KYC queue: Each view is a separate audited call"
+    persona: admin
+    priority: P1
+    summary: "Each view is a separate audited call"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin clicks \"Xem tài liệu 1\" twice and \"Xem tài liệu 2\" once for the same submission"
+      - "Then the audit log holds 3 `kyc.document_view` entries for that submission"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-no-url-before-click
+    title: "KYC queue: No document URL is present before the click"
+    persona: admin
+    priority: P1
+    summary: "No document URL is present before the click"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin opens the tab and no \"Xem tài liệu\" button was clicked"
+      - "Then the rendered page contains 0 presigned URLs and `GetKycDocumentUrl` is called 0 times"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-audit-down-fails-closed
+    title: "KYC queue: Audit store down fails closed"
+    persona: admin
+    priority: P1
+    summary: "Audit store down fails closed"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin clicks \"Xem tài liệu 1\" while the gateway answers `UNAVAILABLE` because the audit entry cannot be written"
+      - "Then the row shows the alert \"Không ghi được nhật ký truy cập nên chưa mở được tài liệu. Vui lòng thử lại sau.\" and no \"Mở tài liệu\" link exists"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-document-button-count
+    title: "KYC queue: Document button count matches the document count"
+    persona: admin
+    priority: P1
+    summary: "Document button count matches the document count"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When a submission has `document_count` 3"
+      - "Then the row shows exactly 3 buttons \"Xem tài liệu 1\" to \"Xem tài liệu 3\" and no button for index 3"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-unit-a-non-admin-cannot-obtain-a-document-link
+    title: "KYC queue: A non-admin cannot obtain a document link"
+    persona: admin
+    priority: P2
+    summary: "A non-admin cannot obtain a document link (unit-verified)"
+    entry_route: /admin/cases
+    services: [team-frontend-admin]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a session without the `admin` scope invokes the view-document server action"
+      - "Then the action returns the message \"Bạn không có quyền thực hiện thao tác này.\" and `GetKycDocumentUrl` is called 0 times"
+    tags: [admin, kyc_queue, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cases/kycActions.test.ts` `viewKycDocumentAction refuses a non-admin`. Needs a gateway refusal, a forged server-action call or an unavailable upstream that the real stack cannot be driven into from the browser."
+
+  - id: admin.kyc-queue-unit-unknown-submission-or-index-is-refused
+    title: "KYC queue: Unknown submission or index is refused"
+    persona: admin
+    priority: P2
+    summary: "Unknown submission or index is refused (unit-verified)"
+    entry_route: /admin/cases
+    services: [team-frontend-admin]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the gateway answers `NOT_FOUND` or `INVALID_ARGUMENT` to `GetKycDocumentUrl`"
+      - "Then the row shows \"Không tìm thấy tài liệu này.\" and no link"
+    tags: [admin, kyc_queue, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cases/kycActions.test.ts` `viewKycDocumentAction maps not_found and invalid to the not found message`. Needs a gateway refusal, a forged server-action call or an unavailable upstream that the real stack cannot be driven into from the browser."
+
+  - id: admin.kyc-queue
+    title: "KYC queue: Approve removes the row and verifies the seller"
+    persona: admin
+    priority: P1
+    summary: "Approve removes the row and verifies the seller"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin clicks \"Duyệt\" on a pending submission"
+      - "Then a success toast \"Đã duyệt hồ sơ xác minh.\" shows, the row is gone from the pending list, and `GetVerificationStatus` for that seller returns `VERIFIED`"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-reject-reason
+    title: "KYC queue: Reject with a reason code"
+    persona: admin
+    priority: P1
+    summary: "Reject with a reason code"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin clicks \"Từ chối\", picks \"Giấy tờ không đọc được\" and confirms"
+      - "Then `ReviewKyc` is called with decision `reject` and `reason_code` `document_unreadable`, a toast \"Đã từ chối hồ sơ xác minh.\" shows, and the `REJECTED` filter lists the row with that reason code"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-reject-needs-reason
+    title: "KYC queue: Reject without a reason is blocked"
+    persona: admin
+    priority: P1
+    summary: "Reject without a reason is blocked"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin confirms the reject dialog without choosing a reason"
+      - "Then the dialog shows \"Vui lòng chọn lý do.\" and `ReviewKyc` is called 0 times"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-unit-forged-decision-or-reason-is-refused-by-the-action
+    title: "KYC queue: Forged decision or reason is refused by the action"
+    persona: admin
+    priority: P2
+    summary: "Forged decision or reason is refused by the action (unit-verified)"
+    entry_route: /admin/cases
+    services: [team-frontend-admin]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the review server action is invoked with decision `ban` or with reason code `Bad Reason!`"
+      - "Then the action returns \"Dữ liệu không hợp lệ; hồ sơ không thay đổi.\" and `ReviewKyc` is called 0 times"
+    tags: [admin, kyc_queue, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cases/kycActions.test.ts` `reviewKycAction refuses a forged decision or reason code`. Needs a gateway refusal, a forged server-action call or an unavailable upstream that the real stack cannot be driven into from the browser."
+
+  - id: admin.kyc-queue-self-review-refused
+    title: "KYC queue: Reviewing your own submission is refused"
+    persona: admin
+    priority: P1
+    summary: "Reviewing your own submission is refused"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When an admin who is also the submitting user clicks \"Duyệt\" on their own submission and the service answers `PERMISSION_DENIED`"
+      - "Then an error toast \"Bạn không thể xử lý hồ sơ của chính mình hoặc không có quyền thực hiện thao tác này.\" shows and the row stays `PENDING`"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-unit-a-non-admin-cannot-review
+    title: "KYC queue: A non-admin cannot review"
+    persona: admin
+    priority: P2
+    summary: "A non-admin cannot review (unit-verified)"
+    entry_route: /admin/cases
+    services: [team-frontend-admin]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a session without the `admin` scope invokes the review server action"
+      - "Then the action returns \"Bạn không có quyền thực hiện thao tác này.\" and `ReviewKyc` is called 0 times"
+    tags: [admin, kyc_queue, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-admin/src/app/admin/cases/kycActions.test.ts` `reviewKycAction refuses a non-admin`. Needs a gateway refusal, a forged server-action call or an unavailable upstream that the real stack cannot be driven into from the browser."
+
+  - id: admin.kyc-queue-second-decision
+    title: "KYC queue: Second decision on the same submission fails"
+    persona: admin
+    priority: P1
+    summary: "Second decision on the same submission fails"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When two admins both click \"Duyệt\" on the same submission and the second `ReviewKyc` answers `FAILED_PRECONDITION`"
+      - "Then the second admin sees \"Hồ sơ đã được xử lý hoặc không còn ở trạng thái chờ.\" and the row disappears from their pending list after refresh"
+    tags: [admin, kyc_queue]
+    status: planned
+
+  - id: admin.kyc-queue-review-failure-unchanged
+    title: "KYC queue: Review failure leaves the row unchanged"
+    persona: admin
+    priority: P1
+    summary: "Review failure leaves the row unchanged"
+    entry_route: /admin/cases?tab=kyc
+    services: [team-frontend-admin, team-gateway, team-verification, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
+    acceptance:
+      - "When `ReviewKyc` times out or answers `UNAVAILABLE` (for example the audit write failed)"
+      - "Then an error toast \"Không xử lý được hồ sơ. Vui lòng thử lại sau.\" shows and the row stays `PENDING`"
+    tags: [admin, kyc_queue]
+    status: planned
