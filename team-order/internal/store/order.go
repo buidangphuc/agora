@@ -630,7 +630,7 @@ func (r *PostgresOrderRepository) ListSellerOrders(ctx context.Context, sellerID
 		defer itemRows.Close()
 		for itemRows.Next() {
 			var item OrderItem
-			if err := itemRows.Scan(&item.ID, &item.OrderID, &item.ListingID, &item.VariantID, &item.Title, &item.VariantName, &item.Quantity, &item.UnitPrice, &item.ImageURL); err != nil {
+			if err := itemRows.Scan(&item.ID, &item.OrderID, &item.ListingID, &item.VariantID, &item.Title, &item.VariantName, &item.Quantity, &item.UnitPrice, &item.ImageURL, &item.BundleID, &item.BundleDiscount); err != nil {
 				return res, err
 			}
 			i := idx[item.OrderID]
