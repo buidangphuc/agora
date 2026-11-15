@@ -211,6 +211,19 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 		return nil, err
 	}
 
+	eraseEvery := s.AccountDeletion.SweepInterval
+	if eraseEvery <= 0 {
+		eraseEvery = s.Retention.SweepInterval
+	}
+	erasure := identity.NewErasureSweeper(users, identity.ErasureSweeperConfig{
+		Interval:  eraseEvery,
+		BatchSize: s.Retention.SweepBatchSize,
+	}, logger)
+	erase, err := lifecycle.Every(eraseEvery, erasure.Tick, lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		return nil, err
+	}
+
 	jwks := lifecycle.HTTP(&http.Server{
 		Addr:              net.JoinHostPort(s.Host, strconv.Itoa(s.JWT.JWKSHTTPPort)),
 		Handler:           token.JWKSHandler(token.PublicKey{Kid: signer.KID(), Key: signer.PublicKey()}),
@@ -231,7 +244,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 				OnShutdown:    []func(){health.Drain},
 				Closers:       []func(context.Context) error{stack.Close},
 				Logger:        logger,
-			}, health, jwks, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, sweep))
+			}, health, jwks, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, sweep, erase))
 		},
 	}, nil
 }

@@ -85,6 +85,9 @@ const StatusActive = "active"
 // any status other than exactly "active" (restricted, unknown, empty) drops
 // listing.write. The shared role table is never mutated.
 func ScopesForUser(roles []string, status string) []string {
+	if status == "deleted" {
+		return []string{}
+	}
 	scopes := ScopesForRoles(roles)
 	if status == StatusActive {
 		return scopes
