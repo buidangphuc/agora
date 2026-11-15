@@ -2,9 +2,9 @@
 
 Covers `/seller/orders` and `/seller` (tabs, rows, cursor pagination, error and empty states) and the
 shared listing picker of `/seller/ads` and `/seller/bundles`. The picker contract is
-`data-testid="listing-picker"` (root), `listing-picker-option` (one per option, `aria-checked="true"`
-once chosen) and `listing-picker-selected` (one item per chosen listing, kept across searches).
-Assertions live in the steps.
+`data-testid="listing-picker"` (root) and `listing-picker-option` (one per option, holding a checkbox
+that is checked once chosen). The selection lives in the bundle form, whose label counts it as
+"(N đã chọn)" across searches. Assertions live in the steps.
 """
 
 from __future__ import annotations
@@ -13,8 +13,8 @@ import re
 
 from playwright.sync_api import Locator
 
-from src.constants import routes
-from src.core.base_page import BasePage
+from src.constants import routes, timeouts
+from src.core.base_page import BasePage, wait_streamed
 
 ORDERS_ERROR = "Không tải được danh sách đơn hàng"
 PRODUCTS_ERROR = "Không tải được danh sách sản phẩm"
@@ -32,6 +32,7 @@ class SellerPagingPage(BasePage):
 
     def open(self, path: str) -> None:
         self.page.goto(f"{self.app_base_url()}{path}", wait_until="domcontentloaded")
+        wait_streamed(self.page, timeouts.NAVIGATION)
 
     @property
     def tabs(self) -> Locator:
@@ -102,15 +103,21 @@ class SellerPagingPage(BasePage):
 
     @property
     def picker_search(self) -> Locator:
-        return self.picker.get_by_role("searchbox")
+        return self.picker.get_by_role("textbox", name="Tìm sản phẩm")
 
     @property
     def picker_options(self) -> Locator:
         return self.picker.get_by_test_id("listing-picker-option")
 
+    def picker_checkbox(self, option: Locator) -> Locator:
+        return option.get_by_role("checkbox")
+
     @property
-    def picker_chosen(self) -> Locator:
-        return self.picker.get_by_test_id("listing-picker-selected")
+    def picker_checked(self) -> Locator:
+        return self.picker_options.filter(has=self.page.get_by_role("checkbox", checked=True))
+
+    def selection_count(self, n: int) -> Locator:
+        return self.page.get_by_text(f"({n} đã chọn)")
 
     @property
     def picker_empty(self) -> Locator:

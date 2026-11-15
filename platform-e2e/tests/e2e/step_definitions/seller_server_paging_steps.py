@@ -16,12 +16,14 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+import httpx
 import pytest
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.constants import timeouts
+from src.core.base_page import wait_streamed
 from src.models import User
 from src.pages import SellerPagingPage
 from tests.e2e.flows import login_via_api
@@ -118,9 +120,14 @@ def _seed_orders(w: s.OicWorld, plan: list[str]) -> None:
         s.put_in_status(w, oid, buyer, seller, status)
         return {"id": oid, "status": status, "title": title}
 
-    jobs = [(i % workers, i, st) for i, st in enumerate(plan)]
+    def run(worker: int) -> list[tuple[int, dict[str, str]]]:
+        return [
+            (n, place((worker, n, plan[n]))) for n in range(worker, len(plan), workers)
+        ]
+
     with ThreadPoolExecutor(workers) as pool:
-        _d(w)["orders"].extend(pool.map(place, jobs))
+        placed = [row for rows in pool.map(run, range(workers)) for row in rows]
+    _d(w)["orders"].extend(order for _, order in sorted(placed, key=lambda x: x[0]))
 
 
 def _seed_bulk_orders(w: s.OicWorld, count: int) -> None:
@@ -129,15 +136,18 @@ def _seed_bulk_orders(w: s.OicWorld, count: int) -> None:
     buyers = [_buyer(w, i) for i in range(workers)]
     stock = _create_listing_stock(w, f"Kho {_d(w)['tag']}", count + 50)
 
-    def place(i: int) -> str:
-        buyer = buyers[i % workers]
-        s.ok(s.post(w, buyer, s.CART, "AddToCart", {"listingId": stock, "quantity": 1}))
-        orders = s.ok(s.checkout(w, buyer)).get("orders", [])
-        assert len(orders) == 1, orders
-        return orders[0]["id"]
+    def place(worker: int) -> list[str]:
+        buyer = buyers[worker]
+        placed = []
+        for _ in range(worker, count, workers):
+            s.ok(s.post(w, buyer, s.CART, "AddToCart", {"listingId": stock, "quantity": 1}))
+            orders = s.ok(s.checkout(w, buyer)).get("orders", [])
+            assert len(orders) == 1, orders
+            placed.append(orders[0]["id"])
+        return placed
 
     with ThreadPoolExecutor(workers) as pool:
-        ids = list(pool.map(place, range(count)))
+        ids = [i for chunk in pool.map(place, range(workers)) for i in chunk]
     _d(w)["orders"].extend({"id": i, "status": s.PENDING, "title": "bulk"} for i in ids)
     assert seller
 
@@ -158,6 +168,7 @@ def _title_for(index: int, tag: str) -> str:
 
 
 def _seed_listings(w: s.OicWorld, published: int, drafts: int) -> None:
+    _seller(w)
     total = published + drafts
     tag = _d(w)["tag"]
     pattern = [
@@ -201,11 +212,13 @@ def _listing_by_index(w: s.OicWorld) -> dict[int, dict[str, Any]]:
 
 def _wait_orders_loaded(world: World) -> None:
     page = _page(world)
-    expect(page.tabs.or_(page.orders_error)).to_be_visible(timeout=timeouts.NAVIGATION)
+    wait_streamed(world.page, timeouts.NAVIGATION)
+    expect(page.tabs.or_(page.orders_error).first).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
 def _wait_dashboard_loaded(world: World) -> None:
     page = _page(world)
+    wait_streamed(world.page, timeouts.NAVIGATION)
     expect(page.kpi_row).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -566,7 +579,8 @@ def product_error(world: World) -> None:
 def orders_blocks_render(world: World, ssp: s.OicWorld) -> None:
     page = _page(world)
     expect(page.kpi("Cần gửi")).to_be_visible(timeout=timeouts.NAVIGATION)
-    expect(world.page.get_by_text("Hàng đơn " + _d(ssp)["tag"]).first).to_be_visible()
+    shown = "|".join(re.escape(f"#{o['id'][:8]}") for o in _d(ssp)["orders"])
+    expect(world.page.get_by_role("link", name=re.compile(f"^({shown})$")).first).to_be_visible()
 
 
 @then("the page answered HTTP 200")
@@ -592,20 +606,53 @@ def product_table_renders(world: World, ssp: s.OicWorld) -> None:
 
 
 # ── outages ──────────────────────────────────────────────────────────────
-def _stop(world: World, env: str, default: str) -> None:
-    restore = stop_container(os.getenv(env, default))
-    world.add_cleanup(restore)
+def _wait_ready(w: s.OicWorld, timeout_s: float = 90.0) -> None:
+    seller = _seller(w)
+    probes = [
+        lambda: s.post(w, seller, s.ORDER, "ListSellerOrders", {}).status_code == 200,
+        lambda: s.post(w, seller, s.LISTING, "ListMyListings", {}).status_code == 200,
+        lambda: s.post(
+            w, seller, s.CART, "AddToCart", {"listingId": str(uuid.uuid4()), "quantity": 1}
+        ).status_code
+        not in (502, 503, 504),
+    ]
+    deadline = time.monotonic() + timeout_s
+    for probe in probes:
+        while True:
+            try:
+                if probe():
+                    break
+            except httpx.HTTPError:
+                pass
+            if time.monotonic() >= deadline:
+                raise TimeoutError("stopped service did not come back through the gateway")
+            time.sleep(1)
+
+
+def _container(env: str, service: str) -> str:
+    key = service.upper().replace("-", "_")
+    return os.getenv(env) or os.getenv(f"PLP_{key}_CONTAINER") or f"{service}-svc"
+
+
+def _stop(world: World, w: s.OicWorld, env: str, service: str) -> None:
+    restore = stop_container(_container(env, service))
+
+    def back() -> None:
+        restore()
+        _wait_ready(w)
+
+    world.add_cleanup(back)
 
 
 @given("team-order is stopped")
-def order_down(world: World) -> None:
-    _stop(world, "ORDER_CONTAINER", "team-order-svc")
+def order_down(world: World, ssp: s.OicWorld) -> None:
+    _stop(world, ssp, "ORDER_CONTAINER", "team-order")
 
 
 @given("team-domain is stopped")
 @when("team-domain is stopped")
-def domain_down(world: World) -> None:
-    _stop(world, "DOMAIN_CONTAINER", "team-domain-svc")
+def domain_down(world: World, ssp: s.OicWorld) -> None:
+    _stop(world, ssp, "DOMAIN_CONTAINER", "team-domain")
 
 
 @when("the seller opens the dashboard while the orders source is down")
@@ -614,6 +661,7 @@ def open_dashboard_orders_down(world: World, ssp: s.OicWorld) -> None:
         f"{_page(world).app_base_url()}/seller", wait_until="domcontentloaded"
     )
     _d(ssp)["status"] = response.status if response else 0
+    wait_streamed(world.page, timeouts.NAVIGATION)
     expect(_page(world).product_rows(_d(ssp)["tag"]).first).to_be_visible(
         timeout=timeouts.NAVIGATION
     )
@@ -625,6 +673,7 @@ def open_dashboard_listings_down(world: World, ssp: s.OicWorld) -> None:
         f"{_page(world).app_base_url()}/seller", wait_until="domcontentloaded"
     )
     _d(ssp)["status"] = response.status if response else 0
+    wait_streamed(world.page, timeouts.NAVIGATION)
     expect(_page(world).products_error).to_be_visible(timeout=timeouts.NAVIGATION)
 
 
@@ -682,23 +731,29 @@ def picker_only_matching(world: World, ssp: s.OicWorld, text: str) -> None:
 def picker_select(world: World, ssp: s.OicWorld, n: int) -> None:
     options = _page(world).picker_options
     expect(options.first).to_be_visible(timeout=timeouts.NAVIGATION)
+    page = _page(world)
     titles = []
     for i in range(n):
         option = options.nth(i)
         titles.append(option.inner_text())
-        option.click()
+        page.picker_checkbox(option).click()
     _d(ssp)["chosen"] = titles
-    expect(_page(world).picker_chosen).to_have_count(n, timeout=timeouts.DEFAULT)
+    expect(page.picker_checked).to_have_count(n, timeout=timeouts.DEFAULT)
+    expect(page.selection_count(n)).to_be_visible(timeout=timeouts.DEFAULT)
 
 
 @then("the two selected listings remain selected")
 def picker_chosen_remain(world: World, ssp: s.OicWorld) -> None:
-    chosen = _page(world).picker_chosen
-    expect(chosen).to_have_count(len(_d(ssp)["chosen"]), timeout=timeouts.DEFAULT)
-    texts = " ".join(chosen.all_inner_texts())
-    for raw in _d(ssp)["chosen"]:
-        title = next(x["title"] for x in _d(ssp)["listings"] if x["title"] in raw)
-        assert title in texts, (title, texts)
+    page = _page(world)
+    chosen = _d(ssp)["chosen"]
+    expect(page.selection_count(len(chosen))).to_be_visible(timeout=timeouts.DEFAULT)
+    titles = [next(x["title"] for x in _d(ssp)["listings"] if x["title"] in raw) for raw in chosen]
+    options = page.picker_options
+    for i in range(options.count()):
+        option = options.nth(i)
+        text = option.inner_text()
+        checked = page.picker_checkbox(option).is_checked()
+        assert checked == any(t in text for t in titles), (text, titles)
 
 
 @when(
@@ -742,13 +797,13 @@ def picker_error_kept(world: World, ssp: s.OicWorld) -> None:
     page = _page(world)
     expect(page.picker_error).to_be_visible(timeout=timeouts.NAVIGATION)
     expect(page.picker_retry).to_be_visible()
-    expect(page.picker_chosen).to_have_count(len(_d(ssp)["chosen"]))
+    expect(page.selection_count(len(_d(ssp)["chosen"]))).to_be_visible()
 
 
 # ── logs and storage ─────────────────────────────────────────────────────
 @then("the seller app server output since the request does not contain the search text")
 def logs_clean(ssp: s.OicWorld) -> None:
-    container = os.getenv("SELLER_CONTAINER", "team-frontend-seller-svc")
+    container = _container("SELLER_CONTAINER", "team-frontend-seller")
     proc = subprocess.run(
         ["docker", "logs", "--since", str(int(_d(ssp)["since"])), container],
         capture_output=True,

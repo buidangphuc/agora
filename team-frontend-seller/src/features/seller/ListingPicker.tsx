@@ -52,7 +52,7 @@ export function ListingPicker({
   }, [query, tick]);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid="listing-picker">
       <Input
         label="Tìm sản phẩm"
         value={query}
@@ -79,7 +79,7 @@ export function ListingPicker({
       ) : (
         <ul className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-border-subtle p-3">
           {options.map((o) => (
-            <li key={o.id}>
+            <li key={o.id} data-testid="listing-picker-option">
               <Checkbox
                 label={o.title}
                 checked={selectedIds.includes(o.id)}

@@ -3234,6 +3234,22 @@ features:
     status: planned
     covered_by: null
 
+  - id: sspu.first-page-of-a-large-shop-renders-within-one-second
+    title: "First page of a large shop renders within one second"
+    persona: seller
+    priority: P2
+    summary: "Change seller-server-paging-ui: proposal NFR, /seller/orders server render p95 <= 1 s at 5,000 orders locally"
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller owning 5,000 orders requests `/seller/orders` 20 times"
+      - "Then the 95th percentile of the server render is at most 1000 ms"
+    tags: [seller, nfr]
+    status: planned
+    covered_by: null
+
   - id: sspu.status-tab-filters-on-the-server
     title: "Status tab filters on the server"
     persona: seller
