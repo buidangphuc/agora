@@ -1090,7 +1090,6 @@ features:
       - "Then the response has a doc_ref matching kyc/<own id>/<uuid>, an expires_at 15 minutes (+-30 s) ahead, and a PUT of exactly 1048576 bytes of image/jpeg to upload_url returns 2xx"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Seller receives an upload URL"
 
   - id: verification.kyc-upload.upload-that-differs-from-the-signature-is-refused-by-storage
     title: "Upload that differs from the signature is refused by storage"
@@ -1104,7 +1103,6 @@ features:
       - "Then the storage endpoint refuses the request with 403 and no object exists under doc_ref"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Upload that differs from the signature is refused by storage"
 
   - id: verification.kyc-upload.invalid-type-or-size-is-rejected
     title: "Invalid type or size is rejected"
@@ -1118,7 +1116,6 @@ features:
       - "Then each call fails INVALID_ARGUMENT and no grant row is created"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Invalid type or size is rejected"
 
   - id: verification.kyc-upload.maximum-size-is-accepted
     title: "Maximum size is accepted"
@@ -1132,7 +1129,6 @@ features:
       - "Then the call succeeds and returns a doc_ref"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Maximum size is accepted"
 
   - id: verification.kyc-upload.open-grants-are-capped
     title: "Open grants are capped"
@@ -1146,7 +1142,6 @@ features:
       - "Then the call fails RESOURCE_EXHAUSTED and the 11th grant does not exist"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Open grants are capped"
 
   - id: verification.kyc-upload.anonymous-and-service-callers-cannot-request-an-upload-url
     title: "Anonymous and service callers cannot request an upload URL"
@@ -1160,7 +1155,6 @@ features:
       - "Then the anonymous call fails UNAUTHENTICATED and the service call fails PERMISSION_DENIED"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Anonymous and service callers cannot request an upload URL"
 
   - id: verification.kyc-upload.submit-with-one-uploaded-document
     title: "Submit with one uploaded document"
@@ -1174,7 +1168,6 @@ features:
       - "Then the call returns status PENDING and GetVerificationStatus for the seller returns PENDING"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Submit with one uploaded document"
 
   - id: verification.kyc-upload.submit-with-three-documents
     title: "Submit with three documents"
@@ -1188,7 +1181,6 @@ features:
       - "Then the submission lists document_count 3 in ListKycSubmissions"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Submit with three documents"
 
   - id: verification.kyc-upload.more-than-three-documents-are-rejected
     title: "More than three documents are rejected"
@@ -1202,7 +1194,6 @@ features:
       - "Then the call fails INVALID_ARGUMENT and no submission exists"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::More than three documents are rejected"
 
   - id: verification.kyc-upload.key-issued-to-another-user-is-rejected
     title: "Key issued to another user is rejected"
@@ -1216,7 +1207,6 @@ features:
       - "Then the call fails INVALID_ARGUMENT with the same message as for an unknown key and no submission exists for seller B"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Key issued to another user is rejected"
 
   - id: verification.kyc-upload.free-text-doc-ref-is-rejected
     title: "Free-text doc_ref is rejected"
@@ -1230,7 +1220,6 @@ features:
       - "Then the call fails INVALID_ARGUMENT and no submission exists"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Free-text doc_ref is rejected"
 
   - id: verification.kyc-upload.granted-but-not-uploaded-key-is-rejected
     title: "Granted but not uploaded key is rejected"
@@ -1244,7 +1233,6 @@ features:
       - "Then the call fails FAILED_PRECONDITION and the grant stays unused"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Granted but not uploaded key is rejected"
 
   - id: verification.kyc-upload.oversize-or-mismatching-object-is-rejected-and-removed
     title: "Oversize or mismatching object is rejected and removed"
@@ -1258,7 +1246,6 @@ features:
       - "Then the call fails FAILED_PRECONDITION and the object no longer exists in the bucket"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Oversize or mismatching object is rejected and removed"
 
   - id: verification.kyc-upload.a-key-cannot-be-submitted-twice
     title: "A key cannot be submitted twice"
@@ -1272,7 +1259,6 @@ features:
       - "Then the call fails INVALID_ARGUMENT and the number of submissions is unchanged"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::A key cannot be submitted twice"
 
   - id: verification.kyc-upload.concurrent-submits-cannot-share-a-key
     title: "Concurrent submits cannot share a key"
@@ -1286,7 +1272,6 @@ features:
       - "Then exactly 1 call succeeds and the other fails INVALID_ARGUMENT"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Concurrent submits cannot share a key"
 
   - id: verification.kyc-upload.expired-grant-is-rejected
     title: "Expired grant is rejected"
@@ -1300,7 +1285,6 @@ features:
       - "Then the call fails FAILED_PRECONDITION and no submission exists"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Expired grant is rejected"
 
   - id: verification.kyc-upload.anonymous-caller-cannot-submit
     title: "Anonymous caller cannot submit"
@@ -1314,7 +1298,6 @@ features:
       - "Then the call fails UNAUTHENTICATED"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Anonymous caller cannot submit"
 
   - id: verification.kyc-upload.seller-who-never-submitted-reads-not-submitted
     title: "Seller who never submitted reads NOT_SUBMITTED"
@@ -1328,7 +1311,6 @@ features:
       - "Then the response has status NOT_SUBMITTED, badge false and an empty reject_reason_code"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Seller who never submitted reads NOT_SUBMITTED"
 
   - id: verification.kyc-upload.rejected-seller-sees-the-reason-code
     title: "Rejected seller sees the reason code"
@@ -1342,7 +1324,6 @@ features:
       - "Then the response has status REJECTED and reject_reason_code document_unreadable"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Rejected seller sees the reason code"
 
   - id: verification.kyc-upload.reject-without-a-reason-code-is-rejected
     title: "Reject without a reason code is rejected"
@@ -1356,7 +1337,6 @@ features:
       - "Then each call fails INVALID_ARGUMENT and the submission stays PENDING"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Reject without a reason code is rejected"
 
   - id: verification.kyc-upload.approve-with-a-reason-code-is-rejected
     title: "Approve with a reason code is rejected"
@@ -1370,7 +1350,6 @@ features:
       - "Then the call fails INVALID_ARGUMENT and the submission stays PENDING"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Approve with a reason code is rejected"
 
   - id: verification.kyc-upload.reason-code-is-audited
     title: "Reason code is audited"
@@ -1384,7 +1363,6 @@ features:
       - "Then team-audit holds one kyc.review event for that submission whose metadata reason_code is document_expired"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Reason code is audited"
 
   - id: verification.kyc-upload.another-user-cannot-read-a-status
     title: "Another user cannot read a status"
@@ -1398,7 +1376,6 @@ features:
       - "Then the call fails PERMISSION_DENIED"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Another user cannot read a status"
 
   - id: verification.kyc-upload.payment-service-reads-any-seller-s-status
     title: "Payment service reads any seller's status"
@@ -1440,7 +1417,6 @@ features:
       - "Then the call fails PERMISSION_DENIED and the submission stays PENDING"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Reviewer cannot review their own submission"
 
   - id: verification.admin-queue.pending-queue-is-paged-oldest-first
     title: "Pending queue is paged oldest first"
@@ -1454,7 +1430,6 @@ features:
       - "Then pages hold 10, 10 and 5 submissions in ascending created_at order with no duplicates, and the last page has an empty next_cursor"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Pending queue is paged oldest first"
 
   - id: verification.admin-queue.page-size-is-clamped-and-bad-cursor-rejected
     title: "Page size is clamped and bad cursor rejected"
@@ -1468,7 +1443,6 @@ features:
       - "Then the first call returns at most 100 submissions and the second fails INVALID_ARGUMENT"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Page size is clamped and bad cursor rejected"
 
   - id: verification.admin-queue.filtering-by-not-submitted-is-rejected
     title: "Filtering by NOT_SUBMITTED is rejected"
@@ -1482,7 +1456,6 @@ features:
       - "Then the call fails INVALID_ARGUMENT"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Filtering by NOT_SUBMITTED is rejected"
 
   - id: verification.admin-queue.non-admin-cannot-list
     title: "Non-admin cannot list"
@@ -1496,7 +1469,6 @@ features:
       - "Then the seller call fails PERMISSION_DENIED and the anonymous call fails UNAUTHENTICATED, at the gateway and at the service"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Non-admin cannot list"
 
   - id: verification.document-audit.admin-opens-a-document
     title: "Admin opens a document"
@@ -1510,7 +1482,6 @@ features:
       - "Then the response expires_at is 5 minutes (+-30 s) ahead, a GET of url returns the uploaded bytes, and team-audit holds exactly one kyc.document_view event by that admin for that submission"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Admin opens a document"
 
   - id: verification.document-audit.audit-outage-blocks-the-document
     title: "Audit outage blocks the document"
@@ -1524,7 +1495,6 @@ features:
       - "Then the call fails UNAVAILABLE and the response contains no url"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Audit outage blocks the document"
 
   - id: verification.document-audit.index-out-of-range-or-unknown-submission
     title: "Index out of range or unknown submission"
@@ -1538,7 +1508,6 @@ features:
       - "Then the first call fails INVALID_ARGUMENT and the second fails NOT_FOUND, and neither writes an audit event"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Index out of range or unknown submission"
 
   - id: verification.document-audit.expired-link-stops-working
     title: "Expired link stops working"
@@ -1552,7 +1521,6 @@ features:
       - "Then the storage endpoint refuses it with 403"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Expired link stops working"
 
   - id: verification.document-audit.non-admin-cannot-obtain-a-document-url
     title: "Non-admin cannot obtain a document URL"
@@ -1566,7 +1534,6 @@ features:
       - "Then the seller calls fail PERMISSION_DENIED, the anonymous call fails UNAUTHENTICATED, and no kyc.document_view event is written"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Non-admin cannot obtain a document URL"
 
   - id: verification.document-audit.bucket-is-not-publicly-readable
     title: "Bucket is not publicly readable"
@@ -1580,7 +1547,6 @@ features:
       - "Then the storage endpoint refuses the request with 403 and the bucket is configured with default server-side encryption"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Bucket is not publicly readable"
 
   - id: verification.public-badge.verified-seller-shows-a-badge
     title: "Verified seller shows a badge"
@@ -1594,7 +1560,6 @@ features:
       - "Then the response has 4 entries with verified true only for the verified seller"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Verified seller shows a badge"
 
   - id: verification.public-badge.empty-or-oversized-id-list-is-rejected
     title: "Empty or oversized id list is rejected"
@@ -1608,7 +1573,6 @@ features:
       - "Then each call fails INVALID_ARGUMENT"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Empty or oversized id list is rejected"
 
   - id: verification.public-badge.boundary-of-50-ids-is-accepted
     title: "Boundary of 50 ids is accepted"
@@ -1622,7 +1586,6 @@ features:
       - "Then the call succeeds with 50 entries"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Boundary of 50 ids is accepted"
 
   - id: verification.kyc-erasure.rejected-documents-are-deleted-after-90-days
     title: "Rejected documents are deleted after 90 days"
@@ -1636,7 +1599,6 @@ features:
       - "Then its objects no longer exist in the bucket, GetKycDocumentUrl for it fails NOT_FOUND, and its status remains REJECTED"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Rejected documents are deleted after 90 days"
 
   - id: verification.kyc-erasure.documents-inside-the-window-are-kept
     title: "Documents inside the window are kept"
@@ -1650,7 +1612,6 @@ features:
       - "Then all their objects still exist"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Documents inside the window are kept"
 
   - id: verification.kyc-erasure.superseded-documents-are-deleted-after-90-days
     title: "Superseded documents are deleted after 90 days"
@@ -1664,7 +1625,6 @@ features:
       - "Then the earlier submission's objects no longer exist and the newer submission's objects still exist"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Superseded documents are deleted after 90 days"
 
   - id: verification.kyc-erasure.object-delete-failure-is-retried
     title: "Object delete failure is retried"
@@ -1692,7 +1652,6 @@ features:
       - "Then within 1 hour no object under kyc/<user>/ exists, ListKycSubmissions holds no row of that user, and GetVerificationStatus returns NOT_SUBMITTED"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::UserErased removes the user's KYC data"
 
   - id: verification.kyc-erasure.duplicate-usererased-is-harmless
     title: "Duplicate UserErased is harmless"
@@ -1706,7 +1665,6 @@ features:
       - "Then the second delivery succeeds without error and the DLQ identity.events.team-verification.dlq has 0 messages"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Duplicate UserErased is harmless"
 
   - id: verification.kyc-erasure.erasure-of-one-user-leaves-others-untouched
     title: "Erasure of one user leaves others untouched"
@@ -1720,7 +1678,6 @@ features:
       - "Then seller B's submissions and objects are unchanged"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Erasure of one user leaves others untouched"
 
   - id: verification.kyc-erasure.storage-outage-sends-the-event-to-retry-then-dlq
     title: "Storage outage sends the event to retry then DLQ"
@@ -1748,7 +1705,6 @@ features:
       - "Then the response status is 200 and the body holds one entry"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Anonymous public badge call succeeds through the gateway"
 
   - id: verification.kyc-upload.admin-only-rpcs-refuse-non-admins-at-the-edge
     title: "Admin-only RPCs refuse non-admins at the edge"
@@ -1762,7 +1718,6 @@ features:
       - "Then the gateway returns 403 and team-verification receives no call"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Admin-only RPCs refuse non-admins at the edge"
 
   - id: verification.kyc-upload.unauthenticated-upload-url-request-is-refused-at-the-edge
     title: "Unauthenticated upload URL request is refused at the edge"
@@ -1776,4 +1731,3 @@ features:
       - "Then the gateway returns 401"
     tags: [verification, kyc-documents]
     status: planned
-    covered_by: "verification/kyc_documents.feature::Unauthenticated upload URL request is refused at the edge"
