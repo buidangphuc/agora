@@ -4620,3 +4620,531 @@ features:
     tags: [analytics, unit]
     status: not-testable
     notes: "analytics-listing-deleted-status: VERIFIED BY team-analytics/internal/app/listing_replay_test.go TestListingReplay_ExpiredDeleteEventLeavesRowUnchanged. Not producible end to end: it exercises decoder or store internals that no public-edge call can reach."
+
+  - id: analytics.aer-cohort-is-anchored-on-the-first-sign-up-week
+    title: "Cohort is anchored on the first sign_up week"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Cohort is anchored on the first sign_up week"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetRetentionCohorts` and 3 users have a first `sign_up` on Wednesday of week W, one of them with a second `sign_up` two weeks later"
+      - "Then exactly one cohort has `cohort_week` equal to the Monday of W with `cohort_size` 3"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/retention_cohorts.feature. Red until the change is implemented."
+
+  - id: analytics.aer-day-n-retention-counts-the-exact-utc-day
+    title: "Day-N retention counts the exact UTC day"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Day-N retention counts the exact UTC day"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a cohort of 4 users has 2 users with an event on day 1 after signup, 1 with an event on day 7 and none on day 30, all three days fully elapsed"
+      - "Then the cohort reports `d1` 0.5, `d7` 0.25 and `d30` 0"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestRetention_DayNIsExactDay. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-weekly-activity-lists-elapsed-weeks-only
+    title: "Weekly activity lists elapsed weeks only"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Weekly activity lists elapsed weeks only"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a cohort is 3 weeks old at the request time and 2 of its 4 users have events in week 1 after signup"
+      - "Then `weekly_active` has 3 entries (weeks 0, 1 and 2) and entry 1 equals 0.5"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestRetention_WeeklyActiveOnlyElapsedWeeks. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-repeat-purchase-uses-the-30-day-window
+    title: "Repeat purchase uses the 30-day window"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Repeat purchase uses the 30-day window"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a cohort has 2 buyers whose first paid orders are over 30 days old, one with a second paid order 10 days after the first and one with a second 40 days after the first"
+      - "Then `repeat_purchase_30d` equals 0.5"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestRetention_RepeatPurchaseWithin30Days. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-a-cohort-too-young-to-measure-a-metric-reports-zero
+    title: "A cohort too young to measure a metric reports zero"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: A cohort too young to measure a metric reports zero"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a cohort signed up 3 days ago and the request asks for it"
+      - "Then its `d7`, `d30` and `repeat_purchase_30d` are 0 and its `d1` is computed from the members whose day 1 has elapsed"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestRetention_YoungCohortReportsZero. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-users-without-a-sign-up-event-are-excluded
+    title: "Users without a sign_up event are excluded"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Users without a sign_up event are excluded"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a user has events and a paid order but no `sign_up` event"
+      - "Then that user is counted in no cohort and no cohort size changes"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestRetention_NoSignUpExcluded. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-an-empty-warehouse-returns-an-empty-list
+    title: "An empty warehouse returns an empty list"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: An empty warehouse returns an empty list"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetRetentionCohorts` on a warehouse with no `sign_up` events"
+      - "Then the response has 0 cohorts and the call succeeds"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/retention_cohorts.feature. Red until the change is implemented."
+
+  - id: analytics.aer-default-and-maximum-weeks
+    title: "Default and maximum weeks"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Default and maximum weeks"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetRetentionCohorts` with `weeks` 0, then with `weeks` 26"
+      - "Then the first call considers 12 consecutive cohort weeks and the second 26, each starting at the UTC Monday"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestRetention_WeeksDefaultAndBoundary. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-weeks-above-26-is-rejected
+    title: "Weeks above 26 is rejected"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Weeks above 26 is rejected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetRetentionCohorts` with `weeks` 27"
+      - "Then the call fails with `InvalidArgument` naming `weeks` and the repository is not queried"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestRetention_WeeksAboveMaxRejected. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-non-admin-cannot-read-retention
+    title: "Non-admin cannot read retention"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Non-admin cannot read retention"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a caller with a seller principal and without scope `admin` calls `GetRetentionCohorts`"
+      - "Then the call fails with `PermissionDenied` and no query runs"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestReports_NonAdminDenied. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-warehouse-without-the-capability-is-unavailable
+    title: "Warehouse without the capability is unavailable"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Warehouse without the capability is unavailable"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetRetentionCohorts` and the repository does not implement the retention capability or its query fails"
+      - "Then the call fails with `Unavailable` and returns no cohorts"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestReports_UnsupportedIsUnavailable. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-a-visitor-is-counted-once-in-the-first-variant
+    title: "A visitor is counted once in the first variant"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: A visitor is counted once in the first variant"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When one visitor has exposures to flag F as variant `a` and later as variant `b`"
+      - "Then variant `a` has `exposed` 1 and variant `b` has no row"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/experiment_readout.feature. Red until the change is implemented."
+
+  - id: analytics.aer-conversion-within-seven-days-of-first-exposure
+    title: "Conversion within seven days of first exposure"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Conversion within seven days of first exposure"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a logged-in visitor is exposed at T and has a PAID order line at T + 6 days, and another is exposed at T and pays at T + 8 days"
+      - "Then the variant has `exposed` 2 and `converted` 1 and `rate` 0.5"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/experiment_readout.feature. Red until the change is implemented."
+
+  - id: analytics.aer-a-paid-order-before-the-exposure-does-not-convert
+    title: "A paid order before the exposure does not convert"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: A paid order before the exposure does not convert"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor has a PAID order line at T - 1 day and is first exposed at T"
+      - "Then the visitor is exposed and not converted"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestExperiment_OrderBeforeExposureDoesNotConvert. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-wilson-interval-for-a-known-sample
+    title: "Wilson interval for a known sample"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Wilson interval for a known sample"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a variant has `exposed` 100 and `converted` 20"
+      - "Then `ci_low` is 0.1334 and `ci_high` is 0.2888 to four decimals"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestWilson_KnownValues. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-wilson-interval-boundaries
+    title: "Wilson interval boundaries"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Wilson interval boundaries"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a variant has `exposed` 0, or `converted` equals `exposed` at 10"
+      - "Then the first has `rate`, `ci_low` and `ci_high` all 0, and the second has `ci_high` 1 and `ci_low` below 1"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestWilson_ZeroAndFullBoundaries. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-unassigned-and-other-flags-are-excluded
+    title: "Unassigned and other flags are excluded"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Unassigned and other flags are excluded"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When exposures exist for variant `unassigned` of flag F and for a different flag G"
+      - "Then the readout for F has no `unassigned` row and no row from G"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestExperiment_UnassignedAndOtherFlagsExcluded. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-anonymous-visitors-count-as-exposed-only
+    title: "Anonymous visitors count as exposed only"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Anonymous visitors count as exposed only"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an anonymous visitor with no stitched user is exposed to variant `a`"
+      - "Then variant `a` counts the visitor in `exposed` and not in `converted`"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestExperiment_AnonymousNeverConverts. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-unknown-flag-returns-no-variants
+    title: "Unknown flag returns no variants"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Unknown flag returns no variants"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetExperimentReadout` for a flag with no exposure in the window"
+      - "Then the response has 0 variants and `window_days` 7"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/experiment_readout.feature. Red until the change is implemented."
+
+  - id: analytics.aer-missing-or-oversized-flag-is-rejected
+    title: "Missing or oversized flag is rejected"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Missing or oversized flag is rejected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetExperimentReadout` with an empty `flag`, then with a 65-character `flag`"
+      - "Then both calls fail with `InvalidArgument` naming `flag`"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestExperiment_FlagValidation. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-inverted-or-oversized-window-is-rejected
+    title: "Inverted or oversized window is rejected"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Inverted or oversized window is rejected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetExperimentReadout` with `from` after `to`, then with a window of 367 days"
+      - "Then both calls fail with `InvalidArgument`"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestExperiment_WindowValidation. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-window-of-exactly-366-days-is-accepted
+    title: "Window of exactly 366 days is accepted"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Window of exactly 366 days is accepted"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetExperimentReadout` with a window of exactly 366 days"
+      - "Then the call succeeds"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestExperiment_WindowBoundaryAccepted. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-non-admin-cannot-read-a-readout
+    title: "Non-admin cannot read a readout"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Non-admin cannot read a readout"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a caller without scope `admin` calls `GetExperimentReadout`"
+      - "Then the call fails with `PermissionDenied`"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestReports_NonAdminDenied. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-counts-per-surface-and-model-version
+    title: "Counts per surface and model version"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Counts per surface and model version"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the warehouse holds for surface `assistant` and model version `mock:v1|hybrid` 5 shown, 2 accepted, 1 edited and 1 dismissed events, and 3 shown events for surface `chat_copilot` and `rules-v1`"
+      - "Then the report has exactly two rows with those counts"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/ai_surface_report.feature. Red until the change is implemented."
+
+  - id: analytics.aer-events-outside-the-window-are-not-counted
+    title: "Events outside the window are not counted"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Events outside the window are not counted"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an event lies 1 second before `from` and another at `to`"
+      - "Then only the event at `to` is counted"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestAiSurface_WindowBoundaryInclusive. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-an-event-without-model-version-forms-its-own-row
+    title: "An event without model_version forms its own row"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: An event without model_version forms its own row"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an `ai_interaction` event has an empty `model_version`"
+      - "Then it is reported under `model_version` equal to the empty string, not merged into another row"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestAiSurface_EmptyModelVersionOwnRow. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-unknown-action-is-ignored
+    title: "Unknown action is ignored"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Unknown action is ignored"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a stored `ai_interaction` row has action `hovered`"
+      - "Then no count changes and no row appears for it"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/query/reports_test.go TestAiSurface_UnknownActionIgnored. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-empty-window-returns-no-rows
+    title: "Empty window returns no rows"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Empty window returns no rows"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetAiSurfaceReport` over a window with no `ai_interaction` events"
+      - "Then the response has 0 rows and the call succeeds"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/ai_surface_report.feature. Red until the change is implemented."
+
+  - id: analytics.aer-inverted-window-is-rejected
+    title: "Inverted window is rejected"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Inverted window is rejected"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls `GetAiSurfaceReport` with `from` after `to`"
+      - "Then the call fails with `InvalidArgument`"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestAiSurface_WindowValidation. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-non-admin-cannot-read-the-ai-report
+    title: "Non-admin cannot read the AI report"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Non-admin cannot read the AI report"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a caller without scope `admin` calls `GetAiSurfaceReport`"
+      - "Then the call fails with `PermissionDenied`"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestReports_NonAdminDenied. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-responses-carry-no-identifiers
+    title: "Responses carry no identifiers"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Responses carry no identifiers"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the three reports run over a fixture whose user ids, anonymous ids and order ids are known strings"
+      - "Then none of those strings appears in the serialised responses, in error text or in log output"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/rpc/reports_test.go TestReports_NoIdentifiersLeak. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+
+  - id: analytics.aer-report-latency-within-budget
+    title: "Report latency within budget"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Report latency within budget"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When 30 admin calls of each report run over 26 weeks (or 366 days) on a warehouse with 200,000 tracking events and 20,000 paid order lines"
+      - "Then the p95 of each report is at most 2 s"
+    tags: [analytics, experiment-reports, e2e]
+    status: planned
+    notes: "analytics-experiment-reports: analytics/experiment_reports_access.feature. Red until the change is implemented."
+
+  - id: analytics.aer-consumer-names-the-new-event-type
+    title: "Consumer names the new event type"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change analytics-experiment-reports: Consumer names the new event type"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/
+    services: [team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When team-analytics maps a `TrackingEvent` of type `EVENT_TYPE_EXPERIMENT_EXPOSURE`"
+      - "Then the stored record has `EventType` `experiment_exposure` and keeps the `flag` and `variant` properties"
+    tags: [analytics, experiment-reports, unit]
+    status: not-testable
+    notes: "analytics-experiment-reports: VERIFIED BY team-analytics/internal/events/tracking_test.go TestTracking_ExperimentExposureEventName. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."

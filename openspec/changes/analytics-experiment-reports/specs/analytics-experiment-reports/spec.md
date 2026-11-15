@@ -36,7 +36,7 @@ WHEN an admin calls `AnalyticsQueryService.GetRetentionCohorts`, THE SYSTEM SHAL
 #### Scenario: An empty warehouse returns an empty list
 - **WHEN** an admin calls `GetRetentionCohorts` on a warehouse with no `sign_up` events
 - **THEN** the response has 0 cohorts and the call succeeds
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/retention_cohorts.feature` "An empty window returns no cohorts"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/retention_cohorts.feature` "An empty warehouse returns an empty list"
 
 #### Scenario: Default and maximum weeks
 - **WHEN** an admin calls `GetRetentionCohorts` with `weeks` 0, then with `weeks` 26
@@ -99,7 +99,7 @@ WHEN an admin calls `AnalyticsQueryService.GetExperimentReadout` with a `flag`, 
 #### Scenario: Unknown flag returns no variants
 - **WHEN** an admin calls `GetExperimentReadout` for a flag with no exposure in the window
 - **THEN** the response has 0 variants and `window_days` 7
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/experiment_readout.feature` "An unknown flag returns no variants"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/experiment_readout.feature` "Unknown flag returns no variants"
 
 #### Scenario: Missing or oversized flag is rejected
 - **WHEN** an admin calls `GetExperimentReadout` with an empty `flag`, then with a 65-character `flag`
@@ -147,7 +147,7 @@ WHEN an admin calls `AnalyticsQueryService.GetAiSurfaceReport`, THE SYSTEM SHALL
 #### Scenario: Empty window returns no rows
 - **WHEN** an admin calls `GetAiSurfaceReport` over a window with no `ai_interaction` events
 - **THEN** the response has 0 rows and the call succeeds
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/ai_surface_report.feature` "An empty window returns no rows"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/ai_surface_report.feature` "Empty window returns no rows"
 
 #### Scenario: Inverted window is rejected
 - **WHEN** an admin calls `GetAiSurfaceReport` with `from` after `to`
@@ -170,7 +170,7 @@ THE SYSTEM SHALL return only counts, shares and interval bounds from the three r
 #### Scenario: Report latency within budget
 - **WHEN** 30 admin calls of each report run over 26 weeks (or 366 days) on a warehouse with 200,000 tracking events and 20,000 paid order lines
 - **THEN** the p95 of each report is at most 2 s
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/experiment_reports_access.feature` "Reports meet p95 latency"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/experiment_reports_access.feature` "Report latency within budget"
 
 ### Requirement: Gateway serves the reports to admins only
 WHEN a request for `GetRetentionCohorts`, `GetExperimentReadout` or `GetAiSurfaceReport` reaches team-gateway, THE SYSTEM SHALL forward it to team-analytics only for a verified principal holding scope `admin`, answering an anonymous caller 401 and a caller without the scope 403.
@@ -178,12 +178,12 @@ WHEN a request for `GetRetentionCohorts`, `GetExperimentReadout` or `GetAiSurfac
 #### Scenario: Admin reads each report through the gateway
 - **WHEN** the seeded admin calls the three procedures through the gateway
 - **THEN** each returns 200 with the team-analytics response unchanged
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/experiment_reports_access.feature` "An admin reads the three reports"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/experiment_reports_access.feature` "Admin reads each report through the gateway"
 
 #### Scenario: Buyer or seller is refused at the edge
 - **WHEN** a logged-in buyer, then a logged-in seller, calls each of the three procedures through the gateway
 - **THEN** every call returns 403 and team-analytics receives no request
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/experiment_reports_access.feature` "Non-admins get 403 on every report"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/experiment_reports_access.feature` "Buyer or seller is refused at the edge"
 
 #### Scenario: Anonymous caller is refused at the edge
 - **WHEN** a caller without a token calls each of the three procedures through the gateway
