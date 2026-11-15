@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 ChatBackend = Literal["mock", "llm_router"]
 ScreenBackend = Literal["mock", "llm_router"]
 AssistantBackend = Literal["mock", "llm_router"]
+CopilotBackend = Literal["mock", "llm_router"]
 
 
 class AISettingsMixin(BaseModel):
@@ -85,6 +86,8 @@ class AISettingsMixin(BaseModel):
     RAG_EMBED_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
     RAG_RETRIEVE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
     ASSISTANT_BACKEND: AssistantBackend = "mock"
+    COPILOT_BACKEND: CopilotBackend = "mock"
+    COPILOT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
     ASSISTANT_TIMEOUT_SECONDS: float = Field(default=8.0, gt=0)
     ASSISTANT_SEARCH_TIMEOUT_SECONDS: float = Field(default=0.8, gt=0)
     ASSISTANT_LISTING_TIMEOUT_SECONDS: float = Field(default=0.5, gt=0)

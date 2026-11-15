@@ -5,6 +5,10 @@ from loguru import logger
 
 from app.core.redaction import RedactionPolicy
 from app.modules.business.ai_assistant.adapters.listing import ListingFacts
+from app.modules.business.ai_assistant.copilot_llm import (
+    COPILOT_PROMPT_VERSION,
+    LLMCopilotDrafter,
+)
 from app.modules.business.ai_assistant.grounding import ListingPort
 from app.modules.business.ai_assistant.schemas import (
     ChatCopilotRequest,
@@ -24,7 +28,9 @@ class ChatCopilotService:
         redaction: RedactionPolicy,
         listing: ListingPort | None = None,
         listing_timeout_s: float = 0.2,
+        drafter: LLMCopilotDrafter | None = None,
     ) -> None:
+        self._drafter = drafter
         self._redaction = redaction
         self._listing = listing
         self._listing_timeout_s = listing_timeout_s
@@ -36,9 +42,19 @@ class ChatCopilotService:
             self._redaction.redact_text(buyer_msg),
         )
         facts = await self._facts(request)
-        drafts = _generate_smart_replies(buyer_msg, facts)
+        model_version = "rules-v1"
+        drafts = None
+        if self._drafter is not None:
+            drafts = await self._drafter.draft(
+                self._redaction.redact_text(buyer_msg), facts
+            )
+            if drafts is not None:
+                model_version = f"llm_router:{COPILOT_PROMPT_VERSION}"
+        if drafts is None:
+            drafts = _generate_smart_replies(buyer_msg, facts)
         return ChatCopilotResponse(
-            quick_replies=[d[:MAX_DRAFT_CHARS] for d in drafts[:MAX_DRAFTS]]
+            quick_replies=[d[:MAX_DRAFT_CHARS] for d in drafts[:MAX_DRAFTS]],
+            model_version=model_version,
         )
 
     async def _facts(self, request: ChatCopilotRequest) -> ListingFacts | None:

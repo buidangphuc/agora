@@ -62,6 +62,7 @@ class ChatCopilotRequest(BaseModel):
 
 class ChatCopilotResponse(BaseModel):
     quick_replies: list[str] = Field(default_factory=list)
+    model_version: str = "rules-v1"
 
 
 class ReviewItem(BaseModel):

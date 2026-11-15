@@ -6,6 +6,7 @@ can take whatever it needs (LLM instance, RAG, stores) from ``resources``.
 
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager
+from dataclasses import replace
 
 from app.bootstrap.addons.base import BootstrapAddon
 from app.bootstrap.resources import (
@@ -15,7 +16,10 @@ from app.bootstrap.resources import (
 )
 from app.core.config import Settings
 from app.core.telemetry import FanOutSink, LogCompletionSink
-from app.modules.business.ai_assistant.factory import build_ai_assistant_services
+from app.modules.business.ai_assistant.factory import (
+    build_ai_assistant_services,
+    build_copilot_service,
+)
 from app.modules.business.ai_assistant.grounding import ListingGrounding
 from app.modules.business.ai_assistant.shopping import (
     AssistantReplier,
@@ -107,6 +111,10 @@ def compose_business_services(
             else None
         ),
         replier=_build_assistant_replier(settings),
+    )
+    resources.ai_assistant = replace(
+        resources.ai_assistant,
+        copilot=build_copilot_service(settings, clients.listing if clients else None),
     )
     resources.chat = build_chat_service(
         settings,

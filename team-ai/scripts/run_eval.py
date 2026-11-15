@@ -34,8 +34,16 @@ from app.modules.ai.evals.runner import (
     evaluate_one,
     load_jsonl_cases,
 )
+from app.modules.business.ai_assistant.adapters.listing import ListingFacts
+from app.modules.business.ai_assistant.copilot import ChatCopilotService
+from app.modules.business.ai_assistant.copilot_llm import (
+    claims_availability,
+    promises_delivery,
+    says_out_of_stock,
+)
 from app.modules.business.ai_assistant.grounding import GroundedCards
 from app.modules.business.ai_assistant.schemas import (
+    ChatCopilotRequest,
     ProductCard,
     ShoppingAssistantRequest,
 )
@@ -80,6 +88,58 @@ async def _assistant_target(case: EvalCase) -> EvalTargetResult:
     )
 
 
+class _CaseListing:
+    def __init__(self, facts: ListingFacts | None) -> None:
+        self._facts = facts
+
+    async def get(self, listing_id: str, *, timeout_s: float) -> ListingFacts | None:
+        return self._facts
+
+
+def _build_copilot(listing: _CaseListing) -> ChatCopilotService:
+    return ChatCopilotService(
+        redaction=RedactionPolicy(mode="redacted"), listing=listing
+    )
+
+
+async def _copilot_target(case: EvalCase) -> EvalTargetResult:
+    raw = case.input.get("facts")
+    facts = ListingFacts(**raw) if raw else None
+    copilot = _build_copilot(_CaseListing(facts))
+    response = await copilot.suggest(
+        ChatCopilotRequest(
+            buyer_message=case.input["message"],
+            seller_id=case.input["seller_id"],
+            listing_id=case.input["listing_id"],
+        )
+    )
+    return EvalTargetResult(
+        output={
+            "drafts": response.quick_replies,
+            "facts": raw,
+            "seller_id": case.input["seller_id"],
+        }
+    )
+
+
+def _is_copilot_grounded(output: dict, expected: object) -> bool:
+    facts = output["facts"]
+    in_stock = bool(
+        facts
+        and facts.get("published")
+        and facts.get("seller_id") == output["seller_id"]
+        and facts.get("stock", 0) > 0
+    )
+    for draft in output["drafts"]:
+        if promises_delivery(draft):
+            return False
+        if claims_availability(draft) and not in_stock:
+            return False
+        if in_stock and says_out_of_stock(draft):
+            return False
+    return True
+
+
 def _is_grounded(output: dict, expected: object) -> bool:
     cards = [ProductCard(**c) for c in output["cards"]]
     if cards != [ProductCard(**c) for c in output["offered"]]:
@@ -100,6 +160,8 @@ def _is_grounded(output: dict, expected: object) -> bool:
 async def _target(case: EvalCase) -> EvalTargetResult:
     if case.metadata.get("evaluator") == "grounded":
         return await _assistant_target(case)
+    if case.metadata.get("evaluator") == "copilot_grounded":
+        return await _copilot_target(case)
     result = await _completion_service.complete(CompletionRequest(**case.input))
     return EvalTargetResult(output=result.content)
 
@@ -113,6 +175,9 @@ def _build_evaluators(settings=None) -> dict[str, Evaluator | None]:
         "exact": ExactMatchEvaluator(),
         "contains": ContainsEvaluator(),
         "grounded": CallableEvaluator(name="grounded", evaluate=_is_grounded),
+        "copilot_grounded": CallableEvaluator(
+            name="copilot_grounded", evaluate=_is_copilot_grounded
+        ),
         "judge": judge,
     }
 

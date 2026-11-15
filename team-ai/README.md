@@ -5,6 +5,7 @@ The AI service of the agora platform. It serves the platform-core gRPC contract 
 ## Scope
 
 - **gRPC** (always on once the app opens its resources): `AIService` (shopping assistant, magic listing, chat copilot, `ClassifyTags`, `ScreenListing`), `ChatService` (`StreamChat`), `RecommendationService` (`Recommend`) and `SearchService` (`SearchListings` only).
+- The chat copilot is rules-based by default (`COPILOT_BACKEND=mock`); `llm_router` (needs the `ai` extra) drafts with the LLM within `COPILOT_TIMEOUT_SECONDS` and falls back to the rules when the output is unusable, contradicts the listing facts or promises a delivery time.
 - **HTTP**: `/api/v1/ai/*` (assistant and tag routes), `/api/v1/completions` (sync and SSE), `/healthz`, `/readyz` and `/metrics` (`teamai_grpc_requests_total`, which KEDA scales on).
 - **Always on**: Redis, recommendations (Qdrant), the per-principal rate limit (Redis), the chat reply quota (Redis), taxonomy persistence (Redis database `TAXONOMY_REDIS_DATABASE`), gRPC reflection, graceful drain and the request timeout. Settings fail fast without `REDIS_HOST`.
 - **Listing screen**: the `ScreenListing` RPC screens a listing for trust enforcement. `SCREEN_BACKEND` selects the backend (`mock` by default, or `llm_router`). The Kafka listing indexer indexes only listings in the `PUBLISHED` state (and an empty status from legacy producers).
