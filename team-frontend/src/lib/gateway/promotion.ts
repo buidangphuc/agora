@@ -205,8 +205,7 @@ export async function listVouchers(sellerId?: string): Promise<ViewVoucher[]> {
 }
 
 export type MyVouchersResult =
-  | { ok: true; vouchers: ViewVoucher[] }
-  | { ok: false };
+  { ok: true; vouchers: ViewVoucher[] } | { ok: false };
 
 export async function listMyVouchers(): Promise<MyVouchersResult> {
   if (!getPrincipal()) return { ok: true, vouchers: [] };
@@ -291,6 +290,33 @@ export async function listSponsoredSlots(
   try {
     const res = await promotion().sponsored.listSponsoredSlots({ contextStr });
     return res.listingIds;
+  } catch {
+    return [];
+  }
+}
+
+export interface SponsoredSlotView {
+  listingId: string;
+  campaignId: string;
+  impressionToken: string;
+}
+
+export async function listSponsoredSlotSet(input: {
+  placement: string;
+  categoryId: string;
+  limit: number;
+}): Promise<SponsoredSlotView[]> {
+  try {
+    const res = await promotion().sponsored.listSponsoredSlots({
+      placement: input.placement,
+      categoryId: input.categoryId,
+      limit: input.limit,
+    });
+    return res.slots.map((s) => ({
+      listingId: s.listingId,
+      campaignId: s.campaignId,
+      impressionToken: s.impressionToken,
+    }));
   } catch {
     return [];
   }
