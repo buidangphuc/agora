@@ -12948,3 +12948,489 @@ features:
     tags: [auth, buyer, legal, unit]
     status: not-testable
     notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/auth/actions.test.ts \"Boundary version length\". Not producible end to end: asserts the outgoing server-action request argument, not observable end to end."
+
+  - id: privacy.ui.signed-in-user-reaches-the-page-from-the-account-m
+    title: "Buyer opens the privacy page from the account menu"
+    persona: buyer
+    priority: P1
+    summary: "Buyer opens the privacy page from the account menu (PV1)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer clicks \"Quyền riêng tư\" in the account menu"
+      - "Then the browser lands on `/account/privacy`, the heading \"Quyền riêng tư\" shows and the menu entry has `aria-current=\"page\"`"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.guest-is-sent-to-login
+    title: "Guest is sent to login"
+    persona: guest
+    priority: P1
+    summary: "Guest is sent to login (PV2)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest opens `/account/privacy`"
+      - "Then the response redirects to `/login` with the return URL `/account/privacy` and 0 gateway calls are made"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.unit-pv3-one-failing-read-does-not-blank-the-page
+    title: "PV3 One failing read does not blank the page"
+    persona: buyer
+    priority: P2
+    summary: "PV3 One failing read does not blank the page"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `ListMyConsents` fails with `Unavailable` and `GetAccountDeletionStatus` succeeds"
+      - "Then the consent card shows \"Không thể tải lịch sử đồng ý.\" with a retry button and the deletion and export cards still render (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"a failed consent read keeps the other cards\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv29-a-guest-cannot-reach-any-privacy-data
+    title: "PV29 A guest cannot reach any privacy data"
+    persona: guest
+    priority: P2
+    summary: "PV29 A guest cannot reach any privacy data"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest opens `/account/privacy` or calls a privacy action without a session"
+      - "Then the page redirects to `/login` or the action is refused `Unauthenticated`, and no consent, export or deletion data is returned (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"redirects a guest to login\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.history-is-listed-newest-first-and-paged
+    title: "Consent history is listed newest first"
+    persona: buyer
+    priority: P1
+    summary: "Consent history is listed newest first (PV4)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user with 25 consent records opens `/account/privacy`"
+      - "Then the history shows 20 rows ordered newest first, the first row is the newest record and a pagination link to page 2 shows 5 more rows"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.saving-a-change-records-one-row-per-changed-purpos
+    title: "Changing consent stores records and sets the cookie"
+    persona: buyer
+    priority: P1
+    summary: "Changing consent stores records and sets the cookie (PV5)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user with analytics granted switches analytics off and marketing on and saves"
+      - "Then `RecordConsent` is called once with exactly 2 records (analytics granted false, marketing granted true, source `account`), then the cookie holds `a=0&m=1`, a toast \"Đã lưu lựa chọn của bạn.\" shows and the history gains 2 rows"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.unit-pv6-saving-without-a-change-makes-no-call
+    title: "PV6 Saving without a change makes no call"
+    persona: buyer
+    priority: P2
+    summary: "PV6 Saving without a change makes no call"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user opens the page and clicks save without toggling anything"
+      - "Then 0 `RecordConsent` calls are made and the save button is disabled until a toggle changes (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ConsentForm.test.tsx \"save is disabled until a purpose changes\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv7-a-failed-record-leaves-the-cookie-unchanged
+    title: "PV7 A failed record leaves the cookie unchanged"
+    persona: buyer
+    priority: P2
+    summary: "PV7 A failed record leaves the cookie unchanged"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `RecordConsent` fails `Unavailable` after the user toggles personalization"
+      - "Then the cookie value is unchanged, an inline Alert \"Chưa lưu được lựa chọn. Vui lòng thử lại.\" shows and the toggle keeps the user's choice (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ConsentForm.test.tsx \"does not write the cookie when the record fails\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv8-legal-acceptance-rows-are-read-only
+    title: "PV8 Legal acceptance rows are read-only"
+    persona: buyer
+    priority: P2
+    summary: "PV8 Legal acceptance rows are read-only"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the history contains TERMS, PRIVACY_POLICY and SELLER_TERMS records"
+      - "Then each shows its Vietnamese label with the accepted version and no toggle exists for it (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ConsentForm.test.tsx \"renders toggles only for the three banner purposes\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv9-an-empty-history-shows-an-empty-state
+    title: "PV9 An empty history shows an empty state"
+    persona: buyer
+    priority: P2
+    summary: "PV9 An empty history shows an empty state"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a legacy user with no consent records opens the page"
+      - "Then the history shows \"Chưa có lịch sử đồng ý.\" and the toggles show the cookie values (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"empty history shows the empty state\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv10-an-expired-session-on-save-asks-to-sign-in-again
+    title: "PV10 An expired session on save asks to sign in again"
+    persona: buyer
+    priority: P2
+    summary: "PV10 An expired session on save asks to sign in again"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `RecordConsent` fails `Unauthenticated`"
+      - "Then the action returns \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and the cookie is unchanged (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on consent save\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.export-downloads-one-json-file
+    title: "User downloads their data"
+    persona: buyer
+    priority: P1
+    summary: "User downloads their data (PV11)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in user clicks \"Tải dữ liệu của tôi\""
+      - "Then the browser receives one file named `agora-du-lieu-<date>.json` whose JSON has `account.user_id` equal to the user's id"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.unit-pv12-export-failure-is-shown-and-retryable
+    title: "PV12 Export failure is shown and retryable"
+    persona: buyer
+    priority: P2
+    summary: "PV12 Export failure is shown and retryable"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `ExportMyData` fails `Unavailable`"
+      - "Then an Alert \"Chưa tải được dữ liệu. Vui lòng thử lại sau.\" shows, no file is produced and the button is enabled again (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ExportButton.test.tsx \"shows an error and re-enables the button\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv13-export-content-is-never-retained-or-logged
+    title: "PV13 Export content is never retained or logged"
+    persona: buyer
+    priority: P2
+    summary: "PV13 Export content is never retained or logged"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the export action succeeds"
+      - "Then the action writes 0 cookies, calls no `revalidatePath` and logs 0 lines containing the content, and the page HTML contains none of the exported values (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"export leaves no trace outside the response\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv14-double-click-makes-one-call
+    title: "PV14 Double click makes one call"
+    persona: buyer
+    priority: P2
+    summary: "PV14 Double click makes one call"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the user clicks the export button twice within the pending state"
+      - "Then `ExportMyData` is called once (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ExportButton.test.tsx \"blocks a second click while pending\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv15-the-export-card-links-the-in-app-views
+    title: "PV15 The export card links the in-app views"
+    persona: buyer
+    priority: P2
+    summary: "PV15 The export card links the in-app views"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the page renders"
+      - "Then the export card contains links to `/account/orders`, the user's reviews entry point and `/chat` (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"export card links orders and chats\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv30-an-unauthenticated-export-is-refused
+    title: "PV30 An unauthenticated export is refused"
+    persona: buyer
+    priority: P2
+    summary: "PV30 An unauthenticated export is refused"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `ExportMyData` answers `Unauthenticated` or `PermissionDenied`"
+      - "Then the action returns \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and no file is produced (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on every action\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.confirming-with-the-password-schedules-deletion
+    title: "Buyer schedules account deletion"
+    persona: buyer
+    priority: P1
+    summary: "Buyer schedules account deletion (PV16)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer with no open obligations enters the correct password in the deletion modal and confirms"
+      - "Then the page shows the pending panel with an erase time 48 h (within 5 s) after the request and the \"Hủy yêu cầu xóa\" button"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.wrong-password-schedules-nothing
+    title: "Wrong password does not schedule deletion"
+    persona: buyer
+    priority: P1
+    summary: "Wrong password does not schedule deletion (PV17)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the gateway answers `PermissionDenied` to `RequestAccountDeletion`"
+      - "Then the modal stays open with \"Mật khẩu không đúng.\", the password field is cleared and the status read still shows nothing pending"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.unit-pv18-empty-password-is-blocked-locally
+    title: "PV18 Empty password is blocked locally"
+    persona: buyer
+    priority: P2
+    summary: "PV18 Empty password is blocked locally"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the user clicks confirm with an empty password"
+      - "Then the confirm button is disabled and 0 gateway calls are made (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/DeleteAccountModal.test.tsx \"confirm is disabled for an empty password\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.an-open-obligation-shows-the-reason
+    title: "Open order blocks deletion with a reason"
+    persona: buyer
+    priority: P1
+    summary: "Open order blocks deletion with a reason (PV19)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the gateway answers `FailedPrecondition` with a message naming open orders"
+      - "Then the modal shows \"Chưa thể xóa tài khoản: \" followed by that message, no pending panel appears and the account stays usable"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.unit-pv20-obligation-service-outage-fails-closed
+    title: "PV20 Obligation service outage fails closed"
+    persona: buyer
+    priority: P2
+    summary: "PV20 Obligation service outage fails closed"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the gateway answers `Unavailable` to `RequestAccountDeletion`"
+      - "Then the modal shows \"Chưa kiểm tra được đơn hàng và số dư của bạn. Vui lòng thử lại sau.\" and no pending panel appears (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unavailable on request deletion\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.pending-deletion-can-be-cancelled
+    title: "Pending deletion is cancelled"
+    persona: buyer
+    priority: P1
+    summary: "Pending deletion is cancelled (PV21)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user whose deletion is pending clicks \"Hủy yêu cầu xóa\" and confirms"
+      - "Then `CancelAccountDeletion` is called once, the panel returns to the \"Xóa tài khoản\" offer and the toast \"Đã hủy yêu cầu xóa tài khoản.\" shows"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.unit-pv22-cancel-with-nothing-pending-is-explained
+    title: "PV22 Cancel with nothing pending is explained"
+    persona: buyer
+    priority: P2
+    summary: "PV22 Cancel with nothing pending is explained"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `CancelAccountDeletion` fails `FailedPrecondition` because the window already ended or was cancelled elsewhere"
+      - "Then the action returns \"Không có yêu cầu xóa tài khoản đang chờ.\" and the page re-reads the status (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps FailedPrecondition on cancel\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv23-a-repeated-request-keeps-the-original-time
+    title: "PV23 A repeated request keeps the original time"
+    persona: buyer
+    priority: P2
+    summary: "PV23 A repeated request keeps the original time"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user with deletion pending opens the page in a second tab and sees the pending panel"
+      - "Then the second tab offers only the cancel button and no \"Xóa tài khoản\" button (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/DeletionCard.test.tsx \"pending state hides the delete offer\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv24-the-password-never-leaves-the-action
+    title: "PV24 The password never leaves the action"
+    persona: buyer
+    priority: P2
+    summary: "PV24 The password never leaves the action"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `requestDeletionAction` runs with success or failure"
+      - "Then its return value, the logs and the revalidated page contain 0 occurrences of the password (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"never returns or logs the password\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv25-double-submit-makes-one-request
+    title: "PV25 Double submit makes one request"
+    persona: buyer
+    priority: P2
+    summary: "PV25 Double submit makes one request"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the user clicks confirm twice while the first call is pending"
+      - "Then `RequestAccountDeletion` is called once (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/DeleteAccountModal.test.tsx \"blocks a double submit\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv31-deletion-by-a-session-without-rights-is-refused
+    title: "PV31 Deletion by a session without rights is refused"
+    persona: buyer
+    priority: P2
+    summary: "PV31 Deletion by a session without rights is refused"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `RequestAccountDeletion` answers `Unauthenticated`"
+      - "Then the modal shows \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and no pending panel appears (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on every action\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.a-call-without-a-session-is-refused
+    title: "Expired session on a privacy action asks to sign in"
+    persona: buyer
+    priority: P1
+    summary: "Expired session on a privacy action asks to sign in (PV26)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an action runs and the gateway answers `Unauthenticated`"
+      - "Then the action returns \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and shows no technical text"
+    tags: [buyer, privacy]
+    status: planned
+
+  - id: privacy.ui.unit-pv27-no-request-carries-a-user-id
+    title: "PV27 No request carries a user id"
+    persona: buyer
+    priority: P2
+    summary: "PV27 No request carries a user id"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When any privacy action calls the gateway"
+      - "Then the request message has no user id field set and the Authorization header carries the session token (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/lib/gateway/privacy.test.ts \"sends the session token and no user id\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv28-unknown-failures-hide-detail
+    title: "PV28 Unknown failures hide detail"
+    persona: buyer
+    priority: P2
+    summary: "PV28 Unknown failures hide detail"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an action fails with an error that is not a Connect error or has an unmapped code"
+      - "Then the action returns its fixed failure text and the text contains no gateway message (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"unmapped errors show only the fixed text\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
