@@ -7,6 +7,7 @@ import {
   readConsent,
   writeConsent,
 } from "@/lib/consent/consent";
+import { recordBannerConsent } from "./actions";
 
 const OPEN_EVENT = "agora:consent:open";
 const CHANGE_EVENT = "agora:consent:change";
@@ -14,18 +15,18 @@ const CHANGE_EVENT = "agora:consent:change";
 const GROUPS: { key: keyof ConsentGroups; label: string; hint: string }[] = [
   {
     key: "analytics",
-    label: "Analytics",
-    hint: "Helps us understand how the site is used.",
+    label: "Phân tích",
+    hint: "Giúp chúng tôi hiểu cách trang web được sử dụng.",
   },
   {
     key: "marketing",
-    label: "Marketing",
-    hint: "Lets us measure and improve advertising.",
+    label: "Tiếp thị",
+    hint: "Giúp chúng tôi đo lường và cải thiện quảng cáo.",
   },
   {
     key: "personalization",
-    label: "Personalization",
-    hint: "Tailors recommendations to your activity.",
+    label: "Cá nhân hóa",
+    hint: "Điều chỉnh gợi ý theo hoạt động của bạn.",
   },
 ];
 
@@ -62,7 +63,9 @@ export function ConsentBanner() {
   if (!open) return null;
 
   const commit = (groups: ConsentGroups) => {
+    const prev = readConsent();
     writeConsent(groups);
+    recordBannerConsent(prev, groups).catch(() => {});
     window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: groups }));
     setOpen(false);
   };
@@ -75,7 +78,7 @@ export function ConsentBanner() {
         className="static mx-auto w-full max-w-2xl rounded-lg border bg-surface-card p-4 shadow-xl text-sm text-text-secondary"
       >
         <h2 id="consent-title" className="font-bold text-text-primary mb-2">
-          Cookie preferences
+          Tùy chọn cookie
         </h2>
         <div className="space-y-2 mb-4">
           {GROUPS.map((g) => (
@@ -104,14 +107,14 @@ export function ConsentBanner() {
             className="rounded border px-3 py-1.5"
             onClick={() => commit(NONE)}
           >
-            Reject all
+            Từ chối tất cả
           </button>
           <button
             type="button"
             className="rounded border px-3 py-1.5"
             onClick={() => commit(choice)}
           >
-            Save choices
+            Lưu lựa chọn
           </button>
           <button
             type="button"
@@ -124,7 +127,7 @@ export function ConsentBanner() {
               })
             }
           >
-            Accept all
+            Chấp nhận tất cả
           </button>
         </div>
       </dialog>
@@ -139,7 +142,7 @@ export function CookieSettingsLink() {
       className="underline hover:text-text-primary"
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
     >
-      Cookie settings
+      Cài đặt cookie
     </button>
   );
 }

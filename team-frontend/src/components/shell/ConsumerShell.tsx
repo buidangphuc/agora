@@ -6,6 +6,7 @@ import { Link } from "@/components/ui/Link";
 import { logoutAction } from "@/features/auth/actions";
 import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { SellerChannelLink } from "@/features/handoff/SellerChannelLink";
+import { LegalReacceptance } from "@/features/legal/LegalReacceptance";
 import { OPERATOR_FIELDS } from "@/features/legal/operator";
 import { SearchBar } from "@/features/search/SearchBar";
 import { getCart } from "@/lib/gateway/cart";
@@ -301,6 +302,8 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-page px-4 py-5 flex-1 w-full">
         {children}
       </main>
+
+      <LegalReacceptance />
 
       {/* Floating Chat Bubble */}
       <FloatingChatBubble />
