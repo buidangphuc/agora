@@ -29,11 +29,31 @@ const thread = { id: "t1" } as never;
 beforeEach(() => vi.clearAllMocks());
 
 describe("chatCopilotAction", () => {
-  it("returns AI quick replies on success", async () => {
-    vi.mocked(chatCopilot).mockResolvedValue(["a", "b"]);
+  it("returns AI quick replies with provenance on success", async () => {
+    vi.mocked(chatCopilot).mockResolvedValue({
+      quickReplies: ["a", "b"],
+      requestId: "c1",
+      modelVersion: "mock:v1",
+    });
     const res = await chatCopilotAction("s1", "hi", "l1");
-    expect(chatCopilot).toHaveBeenCalledWith("s1", "hi", "l1");
-    expect(res).toEqual({ ok: true, replies: ["a", "b"] });
+    expect(res).toEqual({
+      ok: true,
+      replies: ["a", "b"],
+      requestId: "c1",
+      modelVersion: "mock:v1",
+    });
+  });
+
+  // Scenario: The listing id reaches the copilot call
+  it("passes the thread listing", async () => {
+    vi.mocked(chatCopilot).mockResolvedValue({
+      quickReplies: [],
+      requestId: "",
+      modelVersion: "",
+    });
+    await chatCopilotAction("s1", "hi", "lst_7");
+    expect(chatCopilot).toHaveBeenCalledTimes(1);
+    expect(chatCopilot).toHaveBeenCalledWith("s1", "hi", "lst_7");
   });
 
   it("returns empty replies + message on failure", async () => {

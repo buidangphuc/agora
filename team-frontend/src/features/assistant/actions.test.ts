@@ -42,4 +42,17 @@ describe("askAssistantAction", () => {
     const res = await askAssistantAction("q");
     expect(res).toEqual({ ok: false, message: "Không gọi được trợ lý AI." });
   });
+
+  it("passes the reply provenance through unchanged", async () => {
+    const reply = {
+      replyText: "hi",
+      productCards: [],
+      suggestedFollowups: [],
+      requestId: "r1",
+      modelVersion: "mock:v1",
+    };
+    vi.mocked(shoppingAssistant).mockResolvedValue(reply);
+    const res = await askAssistantAction("q");
+    expect(res).toEqual({ ok: true, message: "", reply });
+  });
 });

@@ -99,3 +99,68 @@ describe("trackAiInteraction", () => {
     }
   });
 });
+
+describe("trackAiInteraction provenance", () => {
+  // Scenario: The helper puts provenance in wire fields only
+  it("sends provenance in wire fields only", () => {
+    trackAiInteraction("assistant", "shown", undefined, {
+      requestId: "r1",
+      modelVersion: "mock:v1",
+    });
+    const beacons = queued();
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0].type).toBe("ai_interaction");
+    expect(beacons[0].impressionId).toBe("r1");
+    expect(beacons[0].modelVersion).toBe("mock:v1");
+    expect(beacons[0].properties).toEqual({
+      surface: "assistant",
+      action: "shown",
+    });
+  });
+
+  // Scenario: Empty provenance sends nothing extra
+  it("omits empty provenance", () => {
+    trackAiInteraction("review_summary", "shown", "lst_1", {
+      requestId: "",
+      modelVersion: "",
+    });
+    const beacons = queued();
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0]).not.toHaveProperty("impressionId");
+    expect(beacons[0]).not.toHaveProperty("modelVersion");
+  });
+
+  it("omits an empty model version but keeps the request id", () => {
+    trackAiInteraction("chat_copilot", "accepted", "lst_1", {
+      requestId: "c1",
+      modelVersion: "",
+    });
+    const beacons = queued();
+    expect(beacons[0].impressionId).toBe("c1");
+    expect(beacons[0]).not.toHaveProperty("modelVersion");
+  });
+
+  // Scenario: A tracker failure still leaves the AI action working
+  it("swallows tracker failure with provenance", async () => {
+    const trackEcommerce = vi.fn(() => {
+      throw new Error("tracker down");
+    });
+    vi.doMock("./dispatcher", () => ({ trackEcommerce }));
+    vi.doMock("@/lib/analytics", () => ({ trackEcommerce }));
+    const { trackAiInteraction: track } = await import("./ai");
+    expect(() =>
+      track("assistant", "shown", undefined, {
+        requestId: "r1",
+        modelVersion: "m",
+      }),
+    ).not.toThrow();
+  });
+
+  it("supports the dismissed action", () => {
+    trackAiInteraction("assistant", "dismissed" as never);
+    expect(queued()[0].properties).toEqual({
+      surface: "assistant",
+      action: "dismissed",
+    });
+  });
+});

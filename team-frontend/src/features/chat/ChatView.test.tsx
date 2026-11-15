@@ -94,7 +94,12 @@ const type = (value: string) =>
   fireEvent.change(composer(), { target: { value } });
 
 async function loadSuggestions(replies = ["Gợi ý A", "Gợi ý B", "Gợi ý C"]) {
-  vi.mocked(chatCopilotAction).mockResolvedValueOnce({ ok: true, replies });
+  vi.mocked(chatCopilotAction).mockResolvedValueOnce({
+    ok: true,
+    replies,
+    requestId: "c1",
+    modelVersion: "mock:v1",
+  } as never);
   fireEvent.click(screen.getByRole("button", { name: /Gợi ý AI/ }));
   await screen.findByRole("button", { name: replies[0] });
 }
@@ -244,5 +249,22 @@ describe("ChatView chat_copilot ai_interaction", () => {
     expect(composer()).toHaveValue("Shop trả lời nhanh");
     type("Shop trả lời nhanh và thêm");
     expect(events()).toEqual([]);
+  });
+});
+
+describe("ChatView chat_copilot provenance", () => {
+  // Scenario: Copilot events carry the copilot response provenance
+  it("copilot events carry provenance", async () => {
+    renderAs(SELLER);
+    await loadSuggestions();
+    await waitFor(() => expect(events("shown")).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Gợi ý A" }));
+    type("Gợi ý A sửa");
+    const calls = vi.mocked(trackAiInteraction).mock.calls;
+    const actions = calls.map((c) => c[1]);
+    expect(actions).toEqual(["shown", "accepted", "edited"]);
+    for (const c of calls) {
+      expect(c[3]).toEqual({ requestId: "c1", modelVersion: "mock:v1" });
+    }
   });
 });

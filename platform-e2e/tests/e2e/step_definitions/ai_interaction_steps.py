@@ -211,6 +211,49 @@ def exact_keys(world: World) -> None:
         assert set((e.get("properties") or {}).keys()) == ai.ALLOWED_KEYS, ai.describe([e])
 
 
+# ── Response provenance in wire fields ───────────────────────────────────
+def _provenance_events(world: World, surface: str, action: str) -> list[dict]:
+    found = ai.ai_events(world, surface, action)
+    assert found, f"no {surface}/{action} event captured"
+    return found
+
+
+@then(
+    parsers.parse(
+        'every captured "{surface}" "{action}" AI event carries an impressionId equal to the reply request id'
+    )
+)
+def carries_reply_request_id(world: World, surface: str, action: str) -> None:
+    ai.settled(world, 1, surface, action)
+    ids = {e.get("impressionId") for e in _provenance_events(world, surface, action)}
+    assert ids and all(ids), f"missing impressionId on {surface}/{action}: {ids}"
+    bodies = _x(world).get("ai_action_bodies", [])
+    assert bodies, "no assistant response body was recorded"
+    joined = "\n".join(bodies)
+    for rid in ids:
+        assert rid in joined, f"impressionId {rid!r} is not the request id of any assistant reply"
+
+
+@then(parsers.parse('every captured "{surface}" "{action}" AI event carries a non-empty modelVersion'))
+def carries_model_version(world: World, surface: str, action: str) -> None:
+    found = _provenance_events(world, surface, action)
+    assert all(e.get("modelVersion") for e in found), ai.describe(found)
+
+
+@then(parsers.parse('no captured "{surface}" AI event has impressionId or modelVersion in its properties'))
+def provenance_not_in_properties(world: World, surface: str) -> None:
+    for e in ai.ai_events(world, surface):
+        keys = set((e.get("properties") or {}).keys())
+        assert keys == ai.ALLOWED_KEYS, ai.describe([e])
+
+
+@when('the buyer clicks "Xem Ngay" on the first product card without leaving')
+def click_xem_ngay_stay(world: World) -> None:
+    _x(world).setdefault("ai_clicked", []).append(_first_card_listing(world))
+    _cards(world).first.evaluate("el => el.addEventListener('click', e => e.preventDefault(), true)")
+    _cards(world).first.click()
+
+
 # ── Seller chat copilot ──────────────────────────────────────────────────
 def _composer(world: World):  # noqa: ANN202
     return world.page.get_by_placeholder(_COMPOSER, exact=False)

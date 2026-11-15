@@ -7,12 +7,12 @@
 #### Scenario: One call per question and no stream
 - **WHEN** a buyer asks "tai nghe dưới 500k" on `/assistant` and the mock backend answers with 2 cards
 - **THEN** the browser makes exactly 1 request to the assistant Server Action, 0 requests to `/api/assistant/stream`, and the bubble text equals the `replyText` of that response
-- **VERIFIED BY**: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `asks once and never streams`; `platform-e2e/tests/e2e/features/frontend/buyer_ai_surfaces.feature` `The assistant answers with one grounded call`
+- **VERIFIED BY**: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `asks once and never streams`; `platform-e2e/tests/e2e/features/frontend/buyer_ai_surfaces.feature` `One call per question and no stream`
 
 #### Scenario: The stream route is gone
 - **WHEN** a client POSTs `/api/assistant/stream`
 - **THEN** the response status is 404
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/buyer_ai_surfaces.feature` `The stream route no longer exists`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/buyer_ai_surfaces.feature` `The stream route is gone`
 
 #### Scenario: A card without a rating shows no rating line
 - **WHEN** a reply card has `ratingText` equal to ""
@@ -70,7 +70,7 @@ Each product card rendered for a reply SHALL be wrapped in `TrackImpression` wit
 #### Scenario: The assistant accepted click reuses the reply provenance
 - **WHEN** the buyer clicks "Xem Ngay" on a card of the reply with `request_id` "r1"
 - **THEN** the queued `ai_interaction` has `impressionId = "r1"`, `listingId` = the card listing and `modelVersion` of that reply
-- **VERIFIED BY**: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `accepted carries reply provenance`; `platform-e2e/tests/e2e/features/frontend/buyer_ai_surfaces.feature` `AI interactions carry the response request id`
+- **VERIFIED BY**: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `accepted carries reply provenance`; `platform-e2e/tests/e2e/features/frontend/ai_interaction_events.feature` `The assistant accepted click reuses the reply provenance`
 
 #### Scenario: Copilot events carry the copilot response provenance
 - **WHEN** the seller loads suggestions whose response has `request_id` "c1" and then inserts and edits one
@@ -104,7 +104,7 @@ Each product card rendered for a reply SHALL be wrapped in `TrackImpression` wit
 #### Scenario: The home entry points to the assistant page
 - **WHEN** a visitor opens `/`
 - **THEN** the assistant entry is a link whose `href` is `/assistant` and activating it loads `/assistant`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/buyer_ai_surfaces.feature` `The home assistant entry opens the assistant page`; `team-frontend/src/features/home/AssistantBlock.test.tsx` `links to the assistant page`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/buyer_ai_surfaces.feature` `The home entry points to the assistant page`; `team-frontend/src/features/home/AssistantBlock.test.tsx` `links to the assistant page`
 
 #### Scenario: No invented score is rendered
 - **WHEN** the home page renders the assistant entry

@@ -57,6 +57,7 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `NEXT_PUBLIC_GATEWAY_URL` | `http://localhost:8080` (browser-visible, inlined at build) | `src/lib/analytics/queue.ts` |
 | `OTEL_SERVICE_NAME` | `team-frontend` | `src/lib/gateway/config.ts` |
 | `FEATURE_FLAGS_ENABLED` | `true` (anything but `false` enables) | `src/lib/flags/config.ts` |
+| `FLAG_ENTITY_SALT` | empty; salt hashed with the entity id before it reaches Flipt | `src/lib/flags/variant.ts` |
 | `FLIPT_ADDR` | `flipt:8080` (`http://` prepended if missing; Flipt REST port) | `src/lib/flags/config.ts` |
 | `COOKIE_SECURE` | unset (`true` forces the `Secure` cookie attribute; server-only, TLS environments only, never plain http; unset keeps the `X-Forwarded-Proto` rule) | `src/lib/gateway/session-cookie.ts` |
 | `TRUSTED_PROXY_HOPS` | `1` (values below 1 or non-numeric fall back to 1) | `src/lib/gateway/client-context.ts` |
