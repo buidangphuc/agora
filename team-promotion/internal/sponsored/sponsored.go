@@ -283,3 +283,30 @@ func (s *Service) RecordAdClick(ctx context.Context, p RecordClickParams) (Click
 	}
 	return ClickResult{ListingID: res.ListingID, Charged: res.Charged}, nil
 }
+
+// RED-PHASE STUBS (T2-service-rpc): the implementer replaces these.
+
+type ListMyAdCampaignsParams struct {
+	SellerID string
+	PageSize int32
+	Cursor   string
+}
+
+type ListMyAdCampaignsResult struct {
+	Campaigns  []store.AdCampaign
+	NextCursor string
+}
+
+var errCampaignMgmtNotImplemented = errors.New("campaign management not implemented")
+
+func (s *Service) ListMyAdCampaigns(_ context.Context, _ ListMyAdCampaignsParams) (ListMyAdCampaignsResult, error) {
+	return ListMyAdCampaignsResult{}, errCampaignMgmtNotImplemented
+}
+
+func (s *Service) PauseAdCampaign(_ context.Context, _, _ string) (store.AdCampaign, error) {
+	return store.AdCampaign{}, errCampaignMgmtNotImplemented
+}
+
+func (s *Service) ResumeAdCampaign(_ context.Context, _, _ string) (store.AdCampaign, error) {
+	return store.AdCampaign{}, errCampaignMgmtNotImplemented
+}
