@@ -19,7 +19,7 @@ spec: plans/trust-legal/00-spec.md (Locked 2026-11-13)
 | payment-payout-kyc-gate | team-payment | [verification-kyc-documents] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4d9b7a7e990e | [x] |
 | frontend-legal-pages | team-frontend | [identity-legal-consent] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | e2e7ff15f69a | [x] |
 | frontend-account-privacy | team-frontend | [identity-data-export, frontend-legal-pages] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d996a770553e | [x] |
-| seller-kyc-ui | team-frontend-seller | [verification-kyc-documents, payment-payout-kyc-gate] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | fa44b614550e | [x] |
+| seller-kyc-ui | team-frontend-seller | [verification-kyc-documents, payment-payout-kyc-gate] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 05200a427729 | [x] |
 | admin-kyc-queue | team-frontend-admin | [verification-kyc-documents] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c220df009c60 | [x] |
 
 decide (spec): `scripts/asdlc/decide.py` produced no table for any slice (system python lacks `yaml`; with the e2e venv it needs `--units`/`--out` and a kev engine that was not running). Each spec-quality-reviewer's own ISO 29148/EARS checklist is the verdict.
