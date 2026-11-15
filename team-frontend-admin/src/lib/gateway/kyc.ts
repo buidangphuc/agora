@@ -42,7 +42,8 @@ export type ListKycResult =
   | { status: "unauthenticated" | "forbidden" | "unavailable" };
 
 export type KycDocumentUrlResult =
-  { status: "ok"; url: string; expiresAt: string } | { status: KycFailure };
+  | { status: "ok"; url: string; expiresAt: string }
+  | { status: KycFailure };
 
 export type ReviewKycResult = { status: "ok" } | { status: KycFailure };
 
