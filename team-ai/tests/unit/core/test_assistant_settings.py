@@ -91,3 +91,28 @@ def test_compose_team_ai_waits_for_search_and_domain():
     depends = _team_ai_service()["depends_on"]
 
     assert {"team-search", "team-domain"} <= set(depends)
+
+
+COPILOT_KEYS = ("COPILOT_BACKEND", "COPILOT_TIMEOUT_SECONDS")
+
+
+def test_copilot_backend_accepts_only_known_values():
+    """Scenario: Unknown backend value is rejected at boot (settings)"""
+    assert build_test_settings(COPILOT_BACKEND="llm_router").COPILOT_BACKEND == (
+        "llm_router"
+    )
+    with pytest.raises(ValidationError, match="COPILOT_BACKEND"):
+        build_test_settings(COPILOT_BACKEND="gpt")
+
+
+def test_copilot_timeout_must_be_positive():
+    """Scenario: Unknown backend value is rejected at boot (timeout bound)"""
+    with pytest.raises(ValidationError, match="COPILOT_TIMEOUT_SECONDS"):
+        build_test_settings(COPILOT_TIMEOUT_SECONDS=0)
+
+
+def test_env_example_lists_copilot_keys():
+    """Scenario: Mock is the default and is deterministic (env example)"""
+    keys = parse_env_keys(ENV_EXAMPLE_PATH.read_text(encoding="utf-8"))
+
+    assert set(COPILOT_KEYS) <= keys
