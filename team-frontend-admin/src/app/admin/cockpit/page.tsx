@@ -20,11 +20,19 @@ export const dynamic = "force-dynamic";
 
 // Session check and first fetch both happen server-side. The scope decode is for
 // gating the render only; the gateway enforces `admin` on the data itself.
-export default async function CockpitPage({
-  searchParams = {},
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-} = {}) {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default function CockpitPage(): Promise<React.ReactNode>;
+export default function CockpitPage(props: {
+  searchParams: SearchParams;
+}): Promise<React.ReactNode>;
+export default function CockpitPage(props: {
+  searchParams?: Promise<SearchParams>;
+}): Promise<React.ReactNode>;
+export default async function CockpitPage(props?: {
+  searchParams?: SearchParams | Promise<SearchParams>;
+}): Promise<React.ReactNode> {
+  const searchParams: SearchParams = (await props?.searchParams) ?? {};
   const principal = getPrincipal();
   const token = getToken();
   if (!principal || !token) {

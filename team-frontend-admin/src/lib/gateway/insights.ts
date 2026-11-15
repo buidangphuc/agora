@@ -11,7 +11,9 @@ import { getToken } from "./session.js";
 type Params = Record<string, string | string[] | undefined>;
 
 export type FlagParam =
-  { kind: "none" } | { kind: "invalid" } | { kind: "valid"; key: string };
+  | { kind: "none" }
+  | { kind: "invalid" }
+  | { kind: "valid"; key: string };
 
 export interface InsightParams {
   windowHours: 24 | 72 | 168;
@@ -58,7 +60,9 @@ export type ReportResult<T> =
   | { status: "unauthenticated" | "forbidden" | "invalid" | "unavailable" };
 
 export type ExperimentResult<T> =
-  ReportResult<T> | { status: "no_flag" } | { status: "bad_flag" };
+  | ReportResult<T>
+  | { status: "no_flag" }
+  | { status: "bad_flag" };
 
 type Clients = ReturnType<typeof makeClients>["analytics"];
 
