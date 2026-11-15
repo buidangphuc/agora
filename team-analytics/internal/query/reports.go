@@ -86,16 +86,16 @@ ORDER BY dn.cw`, warehouse.ResolvedViewName, warehouse.OrderFactsTableName, rete
 		var c RetentionCohortRow
 		if err := rows.Scan(&c.CohortWeek, &c.CohortSize, &c.D1Active, &c.D1Eligible, &c.D7Active, &c.D7Eligible,
 			&c.D30Active, &c.D30Eligible, &c.RepeatBuyers, &c.RepeatEligible); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, fmt.Errorf("scan retention cohort: %w", err)
 		}
 		out = append(out, c)
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
+		_ = rows.Close()
 		return nil, fmt.Errorf("iterate retention cohorts: %w", err)
 	}
-	rows.Close()
+	_ = rows.Close()
 	if len(out) == 0 {
 		return out, nil
 	}
