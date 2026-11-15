@@ -9130,7 +9130,7 @@ features:
       - "Seller centre contract: Seller promotion RPCs exist (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` (tasks 2.1)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_SellerPromotionRPCsExist`."
 
   - id: sellercentre.contract-flashsalecampaign-carries-seller-id
     title: "Seller centre contract: FlashSaleCampaign carries seller_id"
@@ -9145,7 +9145,7 @@ features:
       - "Seller centre contract: FlashSaleCampaign carries seller_id (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go descriptor test `sellercentre_compat_test.go` in promotion/v1 (tasks 2.1)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_FlashSaleCampaignCarriesSellerID`."
 
   - id: sellercentre.contract-seller-promotion-authz-and-preconditions-are-documented
     title: "Seller centre contract: Seller promotion authz and preconditions are documented"
@@ -9160,7 +9160,7 @@ features:
       - "Seller centre contract: Seller promotion authz and preconditions are documented (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: comment-text assertion in promotion/v1 `sellercentre_compat_test.go` (tasks 2.1)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_SellerPromotionAuthzAndPreconditionsDocumented`."
 
   - id: sellercentre.contract-missing-authz-note-is-caught
     title: "Seller centre contract: Missing authz note is caught"
@@ -9175,7 +9175,7 @@ features:
       - "Seller centre contract: Missing authz note is caught (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: comment-text assertion in promotion/v1 `sellercentre_compat_test.go` (tasks 2.1)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_MissingAuthzNoteIsCaught`."
 
   - id: sellercentre.contract-campaign-and-voucher-lists-round-trip
     title: "Seller centre contract: Campaign and voucher lists round-trip"
@@ -9190,7 +9190,7 @@ features:
       - "Seller centre contract: Campaign and voucher lists round-trip (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go round-trip test promotion/v1 `sellercentre_compat_test.go` (tasks 2.1)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_CampaignAndVoucherListsRoundTrip`."
 
   - id: sellercentre.contract-old-readers-skip-seller-id
     title: "Seller centre contract: Old readers skip seller_id"
@@ -9205,7 +9205,7 @@ features:
       - "Seller centre contract: Old readers skip seller_id (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go test promotion/v1 `sellercentre_compat_test.go` (tasks 2.1)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_OldReadersSkipSellerID`."
 
   - id: sellercentre.contract-addbundletocart-rpc-exists
     title: "Seller centre contract: AddBundleToCart RPC exists"
@@ -9220,7 +9220,7 @@ features:
       - "Seller centre contract: AddBundleToCart RPC exists (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_AddBundleToCartRPCExists`."
 
   - id: sellercentre.contract-bundle-fields-have-fixed-numbers
     title: "Seller centre contract: Bundle fields have fixed numbers"
@@ -9235,7 +9235,7 @@ features:
       - "Seller centre contract: Bundle fields have fixed numbers (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go descriptor test order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_BundleFieldsHaveFixedNumbers`."
 
   - id: sellercentre.contract-addbundletocart-failures-are-documented
     title: "Seller centre contract: AddBundleToCart failures are documented"
@@ -9250,7 +9250,7 @@ features:
       - "Seller centre contract: AddBundleToCart failures are documented (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: comment-text assertion in order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_AddBundleToCartFailuresAreDocumented`."
 
   - id: sellercentre.contract-bundle-fields-are-documented-server-owned
     title: "Seller centre contract: Bundle fields are documented server-owned"
@@ -9265,7 +9265,7 @@ features:
       - "Seller centre contract: Bundle fields are documented server-owned (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: comment-text assertion in order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_BundleFieldsAreDocumentedServerOwned`."
 
   - id: sellercentre.contract-cart-with-bundle-lines-round-trips
     title: "Seller centre contract: Cart with bundle lines round-trips"
@@ -9280,7 +9280,7 @@ features:
       - "Seller centre contract: Cart with bundle lines round-trips (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go round-trip test order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_CartWithBundleLinesRoundTrips`."
 
   - id: sellercentre.contract-old-readers-skip-bundle-fields
     title: "Seller centre contract: Old readers skip bundle fields"
@@ -9295,7 +9295,7 @@ features:
       - "Seller centre contract: Old readers skip bundle fields (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go test order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_OldReadersSkipBundleFields`."
 
   - id: sellercentre.contract-listsellerorders-fields-have-fixed-numbers
     title: "Seller centre contract: ListSellerOrders fields have fixed numbers"
@@ -9310,7 +9310,7 @@ features:
       - "Seller centre contract: ListSellerOrders fields have fixed numbers (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go descriptor test order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_ListSellerOrdersFieldsHaveFixedNumbers`."
 
   - id: sellercentre.contract-listsellerorders-semantics-are-documented
     title: "Seller centre contract: ListSellerOrders semantics are documented"
@@ -9325,7 +9325,7 @@ features:
       - "Seller centre contract: ListSellerOrders semantics are documented (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: comment-text assertion in order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_ListSellerOrdersSemanticsAreDocumented`."
 
   - id: sellercentre.contract-unpaged-request-keeps-the-old-wire-form
     title: "Seller centre contract: Unpaged request keeps the old wire form"
@@ -9340,7 +9340,7 @@ features:
       - "Seller centre contract: Unpaged request keeps the old wire form (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go round-trip test order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_UnpagedRequestKeepsTheOldWireForm`."
 
   - id: sellercentre.contract-paged-response-round-trips
     title: "Seller centre contract: Paged response round-trips"
@@ -9355,7 +9355,7 @@ features:
       - "Seller centre contract: Paged response round-trips (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go round-trip test order/v1 `sellercentre_compat_test.go` (tasks 2.2)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_PagedResponseRoundTrips`."
 
   - id: sellercentre.contract-listmylistings-filter-fields-exist
     title: "Seller centre contract: ListMyListings filter fields exist"
@@ -9370,7 +9370,7 @@ features:
       - "Seller centre contract: ListMyListings filter fields exist (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` (tasks 2.3)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_ListMyListingsFilterFieldsExist`."
 
   - id: sellercentre.contract-listmylistings-filter-semantics-are-documented
     title: "Seller centre contract: ListMyListings filter semantics are documented"
@@ -9385,7 +9385,7 @@ features:
       - "Seller centre contract: ListMyListings filter semantics are documented (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: comment-text assertion in listing/v1 `sellercentre_compat_test.go` (tasks 2.3)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_ListMyListingsFilterSemanticsAreDocumented`."
 
   - id: sellercentre.contract-empty-filter-request-keeps-the-old-wire-form
     title: "Seller centre contract: Empty filter request keeps the old wire form"
@@ -9400,7 +9400,7 @@ features:
       - "Seller centre contract: Empty filter request keeps the old wire form (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go round-trip test listing/v1 `sellercentre_compat_test.go` (tasks 2.3)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_EmptyFilterRequestKeepsTheOldWireForm`."
 
   - id: sellercentre.contract-storefront-fields-are-unchanged
     title: "Seller centre contract: Storefront fields are unchanged"
@@ -9415,7 +9415,7 @@ features:
       - "Seller centre contract: Storefront fields are unchanged (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: Go descriptor test listing/v1 `sellercentre_compat_test.go` (tasks 2.3)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_StorefrontFieldsAreUnchanged`."
 
   - id: sellercentre.contract-storefront-rules-are-documented
     title: "Seller centre contract: Storefront rules are documented"
@@ -9430,7 +9430,7 @@ features:
       - "Seller centre contract: Storefront rules are documented (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: comment-text assertion in listing/v1 `sellercentre_compat_test.go` (tasks 2.3)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_StorefrontRulesAreDocumented`."
 
   - id: sellercentre.contract-change-is-backward-compatible
     title: "Seller centre contract: Change is backward compatible"
@@ -9445,7 +9445,7 @@ features:
       - "Seller centre contract: Change is backward compatible (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: command run recorded in tasks 3.1"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf breaking vs $BASE_REF`."
 
   - id: sellercentre.contract-wire-breaking-edit-is-rejected
     title: "Seller centre contract: Wire-breaking edit is rejected"
@@ -9460,7 +9460,7 @@ features:
       - "Seller centre contract: Wire-breaking edit is rejected (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: command run recorded in tasks 3.1"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `renum`."
 
   - id: sellercentre.contract-new-contract-in-every-generated-language
     title: "Seller centre contract: New contract in every generated language"
@@ -9475,7 +9475,7 @@ features:
       - "Seller centre contract: New contract in every generated language (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: generated-output check recorded in tasks 3.2"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `gen_has`."
 
   - id: sellercentre.contract-copies-match-the-source
     title: "Seller centre contract: Copies match the source"
@@ -9490,7 +9490,7 @@ features:
       - "Seller centre contract: Copies match the source (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: shell test `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` (tasks 3.3)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `check_copies`."
 
   - id: sellercentre.contract-drifted-or-missing-copy-is-rejected
     title: "Seller centre contract: Drifted or missing copy is rejected"
@@ -9505,7 +9505,7 @@ features:
       - "Seller centre contract: Drifted or missing copy is rejected (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: shell test `sellercentre_consumer_copies_test.sh` self-check (tasks 3.3)"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `drifted and missing copy rejected and named`."
 
   - id: sellercentre.contract-consumer-copies-lint
     title: "Seller centre contract: Consumer copies lint"
@@ -9520,4 +9520,4 @@ features:
       - "Seller centre contract: Consumer copies lint (unit-verified)"
     tags: [seller-centre-contract, unit]
     status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. Verified by: command run recorded in tasks 3.3"
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf lint $r`."

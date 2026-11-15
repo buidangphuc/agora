@@ -32,7 +32,7 @@
 #### Scenario: Seller shop UI: a seller brands the shop in the browser and the buyer sees it
 - **WHEN** a seller opens `/seller/shop`, uploads a banner, sets tagline "Hoa tươi mỗi ngày", picks two published listings and the theme `dark`, saves, and then reloads `/seller/shop`
 - **THEN** the reloaded form shows the same banner, tagline, the two listings in the chosen order and `dark`, and the buyer app `/shop/{sellerId}` shows the tagline "Hoa tươi mỗi ngày"
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_shop_customisation_ui.feature` `Seller shop UI: a seller brands the shop in the browser`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_shop_customisation_ui.feature` `Seller shop UI: a seller brands the shop in the browser and the buyer sees it`
 
 ### Requirement: The tagline and theme are validated before sending
 
@@ -129,4 +129,4 @@ The picker SHALL search the seller's own listings through `ListMyListings` with 
 #### Scenario: Seller shop UI: a featured listing of another seller is rejected by the server
 - **WHEN** the action sends a featured id that belongs to another seller and `UpsertStorefront` answers INVALID_ARGUMENT
 - **THEN** the form shows the error alert, the storefront returned by the next `GetStorefront` is unchanged, and the buyer shop page shows no listing of the other seller
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_shop_customisation_ui.feature` `Seller shop UI: a foreign featured listing is rejected`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_shop_customisation_ui.feature` `Seller shop UI: a featured listing of another seller is rejected by the server`

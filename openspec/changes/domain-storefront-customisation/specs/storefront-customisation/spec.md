@@ -41,7 +41,7 @@
 #### Scenario: Banner from the upload bucket is saved
 - **WHEN** a seller obtains an upload URL with `GetImageUploadUrl`, uploads the file, and upserts a storefront with the returned `public_url` as banner_url
 - **THEN** the call succeeds and `GetStorefront` returns the same banner_url
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `Seller saves a banner uploaded through the image bucket`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `Banner from the upload bucket is saved`
 
 #### Scenario: External banner URL is rejected
 - **WHEN** a seller upserts a storefront with banner_url `https://evil.example/pixel.png`
@@ -70,7 +70,7 @@
 #### Scenario: Six owned listings are saved in the given order
 - **WHEN** a seller owning listings A..F upserts featured_listing_ids [C, A, F, B, E, D]
 - **THEN** the call succeeds and `GetStorefront` returns the ids in order [C, A, F, B, E, D]
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `Seller saves six featured listings in order`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `Six owned listings are saved in the given order`
 
 #### Scenario: A seventh featured listing is rejected
 - **WHEN** a seller upserts 7 featured_listing_ids, all owned
@@ -80,7 +80,7 @@
 #### Scenario: A listing owned by another seller is rejected
 - **WHEN** seller S1 upserts featured_listing_ids containing a listing owned by seller S2
 - **THEN** the call returns INVALID_ARGUMENT, the message does not name the owner, and S1's stored featured ids are unchanged
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `Seller cannot feature another seller's listing`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `A listing owned by another seller is rejected`
 
 #### Scenario: Unknown and foreign listing ids give the same answer
 - **WHEN** a seller upserts featured_listing_ids with an id that does not exist, then with an id owned by another seller
@@ -105,7 +105,7 @@
 #### Scenario: A featured listing unpublished later is not re-validated on read
 - **WHEN** a featured listing is moved to draft after the storefront was saved and a buyer calls `GetStorefront`
 - **THEN** the response still contains the stored featured ids and the call succeeds
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `Unpublished featured listing does not break reading the storefront`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `A featured listing unpublished later is not re-validated on read`
 
 ### Requirement: Storefront writes stay owner-scoped and scope-gated
 
@@ -124,9 +124,9 @@
 #### Scenario: Resending current values keeps all fields
 - **WHEN** a seller with a stored banner, tagline, featured ids and theme upserts the same storefront with only the tagline changed
 - **THEN** `GetStorefront` returns the new tagline and the unchanged banner_url, featured ids and theme
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `Changing only the tagline keeps banner, featured listings and theme`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/domain/storefront_customisation.feature` `Resending current values keeps all fields`
 
 #### Scenario: Existing display name and slug rules still apply
 - **WHEN** a seller upserts a storefront with an empty slug, then with an 81-rune display_name
 - **THEN** each call returns INVALID_ARGUMENT and the stored storefront is unchanged
-- **VERIFIED BY**: `team-domain/internal/listing/storefront_test.go` `TestUpsertSlugAndDisplayNameRulesUnchanged`
+- **VERIFIED BY**: `team-domain/internal/rpc/storefront_test.go` `TestUpsertStorefrontRulesUnchangedOnSharedHandler`

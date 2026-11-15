@@ -6,23 +6,24 @@ spec: plans/seller-centre/00-spec.md (Locked 2026-11-13)
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| seller-centre-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN | 8b8008504400 | [x] |
-| domain-storefront-customisation | team-domain | [] | 1 | pass | pass | pass | ENGINE_DOWN | b790361fd8dd | [x] |
-| domain-my-listings-filter | team-domain | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 3ecb6779f75a | [x] |
-| domain-bundle-integrity | team-domain | [] | 1 | pass | pass | pass | ENGINE_DOWN | cf9bc98fe270 | [x] |
-| seller-shop-customisation-ui | team-frontend-seller | [domain-storefront-customisation, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | b5a0802622cc | [x] |
-| shop-page-featured-theme | team-frontend | [domain-storefront-customisation] | 1 | pass | pass | pass | ENGINE_DOWN | 670decbcf356 | [x] |
-| promotion-seller-self-service | team-promotion | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 88b5553a6c87 | [x] |
-| seller-marketing-hub | team-frontend-seller | [promotion-seller-self-service, domain-my-listings-filter] | 3 | pass | pass | pass | ENGINE_DOWN | f847db14ecee | [x] |
-| seller-getting-started | team-frontend-seller | [seller-marketing-hub, seller-shop-customisation-ui] | 1 | pass | pass | pass | ENGINE_DOWN | fa2485d9f803 | [x] |
-| order-bundle-checkout | team-order | [seller-centre-contract, domain-bundle-integrity] | 1 | pass | pass | pass | ENGINE_DOWN | 0c3095790822 | [x] |
-| shop-bundle-purchase-ui | team-frontend | [order-bundle-checkout, shop-page-featured-theme] | 1 | pass | pass | pass | ENGINE_DOWN | ada306a5c726 | [x] |
-| order-seller-list-paging | team-order | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 307b8332526a | [x] |
-| seller-server-paging-ui | team-frontend-seller | [order-seller-list-paging, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | a791d8a98a72 | [x] |
-| seller-bulk-ship | team-frontend-seller | [seller-server-paging-ui] | 1 | pass | pass | pass | ENGINE_DOWN | 34c482424858 | [x] |
+| seller-centre-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN | 8b8008504400 → c4dff7b1698c | [x] |
+| domain-storefront-customisation | team-domain | [] | 1 | pass | pass | pass | ENGINE_DOWN | b790361fd8dd → 2d041a834e1b | [x] |
+| domain-my-listings-filter | team-domain | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 3ecb6779f75a → e638fda9a09e | [x] |
+| domain-bundle-integrity | team-domain | [] | 1 | pass | pass | pass | ENGINE_DOWN | cf9bc98fe270 → 34d6e8a42a2d | [x] |
+| seller-shop-customisation-ui | team-frontend-seller | [domain-storefront-customisation, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | b5a0802622cc → a3ac6fcd3f7a | [x] |
+| shop-page-featured-theme | team-frontend | [domain-storefront-customisation] | 1 | pass | pass | pass | ENGINE_DOWN | 670decbcf356 → 41aa0b0be502 | [x] |
+| promotion-seller-self-service | team-promotion | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 88b5553a6c87 → 7ee9f55ff568 | [x] |
+| seller-marketing-hub | team-frontend-seller | [promotion-seller-self-service, domain-my-listings-filter] | 3 | pass | pass | pass | ENGINE_DOWN | f847db14ecee → 43bc90e0d578 | [x] |
+| seller-getting-started | team-frontend-seller | [seller-marketing-hub, seller-shop-customisation-ui] | 1 | pass | pass | pass | ENGINE_DOWN | fa2485d9f803 → a9c904c7f308 | [x] |
+| order-bundle-checkout | team-order | [seller-centre-contract, domain-bundle-integrity] | 1 | pass | pass | pass | ENGINE_DOWN | 0c3095790822 → 39953b03466d | [x] |
+| shop-bundle-purchase-ui | team-frontend | [order-bundle-checkout, shop-page-featured-theme] | 1 | pass | pass | pass | ENGINE_DOWN | ada306a5c726 → 3eedf4b93f73 | [x] |
+| order-seller-list-paging | team-order | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 307b8332526a → f5a8f26deb30 | [x] |
+| seller-server-paging-ui | team-frontend-seller | [order-seller-list-paging, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | a791d8a98a72 → e8ee9103c1e4 | [x] |
+| seller-bulk-ship | team-frontend-seller | [seller-server-paging-ui] | 1 | pass | pass | pass | ENGINE_DOWN | 34c482424858 → 7a6993e5a823 | [x] |
 
 decide (spec) = ENGINE_DOWN for every slice: scripts/asdlc/decide.py needs `--units`/`--out` and the default python3 lacks `yaml`; each spec-quality-reviewer applied its own checklist by hand.
 Digest = `find openspec/changes/<slice> -type f | sort | xargs shasum -a 256 | shasum -a 256 | cut -c1-12`, taken 2026-11-13.
+Digest `old → new` (2026-11-15, chore(seller-centre): converge FEATURES and spec citations): only VERIFIED BY citation lines in spec.md and tasks.md checkboxes changed; scenario wording unchanged.
 
 ## Build order (cross_change_check)
 1. seller-centre-contract (sequential, contract first)

@@ -35,7 +35,7 @@ remains. Featured listings SHALL NOT be repeated in the "Sản phẩm của shop
 - **WHEN** a visitor opens `/shop/{id}` of a shop with no featured ids, or whose featured ids are all unavailable
 - **THEN** the page has no `featured-listings` element and the main grid shows all the shop's published listings
 
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_storefront_ui.feature` `A shop without featured listings has no featured block`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/shop_storefront_ui.feature` `No featured listings means no block`
 
 #### Scenario: At most 6 featured listings are shown
 

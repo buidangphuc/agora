@@ -14,7 +14,7 @@ Feature: Seller brands the shop from /seller/shop (seller-shop-customisation-ui)
     And the storefront API returns the banner, tagline "Hoa tươi mỗi ngày", both listings in the chosen order and theme "dark"
     And the buyer app shop page shows the tagline "Hoa tươi mỗi ngày"
 
-  Scenario: Seller shop UI: a foreign featured listing is rejected
+  Scenario: Seller shop UI: a featured listing of another seller is rejected by the server
     Given a seeded seller is logged in
     And the seller owns two published listings for the shop
     And the seller has saved a storefront featuring both listings with tagline "Hoa tươi mỗi ngày"

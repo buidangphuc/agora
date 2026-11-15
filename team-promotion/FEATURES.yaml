@@ -5713,8 +5713,8 @@ features:
     acceptance:
       - "Seller sees only their own campaigns with status"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller sees only their own campaigns with status"
 
   - id: promotion.sss-status-filter-narrows-the-list
     title: "Status filter narrows the list"
@@ -5730,8 +5730,8 @@ features:
     acceptance:
       - "Status filter narrows the list"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Status filter narrows the list"
 
   - id: promotion.sss-caller-without-listing-write-is-denied
     title: "Caller without listing.write is denied"
@@ -5747,8 +5747,8 @@ features:
     acceptance:
       - "Caller without listing.write is denied"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Caller without listing.write is denied"
 
   - id: promotion.sss-seller-cancels-their-scheduled-campaign
     title: "Seller cancels their SCHEDULED campaign"
@@ -5764,8 +5764,8 @@ features:
     acceptance:
       - "Seller cancels their SCHEDULED campaign"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller cancels their SCHEDULED campaign"
 
   - id: promotion.sss-cancelling-an-active-campaign-is-refused
     title: "Cancelling an ACTIVE campaign is refused"
@@ -5781,8 +5781,8 @@ features:
     acceptance:
       - "Cancelling an ACTIVE campaign is refused"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Cancelling an ACTIVE campaign is refused"
 
   - id: promotion.sss-cancelling-another-seller-s-campaign-is-denied-like-an-unknown-id
     title: "Cancelling another seller's campaign is denied like an unknown id"
@@ -5798,8 +5798,8 @@ features:
     acceptance:
       - "Cancelling another seller's campaign is denied like an unknown id"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Cancelling another seller's campaign is denied like an unknown id"
 
   - id: promotion.sss-seller-cancellation-writes-no-audit-event
     title: "Seller cancellation writes no audit event"
@@ -5815,8 +5815,8 @@ features:
     acceptance:
       - "Seller cancellation writes no audit event"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller cancellation writes no audit event"
 
   - id: promotion.sss-seller-sees-own-vouchers-of-every-state
     title: "Seller sees own vouchers of every state"
@@ -5832,8 +5832,8 @@ features:
     acceptance:
       - "Seller sees own vouchers of every state"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller sees own vouchers of every state"
 
   - id: promotion.sss-buyer-without-listing-write-is-denied
     title: "Buyer without listing.write is denied"
@@ -5849,8 +5849,8 @@ features:
     acceptance:
       - "Buyer without listing.write is denied"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Buyer without listing.write is denied"
 
   - id: promotion.sss-seller-deactivates-their-voucher
     title: "Seller deactivates their voucher"
@@ -5866,8 +5866,8 @@ features:
     acceptance:
       - "Seller deactivates their voucher"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller deactivates their voucher"
 
   - id: promotion.sss-deactivating-another-seller-s-voucher-is-denied-like-an-unknown-id
     title: "Deactivating another seller's voucher is denied like an unknown id"
@@ -5883,8 +5883,8 @@ features:
     acceptance:
       - "Deactivating another seller's voucher is denied like an unknown id"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Deactivating another seller's voucher is denied like an unknown id"
 
   - id: promotion.sss-seller-deactivation-writes-no-audit-event
     title: "Seller deactivation writes no audit event"
@@ -5900,8 +5900,8 @@ features:
     acceptance:
       - "Seller deactivation writes no audit event"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller deactivation writes no audit event"
 
   - id: promotion.sss-seller-reaches-the-seller-rpcs-but-not-the-admin-ones
     title: "Seller reaches the seller RPCs but not the admin ones"
@@ -5917,8 +5917,8 @@ features:
     acceptance:
       - "Seller reaches the seller RPCs but not the admin ones"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller reaches the seller RPCs but not the admin ones"
 
   - id: promotion.sss-admin-cancel-keeps-its-admin-rules
     title: "Admin cancel keeps its admin rules"
@@ -5934,8 +5934,8 @@ features:
     acceptance:
       - "Admin cancel keeps its admin rules"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Admin cancel keeps its admin rules"
 
   - id: promotion.sss-admin-deactivate-keeps-its-admin-rules
     title: "Admin deactivate keeps its admin rules"
@@ -5951,8 +5951,8 @@ features:
     acceptance:
       - "Admin deactivate keeps its admin rules"
     tags: [promotion, seller-centre]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Admin deactivate keeps its admin rules"
 
   - id: promotion.sss-unit-paging-boundary-at-21-campaigns
     title: "Paging boundary at 21 campaigns"
@@ -5965,7 +5965,7 @@ features:
       - "Paging boundary at 21 campaigns"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestListMyCampaignsPaging`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/flashsale/flashsale_seller_test.go` `TestListMyCampaignsPaging_PagingBoundaryAt21Campaigns`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-anonymous-caller-is-rejected
     title: "Anonymous caller is rejected"
@@ -5978,7 +5978,7 @@ features:
       - "Anonymous caller is rejected"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/rpc` `TestListMyCampaignsAnonymous`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/rpc/campaign_seller_test.go` `TestListMyCampaignsAnonymous`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-a-new-campaign-records-the-listing-owner
     title: "A new campaign records the listing owner"
@@ -5991,7 +5991,7 @@ features:
       - "A new campaign records the listing owner"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignStoresListingOwner`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/flashsale/flashsale_seller_test.go` `TestCampaignSellerCreateStoresListingOwner_NewCampaignRecordsListingOwner`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-cancelling-twice-is-idempotent
     title: "Cancelling twice is idempotent"
@@ -6004,7 +6004,7 @@ features:
       - "Cancelling twice is idempotent"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCancelMyCampaignIdempotent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/flashsale/flashsale_seller_test.go` `TestCancelMyCampaignIdempotent_CancellingTwiceIsIdempotent`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-campaign-starting-during-the-cancel-is-not-cancelled
     title: "Campaign starting during the cancel is not cancelled"
@@ -6017,7 +6017,7 @@ features:
       - "Campaign starting during the cancel is not cancelled"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/store` `TestCancelIfScheduledOwnedBoundary`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/store/campaign_seller_test.go` `TestCancelIfScheduledOwnedBoundary_CampaignStartingDuringTheCancelIsNotCancelled`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-empty-list-for-a-seller-with-no-vouchers
     title: "Empty list for a seller with no vouchers"
@@ -6030,7 +6030,7 @@ features:
       - "Empty list for a seller with no vouchers"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/voucher` `TestListMyShopVouchersEmpty`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/voucher/voucher_seller_test.go` `TestListMyShopVouchersEmpty`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-page-size-above-the-maximum-is-capped
     title: "Page size above the maximum is capped"
@@ -6043,7 +6043,7 @@ features:
       - "Page size above the maximum is capped"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/voucher` `TestListMyShopVouchersPageCap`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/voucher/voucher_seller_test.go` `TestListMyShopVouchersPageCap`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-deactivating-twice-keeps-the-first-timestamp
     title: "Deactivating twice keeps the first timestamp"
@@ -6056,7 +6056,7 @@ features:
       - "Deactivating twice keeps the first timestamp"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/voucher` `TestDeactivateMyShopVoucherIdempotent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/voucher/voucher_seller_test.go` `TestDeactivateMyShopVoucherIdempotent`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-a-platform-voucher-cannot-be-deactivated-by-a-seller
     title: "A platform voucher cannot be deactivated by a seller"
@@ -6069,7 +6069,7 @@ features:
       - "A platform voucher cannot be deactivated by a seller"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/rpc` `TestDeactivateMyShopVoucherPlatformScopeDenied`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/rpc/voucher_seller_test.go` `TestDeactivateMyShopVoucherPlatformScopeDenied`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-promotion-down-surfaces-as-unavailable
     title: "Promotion down surfaces as unavailable"
@@ -6082,7 +6082,7 @@ features:
       - "Promotion down surfaces as unavailable"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-gateway `internal/edge` `TestPromotionSellerRPCsUnavailable`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-gateway/internal/edge/promotion_seller_test.go` `TestPromotionSellerRPCsUnavailable`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-backfill-fills-old-campaigns-once
     title: "Backfill fills old campaigns once"
@@ -6095,7 +6095,7 @@ features:
       - "Backfill fills old campaigns once"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/app` `TestBackfillCampaignSellersIdempotent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/app/backfill_test.go` `TestBackfillCampaignSellersIdempotent`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-deleted-listing-is-left-unassigned
     title: "Deleted listing is left unassigned"
@@ -6108,7 +6108,7 @@ features:
       - "Deleted listing is left unassigned"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/app` `TestBackfillCampaignSellersSkipsMissingListing`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/app/backfill_test.go` `TestBackfillCampaignSellersSkipsMissingListing`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-team-domain-down-stops-the-backfill
     title: "Team-domain down stops the backfill"
@@ -6121,7 +6121,7 @@ features:
       - "Team-domain down stops the backfill"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/app` `TestBackfillCampaignSellersStopsOnLookupFailure`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/app/backfill_test.go` `TestBackfillCampaignSellersStopsOnLookupFailure`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-migration-keeps-old-rows-valid
     title: "Migration keeps old rows valid"
@@ -6134,7 +6134,7 @@ features:
       - "Migration keeps old rows valid"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/store` `TestMigration0009KeepsOldCampaigns`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-promotion/internal/store/migration_test.go` `TestMigration0009CampaignSeller_KeepsOldRowsValid`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.sss-unit-seller-reaches-the-seller-rpcs-but-not-the-admin-ones
     title: "Seller reaches the seller RPCs but not the admin ones"
@@ -6147,4 +6147,4 @@ features:
       - "Seller reaches the seller RPCs but not the admin ones"
     tags: [promotion, seller-centre, unit]
     status: not-testable
-    notes: "VERIFIED BY team-gateway `internal/edge` `TestSellerPromotionForwarders_SellerReachesSellerRPCsNotAdminOnes`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY `team-gateway/internal/edge/promotion_seller_test.go` `TestSellerPromotionForwarders_SellerReachesSellerRPCsNotAdminOnes`. Not producible end to end through the gateway (unit level)."

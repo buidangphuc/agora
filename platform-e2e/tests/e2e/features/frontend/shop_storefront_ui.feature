@@ -20,7 +20,7 @@ Feature: Shop page featured listings and theme
     And the featured block shows the listings "A,C" in that order
     And listing "B" appears nowhere on the shop page
 
-  Scenario: A shop without featured listings has no featured block
+  Scenario: No featured listings means no block
     Given the seller owns 2 published listings
     When a visitor opens the shop page once the shop grid lists listing "A"
     Then the shop page has no featured block

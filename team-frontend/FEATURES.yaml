@@ -12624,7 +12624,8 @@ features:
       - "When a visitor opens `/shop/{id}` of a shop whose storefront features published listings B, A, C (in that order)"
       - "Then the block `featured-listings` contains exactly the cards B, A, C in that order, and the main grid contains none of them"
     tags: [buyer, shop]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_storefront_ui.feature::Featured listings appear first in the chosen order"
     notes: "shop-page-featured-theme: frontend/shop_storefront_ui.feature. Red until the change is implemented."
 
   - id: shop-page-featured-theme.a-listing-unpublished-after-being-featured-is-skipped
@@ -12640,11 +12641,12 @@ features:
       - "When a visitor opens `/shop/{id}` and one of the 3 featured listings has been unpublished since it was saved"
       - "Then the page responds 200 with the 2 remaining featured cards, no error text, and the unpublished listing appears nowhere on the page"
     tags: [buyer, shop]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_storefront_ui.feature::A listing unpublished after being featured is skipped"
     notes: "shop-page-featured-theme: frontend/shop_storefront_ui.feature. Red until the change is implemented."
 
   - id: shop-page-featured-theme.a-shop-without-featured-listings-has-no-featured-block
-    title: "A shop without featured listings has no featured block"
+    title: "No featured listings means no block"
     persona: buyer
     priority: P2
     summary: "Scenario of change shop-page-featured-theme: A shop without featured listings has no featured block"
@@ -12656,7 +12658,8 @@ features:
       - "When a visitor opens `/shop/{id}` of a shop with no featured ids"
       - "Then the page has no `featured-listings` element and the main grid shows all the shop's published listings"
     tags: [buyer, shop]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_storefront_ui.feature::No featured listings means no block"
     notes: "shop-page-featured-theme: frontend/shop_storefront_ui.feature. Red until the change is implemented."
 
   - id: shop-page-featured-theme.a-themed-shop-renders-its-theme
@@ -12672,7 +12675,8 @@ features:
       - "When a visitor opens `/shop/{id}` of a shop whose storefront theme is `festive`"
       - "Then the `shop-header-card` has `data-theme='festive'` and its computed header background colour differs from the one of a `default` shop"
     tags: [buyer, shop]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_storefront_ui.feature::A themed shop renders its theme"
     notes: "shop-page-featured-theme: frontend/shop_storefront_ui.feature. Red until the change is implemented."
 
   - id: shop-page-featured-theme.a-featured-id-of-another-shop-is-not-shown
@@ -12768,8 +12772,8 @@ features:
       - "When a signed-in seller with scope `listing.write` opens `/vouchers` on the buyer app"
       - "Then the page shows the voucher catalogue and no create-voucher form"
     tags: [seller, promo]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "seller/seller_marketing_hub.feature::Seller visiting the buyer voucher page sees no create form"
 
   - id: seller-marketing-hub.buyer-voucher-wallet-still-renders
     title: "Buyer voucher wallet still renders"
@@ -12784,8 +12788,8 @@ features:
       - "When a buyer who holds a voucher opens `/vouchers`"
       - "Then the voucher appears in the buyer's vouchers section"
     tags: [seller, promo]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "seller/seller_marketing_hub.feature::Buyer voucher wallet still renders"
 
   - id: seller-marketing-hub.create-form-is-not-rendered-even-when-the-page-cannot-load-vouchers
     title: "Create form is not rendered even when the page cannot load vouchers"
@@ -12801,7 +12805,7 @@ features:
       - "Then the page shows its empty catalogue state and no create-voucher form"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/app/(shop)/vouchers/page.test.tsx renders no create form when ListVouchers is unavailable. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/vouchers/page.test.tsx` `renders no create form when ListVouchers is unavailable`. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
 
   # ---- shop-bundle-purchase-ui (initiative seller-centre)
   - id: shop-bundle-purchase-ui.c1
@@ -12817,7 +12821,8 @@ features:
       - "When a signed-in buyer clicks \"Thêm combo vào giỏ\" on a combo of 2 published listings on `/shop/{id}`"
       - "Then the cart contains 2 lines, one per listing, each tagged with that bundle, and the page shows \"Đã thêm combo\" with a link to `/cart`"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_bundle_purchase_ui.feature::C1 Adding an available combo puts every listing in the cart"
 
   - id: shop-bundle-purchase-ui.c2
     title: "C2 A combo with an unpublished listing is shown unavailable"
@@ -12832,7 +12837,8 @@ features:
       - "When a visitor opens `/shop/{id}` and one listing of a combo has been unpublished"
       - "Then that combo card shows \"Combo tạm không khả dụng\" and has no \"Thêm combo vào giỏ\" button"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_bundle_purchase_ui.feature::C2 A combo with an unpublished listing is shown unavailable"
 
   - id: shop-bundle-purchase-ui.c8
     title: "C8 Combo lines and the discount are shown in the cart"
@@ -12847,7 +12853,8 @@ features:
       - "When a buyer opens `/cart` holding a combo of 2 lines with a bundle discount total of 30000 VND"
       - "Then both lines appear under one \"Combo\" label and the summary shows \"Giảm giá combo\" with 30.000 VND"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_bundle_purchase_ui.feature::C8 Combo lines and the discount are shown in the cart"
 
   - id: shop-bundle-purchase-ui.c10
     title: "C10 Removing one combo line shows the cancellation notice"
@@ -12862,7 +12869,8 @@ features:
       - "When a buyer removes one line of a bundle or changes its quantity"
       - "Then the cart shows \"Combo đã bị huỷ, các sản phẩm tính giá thường\" and no \"Combo\" label remains for the remaining lines"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_bundle_purchase_ui.feature::C10 Removing one combo line shows the cancellation notice"
 
   - id: shop-bundle-purchase-ui.c12
     title: "C12 The order total reflects the bundle price"
@@ -12877,7 +12885,8 @@ features:
       - "When a buyer with a combo in the cart (regular sum 150000 VND, bundle price 120000 VND) opens `/checkout`"
       - "Then the summary shows \"Giảm giá combo\" 30.000 VND and a merchandise total of 120.000 VND"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/shop_bundle_purchase_ui.feature::C12 The order total reflects the bundle price"
 
   - id: shop-bundle-purchase-ui.c3
     title: "C3 A refused add flips the card to unavailable"
@@ -12892,7 +12901,7 @@ features:
       - "See the spec scenario C3 A refused add flips the card to unavailable in openspec/changes/shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/features/shop/AddBundleButton.test.tsx flips to unavailable on failed precondition. FAILED_PRECONDITION cannot be produced for a card the page showed available without racing the search index."
+    notes: "VERIFIED BY `team-frontend/src/features/shop/AddBundleButton.test.tsx` `flips to unavailable on failed precondition`. FAILED_PRECONDITION cannot be produced for a card the page showed available without racing the search index."
 
   - id: shop-bundle-purchase-ui.c4
     title: "C4 A guest is sent to login"
@@ -12907,7 +12916,7 @@ features:
       - "See the spec scenario C4 A guest is sent to login in openspec/changes/shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/features/cart/actions.test.ts addBundleToCartAction reports unauthenticated. The server action result is asserted; the redirect branch is a component-level contract."
+    notes: "VERIFIED BY `team-frontend/src/features/cart/actions.test.ts` `addBundleToCartAction reports unauthenticated`. The server action result is asserted; the redirect branch is a component-level contract."
 
   - id: shop-bundle-purchase-ui.c5
     title: "C5 A double click adds the combo once"
@@ -12922,7 +12931,7 @@ features:
       - "See the spec scenario C5 A double click adds the combo once in openspec/changes/shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/features/shop/AddBundleButton.test.tsx sends one request on double click. Counts AddBundleToCart requests, which no browser response exposes."
+    notes: "VERIFIED BY `team-frontend/src/features/shop/AddBundleButton.test.tsx` `sends one request on double click`. Counts AddBundleToCart requests, which no browser response exposes."
 
   - id: shop-bundle-purchase-ui.c6
     title: "C6 An unknown bundle or an outage shows an error"
@@ -12937,7 +12946,7 @@ features:
       - "See the spec scenario C6 An unknown bundle or an outage shows an error in openspec/changes/shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/features/cart/actions.test.ts addBundleToCartAction maps not found and outage. NOT_FOUND and outage answers cannot be produced on the real stack from the page."
+    notes: "VERIFIED BY `team-frontend/src/features/cart/actions.test.ts` `addBundleToCartAction maps not found and outage`. NOT_FOUND and outage answers cannot be produced on the real stack from the page."
 
   - id: shop-bundle-purchase-ui.c7
     title: "C7 The combo card shows the saving when all prices are known"
@@ -12952,7 +12961,7 @@ features:
       - "See the spec scenario C7 The combo card shows the saving when all prices are known in openspec/changes/shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/features/shop/BundleCard.test.tsx shows the saving. Card rendering with known prices is a component contract."
+    notes: "VERIFIED BY `team-frontend/src/features/shop/BundleCard.test.tsx` `shows the saving`. Card rendering with known prices is a component contract."
 
   - id: shop-bundle-purchase-ui.c9
     title: "C9 A cart without bundles is unchanged"
@@ -12967,7 +12976,7 @@ features:
       - "See the spec scenario C9 A cart without bundles is unchanged in openspec/changes/shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/features/cart/CartGroups.test.tsx renders no combo UI without bundle lines. Component-level absence check."
+    notes: "VERIFIED BY `team-frontend/src/features/cart/CartGroups.test.tsx` `renders no combo UI without bundle lines`. Component-level absence check."
 
   - id: shop-bundle-purchase-ui.c11
     title: "C11 A combo line with a missing discount does not break the cart"
@@ -12982,7 +12991,7 @@ features:
       - "See the spec scenario C11 A combo line with a missing discount does not break the cart in openspec/changes/shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/features/cart/groupByShop.test.ts treats lines without bundle id as regular. The gateway never returns a bundle line without id or discount."
+    notes: "VERIFIED BY `team-frontend/src/features/cart/groupByShop.test.ts` `treats lines without bundle id as regular`. The gateway never returns a bundle line without id or discount."
 
   - id: shop-bundle-purchase-ui.c13
     title: "C13 An invalid combo at checkout shows regular prices"
@@ -12997,5 +13006,5 @@ features:
       - "See the spec scenario C13 An invalid combo at checkout shows regular prices in openspec/changes/shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend/src/features/cart/CartGroups.test.tsx renders no combo UI without bundle lines. The server-dropped tag state is asserted as the same no-combo render contract."
+    notes: "VERIFIED BY `team-frontend/src/features/cart/CartGroups.test.tsx` `renders no combo UI without bundle lines`. The server-dropped tag state is asserted as the same no-combo render contract."
 

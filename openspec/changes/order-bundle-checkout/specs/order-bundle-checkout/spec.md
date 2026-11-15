@@ -169,4 +169,4 @@ the plain `AddToCart`, `GetCart`, `PreviewCheckout` and `CreateOrder` paths SHAL
 
 - **WHEN** migration `0025_bundle_lines` is applied twice to a database with existing cart and order rows
 - **THEN** the second run reports no error and no row changes its `bundle_id` or `bundle_discount`
-- **VERIFIED BY**: `team-order/migrations/migration_test.go` `TestBundleLinesMigrationIdempotent`
+- **VERIFIED BY**: `team-order/migrations/migration_0025_test.go` `TestBundleLinesMigrationIdempotent`
