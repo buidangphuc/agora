@@ -11,7 +11,7 @@ spec: plans/monetization/00-spec.md (Locked 2026-11-13)
 | order-paid-price-breakdown | team-order | [monetization-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d46c34ca75da | [x] |
 | payment-settlement-commission | team-payment | [order-paid-price-breakdown] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d5732d11bc16 | [x] |
 | payment-seller-fee-charge | team-payment | [monetization-contract] | 1 | pass | pass (2 PERM warnings, false positive) | pass | ENGINE_DOWN (LLM fallback) | 6ca8f809d7d5 | [x] |
-| seller-fee-breakdown-ui | team-frontend-seller | [payment-settlement-commission] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 874f4f22a608 | [x] |
+| seller-fee-breakdown-ui | team-frontend-seller | [payment-settlement-commission] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a8637630a8c4 | [x] |
 | promotion-plan-billing | team-promotion | [payment-seller-fee-charge] | 1 | pass | pass (1 PERM warning on sweeper) | pass | ENGINE_DOWN (LLM fallback) | aa23a86f4f7c | [x] |
 | listing-plan-cap | team-domain | [monetization-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 7447b7996677 | [x] |
 | seller-plan-ui | team-frontend-seller | [promotion-plan-billing, listing-plan-cap] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0448636b6787 | [x] |
