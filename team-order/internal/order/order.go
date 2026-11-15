@@ -596,8 +596,8 @@ func (s *OrderService) HasCompletedOrder(ctx context.Context, buyerID string) (b
 	return s.orderRepo.HasCompletedOrder(ctx, buyerID)
 }
 
-func (s *OrderService) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]store.Order, error) {
-	return s.orderRepo.ListSellerOrders(ctx, sellerID, statusFilter)
+func (s *OrderService) ListSellerOrders(ctx context.Context, sellerID string, f store.SellerOrdersFilter) (store.SellerOrdersResult, error) {
+	return s.orderRepo.ListSellerOrders(ctx, sellerID, f)
 }
 
 // UpdateOrderStatus applies a status change requested through the
