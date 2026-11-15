@@ -23,7 +23,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq identity.events.order.dlq identity.events.payment.dlq identity.events.referral.dlq identity.events.engagement.dlq identity.events.chat.dlq identity.events.team-domain.dlq identity.events.notification.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq identity.events.order.dlq identity.events.payment.dlq identity.events.referral.dlq identity.events.engagement.dlq identity.events.chat.dlq identity.events.team-domain.dlq identity.events.notification.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq identity.events.analytics.dlq identity.events.recsys.dlq identity.events.team-ai.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -662,10 +662,15 @@ services:
         condition: service_healthy
       redpanda:
         condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - ENVIRONMENT=local
       - GRPC_HOST=0.0.0.0
       - GRPC_PORT=50060
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - ERASURE_CONSUMER_GROUP=team-ai.user-erasure
+      - ERASURE_DLQ_TOPIC=identity.events.team-ai.dlq
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       # Internal tag routes (/api/v1/ai/tags/*, tag-routes-authz): a service key (scope ai.classify) for
@@ -762,6 +767,32 @@ services:
         condition: service_started
       redpanda:
         condition: service_healthy
+
+  platform-recsys-erasure:
+    build:
+      context: .
+      dockerfile: platform-recsys/Dockerfile
+    image: platform-recsys:local
+    container_name: platform-recsys-erasure
+    entrypoint: ["python", "-m", "recsys.erasure"]
+    restart: unless-stopped
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - ERASURE_CONSUMER_GROUP=platform-recsys.erasure
+      - ERASURE_DLQ_TOPIC=identity.events.recsys.dlq
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QDRANT_URL=http://qdrant:6333
+    depends_on:
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
 
   platform-recsys:
     build:
@@ -863,10 +894,16 @@ services:
       dockerfile: Dockerfile
     image: team-analytics:local
     container_name: team-analytics-svc
+    depends_on:
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - ENV=local
       - GRPC_PORT=50059
       - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - ERASURE_CONSUMER_GROUP=team-analytics.user-erasure
+      - ERASURE_DLQ_TOPIC=identity.events.analytics.dlq
       - KAFKA_CONSUMER_GROUP=team-analytics
       - KAFKA_ANALYTICS_TOPIC=analytics.events
       - WAREHOUSE_DRIVER=duckdb

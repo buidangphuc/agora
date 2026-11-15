@@ -76,6 +76,15 @@ Redis failure exits 1 and the restart replays (idempotent by event id). Settings
 `KAFKA_ANALYTICS_TOPIC`, `NEARLINE_CONSUMER_GROUP`, `NEARLINE_START_OFFSET`, `NEARLINE_TTL_SECONDS`,
 `NEARLINE_IDLE_EXIT_SECONDS`.
 
+The **erasure consumer** (`python -m recsys.erasure`, change `analytics-user-erasure`) consumes Kafka
+`identity.events` (`IDENTITY_EVENTS_TOPIC`) as group `ERASURE_CONSUMER_GROUP` (`platform-recsys.erasure`) and, on
+`platform.identity.v1.UserErased`, deletes the user's Redis keys (`recs:v1:user:*`, every generation's
+`recs:v1:gen:*:user:*`, `recs:nearline:user:*`) and the points whose `user_key` matches in every user Qdrant
+collection. Deletes are idempotent and the offset is committed after them; a Redis or Qdrant failure exits 1 and the
+restart replays. A poison record (undecodable, or no user id) is published to `ERASURE_DLQ_TOPIC`
+(`identity.events.recsys.dlq`) before the commit. The user id is never logged. It runs as the long-running
+`platform-recsys-erasure` service in the root `docker-compose.services.yaml`.
+
 ## 3. Data
 
 No relational DB and no migrations. Serving state lives in Qdrant and Redis (section 1). The model
