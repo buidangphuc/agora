@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -468,5 +469,137 @@ func TestListingSellersParquetHasStatusColumn(t *testing.T) {
 	}
 	if err := w.DB().QueryRowContext(ctx, "SELECT count(*) FROM read_parquet('"+path+"') WHERE listing_id = 'L2' AND status IS NULL").Scan(&n2); err != nil || n2 != 1 {
 		t.Errorf("L2 status null rows = %d, err = %v", n2, err)
+	}
+}
+
+type failingRelationExporter struct {
+	*duckdb.Writer
+	failRel string
+}
+
+func (f failingRelationExporter) ExportRelation(ctx context.Context, rel, dst string) error {
+	if rel == f.failRel {
+		_ = os.WriteFile(dst, []byte("partial"), 0o600)
+		return errors.New("export failed: " + rel)
+	}
+	return f.Writer.ExportRelation(ctx, rel, dst)
+}
+
+func parquetMentions(t *testing.T, w *duckdb.Writer, path, needle string) int {
+	t.Helper()
+	var n int
+	q := "SELECT count(*) FROM read_parquet('" + path + "') t WHERE to_json(t)::VARCHAR LIKE '%' || ? || '%'"
+	if err := w.DB().QueryRowContext(context.Background(), q, needle).Scan(&n); err != nil {
+		t.Fatalf("scan %s: %v", path, err)
+	}
+	return n
+}
+
+func eraseFixture(t *testing.T) *duckdb.Writer {
+	t.Helper()
+	ctx := context.Background()
+	w, err := duckdb.Open(ctx, "", duckdb.WithTombstoneSecret("export-secret"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(w.Write(ctx, []*warehouse.TrackingRecord{
+		{EventID: "t1", EventType: "view", ListingID: "l1", SessionID: "sess-erase-14", AnonymousID: "anon-erase-A1", OccurredAt: at, PrincipalID: "user-erase-14", PrincipalType: "user"},
+		{EventID: "t2", EventType: "view", ListingID: "l1", SessionID: "sess-pre", AnonymousID: "anon-erase-A1", OccurredAt: at},
+	}))
+	must(w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{
+		{EventID: "o1", OrderID: "ord", ListingID: "l1", SellerID: "s", Quantity: 1, UnitPrice: 5, Currency: "VND", OccurredAt: at, Status: "PAID", BuyerID: "user-erase-14"},
+	}))
+	must(w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{
+		{EventID: "e1", Fact: warehouse.FactFavoriteAdded, UserID: "user-erase-14", ListingID: "l1", OccurredAt: at},
+		{EventID: "e2", Fact: warehouse.FactReviewCreated, UserID: "user-erase-14", ListingID: "l1", SellerID: "s", Rating: 5, ReviewID: "r1", OccurredAt: at},
+	}))
+	return w
+}
+
+// Scenario: AUE-14 Exported files are clean after one cycle
+func TestExportErasedUserAbsentFromAllSevenFilesAfterOneCycle(t *testing.T) {
+	ctx := context.Background()
+	w := eraseFixture(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tracking_events.parquet")
+	if err := export.Cycle(ctx, w, path, slog.New(slog.DiscardHandler)); err != nil {
+		t.Fatalf("first cycle: %v", err)
+	}
+	if parquetMentions(t, w, path, "user-erase-14") == 0 {
+		t.Fatal("fixture: the pre-purge export should contain the user")
+	}
+
+	if _, err := w.EraseUser(ctx, "user-erase-14"); err != nil {
+		t.Fatalf("EraseUser: %v", err)
+	}
+	if err := export.Cycle(ctx, w, path, slog.New(slog.DiscardHandler)); err != nil {
+		t.Fatalf("cycle after purge: %v", err)
+	}
+
+	targets := export.Targets(path)
+	if len(targets) != 7 {
+		t.Fatalf("export targets = %d, want 7", len(targets))
+	}
+	for _, tg := range targets {
+		for _, needle := range []string{"user-erase-14", "anon-erase-A1", "sess-erase-14"} {
+			if n := parquetMentions(t, w, tg.Path, needle); n != 0 {
+				t.Errorf("%s still carries %q in %d rows", filepath.Base(tg.Path), needle, n)
+			}
+		}
+	}
+}
+
+// Scenario: AUE-39 A failed export keeps the previous clean file and never exposes a partial one
+func TestExportFailedFileKeepsPreviousCleanFile(t *testing.T) {
+	ctx := context.Background()
+	w := eraseFixture(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tracking_events.parquet")
+	failed := filepath.Join(dir, "engagement_facts.parquet")
+	if err := os.WriteFile(failed, []byte("previous-clean"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.EraseUser(ctx, "user-erase-14"); err != nil {
+		t.Fatalf("EraseUser: %v", err)
+	}
+	var logs strings.Builder
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+
+	err := export.Cycle(ctx, failingRelationExporter{Writer: w, failRel: warehouse.EngagementFactsTableName}, path, logger)
+
+	if err == nil {
+		t.Fatal("the failed file must be reported")
+	}
+	if !strings.Contains(logs.String(), warehouse.EngagementFactsTableName) {
+		t.Errorf("the failed file is not named in the logs: %s", logs.String())
+	}
+	if got, _ := os.ReadFile(failed); string(got) != "previous-clean" {
+		t.Errorf("failed file = %q, want the previous file kept untouched", got)
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, "*.tmp")); len(left) != 0 {
+		t.Errorf("partial temp files left behind: %v", left)
+	}
+	for _, tg := range export.Targets(path) {
+		if tg.Relation == warehouse.EngagementFactsTableName {
+			continue
+		}
+		if n := parquetMentions(t, w, tg.Path, "user-erase-14"); n != 0 {
+			t.Errorf("%s carries the erased id in %d rows", filepath.Base(tg.Path), n)
+		}
+	}
+
+	if err := export.Cycle(ctx, w, path, slog.New(slog.DiscardHandler)); err != nil {
+		t.Fatalf("next cycle: %v", err)
+	}
+	if n := parquetMentions(t, w, failed, "user-erase-14"); n != 0 {
+		t.Errorf("replaced file still carries the erased id in %d rows", n)
 	}
 }

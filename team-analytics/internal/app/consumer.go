@@ -147,6 +147,23 @@ func RunConsumer(ctx context.Context, s config.Settings) (err error) {
 		logger.WarnContext(ctx, "engagement consumer not started: the warehouse driver cannot store engagement facts", "driver", s.Warehouse.Driver)
 	}
 
+	if ue, ok := w.(warehouse.UserEraser); ok {
+		spec := events.ErasureOptions(s)
+		client, cErr := newGroupClient(s, &stack, spec.Group, spec.Topics, kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
+		if cErr != nil {
+			return cErr
+		}
+		opts := spec.Options
+		opts.KeyFP, opts.Logger = fp, logger
+		cons, cErr := consume.NewConsumer(client, events.NewErasureHandler(ue, fp, logger), producer, opts)
+		if cErr != nil {
+			return fmt.Errorf("erasure consumer: %w", cErr)
+		}
+		workers = append(workers, cons)
+	} else {
+		logger.WarnContext(ctx, "erasure consumer not started: the warehouse driver cannot purge users", "driver", s.Warehouse.Driver)
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/", observability.MetricsHandler(gauge))
 	if isDuckDB {
