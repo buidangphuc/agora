@@ -4456,7 +4456,6 @@ features:
       - "Then within 60 s no row in any team-analytics table contains U's id in any column and the consumer group offset has advanced past the record"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-1 A UserErased event purges the user"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-2-another-identity-event-type-is-skipped
@@ -4471,7 +4470,6 @@ features:
       - "Then no table changes, the DLQ topic receives no record and the offset advances"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-2 Another identity event type is skipped"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-3-poison-record-goes-to-the-dlq
@@ -4486,7 +4484,6 @@ features:
       - "Then each is published to `identity.events.analytics.dlq` with an `error` header, no table changes, and the offset advances past both"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-3 Poison record goes to the DLQ"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-4-a-failed-purge-is-retried-and-commits-nothing
@@ -4515,7 +4512,6 @@ features:
       - "Then no row changes, the tombstone count for U stays 1, no DLQ record is written and the offset advances"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-5 Redelivery is a no-op"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-6-re-key-keeps-aggregates-and-removes-identifiers
@@ -4530,7 +4526,6 @@ features:
       - "Then `tracking_events` still has the same total row count, zero rows contain U's id, A1 or A2 in any column, all 70 rows carry the same single `erased:` pseudonym, and `GetSellerFunnel` counts for the affected listings are unchanged"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-6 Re-key keeps aggregates and removes identifiers"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-7-rows-of-other-users-are-untouched
@@ -4545,7 +4540,6 @@ features:
       - "Then V's 20 rows are byte-identical before and after, including `principal_id`"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-7 Rows of other users are untouched"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-8-boundary-of-a-user-with-no-rows
@@ -4560,7 +4554,6 @@ features:
       - "Then the consumer commits the offset, writes one tombstone, changes no other row and writes no DLQ record"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-8 Boundary of a user with no rows"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-9-orders-are-kept-with-a-pseudonymous-buyer
@@ -4575,7 +4568,6 @@ features:
       - "Then the 3 lines remain with identical `order_id`, `quantity`, `unit_price` and `occurred_at`, `buyer_id` is the pseudonym, and `GetPlatformOrderSummary` GMV over the same window is unchanged"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-9 Orders are kept with a pseudonymous buyer"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-10-favourites-and-follows-are-deleted
@@ -4590,7 +4582,6 @@ features:
       - "Then `engagement_facts` has no row with `user_id` = U for those facts, `favorites_current` and `follows_current` have no row for U, and V's facts are unchanged"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-10 Favourites and follows are deleted"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-11-an-erased-seller-is-re-keyed-everywhere
@@ -4605,7 +4596,6 @@ features:
       - "Then no row in `order_facts`, `engagement_facts` or `listing_sellers` has `seller_id` = U, the listings' `listing_id` and `status` values are unchanged, and `GetSellerFunnel` for U returns zero counts"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-11 An erased seller is re-keyed everywhere"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-12-a-buffered-event-flushed-after-the-purge-is-re-keyed
@@ -4620,7 +4610,6 @@ features:
       - "Then the stored row carries U's pseudonym, and no table contains U's id"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-12 A buffered event flushed after the purge is re-keyed"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-13-the-tombstone-holds-no-clear-id
@@ -4635,7 +4624,6 @@ features:
       - "Then none equals U's id and `user_hmac` is 64 hex characters that differ when `ERASURE_TOMBSTONE_SECRET` differs"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-13 The tombstone holds no clear id"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-14-exported-files-are-clean-after-one-cycle
@@ -4650,7 +4638,6 @@ features:
       - "Then a scan of the seven Parquet files for U's id, A1 and A2 finds zero matches"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-14 Exported files are clean after one cycle"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-15-logs-carry-no-raw-id
@@ -4735,7 +4722,6 @@ features:
       - "Then no row of V changes, because matching is by exact equality on the whole column value"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-36 A forged event for another user does not touch unrelated rows"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-37-a-late-event-for-a-non-erased-user-is-stored-as-is
@@ -4750,7 +4736,6 @@ features:
       - "Then the row keeps V's id and the tombstone table is unchanged"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure.feature::AUE-37 A late event for a non-erased user is stored as is"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
 
   - id: analytics.aue-38-tombstone-lookup-failure-rejects-the-batch

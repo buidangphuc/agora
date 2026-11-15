@@ -2626,7 +2626,6 @@ features:
       - "Then within 60 s none of those keys exists and the same keys of user V are present"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-28 Chat sessions, quota and rate-limit keys are removed"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
 
   - id: ai.aue-29-a-prefix-sharing-id-is-not-matched
@@ -2641,7 +2640,6 @@ features:
       - "Then the session of `abcd` is present after U's erasure"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-29 A prefix-sharing id is not matched"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
 
   - id: ai.aue-30-redis-failure-retries-without-commit
@@ -2670,7 +2668,6 @@ features:
       - "Then both are published to `identity.events.team-ai.dlq`, no key is deleted and the offsets advance"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-31 Poison record goes to the DLQ"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
 
   - id: ai.aue-32-no-raw-id-in-logs

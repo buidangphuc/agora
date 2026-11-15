@@ -903,7 +903,6 @@ features:
       - "Then both keys are gone, no key with entity `erased:<hex>` exists, other users' keys are present, and the parity gate passes"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-24 A user erased upstream disappears from the online store"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
 
   - id: featurestore.aue-25-pseudonymised-rows-do-not-become-features-or-training-rows

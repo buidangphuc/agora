@@ -9774,7 +9774,6 @@ features:
       - "Then the warehouse, Parquet files, Redis (recs, nearline, featurestore, chat session) and Qdrant contain zero occurrences of the user id and the three DLQ topics have zero records"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-33 End to end across the stores"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
 
   - id: core.aue-34-a-missing-dlq-topic-stops-the-consumer
@@ -9789,5 +9788,4 @@ features:
       - "Then the topic-init job has created it before the consumer service becomes healthy, otherwise the service exits non-zero rather than running without a DLQ"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-34 A missing DLQ topic stops the consumer"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."

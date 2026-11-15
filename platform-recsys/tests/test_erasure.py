@@ -225,7 +225,9 @@ def build(messages, redis=None, qdrant=None, idle=3):
     producer = Producer(log)
     redis = redis if redis is not None else Redis(user_keys(USER) + user_keys(OTHER))
     qdrant = qdrant if qdrant is not None else seeded_qdrant()
-    consumer = ErasureConsumer(source, redis, qdrant, producer, Settings(), idle_exit_seconds=idle, clock=Clock())
+    consumer = ErasureConsumer(
+        source, redis, qdrant, producer, Settings(), idle_exit_seconds=idle, clock=Clock()
+    )
     return consumer, source, producer, redis, qdrant, log
 
 
@@ -234,7 +236,8 @@ def test_aue19_user_keys_and_points_removed_and_other_user_untouched():
     consumer.run()
     assert not [k for k in redis.store if USER in k]
     assert sorted(redis.store) == sorted(user_keys(OTHER))
-    assert not [p for c in qdrant.collections.values() for p in c.values() if p["payload"].get("user_key") == USER]
+    remaining = [p for c in qdrant.collections.values() for p in c.values()]
+    assert not [p for p in remaining if p["payload"].get("user_key") == USER]
     assert [p for p in qdrant.collections["user_als_vectors__g1"]] == [2]
     assert [p for p in qdrant.collections["user_als_vectors__g2"]] == [4]
     assert 5 in qdrant.collections["item_als_vectors"]

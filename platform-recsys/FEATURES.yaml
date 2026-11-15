@@ -2919,7 +2919,6 @@ features:
       - "Then within 60 s zero Redis keys and zero Qdrant points contain U's id, and V's keys and points are unchanged"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-19 Recommendation and nearline keys are removed"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
 
   - id: recsys.aue-20-redis-or-qdrant-failure-exits-without-commit
@@ -2948,7 +2947,6 @@ features:
       - "Then both deliveries succeed, delete nothing further and commit the offset, with no DLQ record"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-21 Redelivery and missing keys are no-ops"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
 
   - id: recsys.aue-22-poison-record-goes-to-the-dlq
@@ -2963,7 +2961,6 @@ features:
       - "Then both are published to `identity.events.recsys.dlq` and committed past, and no key is deleted"
     tags: [user-erasure, analytics]
     status: planned
-    covered_by: "analytics/user_erasure_stores.feature::AUE-22 Poison record goes to the DLQ"
     notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
 
   - id: recsys.aue-23-logs-carry-no-raw-id
