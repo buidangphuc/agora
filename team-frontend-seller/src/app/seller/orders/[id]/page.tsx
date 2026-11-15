@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { OrderDetailView } from "@/features/seller/OrderDetailView";
+import { OrderSettlementCard } from "@/features/seller/OrderSettlementCard";
 import { PrintButton } from "@/features/seller/PrintButton";
 import { PrintStyles } from "@/features/seller/PrintStyles";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
@@ -9,7 +10,7 @@ import { ShipOrderButton } from "@/features/seller/ShipOrderButton";
 import { isShippable } from "@/features/seller/status";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { getShipmentTracking, listOrderReturns } from "@/lib/gateway/orders";
-import { getPayment } from "@/lib/gateway/payment";
+import { getOrderSettlement, getPayment } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import { isOwnedBy, loadSellerOrder } from "./data";
@@ -30,6 +31,13 @@ export default async function SellerOrderDetailPage(props: {
     return null;
   }
 
+  const settlementRead = (async () => {
+    try {
+      return { settlement: await getOrderSettlement(order.id), failed: false };
+    } catch {
+      return { settlement: null, failed: true };
+    }
+  })();
   const shipment = await getShipmentTracking(order.id);
   const tab =
     searchParams.tab === "shipment" || searchParams.tab === "returns"
@@ -44,6 +52,7 @@ export default async function SellerOrderDetailPage(props: {
           getPayment(undefined, order.id),
         ])
       : [[], null];
+  const { settlement, failed } = await settlementRead;
   const base = `/seller/orders/${order.id}`;
 
   return (
@@ -68,6 +77,13 @@ export default async function SellerOrderDetailPage(props: {
           </div>
         }
       />
+      <div className="mb-6">
+        <OrderSettlementCard
+          settlement={settlement}
+          failed={failed}
+          retryHref={`/seller/orders/${order.id}`}
+        />
+      </div>
       <OrderDetailView
         order={order}
         shipment={shipment}

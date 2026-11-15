@@ -1,9 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { formatPrice } from "@/components/ui/format";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { getShipmentTracking } from "@/lib/gateway/orders";
+import { getOrderSettlement } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
+import { notFound } from "next/navigation";
 import { loadSellerOrder } from "./data";
 import SellerOrderDetailPage from "./page";
 
@@ -18,7 +21,10 @@ vi.mock("@/lib/gateway/orders", () => ({
   getShipmentTracking: vi.fn(),
   listOrderReturns: vi.fn(),
 }));
-vi.mock("@/lib/gateway/payment", () => ({ getPayment: vi.fn() }));
+vi.mock("@/lib/gateway/payment", () => ({
+  getPayment: vi.fn(),
+  getOrderSettlement: vi.fn(),
+}));
 vi.mock("./data", async () => {
   const actual = await vi.importActual<typeof import("./data")>("./data");
   return { ...actual, loadSellerOrder: vi.fn() };
@@ -99,5 +105,63 @@ describe("Order lifecycle: only the buyer view offers the receipt button", () =>
     await renderPage();
     expect(screen.getAllByText(/Đơn hàng #o1234567/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Đã nhận được hàng/)).toBeNull();
+  });
+});
+
+describe("Order page settlement card", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "seller-1",
+      scopes: [],
+    } as never);
+    vi.mocked(getShipmentTracking).mockResolvedValue(null as never);
+  });
+
+  it("renders the settlement breakdown for the owning seller", async () => {
+    vi.mocked(loadSellerOrder).mockResolvedValue(shippedOrder() as never);
+    vi.mocked(getOrderSettlement).mockResolvedValue({
+      credited: 310000,
+      commission: 14000,
+      commissionRatePercent: 5,
+      commissionReversed: 0,
+      refundDeducted: 0,
+      net: 296000,
+    });
+    await renderPage();
+    expect(getOrderSettlement).toHaveBeenCalledWith("o1234567-aaaa");
+    expect(screen.getByText("Đối soát thanh toán")).toBeInTheDocument();
+    expect(screen.getByText(formatPrice(296000))).toBeInTheDocument();
+  });
+
+  it("settlement error degrades only the card", async () => {
+    vi.mocked(loadSellerOrder).mockResolvedValue(shippedOrder() as never);
+    vi.mocked(getOrderSettlement).mockRejectedValue(new Error("UNAVAILABLE"));
+    await renderPage();
+    expect(
+      screen.getByText("Không tải được đối soát thanh toán"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Thử lại" })).toBeInTheDocument();
+    expect(screen.getAllByText(/Đơn hàng #o1234567/).length).toBeGreaterThan(0);
+  });
+
+  it("not-settled order shows the not-settled state and the rest of the page", async () => {
+    vi.mocked(loadSellerOrder).mockResolvedValue(shippedOrder() as never);
+    vi.mocked(getOrderSettlement).mockResolvedValue(null);
+    await renderPage();
+    expect(
+      screen.getByText("Đơn chưa được đối soát vào ví"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Đơn hàng #o1234567/).length).toBeGreaterThan(0);
+  });
+
+  it("another seller's order is not found and nothing is fetched", async () => {
+    vi.mocked(loadSellerOrder).mockResolvedValue(
+      shippedOrder({ sellerId: "seller-2" }) as never,
+    );
+    vi.mocked(getOrderSettlement).mockResolvedValue(null);
+    await renderPage();
+    expect(notFound).toHaveBeenCalled();
+    expect(getOrderSettlement).not.toHaveBeenCalled();
   });
 });

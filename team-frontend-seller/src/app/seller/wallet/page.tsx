@@ -10,6 +10,7 @@ import { LinkButton } from "@/features/seller/LinkButton";
 import { PayoutButton } from "@/features/seller/PayoutButton";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { SellerPagination } from "@/features/seller/SellerPagination";
+import { ledgerTypeLabel } from "@/features/seller/ledgerLabels";
 import {
   type SearchParams,
   buildListHref,
@@ -30,7 +31,7 @@ export const metadata = { title: "Ví người bán" };
 const LEDGER_PAGE_SIZE = 20;
 
 const columns: TableColumn<ViewWalletEntry>[] = [
-  { key: "type", title: "Loại", render: (e) => e.type || "—" },
+  { key: "type", title: "Loại", render: (e) => ledgerTypeLabel(e.type) },
   {
     key: "amount",
     title: "Số tiền",
