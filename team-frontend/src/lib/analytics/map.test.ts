@@ -73,3 +73,11 @@ describe("ai_interaction vocabulary", () => {
     expect(internalToGa4("ai_interaction")).toBe("ai_interaction");
   });
 });
+
+describe("experiment_exposure vocabulary", () => {
+  it("maps the experiment_exposure event name to the collector type", () => {
+    expect(ga4ToInternal("experiment_exposure" as never)).toBe(
+      "experiment_exposure",
+    );
+  });
+});

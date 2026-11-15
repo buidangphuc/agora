@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { chatCopilot, shoppingAssistant } from "./ai.js";
+import { chatCopilot, shoppingAssistant, summarizeReviews } from "./ai.js";
 import { makeClients } from "./client.js";
 
 vi.mock("./client.js", () => ({ makeClients: vi.fn() }));
@@ -13,6 +13,7 @@ function stubAi(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
   const ai = {
     shoppingAssistant: vi.fn(),
     chatCopilot: vi.fn(),
+    summarizeReviews: vi.fn(),
     ...rpcs,
   };
   vi.mocked(makeClients).mockReturnValue({ ai } as never);
@@ -38,6 +39,8 @@ describe("ai gateway wrapper", () => {
           },
         ],
         suggestedFollowups: ["more?"],
+        requestId: "r1",
+        modelVersion: "mock:v1|search-v2",
       }),
     });
 
@@ -53,6 +56,8 @@ describe("ai gateway wrapper", () => {
       price: 5000000,
     });
     expect(res.suggestedFollowups).toEqual(["more?"]);
+    expect(res.requestId).toBe("r1");
+    expect(res.modelVersion).toBe("mock:v1|search-v2");
   });
 
   it("shoppingAssistant propagates RPC errors (no local catch)", async () => {
@@ -62,11 +67,13 @@ describe("ai gateway wrapper", () => {
     await expect(shoppingAssistant("q")).rejects.toThrow("ai down");
   });
 
-  it("chatCopilot returns the quick replies list", async () => {
+  it("chatCopilot returns quick replies with the response provenance", async () => {
     const ai = stubAi({
-      chatCopilot: vi
-        .fn()
-        .mockResolvedValue({ quickReplies: ["Yes", "No", "Maybe"] }),
+      chatCopilot: vi.fn().mockResolvedValue({
+        quickReplies: ["Yes", "No", "Maybe"],
+        requestId: "c1",
+        modelVersion: "mock:v1",
+      }),
     });
     const res = await chatCopilot("s1", "is it available?", "l1");
     expect(ai.chatCopilot).toHaveBeenCalledWith({
@@ -74,6 +81,29 @@ describe("ai gateway wrapper", () => {
       buyerMessage: "is it available?",
       listingId: "l1",
     });
-    expect(res).toEqual(["Yes", "No", "Maybe"]);
+    expect(res).toEqual({
+      quickReplies: ["Yes", "No", "Maybe"],
+      requestId: "c1",
+      modelVersion: "mock:v1",
+    });
+  });
+
+  it("summarizeReviews returns the response provenance", async () => {
+    stubAi({
+      summarizeReviews: vi.fn().mockResolvedValue({
+        summary: "ok",
+        pros: ["a"],
+        cons: [],
+        sentiment: "tích cực",
+        requestId: "s1",
+        modelVersion: "mock:v1",
+      }),
+    });
+    const res = await summarizeReviews("l1", [{ rating: 5, comment: "tốt" }]);
+    expect(res).toMatchObject({
+      summary: "ok",
+      requestId: "s1",
+      modelVersion: "mock:v1",
+    });
   });
 });
