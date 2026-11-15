@@ -14,8 +14,8 @@ Depends on slices verification-kyc-documents and payment-payout-kyc-gate; regene
 
 ## 2. E2E track (platform-e2e; FEATURES.yaml by e2e-author)
 
-- [ ] 2.1 Feature files `seller/kyc_upload.feature`, `seller/kyc_payout_notice.feature` and `buyer/shop_verified_badge.feature` covering every scenario in `specs/seller-kyc-ui/spec.md`; replace each `VERIFIED BY: TBD` with path and scenario title
-- [ ] 2.2 Fixtures: small valid PNG/PDF, a 5 MiB and a 5 MiB + 1 byte file generated at run time (scenarios: A file of exactly 5 MiB is accepted, A file over 5 MiB is rejected before upload)
-- [ ] 2.3 Steps that approve/reject through the real `ReviewKyc` RPC as admin to reach `VERIFIED`/`REJECTED` (scenarios: A verified seller sees the verified state, A rejected submission shows the reason and allows resubmission, Verified seller's shop shows the badge); demo seed verifies sellers through real RPCs (shared with payment-payout-kyc-gate)
-- [ ] 2.4 Network-level steps for PUT failure and `GetPublicBadges` failure using a real fault toggle on the stack, no route fulfils (scenarios: A failed PUT stops the submission, Badge lookup failure does not break the page)
-- [ ] 2.5 `team-frontend-seller/FEATURES.yaml` and `team-frontend/FEATURES.yaml` entries (e2e-author)
+- [x] 2.1 Feature files `seller/kyc_upload.feature`, `seller/kyc_payout_notice.feature` and `buyer/shop_verified_badge.feature` covering every scenario in `specs/seller-kyc-ui/spec.md`; replace each `VERIFIED BY: TBD` with path and scenario title
+- [x] 2.2 Fixtures: small valid PNG/PDF, a 5 MiB and a 5 MiB + 1 byte file generated at run time (scenarios: A file of exactly 5 MiB is accepted, A file over 5 MiB is rejected before upload)
+- [x] 2.3 Steps that approve/reject through the real `ReviewKyc` RPC as admin to reach `VERIFIED`/`REJECTED` (scenarios: A verified seller sees the verified state, A rejected submission shows the reason and allows resubmission, Verified seller's shop shows the badge); demo seed verifies sellers through real RPCs (shared with payment-payout-kyc-gate)
+- [x] 2.4 Network-level steps for PUT failure and `GetPublicBadges` failure using a real fault toggle on the stack, no route fulfils (scenarios: A failed PUT stops the submission, Badge lookup failure does not break the page)
+- [x] 2.5 `team-frontend-seller/FEATURES.yaml` and `team-frontend/FEATURES.yaml` entries (e2e-author)

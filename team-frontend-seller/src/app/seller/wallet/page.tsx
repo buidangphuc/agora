@@ -10,18 +10,21 @@ import { LinkButton } from "@/features/seller/LinkButton";
 import { PayoutButton } from "@/features/seller/PayoutButton";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { SellerPagination } from "@/features/seller/SellerPagination";
+import { WalletVerificationNotice } from "@/features/seller/WalletVerificationNotice";
 import {
   type SearchParams,
   buildListHref,
   parseListParams,
   slicePage,
 } from "@/features/seller/listParams";
+import { VerificationStatus } from "@/generated/platform/verification/v1/verification_pb.js";
 import {
   type ViewWalletEntry,
   getWalletBalance,
   listLedgerEntries,
 } from "@/lib/gateway/payment";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
+import { getVerificationStatus } from "@/lib/gateway/verification";
 
 export const dynamic = "force-dynamic";
 
@@ -51,10 +54,15 @@ export default async function SellerWalletPage(props: {
   if (!hasScope("listing.write")) return null;
 
   const { page } = parseListParams(searchParams);
-  const [balance, entries] = await Promise.allSettled([
+  const [balance, entries, verification] = await Promise.allSettled([
     getWalletBalance(me.id, { throwOnError: true }),
     listLedgerEntries(me.id, { throwOnError: true }),
+    getVerificationStatus("me"),
   ]);
+  const unverified =
+    verification.status === "fulfilled" &&
+    verification.value != null &&
+    verification.value.status !== VerificationStatus.VERIFIED;
   const balanceValue = balance.status === "fulfilled" ? balance.value : null;
   const ledger = entries.status === "fulfilled" ? entries.value : null;
   const here = buildListHref("/seller/wallet", { page });
@@ -65,6 +73,8 @@ export default async function SellerWalletPage(props: {
         title="Ví người bán"
         description="Số dư khả dụng và lịch sử giao dịch ví."
       />
+
+      {unverified && <WalletVerificationNotice />}
 
       <Card>
         <CardContent>

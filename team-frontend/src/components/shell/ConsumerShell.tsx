@@ -58,13 +58,6 @@ async function AuthNav() {
       </NextLink>
       <span className="hidden text-text-inverse/30 sm:inline">|</span>
       <NextLink
-        href="/account/verification"
-        className="hover:text-text-inverse/80 transition"
-      >
-        Xác minh
-      </NextLink>
-      <span className="hidden text-text-inverse/30 sm:inline">|</span>
-      <NextLink
         href="/account/security"
         className="hover:text-text-inverse/80 transition"
       >

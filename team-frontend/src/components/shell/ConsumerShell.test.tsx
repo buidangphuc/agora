@@ -87,3 +87,10 @@ describe("account links", () => {
     expect(shell).toContain('href="/account/privacy"');
   });
 });
+
+describe("buyer verification link", () => {
+  it("[Buyer navigation has no verification link] the top bar has no link to /account/verification", () => {
+    const shell = readFileSync(join(__dirname, "ConsumerShell.tsx"), "utf8");
+    expect(shell).not.toContain("/account/verification");
+  });
+});
