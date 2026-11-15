@@ -6,6 +6,7 @@ traffic, the stream route and the beacons sent to /api/track are what is asserte
 
 from __future__ import annotations
 
+import json
 import re
 
 from playwright.sync_api import expect
@@ -13,7 +14,13 @@ from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
 from src.core.base_page import goto_streamed
-from tests.e2e.step_definitions.ai_interaction_steps import _ask, _assistant, _cards, _x
+from tests.e2e.step_definitions.ai_interaction_steps import (
+    _ask,
+    _assistant,
+    _cards,
+    _x,
+    ensure_answerable,
+)
 from tests.e2e.support import ai_events_support as ai
 from tests.e2e.support.world import World
 
@@ -22,6 +29,23 @@ _PLACEMENT = "assistant.suggestions"
 
 def _base(world: World) -> str:
     return world.settings.base_url.rstrip("/")
+
+
+def _utf8(text: str) -> str:
+    """The Server Action body has no charset, so the driver can hand back UTF-8 bytes read as
+    Windows-1252 or Latin-1; undo that when it happened."""
+    raw = bytearray()
+    for ch in text:
+        try:
+            raw += ch.encode("cp1252")
+        except UnicodeEncodeError:
+            if ord(ch) > 0xFF:
+                return text
+            raw.append(ord(ch))
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return text
 
 
 @given("the browser records assistant replies")
@@ -44,7 +68,7 @@ def records_replies(world: World) -> None:
         req = response.request
         if req.method == "POST" and "next-action" in req.headers and "/assistant" in req.url:
             try:
-                bodies.append(response.text())
+                bodies.append(_utf8(response.body().decode("utf-8", errors="replace")))
             except Exception:  # noqa: BLE001
                 pass
 
@@ -54,6 +78,7 @@ def records_replies(world: World) -> None:
 
 @when(parsers.parse('the buyer opens the assistant page and asks "{question}"'))
 def open_and_ask(world: World, question: str) -> None:
+    ensure_answerable(world, question)
     goto_streamed(world.page, f"{_base(world)}/assistant")
     _ask(world, question)
     expect(_cards(world).first).to_be_visible(timeout=timeouts.LONG)
@@ -75,7 +100,8 @@ def bubble_equals_reply(world: World) -> None:
     lines = [ln.strip() for ln in x["ai_reply_text"].splitlines() if len(ln.strip()) >= 12]
     assert lines, "the assistant bubble has no text"
     first = lines[0]
-    assert first in body, f"bubble line {first!r} is not part of the unary response"
+    encoded = json.dumps(first, ensure_ascii=False)[1:-1]
+    assert first in body or encoded in body, f"bubble line {first!r} is not part of the unary response"
 
 
 @when(parsers.parse('a client posts to "{path}"'))

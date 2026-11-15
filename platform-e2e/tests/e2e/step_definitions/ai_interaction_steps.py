@@ -19,6 +19,7 @@ from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support import ai_events_support as ai
 from tests.e2e.support import d2_support as d2
 from tests.e2e.support import review_order_support as ros
+from tests.e2e.support import srm_support as srm
 from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
@@ -60,7 +61,16 @@ def _cards(world: World):  # noqa: ANN202
     return world.page.get_by_role("link", name="Xem Ngay")
 
 
+def ensure_answerable(world: World, question: str) -> None:
+    """Publish an in-stock listing titled with the question, cheap enough for any price cap, and
+    wait until search returns it, so the assistant has a product to ground its answer on."""
+    label = f"ai-{len(srm.ctx(world).listings)}"
+    srm.create_listing(world, label, stock=5, title_suffix=question, price=100_000)
+    srm.wait_indexed(world, label)
+
+
 def _open_assistant_and_ask(world: World, question: str) -> None:
+    ensure_answerable(world, question)
     goto_streamed(world.page, f"{_base(world)}/assistant")
     _ask(world, question)
     expect(_cards(world).first).to_be_visible(timeout=timeouts.LONG)
@@ -88,6 +98,7 @@ def type_in_assistant(world: World) -> None:
 @when("the buyer asks the assistant a second question and more product cards are shown")
 def ask_second(world: World) -> None:
     before = _cards(world).count()
+    ensure_answerable(world, _SECOND_QUESTION)
     _ask(world, _SECOND_QUESTION)
     expect(_cards(world)).not_to_have_count(before, timeout=timeouts.LONG)
 
