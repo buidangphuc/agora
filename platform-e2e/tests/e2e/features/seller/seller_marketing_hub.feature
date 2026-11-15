@@ -22,7 +22,7 @@ Feature: Seller marketing hub (seller-marketing-hub)
   Scenario: Buyer account is denied the hub
     Given a buyer is signed in the seller app
     When the visitor opens the marketing hub
-    Then the seller access-denied view is shown
+    Then the seller onboarding screen is shown instead of the hub
     And no marketing tab content is shown
 
   Scenario: Anonymous visitor is redirected to login

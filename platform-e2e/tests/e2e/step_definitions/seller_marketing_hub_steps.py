@@ -382,9 +382,11 @@ def url_contains(world: World, fragment: str) -> None:
     expect(world.page).to_have_url(re.compile(re.escape(fragment)), timeout=timeouts.NAVIGATION)
 
 
-@then("the seller access-denied view is shown")
-def denied_view(world: World) -> None:
-    expect(_page(world).forbidden).to_be_visible(timeout=timeouts.NAVIGATION)
+@then("the seller onboarding screen is shown instead of the hub")
+def onboarding_view(world: World) -> None:
+    expect(world.page.get_by_role("button", name="Đồng ý và trở thành Người Bán")).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
 
 
 @then("no marketing tab content is shown")

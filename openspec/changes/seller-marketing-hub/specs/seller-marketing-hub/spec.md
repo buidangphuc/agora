@@ -21,7 +21,7 @@ as "Marketing".
 
 #### Scenario: Buyer account is denied the hub
 - **WHEN** a signed-in buyer without scope `listing.write` opens `/seller/marketing`
-- **THEN** the seller access-denied view is shown and no promotion RPC is called
+- **THEN** the seller onboarding screen ("Đồng ý và trở thành Người Bán") is shown instead of the hub and no promotion RPC is called
 
 #### Scenario: Anonymous visitor is redirected to login
 - **WHEN** an anonymous visitor opens `/seller/marketing`

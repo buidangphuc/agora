@@ -13,7 +13,7 @@ spec: plans/seller-centre/00-spec.md (Locked 2026-11-13)
 | seller-shop-customisation-ui | team-frontend-seller | [domain-storefront-customisation, domain-my-listings-filter] | 1 | pass | pass | pass | ENGINE_DOWN | b5a0802622cc → a3ac6fcd3f7a | [x] |
 | shop-page-featured-theme | team-frontend | [domain-storefront-customisation] | 1 | pass | pass | pass | ENGINE_DOWN | 670decbcf356 → 41aa0b0be502 | [x] |
 | promotion-seller-self-service | team-promotion | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 88b5553a6c87 → 7ee9f55ff568 | [x] |
-| seller-marketing-hub | team-frontend-seller | [promotion-seller-self-service, domain-my-listings-filter] | 3 | pass | pass | pass | ENGINE_DOWN | f847db14ecee → 43bc90e0d578 | [x] |
+| seller-marketing-hub | team-frontend-seller | [promotion-seller-self-service, domain-my-listings-filter] | 3 | pass | pass | pass | ENGINE_DOWN | f847db14ecee → 43bc90e0d578 → f63dadbb97fd | [x] |
 | seller-getting-started | team-frontend-seller | [seller-marketing-hub, seller-shop-customisation-ui] | 1 | pass | pass | pass | ENGINE_DOWN | fa2485d9f803 → a9c904c7f308 | [x] |
 | order-bundle-checkout | team-order | [seller-centre-contract, domain-bundle-integrity] | 1 | pass | pass | pass | ENGINE_DOWN | 0c3095790822 → 39953b03466d | [x] |
 | shop-bundle-purchase-ui | team-frontend | [order-bundle-checkout, shop-page-featured-theme] | 1 | pass | pass | pass | ENGINE_DOWN | ada306a5c726 → 3eedf4b93f73 | [x] |

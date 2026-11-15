@@ -2475,7 +2475,7 @@ features:
       login: seller
     acceptance:
       - "When a signed-in buyer without scope `listing.write` opens `/seller/marketing`"
-      - "Then the seller access-denied view is shown and no promotion RPC is called"
+      - "Then the seller onboarding screen is shown instead of the hub and no promotion RPC is called"
     tags: [seller, promo]
     status: planned
     covered_by: null

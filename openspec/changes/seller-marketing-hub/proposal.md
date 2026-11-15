@@ -56,7 +56,7 @@ is read or shown on this page.
   a request; (4) a seller cancels a running (ACTIVE) flash sale to dodge honouring the price; (5) a seller creates a
   campaign on a foreign listing.
 - Authz rule: the page and actions require a signed-in principal with scope `listing.write` (otherwise the existing
-  `SellerAccessDenied` / redirect path). Ownership is enforced by team-promotion (PERMISSION_DENIED for a foreign or
+  seller layout gate: `SellerOnboarding` for a signed-in user without the scope, login redirect for an anonymous visitor). Ownership is enforced by team-promotion (PERMISSION_DENIED for a foreign or
   unknown id, same answer for both); the UI never sends a seller id and shows the same "không có quyền hoặc không
   tồn tại" message for a denied row. The UI hides "Huỷ" for non-SCHEDULED rows, and the server answers
   FAILED_PRECONDITION if called anyway.
