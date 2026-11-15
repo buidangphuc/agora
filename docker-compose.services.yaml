@@ -437,12 +437,15 @@ services:
     depends_on:
       team-payment-migrate:
         condition: service_completed_successfully
+      team-verification:
+        condition: service_started
       redpanda-init:
         condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_URL=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
+      - UPSTREAM_VERIFICATION_ADDR=team-verification-svc:50064
       # Transactional-outbox relayer (AD4): settle writes payment=PAID + a
       # PaymentSettled outbox row in one tx; the relayer drains it to
       # payment.events. Keys read by internal/bootstrap/kafka.go::kafkaConfigFromEnv.

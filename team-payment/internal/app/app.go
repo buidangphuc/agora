@@ -79,6 +79,13 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	}
 	stack.Push(func(context.Context) error { return orderConn.Close() })
 
+	verificationClient, verificationConn, err := upstream.DialVerificationService(s.Upstream.VerificationAddr)
+	if err != nil {
+		return err
+	}
+	stack.Push(func(context.Context) error { return verificationConn.Close() })
+	_ = upstream.NewPayoutGate(verificationClient)
+
 	auditConn, err := auditx.Dial(sdkconfig.Audit{Addr: s.Upstream.AuditAddr}, "service-"+serviceName, "audit.write")
 	if err != nil {
 		return fmt.Errorf("audit: %w", err)
