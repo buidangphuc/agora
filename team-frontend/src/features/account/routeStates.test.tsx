@@ -6,7 +6,6 @@ import AccountError from "@/app/(shop)/account/error";
 import FollowingLoading from "@/app/(shop)/account/following/loading";
 import ReferralLoading from "@/app/(shop)/account/referral/loading";
 import SecurityLoading from "@/app/(shop)/account/security/loading";
-import VerificationLoading from "@/app/(shop)/account/verification/loading";
 import FavoritesError from "@/app/(shop)/favorites/error";
 import FavoritesLoading from "@/app/(shop)/favorites/loading";
 import LoginLoading from "@/app/(shop)/login/loading";
@@ -17,7 +16,6 @@ import RegisterLoading from "@/app/(shop)/register/loading";
 const LOADERS: Record<string, () => React.JSX.Element> = {
   addresses: AccountLoading,
   security: SecurityLoading,
-  verification: VerificationLoading,
   referral: ReferralLoading,
   following: FollowingLoading,
   favorites: FavoritesLoading,
