@@ -3452,7 +3452,7 @@ features:
       - "Then the call fails with `PERMISSION_DENIED` and no `GetListing` call is made"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_other_seller_id_denied_before_lookup in team-ai/tests/unit/transport/grpc/test_ai_copilot_authz.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+    notes: "VERIFIED BY test_other_seller_id_denied_before_lookup in team-ai/tests/unit/transport/test_ai_copilot_authz.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
 
   - id: ai.ccg-caller-without-the-seller-scope-is-refused
     title: "Caller without the seller scope is refused"
@@ -3464,7 +3464,7 @@ features:
       - "Then the call fails with `PERMISSION_DENIED`"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_buyer_scope_denied in team-ai/tests/unit/transport/grpc/test_ai_copilot_authz.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+    notes: "VERIFIED BY test_buyer_scope_denied in team-ai/tests/unit/transport/test_ai_copilot_authz.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
 
   - id: ai.ccg-copilot-provenance
     title: "Copilot response carries provenance"
@@ -3491,7 +3491,7 @@ features:
       - "Then `model_version` equals `llm_router:` followed by the copilot prompt version"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_llm_model_version_names_prompt in team-ai/tests/unit/modules/business/ai_assistant/test_copilot_backend.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+    notes: "VERIFIED BY test_llm_model_version_names_prompt_via_servicer in team-ai/tests/unit/transport/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
 
   - id: ai.ccg-magic-provenance
     title: "Magic Listing response carries provenance"
@@ -3518,7 +3518,7 @@ features:
       - "Then the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_summarize_reviews_has_provenance in team-ai/tests/unit/transport/grpc/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+    notes: "VERIFIED BY test_summarize_reviews_has_provenance in team-ai/tests/unit/transport/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
 
   - id: ai.ccg-copilot-request-ids-are-unique-per-call
     title: "Copilot request ids are unique per call"
@@ -3530,7 +3530,7 @@ features:
       - "Then the two responses carry different `request_id` values"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_request_id_unique_per_call in team-ai/tests/unit/transport/grpc/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+    notes: "VERIFIED BY test_request_id_unique_per_call in team-ai/tests/unit/transport/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
 
   - id: ai.ccg-failed-call-returns-no-provenance
     title: "Failed call returns no provenance"
@@ -3542,7 +3542,7 @@ features:
       - "Then the call returns the error status and no response body"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_error_has_no_response_body in team-ai/tests/unit/transport/grpc/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+    notes: "VERIFIED BY test_error_has_no_response_body in team-ai/tests/unit/transport/test_ai_provenance.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
 
   - id: ai.ccg-copilot-logs-are-redacted
     title: "Copilot logs are redacted"
