@@ -7,6 +7,7 @@ storefront-customisation seeding steps); the browser reads /shop/{id}.
 from __future__ import annotations
 
 import time
+import uuid
 
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
@@ -75,7 +76,7 @@ def second_seller_default_theme(world: World) -> None:
     )
     _create_listing(token, "[E2E] Default theme listing")
     ListingService(token=token).upsert_full_storefront(
-        {"slug": f"e2e-sf-{fake.unique_username('s')[:12]}", "theme": "default"}
+        {"slug": f"e2e-sf-{uuid.uuid4().hex[:10]}", "theme": "default"}
     )
     world.state.extra["second_shop_id"] = _principal_id(token)
 
