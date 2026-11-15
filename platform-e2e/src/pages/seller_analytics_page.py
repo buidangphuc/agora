@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from playwright.sync_api import Locator
 
 from src.constants import routes
@@ -39,6 +41,18 @@ class SellerAnalyticsPage(BasePage):
     @property
     def revenue_table(self) -> Locator:
         return self.page.get_by_role("table", name="Doanh thu theo ngày")
+
+    @property
+    def forecast_card(self) -> Locator:
+        return self.page.get_by_test_id("forecast-card")
+
+    @property
+    def forecast_title(self) -> Locator:
+        return self.page.get_by_text("Dự báo nhu cầu 14 ngày", exact=True).first
+
+    @property
+    def forecast_rows(self) -> Locator:
+        return self.forecast_card.get_by_role("row").filter(has_text=re.compile(r"\d"))
 
     def is_displayed(self) -> bool:
         return "/seller/analytics" in self.page.url
