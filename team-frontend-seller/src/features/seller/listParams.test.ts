@@ -15,13 +15,14 @@ describe("parseListParams", () => {
       q: "",
       status: "all",
       page: 1,
+      cursor: "",
     });
   });
 
   it("reads valid values", () => {
     expect(
       parseListParams({ q: " iphone ", status: "draft", page: "3" }, STATUSES),
-    ).toEqual({ q: "iphone", status: "draft", page: 3 });
+    ).toEqual({ q: "iphone", status: "draft", page: 3, cursor: "" });
   });
 
   it("falls back for invalid values without throwing", () => {
@@ -39,6 +40,48 @@ describe("parseListParams", () => {
     expect(parseListParams({ q: "x".repeat(500) }, STATUSES).q).toHaveLength(
       100,
     );
+  });
+});
+
+describe("cursor paging params", () => {
+  it("Next page uses the returned cursor: cursor and page label are read", () => {
+    const p = parseListParams({ cursor: "c20", page: "2" }, STATUSES);
+    expect(p.cursor).toBe("c20");
+    expect(p.page).toBe(2);
+  });
+
+  it("Orders page unknown cursor shows the retry state: the cursor is passed through opaque", () => {
+    expect(parseListParams({ cursor: "not-a-cursor" }, STATUSES).cursor).toBe(
+      "not-a-cursor",
+    );
+    expect(parseListParams({ cursor: ["a", "b"] }, STATUSES).cursor).toBe("a");
+  });
+
+  it("Query is trimmed to 100 characters: 150 characters are cut to 100", () => {
+    expect(parseListParams({ q: "y".repeat(150) }, STATUSES).q).toHaveLength(
+      100,
+    );
+    expect(parseListParams({ q: "y".repeat(100) }, STATUSES).q).toHaveLength(
+      100,
+    );
+    expect(parseListParams({ q: "y".repeat(99) }, STATUSES).q).toHaveLength(99);
+  });
+
+  it("Next page uses the returned cursor: buildListHref keeps cursor and page", () => {
+    expect(
+      buildListHref("/seller/orders", { cursor: "c20", page: 2 }),
+    ).toBe("/seller/orders?cursor=c20&page=2");
+  });
+
+  it("Changing tab or search resets the position: an href built without cursor and page has neither", () => {
+    const { cursor: _c, page: _p, ...rest } = parseListParams(
+      { cursor: "c40", page: "3", q: "ab", status: "shipped" },
+      STATUSES,
+    );
+    const href = buildListHref("/seller/orders", { ...rest, status: "draft" });
+    expect(href).not.toContain("cursor");
+    expect(href).not.toContain("page");
+    expect(href).toBe("/seller/orders?q=ab&status=draft");
   });
 });
 
