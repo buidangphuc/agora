@@ -229,6 +229,7 @@ func planToProto(p store.Plan) *promotionv1.Plan {
 		Name:     promotionv1.PlanTier(p.Tier),
 		Price:    p.Price,
 		Features: p.Features,
+		TermDays: p.TermDays,
 	}
 }
 

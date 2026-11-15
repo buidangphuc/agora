@@ -32,6 +32,25 @@ func TestSubscribeChargesThroughRPC(t *testing.T) {
 	}
 }
 
+func TestListPlansReturnsPriceAndTermDays(t *testing.T) {
+	// Scenario: Catalog shows corrected prices
+	r := startRig(t, rigOpts{})
+	resp, err := r.sub.ListPlans(t.Context(), &promotionv1.ListPlansRequest{})
+	if err != nil {
+		t.Fatalf("ListPlans: %v", err)
+	}
+	want := [][2]int64{{0, 30}, {199000, 30}, {499000, 30}}
+	plans := resp.GetPlans()
+	if len(plans) != len(want) {
+		t.Fatalf("plans = %+v, want %d", plans, len(want))
+	}
+	for i, p := range plans {
+		if got := [2]int64{p.GetPrice(), int64(p.GetTermDays())}; got != want[i] {
+			t.Errorf("plan %s (price, term_days) = %v, want %v", p.GetId(), got, want[i])
+		}
+	}
+}
+
 func TestSubscribeMapsPaymentFailures(t *testing.T) {
 	// Scenario: Insufficient withdrawable balance is rejected
 	// Scenario: Payment service unavailable fails without state change
