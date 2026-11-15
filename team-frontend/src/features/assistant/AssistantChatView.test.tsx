@@ -203,7 +203,10 @@ describe("AssistantChatView ai_interaction", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, body: null });
     vi.stubGlobal("fetch", fetchMock);
     vi.mocked(askAssistantAction).mockResolvedValue(
-      reply([card("lst_1", "Tai nghe A"), card("lst_2", "Tai nghe B")], "Chỉ một câu trả lời"),
+      reply(
+        [card("lst_1", "Tai nghe A"), card("lst_2", "Tai nghe B")],
+        "Chỉ một câu trả lời",
+      ),
     );
     render(<AssistantChatView />);
     await ask("tai nghe dưới 500k");
@@ -232,7 +235,9 @@ describe("AssistantChatView ai_interaction", () => {
   // Scenario: A rated card shows exactly the returned rating text
   it("shows the returned rating text", async () => {
     vi.mocked(askAssistantAction).mockResolvedValue(
-      reply([{ ...card("lst_1", "Có đánh giá"), ratingText: "4.5/5 (12 đánh giá)" }]),
+      reply([
+        { ...card("lst_1", "Có đánh giá"), ratingText: "4.5/5 (12 đánh giá)" },
+      ]),
     );
     render(<AssistantChatView />);
     await ask("q");
@@ -271,10 +276,14 @@ describe("AssistantChatView ai_interaction", () => {
   // Scenario: Card impressions carry the placement and the request id
   it("cards report impressions with provenance", async () => {
     vi.mocked(askAssistantAction).mockResolvedValue(
-      reply([card("lst_1", "Tai nghe A"), card("lst_2", "Tai nghe B")], "Gợi ý", {
-        requestId: "r1",
-        modelVersion: "mock:v1|search-v2",
-      }),
+      reply(
+        [card("lst_1", "Tai nghe A"), card("lst_2", "Tai nghe B")],
+        "Gợi ý",
+        {
+          requestId: "r1",
+          modelVersion: "mock:v1|search-v2",
+        },
+      ),
     );
     render(<AssistantChatView />);
     await ask("q");

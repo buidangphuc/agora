@@ -12612,7 +12612,6 @@ features:
       - "One call per question and no stream"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: planned
-    covered_by: "frontend/buyer_ai_surfaces.feature::One call per question and no stream"
     notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::One call per question and no stream"
 
   - id: buyer-ai-surfaces-ui.the-stream-route-is-gone
@@ -12627,7 +12626,6 @@ features:
       - "The stream route is gone"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: planned
-    covered_by: "frontend/buyer_ai_surfaces.feature::The stream route is gone"
     notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The stream route is gone"
 
   - id: buyer-ai-surfaces-ui.a-card-without-a-rating-shows-no-rating-line
@@ -12690,7 +12688,6 @@ features:
       - "Card impressions carry the placement and the request id"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: planned
-    covered_by: "frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id"
     notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id"
 
   - id: buyer-ai-surfaces-ui.a-reply-without-a-request-id-sends-no-impression-id
@@ -12753,7 +12750,6 @@ features:
       - "The assistant accepted click reuses the reply provenance"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: planned
-    covered_by: "tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance"
     notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance"
 
   - id: buyer-ai-surfaces-ui.copilot-events-carry-the-copilot-response-provenance
@@ -12792,7 +12788,6 @@ features:
       - "Provenance never enters properties or free text"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: planned
-    covered_by: "tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
     notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
 
   - id: buyer-ai-surfaces-ui.a-viewer-without-the-seller-role-emits-no-copilot-provenance
@@ -12829,7 +12824,6 @@ features:
       - "The home entry points to the assistant page"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: planned
-    covered_by: "frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page"
     notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page"
 
   - id: buyer-ai-surfaces-ui.no-invented-score-is-rendered
@@ -12892,7 +12886,6 @@ features:
       - "A buyer has no copilot"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: planned
-    covered_by: "tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
     notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
 
   - id: buyer-ai-surfaces-ui.a-resolved-variant-is-returned-and-the-id-is-hashed
