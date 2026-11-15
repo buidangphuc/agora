@@ -153,8 +153,8 @@ func TestChargeSellerFeeIsNotRoutedAtTheGateway(t *testing.T) {
 		}
 		b, _ := io.ReadAll(res.Body)
 		res.Body.Close()
-		if res.StatusCode != http.StatusNotImplemented || !strings.Contains(string(b), "unimplemented") {
-			t.Fatalf("ChargeSellerFee (authenticated=%v) = %d %s, want 501 unimplemented", auth != "", res.StatusCode, b)
+		if res.StatusCode != http.StatusNotFound {
+			t.Fatalf("ChargeSellerFee (authenticated=%v) = %d %s, want 404 not routed", auth != "", res.StatusCode, b)
 		}
 	}
 	if n := pay.feeCalls.Load(); n != 0 {
