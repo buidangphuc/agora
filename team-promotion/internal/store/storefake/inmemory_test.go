@@ -196,7 +196,7 @@ func TestInMemoryAdCampaignRepository(t *testing.T) {
 	}
 
 	// Cross-user isolation: ListBySeller returns only that seller's campaigns.
-	s1, err := repo.ListBySeller(ctx, "s1", 10, 0)
+	s1, err := repo.ListBySeller(ctx, "s1", 10, nil)
 	if err != nil {
 		t.Fatalf("ListBySeller(s1): %v", err)
 	}

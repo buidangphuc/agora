@@ -516,7 +516,7 @@ features:
       login: seller
     acceptance:
       - "When the seller views `/seller/plans`"
-      - "Then the current plan shows a \"Gói hiện tại\" `Tag` and a disabled button, other plans show an enabled \"Đăng ký\" button"
+      - "Then the current plan shows a \"Gói hiện tại\" `Tag` and a disabled button, other plans show an enabled \"Nâng cấp\" button above the current tier and \"Hạ gói\" below it"
     tags: [seller]
     status: automated
     covered_by: "frontend/ui_seller_orders_money.feature::Current plan cannot be re-subscribed"
@@ -2293,3 +2293,354 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `guest is redirected to login`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+  - id: uisl.seller-plan-ui-paid-plan-prices-show-as-whole-vnd-per-term
+    title: "Paid plan prices show as whole VND per term"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Paid plan prices show as whole VND per term"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens `/seller/plans` and the catalog has PRO 199000 and PREMIUM 499000 with term_days 30"
+      - "Then the PRO card shows `₫199.000/ 30 ngày` and the PREMIUM card shows `₫499.000/ 30 ngày` and no card shows a price above `₫499.000`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `renders prices per term in whole VND`"
+
+  - id: uisl.seller-plan-ui-active-pro-seller-sees-period-end-and-renewal-state
+    title: "Active PRO seller sees period end and renewal state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Active PRO seller sees period end and renewal state"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller whose subscription is PRO with current_period_end 2026-12-13T10:00:00+07:00 and auto_renew true opens `/seller/plans`"
+      - "Then the PRO card shows the `Gói hiện tại` Tag with a disabled button, the text `Hết hạn ngày 13/12/2026` and `Tự động gia hạn: Bật`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `shows period end and renewal for the current paid plan`"
+
+  - id: uisl.seller-plan-ui-free-seller-has-no-period
+    title: "FREE seller has no period"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: FREE seller has no period"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller for whom `GetMySubscription` returns no subscription opens `/seller/plans`"
+      - "Then the FREE card is the current plan with its caps (max_listings 10) and no `Hết hạn ngày` text is rendered anywhere"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `treats a missing subscription as FREE`"
+
+  - id: uisl.seller-plan-ui-subscription-read-failure-disables-the-buttons
+    title: "Subscription read failure disables the buttons"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Subscription read failure disables the buttons"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `GetMySubscription` fails with UNAVAILABLE"
+      - "Then the page lists the plans, shows an error Alert `Không tải được gói hiện tại. Thử lại sau.`, no card has the `Gói hiện tại` Tag and every subscribe and cancel button has `aria-disabled=\"true\"`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `fails closed when the subscription cannot be read`"
+
+  - id: uisl.seller-plan-ui-seller-without-the-listing-scope-sees-nothing
+    title: "Seller without the listing scope sees nothing"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Seller without the listing scope sees nothing"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without `listing.write` requests `/seller/plans`"
+      - "Then the page renders nothing and none of the three plan reads is issued; a request with no principal redirects to login"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/restrictedGuard.test.tsx` `plans page guard`"
+
+  - id: uisl.seller-plan-ui-upgrade-confirm-dialog-states-price-and-no-proration
+    title: "Upgrade confirm dialog states price and no proration"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Upgrade confirm dialog states price and no proration"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a FREE seller activates the PRO `Nâng cấp` button"
+      - "Then a dialog shows `₫199.000`, the wallet-debit wording and the immediate-upgrade text, and `Subscribe` has not been called until the seller confirms"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `upgrade dialog states price before any write`"
+
+  - id: uisl.seller-plan-ui-confirmed-upgrade-calls-subscribe-once-and-refreshes
+    title: "Confirmed upgrade calls Subscribe once and refreshes"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Confirmed upgrade calls Subscribe once and refreshes"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller confirms and then double-clicks the confirm button while the call is pending"
+      - "Then `Subscribe` is called exactly once with the PRO plan id, a success toast `Đã đăng ký gói` appears and `/seller/plans` is revalidated"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `confirm calls subscribe once`"
+
+  - id: uisl.seller-plan-ui-downgrade-dialog-names-the-period-end
+    title: "Downgrade dialog names the period end"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Downgrade dialog names the period end"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a PRO seller with current_period_end 2026-12-13 activates the FREE or lower-tier `Hạ gói` button"
+      - "Then the dialog shows `Hạ gói có hiệu lực từ ngày 13/12/2026 (hết chu kỳ hiện tại).` and no upgrade wording"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `downgrade dialog names the period end`"
+
+  - id: uisl.seller-plan-ui-subscribe-denied-by-the-gateway-shows-an-error-and-no-change
+    title: "Subscribe denied by the gateway shows an error and no change"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Subscribe denied by the gateway shows an error and no change"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `Subscribe` fails with PERMISSION_DENIED or UNAUTHENTICATED"
+      - "Then an error toast `Đăng ký gói thất bại.` appears, the current plan card is unchanged and no success toast is shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `denied subscribe shows an error and no change`"
+
+  - id: uisl.seller-plan-ui-insufficient-balance-is-explained-and-nothing-changes
+    title: "Insufficient balance is explained and nothing changes"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Insufficient balance is explained and nothing changes"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `Subscribe` fails with FAILED_PRECONDITION because the balance of 100000 VND is below the PRO price 199000"
+      - "Then the seller sees `Số dư có thể rút không đủ để trả gói này.` with a `Xem ví` link to `/seller/wallet`, an error toast appears and after reload the current plan is still FREE"
+    tags: [seller, promo]
+    status: planned
+    notes: "e2e: seller/seller_plans.feature::Subscribing with too little balance changes nothing"
+
+  - id: uisl.seller-plan-ui-paying-subscription-end-to-end
+    title: "Paying subscription end to end"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Paying subscription end to end"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with a withdrawable balance of at least 199000 VND confirms the PRO upgrade"
+      - "Then after reload PRO is the current plan with `Hết hạn ngày` 30 days ahead, and the wallet ledger shows one subscription debit of 199000"
+    tags: [seller, promo]
+    status: planned
+    notes: "e2e: seller/seller_plans.feature::Seller upgrades to PRO from the wallet balance"
+
+  - id: uisl.seller-plan-ui-cancel-button-only-for-renewing-paid-plans
+    title: "Cancel button only for renewing paid plans"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cancel button only for renewing paid plans"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the page renders for a PRO seller with auto_renew true, then for a PRO seller with auto_renew false, then for a FREE seller"
+      - "Then `Hủy gia hạn` is present only in the first render, and the second shows `Sẽ chuyển về Miễn phí ngày 13/12/2026`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `renders only while auto renew is on`"
+
+  - id: uisl.seller-plan-ui-confirmed-cancel-calls-cancelsubscription-once
+    title: "Confirmed cancel calls CancelSubscription once"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Confirmed cancel calls CancelSubscription once"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller confirms the cancel dialog"
+      - "Then `CancelSubscription` is called once with an empty request, a success toast `Đã hủy gia hạn` appears and the page revalidates"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `confirm cancels once`"
+
+  - id: uisl.seller-plan-ui-cancel-denied-by-the-gateway-shows-an-error
+    title: "Cancel denied by the gateway shows an error"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cancel denied by the gateway shows an error"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `CancelSubscription` fails with PERMISSION_DENIED or NOT_FOUND"
+      - "Then an error toast `Hủy gia hạn thất bại.` appears and the card is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `denied cancel shows an error`"
+
+  - id: uisl.seller-plan-ui-cancel-failure-leaves-the-state-unchanged
+    title: "Cancel failure leaves the state unchanged"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cancel failure leaves the state unchanged"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `CancelSubscription` fails with UNAVAILABLE"
+      - "Then an error toast `Hủy gia hạn thất bại.` appears and the card still shows `Tự động gia hạn: Bật`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `cancel failure keeps renewal on`"
+
+  - id: uisl.seller-plan-ui-cancelling-keeps-the-plan-until-period-end
+    title: "Cancelling keeps the plan until period end"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cancelling keeps the plan until period end"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a PRO seller cancels auto-renew in the running stack and reloads `/seller/plans`"
+      - "Then PRO is still the current plan, `Tự động gia hạn: Tắt` and `Sẽ chuyển về Miễn phí ngày` show, and no refund entry appears in the wallet"
+    tags: [seller, promo]
+    status: planned
+    notes: "e2e: seller/seller_plans.feature::Seller cancels renewal and keeps PRO until period end"
+
+  - id: uisl.seller-plan-ui-cap-refusal-shows-the-upgrade-link
+    title: "Cap refusal shows the upgrade link"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cap refusal shows the upgrade link"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createListing` rejects with RESOURCE_EXHAUSTED and reason `PLAN_LISTING_LIMIT`"
+      - "Then the returned state has ok false, the cap message and `upgradeUrl` `/seller/plans`, and the form shows the Alert and a `Nâng cấp gói` link with `href=\"/seller/plans\"` while the title field still holds the typed value"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `plan listing limit returns an upgrade url`"
+
+  - id: uisl.seller-plan-ui-other-resource-exhaustion-shows-no-upgrade-link
+    title: "Other resource exhaustion shows no upgrade link"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Other resource exhaustion shows no upgrade link"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createListing` rejects with RESOURCE_EXHAUSTED and reason `RATE_LIMITED`"
+      - "Then the returned state has no `upgradeUrl` and the form shows no `Nâng cấp gói` link"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `other resource exhausted has no upgrade url`"
+
+  - id: uisl.seller-plan-ui-permission-denied-on-create-is-not-shown-as-a-cap
+    title: "Permission denied on create is not shown as a cap"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Permission denied on create is not shown as a cap"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createListing` rejects with PERMISSION_DENIED"
+      - "Then the returned state has no `upgradeUrl` and the form shows no `Nâng cấp gói` link"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `permission denied has no upgrade url`"
+
+  - id: uisl.seller-plan-ui-plan-unavailable-is-not-shown-as-a-cap
+    title: "Plan unavailable is not shown as a cap"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Plan unavailable is not shown as a cap"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createListing` rejects with UNAVAILABLE"
+      - "Then the form shows the generic failure message and no `Nâng cấp gói` link"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `unavailable has no upgrade url`"
+
+  - id: uisl.seller-plan-ui-eleventh-listing-on-free-shows-the-upgrade-cta
+    title: "Eleventh listing on FREE shows the upgrade CTA"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Eleventh listing on FREE shows the upgrade CTA"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a FREE seller who owns 10 listings submits a new listing in the running stack"
+      - "Then the form shows `Bạn đã đạt giới hạn số tin đăng của gói hiện tại.` and a `Nâng cấp gói` link that opens `/seller/plans`, and the seller's listing count stays 10"
+    tags: [seller, promo]
+    status: planned
+    notes: "e2e: seller/create-listing.feature::Seller at the plan cap sees the upgrade link"
+
+  - id: uisl.seller-plan-ui-boundary-the-tenth-listing-is-accepted
+    title: "Boundary, the tenth listing is accepted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Boundary, the tenth listing is accepted"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a FREE seller who owns 9 listings submits a valid new listing in the running stack"
+      - "Then the listing is created and no `Nâng cấp gói` link is shown"
+    tags: [seller, promo]
+    status: planned
+    notes: "e2e: seller/create-listing.feature::Seller below the plan cap creates a listing"

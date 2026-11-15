@@ -46,6 +46,7 @@ markers = [
     "admin: admin persona / operator journeys",
     "featureflags: OpenFeature + Flipt flag-gated behaviour (wire-openfeature)",
     "promo: promotion vouchers and discounts",
+    "ads: sponsored ad slots, impression tokens and click charging (promotion-ads-serving)",
     "shop: public seller storefront and shop journeys",
     "search: catalog search and filtering journeys",
     "modelserve: platform-modelserve router contract (compose overlay modelserve.override.yaml)",

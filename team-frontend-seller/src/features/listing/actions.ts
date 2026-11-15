@@ -1,5 +1,6 @@
 "use server";
 
+import { proto3 } from "@bufbuild/protobuf";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
@@ -22,7 +23,13 @@ export interface SellState {
   /** Server-side validation errors keyed by the form field they belong to. */
   fieldErrors?: FieldErrors;
   id?: string;
+  upgradeUrl?: string;
 }
+
+const ErrorInfo = proto3.makeMessageType("google.rpc.ErrorInfo", [
+  { no: 1, name: "reason", kind: "scalar", T: 9 },
+  { no: 2, name: "domain", kind: "scalar", T: 9 },
+]);
 
 const PENDING_MESSAGE = "Tin đăng đã được gửi và đang chờ kiểm duyệt.";
 
@@ -150,6 +157,16 @@ export async function saveListingAction(
   } catch (err) {
     if (err instanceof ConnectError && err.code === Code.PermissionDenied) {
       return failState("Bạn không có quyền chỉnh sửa sản phẩm này.");
+    }
+    if (
+      err instanceof ConnectError &&
+      err.code === Code.ResourceExhausted &&
+      err.findDetails(ErrorInfo).some((d) => d.reason === "PLAN_LISTING_LIMIT")
+    ) {
+      return {
+        ...failState("Bạn đã đạt giới hạn số tin đăng của gói hiện tại."),
+        upgradeUrl: "/seller/plans",
+      };
     }
     if (err instanceof ConnectError && err.code === Code.FailedPrecondition) {
       return failState(

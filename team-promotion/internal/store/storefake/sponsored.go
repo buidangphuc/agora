@@ -14,10 +14,18 @@ import (
 type InMemoryAdCampaignRepository struct {
 	mu        sync.RWMutex
 	campaigns map[string]store.AdCampaign // keyed by id
+	tokens    map[string]*fakeImpression
+}
+
+type fakeImpression struct {
+	campaignID string
+	listingID  string
+	expiresAt  time.Time
+	clicked    bool
 }
 
 func NewInMemoryAdCampaignRepository() *InMemoryAdCampaignRepository {
-	return &InMemoryAdCampaignRepository{campaigns: make(map[string]store.AdCampaign)}
+	return &InMemoryAdCampaignRepository{campaigns: make(map[string]store.AdCampaign), tokens: make(map[string]*fakeImpression)}
 }
 
 func (r *InMemoryAdCampaignRepository) Create(_ context.Context, c store.AdCampaign) (store.AdCampaign, error) {
@@ -46,12 +54,15 @@ func (r *InMemoryAdCampaignRepository) GetByID(_ context.Context, id string) (st
 	return c, nil
 }
 
-func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID string, limit, offset int) ([]store.AdCampaign, error) {
+func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID string, limit int, after *store.AdCampaignCursor) ([]store.AdCampaign, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var all []store.AdCampaign
 	for _, c := range r.campaigns {
-		if c.SellerID == sellerID {
+		if c.SellerID != sellerID {
+			continue
+		}
+		if after == nil || c.CreatedAt.Before(after.CreatedAt) || (c.CreatedAt.Equal(after.CreatedAt) && c.ID < after.ID) {
 			all = append(all, c)
 		}
 	}
@@ -61,12 +72,8 @@ func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID 
 		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
 			return all[i].CreatedAt.After(all[j].CreatedAt)
 		}
-		return all[i].ID < all[j].ID
+		return all[i].ID > all[j].ID
 	})
-	if offset >= len(all) {
-		return nil, nil
-	}
-	all = all[offset:]
 	if limit > 0 && limit < len(all) {
 		all = all[:limit]
 	}
@@ -100,3 +107,105 @@ func (r *InMemoryAdCampaignRepository) ListActive(_ context.Context, limit int) 
 }
 
 func (r *InMemoryAdCampaignRepository) Ping(_ context.Context) error { return nil }
+
+func (r *InMemoryAdCampaignRepository) ListServable(_ context.Context, category string, limit int) ([]store.AdCampaign, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var all []store.AdCampaign
+	for _, c := range r.campaigns {
+		if c.Status != store.AdCampaignStatusActive || c.Budget-c.Spent < c.Bid {
+			continue
+		}
+		if category != "" && c.CategoryID != category {
+			continue
+		}
+		all = append(all, c)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].Bid != all[j].Bid {
+			return all[i].Bid > all[j].Bid
+		}
+		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
+			return all[i].CreatedAt.Before(all[j].CreatedAt)
+		}
+		return all[i].ID < all[j].ID
+	})
+	if limit > 0 && limit < len(all) {
+		all = all[:limit]
+	}
+	return all, nil
+}
+
+func (r *InMemoryAdCampaignRepository) IssueImpressions(_ context.Context, issues []store.ImpressionIssue) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, i := range issues {
+		c, ok := r.campaigns[i.CampaignID]
+		if !ok {
+			return store.ErrAdCampaignNotFound
+		}
+		c.Impressions++
+		r.campaigns[i.CampaignID] = c
+		r.tokens[i.Token] = &fakeImpression{campaignID: i.CampaignID, listingID: i.ListingID, expiresAt: time.Now().Add(store.ImpressionTTL)}
+	}
+	return nil
+}
+
+func (r *InMemoryAdCampaignRepository) RecordClick(_ context.Context, token, principalID string, now time.Time) (store.ClickResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	imp, ok := r.tokens[token]
+	if !ok {
+		return store.ClickResult{}, store.ErrImpressionNotFound
+	}
+	res := store.ClickResult{ListingID: imp.listingID}
+	if imp.clicked || now.After(imp.expiresAt) {
+		return res, nil
+	}
+	c, ok := r.campaigns[imp.campaignID]
+	if !ok {
+		return store.ClickResult{}, store.ErrAdCampaignNotFound
+	}
+	if principalID != "" && principalID == c.SellerID {
+		return res, nil
+	}
+	if c.Status != store.AdCampaignStatusActive || c.Budget-c.Spent < c.Bid {
+		return res, nil
+	}
+	c.Spent += c.Bid
+	c.Clicks++
+	if c.Budget-c.Spent < c.Bid {
+		c.Status = store.AdCampaignStatusPausedBudget
+	}
+	r.campaigns[c.ID] = c
+	imp.clicked = true
+	res.Charged = true
+	return res, nil
+}
+
+func (r *InMemoryAdCampaignRepository) transition(id, sellerID string, allowed func(store.AdCampaign) bool, to int32) (store.AdCampaign, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	c, ok := r.campaigns[id]
+	if !ok || c.SellerID != sellerID {
+		return store.AdCampaign{}, store.ErrAdCampaignNotFound
+	}
+	if !allowed(c) {
+		return c, store.ErrAdCampaignState
+	}
+	c.Status = to
+	r.campaigns[id] = c
+	return c, nil
+}
+
+func (r *InMemoryAdCampaignRepository) Pause(_ context.Context, id, sellerID string) (store.AdCampaign, error) {
+	return r.transition(id, sellerID, func(c store.AdCampaign) bool {
+		return c.Status == store.AdCampaignStatusActive || c.Status == store.AdCampaignStatusPaused || c.Status == store.AdCampaignStatusPausedBudget
+	}, store.AdCampaignStatusPaused)
+}
+
+func (r *InMemoryAdCampaignRepository) Resume(_ context.Context, id, sellerID string) (store.AdCampaign, error) {
+	return r.transition(id, sellerID, func(c store.AdCampaign) bool {
+		return c.Status == store.AdCampaignStatusActive || (c.Status == store.AdCampaignStatusPaused && c.Budget-c.Spent >= c.Bid)
+	}, store.AdCampaignStatusActive)
+}
