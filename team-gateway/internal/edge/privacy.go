@@ -121,3 +121,24 @@ func (f *PrivacyForwarder) GetAccountDeletionStatus(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *PrivacyForwarder) ExportMyData(
+	ctx context.Context,
+	req *connect.Request[identityv1.ExportMyDataRequest],
+) (*connect.Response[identityv1.ExportMyDataResponse], error) {
+	if err := requireSignedIn(ctx); err != nil {
+		return nil, err
+	}
+	var out *identityv1.ExportMyDataResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ExportMyData(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	res := connect.NewResponse(out)
+	res.Header().Set("Cache-Control", "no-store")
+	return res, nil
+}
