@@ -22,12 +22,16 @@ function settled(over: Partial<ViewOrderSettlement> = {}): ViewOrderSettlement {
 
 describe("OrderSettlementCard", () => {
   it("Breakdown of a settled order: renders credited, commission with rate, net and zero refunds", () => {
-    render(<OrderSettlementCard settlement={settled()} retryHref={retryHref} />);
+    render(
+      <OrderSettlementCard settlement={settled()} retryHref={retryHref} />,
+    );
     expect(screen.getByText("Đối soát thanh toán")).toBeInTheDocument();
     expect(screen.getByText(formatPrice(310000))).toBeInTheDocument();
     expect(screen.getByText(formatPrice(296000))).toBeInTheDocument();
     expect(screen.getByText(/5%/)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`^${formatPrice(14000)}`))).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`^${formatPrice(14000)}`)),
+    ).toBeInTheDocument();
     expect(screen.getAllByText(formatPrice(0))).toHaveLength(2);
     expect(screen.queryByText("Đơn chưa được đối soát vào ví")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -63,7 +67,9 @@ describe("OrderSettlementCard", () => {
       />,
     );
     expect(screen.getByText(/0%/)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`^${formatPrice(0)}`))).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`^${formatPrice(0)}`)),
+    ).toBeInTheDocument();
     expect(screen.getByText(formatPrice(310000))).toBeInTheDocument();
     expect(screen.getByText(formatPrice(309000))).toBeInTheDocument();
   });
@@ -73,7 +79,9 @@ describe("OrderSettlementCard", () => {
       <OrderSettlementCard settlement={null} retryHref={retryHref} />,
     );
     expect(screen.getByText("Đối soát thanh toán")).toBeInTheDocument();
-    expect(screen.getByText("Đơn chưa được đối soát vào ví")).toBeInTheDocument();
+    expect(
+      screen.getByText("Đơn chưa được đối soát vào ví"),
+    ).toBeInTheDocument();
     expect(container.textContent).not.toContain("₫");
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -86,10 +94,9 @@ describe("OrderSettlementCard", () => {
     expect(
       within(alert).getByText("Không tải được đối soát thanh toán"),
     ).toBeInTheDocument();
-    expect(within(alert).getByRole("link", { name: "Thử lại" })).toHaveAttribute(
-      "href",
-      retryHref,
-    );
+    expect(
+      within(alert).getByRole("link", { name: "Thử lại" }),
+    ).toHaveAttribute("href", retryHref);
     expect(screen.queryByText("Đơn chưa được đối soát vào ví")).toBeNull();
     expect(container.textContent).not.toContain("₫");
   });

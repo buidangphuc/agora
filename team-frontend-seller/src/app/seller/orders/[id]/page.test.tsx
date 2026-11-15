@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { notFound } from "next/navigation";
 import { formatPrice } from "@/components/ui/format";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { getShipmentTracking } from "@/lib/gateway/orders";
 import { getOrderSettlement } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
+import { notFound } from "next/navigation";
 import { loadSellerOrder } from "./data";
 import SellerOrderDetailPage from "./page";
 
@@ -149,7 +149,9 @@ describe("Order page settlement card", () => {
     vi.mocked(loadSellerOrder).mockResolvedValue(shippedOrder() as never);
     vi.mocked(getOrderSettlement).mockResolvedValue(null);
     await renderPage();
-    expect(screen.getByText("Đơn chưa được đối soát vào ví")).toBeInTheDocument();
+    expect(
+      screen.getByText("Đơn chưa được đối soát vào ví"),
+    ).toBeInTheDocument();
     expect(screen.getAllByText(/Đơn hàng #o1234567/).length).toBeGreaterThan(0);
   });
 
