@@ -2208,7 +2208,7 @@ features:
       - "Then the card shows commission \"₫0\" with rate \"0%\" and net equal to credited"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `renders zero commission`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `Zero commission is shown, not hidden: renders 0% and a zero amount`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
 
   - id: seller-fee-breakdown-ui.settlement-service-failure-degrades-only-the-card
     title: "Settlement service failure degrades only the card"

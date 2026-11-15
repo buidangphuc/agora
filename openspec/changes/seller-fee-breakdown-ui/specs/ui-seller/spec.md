@@ -28,7 +28,7 @@ the card SHALL say so, and a failed settlement call SHALL affect only the card.
 
 - **WHEN** the response has commission 0 and commission_rate_bps 0 (an order settled before commission existed)
 - **THEN** the card shows commission "₫0" with rate "0%" and net equal to credited
-- **VERIFIED BY**: `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `renders zero commission`
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `Zero commission is shown, not hidden: renders 0% and a zero amount`
 
 #### Scenario: Unsettled order shows the not-settled state
 
