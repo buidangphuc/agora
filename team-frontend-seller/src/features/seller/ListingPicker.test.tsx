@@ -34,6 +34,9 @@ const okPage = (list: { id: string; title: string }[]) =>
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.stubGlobal("jest", {
+    advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms),
+  });
   vi.clearAllMocks();
   vi.mocked(searchMyListingsAction).mockImplementation((async (q: string) =>
     q === "quần"
@@ -42,7 +45,10 @@ beforeEach(() => {
         ? okPage([])
         : okPage(items(20))) as never);
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 async function flush(ms = 0) {
   await act(async () => {
