@@ -23,6 +23,8 @@ Implement OpenSpec change `seller-bulk-ship` test-first per its tasks.md; contex
 - platform-e2e/src/pages/seller_orders_page.py
 - platform-e2e/src/pages/seller_print_slips_page.py
 - platform-e2e/src/constants/routes.py
+- widened (P1):
+  - platform-e2e/src/pages/seller_bulk_ship_page.py — e2e page object of this change (bulk-ship bar/modal), named differently from the packet
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller`
