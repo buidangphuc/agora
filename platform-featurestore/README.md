@@ -77,6 +77,10 @@ with personalization consent (`consent_personalization` true, `consent_version >
 `als_interactions@v3` is `als_interactions@v2` minus hidden reviews: a review event whose `review_id` was hidden by a
 moderation decision is dropped. Facts input `review_id` is nullable (null for non-review events, which are never excluded).
 
+**Erasure.** Rows keyed `erased:<hex>` never become user features or `als_interactions` rows, and `materialize`
+deletes `user_activity` and `user_preferences` online keys of users absent from the run before it writes the
+`current` and `meta` pointers. A Redis failure there fails the run.
+
 ## Configuration
 
 | Variable | Default |

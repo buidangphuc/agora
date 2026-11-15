@@ -26,15 +26,20 @@ type Writer struct {
 	db   *sql.DB
 	path string
 	now  func() time.Time // ingested_at clock; overridable in tests
+
+	tombstoneSecret string
 }
 
 // Open dials (opens/creates) the DuckDB file at path and ensures the schema.
-func Open(ctx context.Context, path string) (*Writer, error) {
+func Open(ctx context.Context, path string, opts ...Option) (*Writer, error) {
 	db, err := sql.Open("duckdb", path)
 	if err != nil {
 		return nil, fmt.Errorf("open duckdb %q: %w", path, err)
 	}
 	w := &Writer{db: db, path: path, now: time.Now}
+	for _, o := range opts {
+		o(w)
+	}
 	if err := w.ensureSchema(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -110,6 +115,10 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 				return fmt.Errorf("migrate %s column %s: %w", t.name, c.Name, err)
 			}
 		}
+	}
+
+	if _, err := w.db.ExecContext(ctx, erasedUsersDDL); err != nil {
+		return fmt.Errorf("ensure %s table: %w", warehouse.ErasedUsersTableName, err)
 	}
 
 	listingSellersDDL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
@@ -272,8 +281,22 @@ func (w *Writer) WriteEngagementFacts(ctx context.Context, batch []*warehouse.En
 	}
 	defer stmt.Close()
 
+	var users []string
+	for _, r := range batch {
+		users = append(users, r.UserID)
+	}
+	erased, err := w.tombstones(ctx, tx, distinct(users))
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
 	ingestedAt := w.now().UTC()
 	for _, r := range batch {
+		userID := r.UserID
+		if pseudo, ok := erased[userID]; ok {
+			userID = pseudo
+		}
 		var rating any // NULL unless the fact carries a rating
 		if r.Fact == warehouse.FactReviewCreated {
 			rating = int64(r.Rating)
@@ -283,7 +306,7 @@ func (w *Writer) WriteEngagementFacts(ctx context.Context, batch []*warehouse.En
 			reviewID = nullIfEmpty(r.ReviewID)
 		}
 		if _, err := stmt.ExecContext(ctx,
-			r.EventID, r.Fact, r.UserID, r.ListingID, r.SellerID, rating,
+			r.EventID, r.Fact, userID, r.ListingID, r.SellerID, rating,
 			r.OccurredAt.UTC(), ingestedAt, reviewID,
 			r.EventID, // NOT EXISTS dedupe key
 		); err != nil {
@@ -408,6 +431,18 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 	}
 	defer stmt.Close()
 
+	var userIDs []string
+	for _, r := range batch {
+		if r.PrincipalType == "user" {
+			userIDs = append(userIDs, r.PrincipalID)
+		}
+	}
+	erased, err := w.tombstones(ctx, tx, distinct(userIDs))
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
 	ingestedAt := w.now().UTC()
 	var inserted int64
 	for _, r := range batch {
@@ -416,20 +451,26 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			_ = tx.Rollback()
 			return err
 		}
+		var propsArg, gaClient any = props, r.GaClientID
+		principalID, sessionID, anonymousID := r.PrincipalID, r.SessionID, r.AnonymousID
+		if pseudo, ok := erased[r.PrincipalID]; ok && r.PrincipalType == "user" {
+			principalID, sessionID, anonymousID = pseudo, pseudo, pseudo
+			propsArg, gaClient = nil, nil
+		}
 		res, err := stmt.ExecContext(ctx,
 			r.EventID,
 			r.EventType,
 			r.ListingID,
-			r.SessionID,
-			r.AnonymousID,
+			sessionID,
+			anonymousID,
 			r.PagePath,
 			r.Referrer,
 			int64(r.Position),
 			r.SearchQuery,
 			r.OccurredAt,
-			r.PrincipalID,
+			principalID,
 			r.PrincipalType,
-			props,
+			propsArg,
 			r.PlacementID,
 			r.ImpressionID,
 			r.ModelVersion,
@@ -446,7 +487,7 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.ShippingTier,
 			r.PaymentType,
 			ingestedAt,
-			r.GaClientID,
+			gaClient,
 			int64(r.ConsentVersion),
 			r.ConsentAnalytics,
 			r.ConsentMarketing,
@@ -492,7 +533,21 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 	}
 	defer stmt.Close()
 
+	var buyers []string
 	for _, r := range batch {
+		buyers = append(buyers, r.BuyerID)
+	}
+	erased, err := w.tombstones(ctx, tx, distinct(buyers))
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	for _, r := range batch {
+		buyer := r.BuyerID
+		if pseudo, ok := erased[buyer]; ok {
+			buyer = pseudo
+		}
 		if _, err := stmt.ExecContext(ctx,
 			r.EventID,
 			r.OrderID,
@@ -504,7 +559,7 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 			r.Currency,
 			r.OccurredAt,
 			r.Status,
-			nullIfEmpty(r.BuyerID),
+			nullIfEmpty(buyer),
 			r.EventID, // NOT EXISTS dedupe key
 		); err != nil {
 			_ = tx.Rollback()

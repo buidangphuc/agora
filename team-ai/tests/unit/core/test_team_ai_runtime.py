@@ -114,12 +114,14 @@ def test_remaining_capability_set():
         "taxonomy",
         "recommendation",
         "listing_indexer",
+        "erasure",
     }
     assert [n for n, a in addons.items() if a.is_enabled(defaults)] == [
         "rate_limit",
         "quota",
         "taxonomy",
         "recommendation",
+        "erasure",
     ]
 
 

@@ -31,6 +31,14 @@ def write_view(r, view: str, version: int, rows: list[dict], ttl: int, meta: dic
     pipe.execute()
 
 
+def reconcile(r, view: str, version: int, keep: set[str]) -> None:
+    """Delete this version's entity keys that are not in the freshly computed set (erased or stale users)."""
+    prefix = f"fs:{view}:v{version}:"
+    stale = [k for k in r.scan_iter(prefix + "*") if k[len(prefix) :] not in keep]
+    for i in range(0, len(stale), 1000):
+        r.delete(*stale[i : i + 1000])
+
+
 def read_row(r, view: str, version: int, entity_id: str) -> dict | None:
     raw = r.get(row_key(view, version, entity_id))
     return None if raw is None else json.loads(raw)

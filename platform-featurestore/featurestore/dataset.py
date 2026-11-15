@@ -45,6 +45,8 @@ def compute_dataset(con: duckdb.DuckDBPyConnection, ds: Dataset, settings: Setti
     if cols != schema.names:
         raise ValueError(f"{ds.key} returns columns {cols}, a dataset must return {schema.names}")
     rows = [dict(zip(cols, r, strict=True)) for r in cur.fetchall()]
+    if "user_key" in cols:
+        rows = [r for r in rows if not str(r["user_key"]).startswith("erased:")]
     return pa.Table.from_pylist(rows, schema=schema)
 
 
