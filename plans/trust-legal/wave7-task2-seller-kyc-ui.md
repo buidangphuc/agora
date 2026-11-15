@@ -35,6 +35,21 @@ Implement OpenSpec change `seller-kyc-ui` test-first per its tasks.md; context i
 - platform-e2e/tests/e2e/step_definitions/test_kyc_payout_notice.py
 - platform-e2e/tests/e2e/step_definitions/test_shop_verified_badge.py
 - platform-e2e/tests/e2e/step_definitions/seller_kyc_ui_steps.py
+- widened (P1):
+  - openspec/changes/seller-kyc-ui/specs/seller-kyc-ui/spec.md — the slice's own OpenSpec folder; VERIFIED BY citations only (TBD replaced with test names), no requirement or scenario wording change
+  - openspec/changes/seller-kyc-ui/tasks.md — the slice's own OpenSpec folder; e2e task ticks 2.1-2.5
+  - platform-e2e/pyproject.toml — pytest marker registration (seller_kyc_ui)
+  - platform-e2e/tests/e2e/step_definitions/test_seller_kyc_upload.py — e2e step file of this change (packet named it test_kyc_upload.py)
+  - platform-e2e/tests/e2e/step_definitions/test_seller_kyc_payout_notice.py — e2e step file of this change (packet named it test_kyc_payout_notice.py)
+  - platform-e2e/tests/e2e/support/seller_kyc_ui_support.py — e2e support file of this change
+  - platform-e2e/src/pages/seller_verification_page.py — e2e page object of this change
+  - platform-e2e/src/pages/__init__.py — e2e page-object export of SellerVerificationPage for this change
+  - platform-e2e/src/core/page_factory.py — e2e page-object registration of SellerVerificationPage for this change
+  - platform-e2e/src/constants/pages.py — e2e page-object support constant SELLER_VERIFICATION for this change
+  - platform-e2e/src/constants/routes.py — e2e page-object support route /seller/verification for this change
+  - team-frontend/src/features/account/actions.test.ts — existing test importing removed symbols (submitKycAction, submitKyc) of the deleted buyer KYC route
+  - team-frontend/src/features/account/routeStates.test.tsx — existing test importing the removed /account/verification loading module
+  - team-frontend/src/app/(shop)/account/responsive.test.tsx — existing test importing the removed /account/verification page and actions
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller` and `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend` (`npm ci && npm run proto` first)
