@@ -283,3 +283,71 @@ func (s *Service) RecordAdClick(ctx context.Context, p RecordClickParams) (Click
 	}
 	return ClickResult{ListingID: res.ListingID, Charged: res.Charged}, nil
 }
+
+type ListMyAdCampaignsParams struct {
+	SellerID string
+	PageSize int32
+	Cursor   string
+}
+
+type ListMyAdCampaignsResult struct {
+	Campaigns  []store.AdCampaign
+	NextCursor string
+}
+
+const maxPageSize = 100
+
+func encodeCursor(c store.AdCampaign) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(c.CreatedAt.UnixNano(), 10) + "|" + c.ID))
+}
+
+func decodeCursor(s string) (*store.AdCampaignCursor, error) {
+	if s == "" {
+		return nil, nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		return nil, ErrInvalidAdCampaign
+	}
+	ts, id, ok := strings.Cut(string(raw), "|")
+	if !ok || id == "" {
+		return nil, ErrInvalidAdCampaign
+	}
+	n, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil {
+		return nil, ErrInvalidAdCampaign
+	}
+	return &store.AdCampaignCursor{CreatedAt: time.Unix(0, n).UTC(), ID: id}, nil
+}
+
+func (s *Service) ListMyAdCampaigns(ctx context.Context, p ListMyAdCampaignsParams) (ListMyAdCampaignsResult, error) {
+	limit := int(p.PageSize)
+	if limit <= 0 {
+		limit = defaultPageSize
+	}
+	if limit > maxPageSize {
+		limit = maxPageSize
+	}
+	after, err := decodeCursor(p.Cursor)
+	if err != nil {
+		return ListMyAdCampaignsResult{}, err
+	}
+	rows, err := s.repo.ListBySeller(ctx, p.SellerID, limit+1, after)
+	if err != nil {
+		return ListMyAdCampaignsResult{}, err
+	}
+	res := ListMyAdCampaignsResult{Campaigns: rows}
+	if len(rows) > limit {
+		res.Campaigns = rows[:limit]
+		res.NextCursor = encodeCursor(rows[limit-1])
+	}
+	return res, nil
+}
+
+func (s *Service) PauseAdCampaign(ctx context.Context, sellerID, id string) (store.AdCampaign, error) {
+	return s.repo.Pause(ctx, id, sellerID)
+}
+
+func (s *Service) ResumeAdCampaign(ctx context.Context, sellerID, id string) (store.AdCampaign, error) {
+	return s.repo.Resume(ctx, id, sellerID)
+}

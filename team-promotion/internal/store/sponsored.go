@@ -23,6 +23,46 @@ const (
 	AdCampaignStatusPausedBudget int32 = 4
 )
 
+// AdCampaignCursor marks the last row of a page; the next page holds rows strictly
+// after it in (created_at DESC, id DESC) order. A nil cursor selects the first page.
+type AdCampaignCursor struct {
+	CreatedAt time.Time
+	ID        string
+}
+
+// ErrAdCampaignState is returned by Pause/Resume when the campaign's current state
+// forbids the transition; the returned AdCampaign is the unchanged row.
+var ErrAdCampaignState = errors.New("ad campaign state forbids transition")
+
+func (r *PostgresAdCampaignRepository) transition(ctx context.Context, id, sellerID, set, guard string) (AdCampaign, error) {
+	q := `UPDATE ad_campaigns SET status = ` + set + ` WHERE id = $1 AND seller_id = $2 AND (` + guard + `) RETURNING ` + adCampaignColumns
+	var c AdCampaign
+	err := scanAdCampaign(r.pool.QueryRow(ctx, q, id, sellerID), &c)
+	if err == nil {
+		return c, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return AdCampaign{}, fmt.Errorf("transition ad campaign %q: %w", id, err)
+	}
+	err = scanAdCampaign(r.pool.QueryRow(ctx,
+		`SELECT `+adCampaignColumns+` FROM ad_campaigns WHERE id = $1 AND seller_id = $2`, id, sellerID), &c)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AdCampaign{}, ErrAdCampaignNotFound
+	}
+	if err != nil {
+		return AdCampaign{}, fmt.Errorf("get ad campaign %q: %w", id, err)
+	}
+	return c, ErrAdCampaignState
+}
+
+func (r *PostgresAdCampaignRepository) Pause(ctx context.Context, id, sellerID string) (AdCampaign, error) {
+	return r.transition(ctx, id, sellerID, "2", "status IN (1, 2, 4)")
+}
+
+func (r *PostgresAdCampaignRepository) Resume(ctx context.Context, id, sellerID string) (AdCampaign, error) {
+	return r.transition(ctx, id, sellerID, "1", "status = 1 OR (status = 2 AND budget - spent >= bid)")
+}
+
 const ImpressionTTL = 30 * time.Minute
 
 var ErrImpressionNotFound = errors.New("impression token not found")
@@ -66,10 +106,12 @@ type AdCampaignRepository interface {
 	GetByID(ctx context.Context, id string) (AdCampaign, error)
 	// ListBySeller returns a seller's campaigns, newest first, bounded by
 	// limit/offset.
-	ListBySeller(ctx context.Context, sellerID string, limit, offset int) ([]AdCampaign, error)
+	ListBySeller(ctx context.Context, sellerID string, limit int, after *AdCampaignCursor) ([]AdCampaign, error)
 	// ListActive returns the active campaigns ordered by bid descending (best bid
 	// first), bounded by limit. Ties break on newest-first for a stable order.
 	ListActive(ctx context.Context, limit int) ([]AdCampaign, error)
+	Pause(ctx context.Context, id, sellerID string) (AdCampaign, error)
+	Resume(ctx context.Context, id, sellerID string) (AdCampaign, error)
 	ListServable(ctx context.Context, category string, limit int) ([]AdCampaign, error)
 	IssueImpressions(ctx context.Context, issues []ImpressionIssue) error
 	// RecordClick consumes token at instant now and charges the campaign's bid in one
@@ -128,12 +170,19 @@ func (r *PostgresAdCampaignRepository) GetByID(ctx context.Context, id string) (
 	return c, nil
 }
 
-func (r *PostgresAdCampaignRepository) ListBySeller(ctx context.Context, sellerID string, limit, offset int) ([]AdCampaign, error) {
+func (r *PostgresAdCampaignRepository) ListBySeller(ctx context.Context, sellerID string, limit int, after *AdCampaignCursor) ([]AdCampaign, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	const q = `SELECT ` + adCampaignColumns + ` FROM ad_campaigns WHERE seller_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
-	rows, err := r.pool.Query(ctx, q, sellerID, limit, offset)
+	const q = `SELECT ` + adCampaignColumns + ` FROM ad_campaigns WHERE seller_id = $1
+		AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3))
+		ORDER BY created_at DESC, id DESC LIMIT $4`
+	var cAt *time.Time
+	var cID string
+	if after != nil {
+		cAt, cID = &after.CreatedAt, after.ID
+	}
+	rows, err := r.pool.Query(ctx, q, sellerID, cAt, cID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list ad campaigns: %w", err)
 	}

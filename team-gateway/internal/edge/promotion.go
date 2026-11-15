@@ -447,3 +447,60 @@ func (f *SponsoredForwarder) RecordAdClick(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *SponsoredForwarder) ListMyAdCampaigns(
+	ctx context.Context,
+	req *connect.Request[promotionv1.ListMyAdCampaignsRequest],
+) (*connect.Response[promotionv1.ListMyAdCampaignsResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.ListMyAdCampaignsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListMyAdCampaigns(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *SponsoredForwarder) PauseAdCampaign(
+	ctx context.Context,
+	req *connect.Request[promotionv1.PauseAdCampaignRequest],
+) (*connect.Response[promotionv1.PauseAdCampaignResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.PauseAdCampaignResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.PauseAdCampaign(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *SponsoredForwarder) ResumeAdCampaign(
+	ctx context.Context,
+	req *connect.Request[promotionv1.ResumeAdCampaignRequest],
+) (*connect.Response[promotionv1.ResumeAdCampaignResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.ResumeAdCampaignResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ResumeAdCampaign(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
