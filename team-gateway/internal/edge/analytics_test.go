@@ -143,7 +143,7 @@ func postReport(t *testing.T, f *cockpitFixture, spy *reportSpy, rpc, auth strin
 func TestExperimentReportForwarder_AdminReadsEachReport(t *testing.T) {
 	f := newCockpitFixture(t)
 	want := map[string]string{
-		"GetRetentionCohorts":  `"cohortSize":3`,
+		"GetRetentionCohorts":  `"cohortSize":"3"`,
 		"GetExperimentReadout": `"windowDays":7`,
 		"GetAiSurfaceReport":   `"assistant"`,
 	}
