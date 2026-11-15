@@ -14,6 +14,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.api.services import AddressService, CartService, OrderService
 from src.constants import timeouts
+from src.core.base_page import goto_streamed
 from src.pages.seller_bulk_ship_page import CANCELLED_REASON, SellerBulkShipPage
 from tests.e2e.support import d2_support as d2
 from tests.e2e.support.apps import app_url
@@ -61,8 +62,15 @@ def _seed(world: World, count: int) -> None:
 
 def _open_list(world: World) -> None:
     world.page.set_viewport_size(DESKTOP)
-    world.page.goto(app_url(world.settings, "/seller/orders"))
+    goto_streamed(world.page, app_url(world.settings, "/seller/orders"))
     expect(world.page.locator("tbody tr").first).to_be_visible(timeout=timeouts.NAVIGATION)
+
+
+def _check(world: World, order_ids: list[str]) -> None:
+    page = _page(world)
+    page.wait_until_interactive(page.checkbox(order_ids[0]))
+    for order_id in order_ids:
+        page.checkbox(order_id).check()
 
 
 @given(parsers.parse("a bulk-ship seller has {count:d} shippable orders"))
@@ -95,16 +103,12 @@ def open_list(world: World) -> None:
 
 @when("the seller selects all the bulk-ship orders")
 def select_all(world: World) -> None:
-    page = _page(world)
-    for order_id in _st(world)["orders"]:
-        page.checkbox(order_id).check()
+    _check(world, _st(world)["orders"])
 
 
 @when("the seller selects the first two bulk-ship orders")
 def select_two(world: World) -> None:
-    page = _page(world)
-    for order_id in _st(world)["orders"][:2]:
-        page.checkbox(order_id).check()
+    _check(world, _st(world)["orders"][:2])
 
 
 @when(
@@ -118,7 +122,7 @@ def ship_with_tracking(world: World, prefix: str) -> None:
     page = _page(world)
     page.ship_button.click()
     expect(page.modal).to_be_visible(timeout=timeouts.DEFAULT)
-    page.tracking_inputs.first.fill(st["tracking"])
+    page.modal.get_by_label(f"Mã vận đơn #{st['orders'][0][:8]}").fill(st["tracking"])
     page.confirm_button.click()
 
 
@@ -133,10 +137,13 @@ def confirm_ship(world: World) -> None:
 @when("the seller opens the batch print for the selection")
 def open_print(world: World) -> None:
     page = _page(world)
-    page.print_button.first.click()
-    world.page.wait_for_url(
+    with world.page.context.expect_page(timeout=timeouts.NAVIGATION) as popup:
+        page.print_button.first.click()
+    printed = popup.value
+    printed.wait_for_url(
         re.compile(r".*/seller/orders/print\?.*ids=.*"), timeout=timeouts.NAVIGATION
     )
+    _st(world)["print_page"] = printed
 
 
 @when("the other seller opens the batch print for the first bulk-ship order")
@@ -148,16 +155,17 @@ def foreign_print(world: World) -> None:
 
 @then("the bulk-ship result list shows no failure reason")
 def no_failure(world: World) -> None:
-    modal = _page(world).modal
-    expect(modal).to_be_visible(timeout=timeouts.NAVIGATION)
-    expect(modal).not_to_contain_text(CANCELLED_REASON)
+    results = _page(world).results
+    expect(results).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(results.get_by_role("listitem")).to_have_count(len(_st(world)["orders"]))
+    expect(results).not_to_contain_text(CANCELLED_REASON)
 
 
 @then("the bulk-ship result list shows the cancelled-order reason once")
 def cancelled_reason(world: World) -> None:
-    modal = _page(world).modal
-    expect(modal).to_contain_text(CANCELLED_REASON, timeout=timeouts.NAVIGATION)
-    assert modal.inner_text().count(CANCELLED_REASON) == 1
+    results = _page(world).results
+    expect(results).to_contain_text(CANCELLED_REASON, timeout=timeouts.NAVIGATION)
+    assert results.inner_text().count(CANCELLED_REASON) == 1
 
 
 def _statuses(world: World) -> dict[str, str]:
@@ -200,10 +208,10 @@ def cancelled_not_shipped(world: World) -> None:
 )
 def slips_with_names(world: World, count: int) -> None:
     st = _st(world)
-    slips = _page(world).slips
-    expect(slips).to_have_count(count, timeout=timeouts.NAVIGATION)
+    printed = st["print_page"]
+    expect(SellerBulkShipPage(printed).slips).to_have_count(count, timeout=timeouts.NAVIGATION)
     for order_id in st["orders"][:count]:
-        expect(world.page.locator("body")).to_contain_text(st["names"][order_id])
+        expect(printed.locator("body")).to_contain_text(st["names"][order_id])
 
 
 @then('the print page shows no packing slip and names the order in the "Không in được" notice')

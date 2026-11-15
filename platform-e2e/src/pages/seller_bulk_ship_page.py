@@ -9,6 +9,7 @@ from src.core.base_page import BasePage
 BULK_SHIP = "Gửi hàng loạt"
 BULK_PRINT = "In phiếu hàng loạt"
 PRINT_NOTICE = "Không in được"
+RESULTS = "Kết quả gửi hàng loạt"
 CANCELLED_REASON = "Trạng thái đơn không cho phép gửi (có thể đã huỷ hoặc đã gửi)"
 
 
@@ -16,6 +17,9 @@ class SellerBulkShipPage(BasePage):
     app = "seller"
     path = "/seller/orders"
     name = "seller bulk ship"
+
+    def is_displayed(self) -> bool:
+        return "/seller/orders" in self.page.url
 
     def row(self, order_id: str) -> Locator:
         return self.page.locator("tbody tr").filter(has=self.page.locator(f'a[href*="{order_id}"]'))
@@ -44,6 +48,10 @@ class SellerBulkShipPage(BasePage):
     @property
     def confirm_button(self) -> Locator:
         return self.modal.get_by_role("button", name="Xác nhận")
+
+    @property
+    def results(self) -> Locator:
+        return self.page.get_by_role("region", name=RESULTS)
 
     @property
     def slips(self) -> Locator:
