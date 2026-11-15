@@ -263,7 +263,6 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
-      MINIO_KMS_SECRET_KEY: "kyc-local-key:zaULdpMcZP89w0FUarNio8xrIvjkGPbt7I0hJzDILAY="
     ports:
       - "9000:9000" # S3 API
       - "9001:9001" # Web console
@@ -290,9 +289,6 @@ services:
       mc mb --ignore-existing local/listing-images;
       mc anonymous set download local/listing-images;
       mc mb --ignore-existing local/mlflow-artifacts;
-      mc mb --ignore-existing local/kyc-documents;
-      mc anonymous set none local/kyc-documents;
-      mc encrypt set sse-s3 local/kyc-documents;
       exit 0
       "
 
