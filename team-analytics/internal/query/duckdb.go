@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
@@ -135,66 +134,6 @@ LIMIT ?`,
 		return Breakdown{}, fmt.Errorf("iterate top sku: %w", err)
 	}
 	return b, nil
-}
-
-// DemandForecast calculates probabilistic daily demand quantiles from order_facts history or floor.
-func (r *DuckDBRepository) DemandForecast(ctx context.Context, sellerID, listingID string, horizonDays int) (ForecastResult, error) {
-	if horizonDays <= 0 {
-		horizonDays = 28
-	}
-
-	//nolint:gosec // only fixed identifiers are interpolated
-	q := fmt.Sprintf(`
-SELECT
-  COALESCE(SUM(quantity), 0) AS total_units,
-  COALESCE(AVG(quantity), 0) AS avg_daily,
-  COALESCE(STDDEV_POP(quantity), 0) AS std_daily
-FROM %s
-WHERE seller_id = ?
-  AND (listing_id = ? OR variant_id = ?)
-`, warehouse.OrderFactsTableName)
-
-	var totalUnits int64
-	var avgDaily, stdDaily float64
-	row := r.db.QueryRowContext(ctx, q, sellerID, listingID, listingID)
-	if err := row.Scan(&totalUnits, &avgDaily, &stdDaily); err != nil {
-		// Non-fatal, fallback to defaults
-		totalUnits = 0
-		avgDaily = 2.0
-		stdDaily = 1.0
-	}
-
-	isColdStart := totalUnits == 0
-	if avgDaily <= 0 {
-		avgDaily = 2.0
-	}
-	if stdDaily <= 0 {
-		stdDaily = math.Max(0.5, avgDaily*0.3)
-	}
-
-	points := make([]DailyPoint, horizonDays)
-	now := time.Now().UTC()
-	for i := 0; i < horizonDays; i++ {
-		dt := now.AddDate(0, 0, i+1).Format("2006-01-02")
-		p10 := math.Max(0, avgDaily-1.28*stdDaily)
-		p50 := avgDaily
-		p90 := avgDaily + 1.28*stdDaily
-
-		points[i] = DailyPoint{
-			Date: dt,
-			P10:  float64(int(p10*10)) / 10.0,
-			P50:  float64(int(p50*10)) / 10.0,
-			P90:  float64(int(p90*10)) / 10.0,
-		}
-	}
-
-	return ForecastResult{
-		SellerID:      sellerID,
-		ListingID:     listingID,
-		ModelVersion:  "duckdb_baseline_v1",
-		IsColdStart:   isColdStart,
-		DailyForecast: points,
-	}, nil
 }
 
 // PlatformOrderSummary counts distinct paid orders and sums GMV over order_facts

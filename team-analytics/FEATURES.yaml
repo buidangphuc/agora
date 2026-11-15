@@ -111,22 +111,199 @@ features:
     covered_by: "analytics/order_facts.feature::GetRevenueBreakdown aggregates real revenue from order_facts"
 
   - id: analytics.demand-forecast
-    title: GetDemandForecast serves probabilistic daily demand and restock points
+    title: "A forecast key is served as written"
     persona: seller
     priority: P1
-    summary: AnalyticsQueryService returns p10/p50/p90 daily demand forecasts and deterministic reorder point recommendations.
+    summary: "GetDemandForecast returns the stored points, model_version and generated_at of the nightly job key unchanged."
     entry_route: /seller/analytics
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: seller
+      data: A key fc:v1:seller:<seller_id>:<listing_id> seeded in Redis DB 3 by the steps.
+    acceptance:
+      - "Given a listing whose Redis key holds 14 days of p10/p50/p90, model_version seasonal_naive_v1 and generated_at 2026-11-13T02:45Z"
+      - "When the seller calls GetDemandForecast for it"
+      - "Then the response has the 14 stored daily forecasts, the stored model_version and generated_at, and is_cold_start false"
+    tags: [analytics, forecast, seller, integration]
+    status: planned
+
+  - id: analytics.demand-forecast-horizon
+    title: "The horizon truncates and never pads"
+    persona: seller
+    priority: P1
+    summary: "The returned points are the first min(horizon, stored) stored points."
+    entry_route: /seller/analytics
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: seller
+      data: A key fc:v1:seller:<seller_id>:<listing_id> seeded in Redis DB 3 by the steps.
+    acceptance:
+      - "When a seller calls GetDemandForecast with horizon_days 7 on a key holding 14 points, then with horizon_days 40"
+      - "Then the first response has the first 7 stored points and the second has 14, none invented"
+    tags: [analytics, forecast, seller, integration]
+    status: planned
+
+  - id: analytics.demand-forecast-cold-start
+    title: "No key means cold start without points"
+    persona: seller
+    priority: P1
+    summary: "A listing without a key is a cold start with no numbers even when order_facts has history."
+    entry_route: /seller/analytics
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: seller
+      data: A key fc:v1:seller:<seller_id>:<listing_id> seeded in Redis DB 3 by the steps.
+    acceptance:
+      - "Given a listing with no fc:v1 key but with paid order lines in order_facts"
+      - "When the seller calls GetDemandForecast for it"
+      - "Then is_cold_start is true, there are no daily forecasts, suggested_reorder_point is 0 and generated_at is unset"
+    tags: [analytics, forecast, seller, integration]
+    status: planned
+
+  - id: analytics.demand-forecast-malformed
+    title: "A malformed payload returns UNAVAILABLE"
+    persona: seller
+    priority: P1
+    summary: "A stored payload that fails validation yields UNAVAILABLE and no numbers."
+    entry_route: /seller/analytics
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: seller
+      data: A key fc:v1:seller:<seller_id>:<listing_id> seeded in Redis DB 3 by the steps.
+    acceptance:
+      - "Given a listing whose key holds invalid JSON, or a point with p10 greater than p50"
+      - "When the seller calls GetDemandForecast for it"
+      - "Then the RPC returns UNAVAILABLE and no numbers"
+    tags: [analytics, forecast, seller, integration]
+    status: planned
+
+  - id: analytics.demand-forecast-denied
+    title: "Another seller's forecast is denied"
+    persona: seller
+    priority: P1
+    summary: "Ownership is enforced: other seller denied, anonymous unauthenticated, admin served."
+    entry_route: /seller/analytics
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: seller
+      data: A key fc:v1:seller:<seller_id>:<listing_id> seeded in Redis DB 3 by the steps.
+    acceptance:
+      - "When seller A calls GetDemandForecast with the seller_id of seller B, and an unauthenticated caller does the same"
+      - "Then the first call is PermissionDenied and the second Unauthenticated, while an admin caller receives B's forecast"
+    tags: [analytics, forecast, seller, integration]
+    status: planned
+
+  - id: analytics.demand-forecast-latency
+    title: "A read stays within the latency budget"
+    persona: seller
+    priority: P1
+    summary: "A stored-key read is fast on the local stack."
+    entry_route: /seller/analytics
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: seller
+      data: A key fc:v1:seller:<seller_id>:<listing_id> seeded in Redis DB 3 by the steps.
+    acceptance:
+      - "When 200 sequential GetDemandForecast calls hit a stored key on the local stack"
+      - "Then the p95 call latency is at most 30 ms"
+    tags: [analytics, forecast, seller, integration]
+    status: planned
+
+  - id: analytics.demand-forecast-reorder-point
+    title: "Reorder point and safety stock are derived from the stored points"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change analytics-forecast-serving: Reorder point and safety stock are derived from the stored points"
+    entry_route: /
     services: [team-analytics]
     preconditions:
       login: seller
-      data: Historical or cold-start order_facts for the seller.
     acceptance:
-      - Given a seller SKU with historical order facts
-      - When GetDemandForecast is queried for that seller and listing
-      - Then a multi-day forecast with p10, p50, p90 quantiles and suggested reorder point is returned
-    tags: [analytics, forecast, seller, integration]
-    status: automated
-    covered_by: "analytics/order_facts.feature::GetDemandForecast serves probabilistic daily demand and restock points"
+      - "When a seller calls GetDemandForecast with lead_time_days 3 and service_level 0.95 on a key whose first three days have p50 4 and p90 6"
+      - "Then safety_stock is 3.3 and suggested_reorder_point is 15.3"
+    tags: [analytics, forecast, unit]
+    status: not-testable
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastReorderPoint. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+
+  - id: analytics.demand-forecast-invalid-ids
+    title: "An invalid listing or seller id is rejected"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change analytics-forecast-serving: An invalid listing or seller id is rejected"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a caller sends listing_id x:*, or an empty seller_id, or an empty listing_id"
+      - "Then the RPC returns InvalidArgument and issues no Redis read"
+    tags: [analytics, forecast, unit]
+    status: not-testable
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastRejectsBadIDs. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+
+  - id: analytics.demand-forecast-stored-cold-start
+    title: "A key marked cold start carries no invented numbers"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change analytics-forecast-serving: A key marked cold start carries no invented numbers"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller calls GetDemandForecast for a key with is_cold_start true and a baseline model_version"
+      - "Then the response echoes the stored baseline points with is_cold_start true and the stored model_version"
+    tags: [analytics, forecast, unit]
+    status: not-testable
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastStoredColdStart. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+
+  - id: analytics.demand-forecast-no-duckdb
+    title: "The DuckDB baseline is gone"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change analytics-forecast-serving: The DuckDB baseline is gone"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When GetDemandForecast is called on a build where the warehouse query path is disabled"
+      - "Then the response is identical to a normal build because no code path reads order_facts for this RPC"
+    tags: [analytics, forecast, unit]
+    status: not-testable
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/query/duckdb_test.go TestRepositoryHasNoDemandForecast. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+
+  - id: analytics.demand-forecast-store-down
+    title: "Redis unreachable returns UNAVAILABLE"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change analytics-forecast-serving: Redis unreachable returns UNAVAILABLE"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller calls GetDemandForecast while the Redis read fails or times out"
+      - "Then the RPC returns UNAVAILABLE with no daily points and no reorder point"
+    tags: [analytics, forecast, unit]
+    status: not-testable
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastStoreDown. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
+
+  - id: analytics.demand-forecast-store-unconfigured
+    title: "An unset store address returns UNAVAILABLE"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change analytics-forecast-serving: An unset store address returns UNAVAILABLE"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When team-analytics starts with FORECAST_REDIS_URL empty and a seller calls GetDemandForecast"
+      - "Then the RPC returns UNAVAILABLE and the other query RPCs keep answering"
+    tags: [analytics, forecast, unit]
+    status: not-testable
+    notes: "analytics-forecast-serving: VERIFIED BY team-analytics/internal/rpc/forecast_test.go TestGetDemandForecastStoreUnconfigured. Not verifiable end to end: it needs a stubbed store fault, an unconfigured store or a code-level absence that no public-edge call can produce."
 
   - id: analytics.seller-reads-own-funnel
     title: A seller reads their own funnel

@@ -28,6 +28,15 @@ Implement OpenSpec change `analytics-forecast-serving` test-first per its tasks.
 - platform-e2e/tests/e2e/step_definitions/forecast_serving_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_order_facts.py
 - platform-e2e/tests/e2e/step_definitions/order_facts_steps.py
+- widened (user-approved 2026-11-15):
+  - team-analytics/internal/app/consumer.go — server wiring of the forecast store (the packet named cmd/consumer/** by mistake)
+- widened (P1):
+  - platform-e2e/tests/e2e/step_definitions/fsv_steps.py — e2e step file of this change (forecast_serving.feature), named differently from the packet
+  - platform-e2e/tests/e2e/step_definitions/test_fsv_forecast_serving.py — e2e scenario binding of this change, named differently from the packet
+  - platform-e2e/tests/e2e/step_definitions/journey_steps.py — e2e step broken by the new behaviour: a missing forecast key is now a cold start, so the seller cockpit journey seeds a key
+  - platform-forecast/README.md — doc updated by docs-sync (team-analytics now reads the fc:v1 keys)
+  - openspec/changes/analytics-forecast-serving/tasks.md — task ticks of this change
+  - openspec/changes/analytics-forecast-serving/specs/analytics-demand-forecast/spec.md — VERIFIED BY citations matching the real test file (forecast_test.go)
 
 ## Verify
 - `cd team-analytics && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...` and `go vet ./...`

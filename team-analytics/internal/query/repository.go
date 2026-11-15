@@ -66,7 +66,7 @@ type DailyPoint struct {
 	P90  float64
 }
 
-// ForecastResult contains the multi-day probabilistic demand prediction.
+// ForecastResult is retained only for the rpc spy test double.
 type ForecastResult struct {
 	SellerID      string
 	ListingID     string
@@ -100,8 +100,6 @@ type Repository interface {
 	// RevenueBreakdown returns per-day revenue and the top-N SKUs by revenue for
 	// sellerID over [from, to] (inclusive). Empty window yields empty slices.
 	RevenueBreakdown(ctx context.Context, sellerID string, from, to time.Time, topN int) (Breakdown, error)
-	// DemandForecast returns probabilistic demand quantiles (p10, p50, p90) for a listing over horizonDays.
-	DemandForecast(ctx context.Context, sellerID, listingID string, horizonDays int) (ForecastResult, error)
 	// PlatformOrderSummary aggregates every seller's paid orders with
 	// occurred_at >= since. An empty table yields the zero summary.
 	PlatformOrderSummary(ctx context.Context, since time.Time) (OrderSummary, error)

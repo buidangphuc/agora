@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/query/querytest"
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
@@ -156,21 +158,6 @@ func TestDuckDBRepository_OrderFactsAndFunnel(t *testing.T) {
 	}
 	if len(b2.TopSkus) != 1 || b2.TopSkus[0].SKU != "sku-z" || b2.TopSkus[0].Revenue != 99999 {
 		t.Errorf("seller-2 top_skus = %+v, want single sku-z/99999", b2.TopSkus)
-	}
-
-	// Test Demand Forecast
-	fc, err := repo.DemandForecast(ctx, "seller-1", "lst-a", 14)
-	if err != nil {
-		t.Fatalf("DemandForecast: %v", err)
-	}
-	if fc.SellerID != "seller-1" || fc.ListingID != "lst-a" {
-		t.Errorf("fc seller/listing = %s/%s, want seller-1/lst-a", fc.SellerID, fc.ListingID)
-	}
-	if len(fc.DailyForecast) != 14 {
-		t.Fatalf("daily forecast len = %d, want 14", len(fc.DailyForecast))
-	}
-	if fc.DailyForecast[0].P10 > fc.DailyForecast[0].P50 || fc.DailyForecast[0].P50 > fc.DailyForecast[0].P90 {
-		t.Errorf("invalid quantile ordering: p10=%v, p50=%v, p90=%v", fc.DailyForecast[0].P10, fc.DailyForecast[0].P50, fc.DailyForecast[0].P90)
 	}
 }
 
@@ -381,5 +368,19 @@ func TestDuckDBWriter_ExportsListingAttributes(t *testing.T) {
 	}
 	if seller != "s1" || category != "cat-a" || price != 4200 {
 		t.Fatalf("exported row = %q %q %d, want s1 cat-a 4200", seller, category, price)
+	}
+}
+
+// Scenario: The DuckDB baseline is gone
+func TestRepositoryHasNoDemandForecast(t *testing.T) {
+	types := map[string]reflect.Type{
+		"query.Repository":            reflect.TypeOf((*query.Repository)(nil)).Elem(),
+		"*query.DuckDBRepository":     reflect.TypeOf(&query.DuckDBRepository{}),
+		"*querytest.MemoryRepository": reflect.TypeOf(&querytest.MemoryRepository{}),
+	}
+	for name, typ := range types {
+		if _, ok := typ.MethodByName("DemandForecast"); ok {
+			t.Errorf("%s still has a DemandForecast method", name)
+		}
 	}
 }
