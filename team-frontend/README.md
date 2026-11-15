@@ -16,7 +16,6 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 | `GET /sitemap.xml` | `src/app/sitemap.ts` (`revalidate = 3600`): `/`, `/search?category=<id>` per category, `/listing/<id>` for up to 5000 published listings (`src/lib/gateway/sitemap.ts`, newest first, pages of 50) and `/shop/<sellerId>` for their sellers; a failed read yields a shorter sitemap, not an error | Public; anonymous fallback |
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
-| `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
 | `GET /api/analytics/identity` | GA4 `user_id` from the verified principal (see GA4 via GTM) | Consent-gated; 204 when `GA4_USER_ID_HMAC_KEY` is unset |
 
 Route groups and page-level gates:
