@@ -63,6 +63,12 @@ beforeEach(() => {
   });
 });
 
+function exportOrdersLinks() {
+  return screen
+    .getAllByRole("link", { name: /đơn hàng/i })
+    .filter((a) => !a.closest("nav"));
+}
+
 describe("/account/privacy", () => {
   it("PV2 PV29 redirects a guest to login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
@@ -97,7 +103,7 @@ describe("/account/privacy", () => {
         "Xóa tài khoản sẽ xóa dữ liệu cá nhân của bạn sau thời gian chờ.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /đơn hàng/i })).toBeInTheDocument();
+    expect(exportOrdersLinks()).toHaveLength(1);
 
     await user.click(within(alert).getByRole("button", { name: "Thử lại" }));
     expect(refresh).toHaveBeenCalled();
@@ -136,10 +142,9 @@ describe("/account/privacy", () => {
 
   it("PV15 export card links orders and chats", async () => {
     render(await PrivacyPage({}));
-    expect(screen.getByRole("link", { name: /đơn hàng/i })).toHaveAttribute(
-      "href",
-      "/account/orders",
-    );
+    const orders = exportOrdersLinks();
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toHaveAttribute("href", "/account/orders");
     expect(
       screen.getByRole("link", { name: /tin nhắn|trò chuyện|chat/i }),
     ).toHaveAttribute("href", "/chat");
