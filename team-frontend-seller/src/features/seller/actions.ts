@@ -17,6 +17,8 @@ import {
   type ViewAdCampaign,
   cancelSubscription,
   createAdCampaign,
+  pauseAdCampaign,
+  resumeAdCampaign,
   subscribe,
 } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
@@ -160,6 +162,7 @@ export async function createAdCampaignAction(
   if (!(budget > 0) || !(bid > 0)) {
     return fail("Ngân sách và giá thầu phải lớn hơn 0.");
   }
+  if (bid < 500) return fail("Giá thầu tối thiểu là ₫500.");
   try {
     const campaign = await createAdCampaign(listingId, budget, bid);
     revalidatePath("/seller/ads");
@@ -167,6 +170,40 @@ export async function createAdCampaignAction(
   } catch (err: unknown) {
     return fail(messageOf(err, "Tạo chiến dịch thất bại."));
   }
+}
+
+async function moveCampaign(
+  campaignId: string,
+  op: (id: string) => Promise<ViewAdCampaign>,
+  failure: string,
+): Promise<ActionResult<{ campaign: ViewAdCampaign }>> {
+  try {
+    const campaign = await op(campaignId);
+    revalidatePath("/seller/ads");
+    return ok({ campaign });
+  } catch (err: unknown) {
+    if (err instanceof ConnectError) {
+      if (err.code === Code.NotFound) return fail("Không tìm thấy chiến dịch.");
+      if (err.code === Code.FailedPrecondition) {
+        return fail(
+          "Ngân sách còn lại thấp hơn giá thầu, không thể tiếp tục chạy.",
+        );
+      }
+    }
+    return fail(failure);
+  }
+}
+
+export async function pauseAdCampaignAction(
+  campaignId: string,
+): Promise<ActionResult<{ campaign: ViewAdCampaign }>> {
+  return moveCampaign(campaignId, pauseAdCampaign, "Tạm dừng thất bại.");
+}
+
+export async function resumeAdCampaignAction(
+  campaignId: string,
+): Promise<ActionResult<{ campaign: ViewAdCampaign }>> {
+  return moveCampaign(campaignId, resumeAdCampaign, "Tiếp tục thất bại.");
 }
 
 // ── Shop profile ────────────────────────────────────────────────────────────

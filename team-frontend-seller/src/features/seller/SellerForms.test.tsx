@@ -125,31 +125,60 @@ describe("AdCampaignForm", () => {
     expect(createAdCampaignAction).not.toHaveBeenCalled();
   });
 
-  it("launches a campaign and lists it in a Table", async () => {
+  it("rejects bid below 500 (Bid below minimum is rejected)", () => {
+    render(<AdCampaignForm listings={listings} />);
+    fireEvent.change(screen.getByLabelText(/Ngân sách/), {
+      target: { value: "5000" },
+    });
+    fireEvent.change(screen.getByLabelText(/Giá thầu/), {
+      target: { value: "499" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Chạy quảng cáo" }));
+    expect(screen.getByText("Giá thầu tối thiểu là ₫500.")).toBeInTheDocument();
+    expect(createAdCampaignAction).not.toHaveBeenCalled();
+  });
+
+  it("rejects budget below bid (Ad form: budget below the bid is rejected)", () => {
+    render(<AdCampaignForm listings={listings} />);
+    fireEvent.change(screen.getByLabelText(/Ngân sách/), {
+      target: { value: "800" },
+    });
+    fireEvent.change(screen.getByLabelText(/Giá thầu/), {
+      target: { value: "1000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Chạy quảng cáo" }));
+    expect(
+      screen.getByText("Ngân sách phải lớn hơn hoặc bằng giá thầu."),
+    ).toBeInTheDocument();
+    expect(createAdCampaignAction).not.toHaveBeenCalled();
+  });
+
+  it("accepts bid of exactly 500 and keeps no client-only list (Bid of exactly 500 is accepted)", async () => {
     vi.mocked(createAdCampaignAction).mockResolvedValue({
       ok: true,
       data: {
         campaign: {
           id: "campaign-12345",
-          budget: 1000,
-          bid: 10,
+          budget: 5000,
+          bid: 500,
           statusText: "Đang chạy",
         } as never,
       },
     });
     render(<AdCampaignForm listings={listings} />);
     fireEvent.change(screen.getByLabelText(/Ngân sách/), {
-      target: { value: "1000" },
+      target: { value: "5000" },
     });
     fireEvent.change(screen.getByLabelText(/Giá thầu/), {
-      target: { value: "10" },
+      target: { value: "500" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Chạy quảng cáo" }));
     await waitFor(() =>
       expect(toastSuccess).toHaveBeenCalledWith("Đã tạo chiến dịch quảng cáo"),
     );
-    expect(createAdCampaignAction).toHaveBeenCalledWith("l1", 1000, 10);
-    expect(screen.getByText("#campaign")).toBeInTheDocument();
+    expect(createAdCampaignAction).toHaveBeenCalledWith("l1", 5000, 500);
+    expect(screen.queryByText("Chiến dịch vừa tạo")).not.toBeInTheDocument();
+    expect(screen.queryByText("#campaign")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Ngân sách/)).toHaveValue(null);
   });
 
@@ -160,10 +189,10 @@ describe("AdCampaignForm", () => {
     });
     render(<AdCampaignForm listings={listings} />);
     fireEvent.change(screen.getByLabelText(/Ngân sách/), {
-      target: { value: "1000" },
+      target: { value: "5000" },
     });
     fireEvent.change(screen.getByLabelText(/Giá thầu/), {
-      target: { value: "10" },
+      target: { value: "500" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Chạy quảng cáo" }));
     await waitFor(() =>

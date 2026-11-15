@@ -2094,6 +2094,205 @@ features:
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."
 
+  - id: seller-fee-breakdown-ui.breakdown-of-a-settled-order
+    title: "Breakdown of a settled order"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Breakdown of a settled order"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Breakdown of a settled order); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.breakdown-after-a-partial-refund
+    title: "Breakdown after a partial refund"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Breakdown after a partial refund"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Breakdown after a partial refund); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.unsettled-order-shows-the-not-settled-state
+    title: "Unsettled order shows the not-settled state"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Unsettled order shows the not-settled state"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Unsettled order shows the not-settled state); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.another-sellers-order-is-not-found-and-nothing-is-fetched
+    title: "Another seller's order is not found and nothing is fetched"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Another seller's order is not found and nothing is fetched"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Another seller's order is not found and nothing is fetched); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.guest-cannot-see-the-breakdown
+    title: "Guest cannot see the breakdown"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Guest cannot see the breakdown"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Guest cannot see the breakdown); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.commission-rows-are-labelled
+    title: "Commission rows are labelled"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Commission rows are labelled"
+    tags: [seller, fintech]
+    status: planned
+    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Commission rows are labelled); covered_by is set when it flips to automated."
+  - id: seller-fee-breakdown-ui.zero-commission-is-shown-not-hidden
+    title: "Zero commission is shown, not hidden"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the response has commission 0 and commission_rate_bps 0 (an order settled before commission existed)"
+      - "Then the card shows commission \"₫0\" with rate \"0%\" and net equal to credited"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `Zero commission is shown, not hidden: renders 0% and a zero amount`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.settlement-service-failure-degrades-only-the-card
+    title: "Settlement service failure degrades only the card"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When `GetOrderSettlement` fails with UNAVAILABLE or exceeds the 2 s timeout while the order itself loads"
+      - "Then the card shows an error alert \"Không tải được đối soát thanh toán\" with a \"Thử lại\" link, the order items, totals and tabs still render, and the page responds 200"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/orders/[id]/page.test.tsx` `settlement error degrades only the card`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.large-amounts-keep-integer-precision
+    title: "Large amounts keep integer precision"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the response holds credited 9 007 199 254 740 000 (below 2^53) and commission 450 359 962 737 000"
+      - "Then the card renders both exactly as formatted integer VND with no fractional digit"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/payment.test.ts` `maps int64 settlement amounts without rounding`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.every-known-type-has-a-label
+    title: "Every known type has a label"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the label function receives each of the seven known type strings"
+      - "Then it returns the Vietnamese label listed above for each, and none returns the raw string"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `labels every known type`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.unknown-or-empty-type-falls-back
+    title: "Unknown or empty type falls back"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When a ledger entry has type \"FUTURE_TYPE\" or an empty type"
+      - "Then the cell shows \"FUTURE_TYPE\" or \"—\" respectively and the page does not error"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `falls back for unknown and empty types`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.ledger-load-failure-keeps-the-existing-error-state
+    title: "Ledger load failure keeps the existing error state"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When `ListLedgerEntries` fails while the wallet page loads"
+      - "Then the page shows \"Không tải được lịch sử giao dịch\" with \"Thử lại\" and no label is rendered from stale data"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `ledger error keeps the retry state`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.guest-cannot-see-the-ledger
+    title: "Guest cannot see the ledger"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When a visitor without a session requests `/seller/wallet`"
+      - "Then the visitor is redirected to login and the response contains no ledger rows"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `guest is redirected to login`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
   - id: uisl.seller-plan-ui-paid-plan-prices-show-as-whole-vnd-per-term
     title: "Paid plan prices show as whole VND per term"
     persona: seller
@@ -2445,3 +2644,250 @@ features:
     tags: [seller, promo]
     status: planned
     notes: "e2e: seller/create-listing.feature::Seller below the plan cap creates a listing"
+
+  - id: seller-ads-ui.campaigns-persist-after-reload
+    title: "Campaigns persist after reload"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a seller who created a campaign with budget 50 000 and bid 1 000 reloads `/seller/ads`"
+      - "Then the table shows one row with \"₫1.000\" bid, \"₫50.000\" budget, \"₫0\" spent, \"₫50.000\" remaining, 0 impressions, 0 clicks and \"Đang chạy\""
+    tags: [seller, promo, ads]
+    status: planned
+    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Campaigns persist after reload); covered_by is set when it flips to automated."
+  - id: seller-ads-ui.spend-and-counters-come-from-the-service
+    title: "Spend and counters come from the service"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a buyer's click has charged the campaign once at bid 1 000 and the seller opens `/seller/ads`"
+      - "Then the row shows \"₫1.000\" spent, \"₫49.000\" remaining, 1 click and at least 1 impression"
+    tags: [seller, promo, ads]
+    status: planned
+    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Spend and counters come from the service); covered_by is set when it flips to automated."
+  - id: seller-ads-ui.seller-with-no-campaign-sees-an-empty-state
+    title: "Seller with no campaign sees an empty state"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with no campaigns opens `/seller/ads`"
+      - "Then the table shows \"Chưa có chiến dịch nào\" and the create form is still rendered"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `renders empty state`. Unit level; not producible end to end."
+  - id: seller-ads-ui.campaigns-are-paged-at-20
+    title: "Campaigns are paged at 20"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller has 21 campaigns and opens `/seller/ads` and then `/seller/ads?page=2`"
+      - "Then the first page shows 20 rows and the second shows 1 row"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/ads/page.test.tsx` `pages campaigns at 20`. Unit level; not producible end to end."
+  - id: seller-ads-ui.list-failure-degrades-only-the-list
+    title: "List failure degrades only the list"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `ListMyAdCampaigns` fails with UNAVAILABLE or exceeds the 2 s timeout"
+      - "Then the list shows an error alert \"Không tải được chiến dịch\" with a \"Thử lại\" link, the create form renders, and the page responds 200"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/ads/page.test.tsx` `list error degrades only the list`. Unit level; not producible end to end."
+  - id: seller-ads-ui.guest-and-non-seller-are-not-authorized-to-open-the-page
+    title: "Guest and non-seller are not authorized to open the page"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When an unauthenticated guest (401) opens `/seller/ads`, and separately a signed-in buyer without `listing.write` opens it"
+      - "Then the guest is redirected to the login page with `/seller/ads` as the return path, the buyer sees no campaign data, and no `ListMyAdCampaigns` call is made for either"
+    tags: [seller, promo, ads]
+    status: planned
+    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Guest and non-seller are not authorized to open the page); covered_by is set when it flips to automated."
+  - id: seller-ads-ui.pause-an-active-campaign
+    title: "Pause an active campaign"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When the seller activates \"Tạm dừng\" on an ACTIVE campaign"
+      - "Then the row status becomes \"Tạm dừng\" and the button becomes \"Tiếp tục\", still so after reload, and the campaign is no longer served to buyers"
+    tags: [seller, promo, ads]
+    status: planned
+    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Pause an active campaign); covered_by is set when it flips to automated."
+  - id: seller-ads-ui.resume-a-paused-campaign
+    title: "Resume a paused campaign"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When the seller activates \"Tiếp tục\" on a PAUSED campaign whose remaining budget is at least its bid"
+      - "Then the row status becomes \"Đang chạy\" and the button becomes \"Tạm dừng\", still so after reload"
+    tags: [seller, promo, ads]
+    status: planned
+    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Resume a paused campaign); covered_by is set when it flips to automated."
+  - id: seller-ads-ui.budget-exhausted-campaign-cannot-resume
+    title: "Budget-exhausted campaign cannot resume"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a campaign has spent so that remaining budget (₫400) is below its bid (₫500 or more) and the seller opens `/seller/ads`"
+      - "Then the row shows \"Hết ngân sách\" and the resume button is disabled, and if the action is still forced the error toast reads \"Ngân sách còn lại thấp hơn giá thầu, không thể tiếp tục chạy.\" and the status is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/actions.test.ts` `resume maps FAILED_PRECONDITION to the budget message`. Unit level; not producible end to end."
+  - id: seller-ads-ui.ended-campaign-has-no-action
+    title: "Ended campaign has no action"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a campaign has status ENDED"
+      - "Then its row shows \"Đã kết thúc\" and neither \"Tạm dừng\" nor \"Tiếp tục\" is rendered"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `ended row has no action`. Unit level; not producible end to end."
+  - id: seller-ads-ui.double-click-issues-one-call
+    title: "Double click issues one call"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller double-clicks \"Tạm dừng\""
+      - "Then the button is disabled after the first click and exactly one `PauseAdCampaign` call is made"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `double click pauses once`. Unit level; not producible end to end."
+  - id: seller-ads-ui.another-sellers-campaign-is-not-found
+    title: "Another seller's campaign is not found"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When seller B submits Pause or Resume with the id of seller A's campaign"
+      - "Then the action returns `ok: false` with \"Không tìm thấy chiến dịch.\", A's campaign is unchanged, and B's list does not contain it"
+    tags: [seller, promo, ads]
+    status: planned
+    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Another seller's campaign is not found); covered_by is set when it flips to automated."
+  - id: seller-ads-ui.bid-below-minimum-is-rejected
+    title: "Bid below minimum is rejected"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller submits a campaign with bid 499"
+      - "Then the field error \"Giá thầu tối thiểu là ₫500.\" is shown and no `CreateAdCampaign` call is made"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects bid below 500`. Unit level; not producible end to end."
+  - id: seller-ads-ui.bid-of-exactly-500-is-accepted
+    title: "Bid of exactly 500 is accepted"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When the seller submits a campaign with bid 500 and budget 5 000"
+      - "Then the campaign is created and appears in the list as \"Đang chạy\" with \"₫500\" bid"
+    tags: [seller, promo, ads]
+    status: planned
+    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Bid of exactly 500 is accepted); covered_by is set when it flips to automated."
+  - id: seller-ads-ui.ad-form-budget-below-the-bid-is-rejected
+    title: "Ad form: budget below the bid is rejected"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller submits bid 1 000 and budget 800"
+      - "Then the field error \"Ngân sách phải lớn hơn hoặc bằng giá thầu.\" is shown and no call is made"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects budget below bid`. Unit level; not producible end to end."

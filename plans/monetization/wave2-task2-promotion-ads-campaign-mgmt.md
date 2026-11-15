@@ -25,6 +25,10 @@ Implement OpenSpec change `promotion-ads-campaign-mgmt` test-first per its tasks
 - platform-e2e/tests/e2e/support/ad_campaign_management_support.py
 - platform-e2e/tests/e2e/step_definitions/test_ad_campaign_management.py
 
+### widened (P1)
+- platform-e2e/tests/e2e/step_definitions/test_ad_campaign_management_steps.py (e2e step file of this change, named differently from the packet)
+- team-gateway/README.md (doc updated by docs-sync: ad campaign RPCs now forwarded with an edge auth check)
+
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-promotion` (equivalent: `cd team-promotion && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-gateway` (equivalent: `cd team-gateway && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)

@@ -14,7 +14,7 @@ import (
 	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
-const migration9 = "0009_plan_billing.up.sql"
+const migration9 = "0010_plan_billing.up.sql"
 
 type planRow struct {
 	ID       string

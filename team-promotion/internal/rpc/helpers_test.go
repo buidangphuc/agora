@@ -108,6 +108,7 @@ type rig struct {
 	fc           promotionv1.FlashSaleServiceClient
 	sub          promotionv1.SubscriptionServiceClient
 	ads          promotionv1.SponsoredServiceClient
+	adRepo       *storefake.InMemoryAdCampaignRepository
 	vouchers     store.VoucherRepository
 	reservations store.ReservationRepository
 	campaigns    *storefake.InMemoryFlashSaleRepository
@@ -154,7 +155,8 @@ func startRig(t *testing.T, o rigOpts) *rig {
 		o.payment = paymentfake.New()
 	}
 	subSvc := subscription.New(storefake.NewInMemorySubscriptionRepository(), o.logger).WithPayment(o.payment)
-	adSvc := sponsored.New(storefake.NewInMemoryAdCampaignRepository(), o.listings, gate, o.logger).WithLimits(1000, 5000).WithMinBid(1)
+	adRepo := storefake.NewInMemoryAdCampaignRepository()
+	adSvc := sponsored.New(adRepo, o.listings, gate, o.logger).WithLimits(1000, 5000).WithMinBid(1)
 
 	vh := rpc.NewVoucherHandler(voucherSvc, o.logger)
 	fh := rpc.NewFlashSaleHandler(flashSvc, o.logger)
@@ -167,6 +169,7 @@ func startRig(t *testing.T, o rigOpts) *rig {
 		fc:           promotionv1.NewFlashSaleServiceClient(conn),
 		sub:          promotionv1.NewSubscriptionServiceClient(conn),
 		ads:          promotionv1.NewSponsoredServiceClient(conn),
+		adRepo:       adRepo,
 		vouchers:     o.vouchers,
 		reservations: o.reservations,
 		campaigns:    campaigns,

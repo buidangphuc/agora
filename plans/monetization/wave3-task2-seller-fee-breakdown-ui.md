@@ -26,6 +26,9 @@ Implement OpenSpec change `seller-fee-breakdown-ui` test-first per its tasks.md;
 - platform-e2e/tests/e2e/support/seller_fee_breakdown_ui_support.py
 - platform-e2e/tests/e2e/step_definitions/test_seller_fee_breakdown_ui.py
 
+### widened (P1)
+- openspec/changes/seller-fee-breakdown-ui/specs/ui-seller/spec.md (this change's OpenSpec folder: VERIFIED BY citations matched to the real test names; no requirement or scenario wording change)
+
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller`
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py tsc team-frontend-seller`
