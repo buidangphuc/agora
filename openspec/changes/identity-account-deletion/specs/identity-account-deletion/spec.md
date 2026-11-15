@@ -58,6 +58,7 @@ is non-zero. The system SHALL fail closed with `UNAVAILABLE` when either call er
 
 - **WHEN** a seller with `pending_payouts = 1` and zero balances calls `RequestAccountDeletion` with the correct password
 - **THEN** the call fails `FAILED_PRECONDITION` naming pending payouts
+- **VERIFIED BY**: `team-identity/internal/rpc` `TestRequestAccountDeletionPendingPayoutBlocks`
 
 #### Scenario: Obligations are checked for the caller only
 
@@ -73,11 +74,13 @@ is non-zero. The system SHALL fail closed with `UNAVAILABLE` when either call er
 
 - **WHEN** `GetPayoutObligations` times out after 2 s
 - **THEN** the call fails `UNAVAILABLE` and `deletion_requested_at` stays null
+- **VERIFIED BY**: `team-identity/internal/rpc` `TestRequestAccountDeletionPaymentTimeoutFailsClosed`
 
 #### Scenario: Order service unreachable fails closed
 
 - **WHEN** `GetUserObligations` returns an error
 - **THEN** the call fails `UNAVAILABLE`, `GetPayoutObligations` result is not used and nothing is scheduled
+- **VERIFIED BY**: `team-identity/internal/rpc` `TestRequestAccountDeletionOrderErrorFailsClosed`
 
 ### Requirement: Scheduling revokes other sessions
 
@@ -185,6 +188,7 @@ row (key = user id, `roles` = roles held before erasure, `erased_at` = now).
 
 - **WHEN** erasing one due account fails with a database error
 - **THEN** that account is left pending for the next sweep and the other due accounts in the batch are erased
+- **VERIFIED BY**: `team-identity/internal/identity` `TestEraserOneFailingAccountDoesNotStopBatch`
 
 ### Requirement: Deleted accounts cannot sign in
 
@@ -235,8 +239,10 @@ The system SHALL NOT log raw user ids, usernames, passwords or addresses in the 
 
 - **WHEN** the sweeper erases an account
 - **THEN** captured log output contains no raw user id, former username or password and does contain the erased count
+- **VERIFIED BY**: `team-identity/internal/identity` `TestErasureLogsCountsOnly`
 
 #### Scenario: A failed erasure logs no personal data
 
 - **WHEN** erasing an account fails with a database error
 - **THEN** the error log line contains no raw user id and no former username
+- **VERIFIED BY**: `team-identity/internal/identity` `TestFailedErasureLogsNoPersonalData`

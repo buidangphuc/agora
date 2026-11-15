@@ -1,0 +1,5 @@
+services:
+  team-identity:
+    environment:
+      ACCOUNT_DELETION_CANCEL_WINDOW: 20s
+      ACCOUNT_ERASURE_SWEEP_INTERVAL: 2s
