@@ -34,3 +34,7 @@ obligation RPCs) are fixed by slice `trust-legal-contract`; decisions are locked
   issue in the slice report). The eraser itself does not call order or payment.
 - Migration numbering (next free after `0021`) may collide with `identity-legal-consent`; the later-built slice
   takes the next number.
+
+## Clarifications
+
+- 2026-11-15: In RequestAccountDeletion and CancelAccountDeletion, when the caller principal holds the admin scope, the audit event is written first through the existing auditx gate (service principal with `audit.write`); if that write fails the RPC returns `UNAVAILABLE` and nothing changes. Callers without the admin scope keep the current behaviour (no audit), and admin-scope users can still delete their own account.
