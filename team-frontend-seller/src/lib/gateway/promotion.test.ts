@@ -221,9 +221,7 @@ describe("listMyAdCampaigns", () => {
   it("Spend and counters come from the service: int64 at the safe-integer limit is exact", async () => {
     const max = BigInt(Number.MAX_SAFE_INTEGER);
     sponsoredRpc.listMyAdCampaigns.mockResolvedValue({
-      campaigns: [
-        protoCampaign({ budget: max, spent: max - 1n, clicks: max }),
-      ],
+      campaigns: [protoCampaign({ budget: max, spent: max - 1n, clicks: max })],
     });
     const res = await listMyAdCampaigns();
     if (!res.ok) throw new Error("expected ok");
@@ -283,7 +281,10 @@ describe("listMyAdCampaigns", () => {
 describe("pauseAdCampaign and resumeAdCampaign", () => {
   it("Pause an active campaign: forwards the id with a 2 s timeout and maps the returned campaign", async () => {
     sponsoredRpc.pauseAdCampaign.mockResolvedValue({
-      campaign: protoCampaign({ status: AdCampaignStatus.PAUSED, spent: 2000n }),
+      campaign: protoCampaign({
+        status: AdCampaignStatus.PAUSED,
+        spent: 2000n,
+      }),
     });
     const view = await pauseAdCampaign("c1");
     expect(sponsoredRpc.pauseAdCampaign).toHaveBeenCalledWith(
