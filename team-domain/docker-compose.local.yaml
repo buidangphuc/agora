@@ -7,6 +7,8 @@
 # Then apply migrations (golang-migrate) and run the service:
 #   make migrate
 #   make run
+#
+# The service's erasure consumer uses KAFKA_ERASURE_GROUP (default team-domain-erasure).
 
 services:
   postgres-listing:
