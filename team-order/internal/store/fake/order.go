@@ -42,7 +42,7 @@ func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order store.Ord
 	if order.Status == 0 {
 		order.Status = store.OrderStatusPending
 	}
-	order.CreatedAt = time.Now()
+	order.CreatedAt = time.Now().Round(0)
 	order.UpdatedAt = time.Now()
 	for i := range order.Items {
 		if order.Items[i].ID == "" {
@@ -122,9 +122,8 @@ func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID s
 	}
 	res.Total = int64(len(matched))
 	sort.Slice(matched, func(i, j int) bool {
-		a, b := matched[i].CreatedAt.Round(0), matched[j].CreatedAt.Round(0)
-		if !a.Equal(b) {
-			return a.After(b)
+		if !matched[i].CreatedAt.Equal(matched[j].CreatedAt) {
+			return matched[i].CreatedAt.After(matched[j].CreatedAt)
 		}
 		return matched[i].ID > matched[j].ID
 	})
@@ -132,8 +131,7 @@ func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID s
 		if c := f.Cursor; c != nil {
 			var rest []store.Order
 			for _, o := range matched {
-				t := o.CreatedAt.Round(0)
-				if t.Before(c.CreatedAt) || (t.Equal(c.CreatedAt) && o.ID < c.ID) {
+				if o.CreatedAt.Before(c.CreatedAt) || (o.CreatedAt.Equal(c.CreatedAt) && o.ID < c.ID) {
 					rest = append(rest, o)
 				}
 			}
