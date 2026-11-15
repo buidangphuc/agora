@@ -161,9 +161,11 @@ def retention_row(world: World) -> None:
     )
 )
 def experiment_row(world: World, rate: str) -> None:
-    _reload_until(
-        world, lambda: _row(world, "insights_experiments", "control").count() >= 1, "variant row"
-    )
+    def converted_row() -> bool:
+        row = _row(world, "insights_experiments", "control")
+        return row.count() >= 1 and rate in _cells(row)
+
+    _reload_until(world, converted_row, "variant row with the paid order converted")
     cells = _cells(_row(world, "insights_experiments", "control"))
     assert "2" in cells and "1" in cells, cells
     assert rate in cells, cells

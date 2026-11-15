@@ -104,6 +104,13 @@ describe("parseInsightParams", () => {
     expect(parseInsightParams({ weeks: "26" }).weeks).toBe(26);
   });
 
+  it("the retention span ends with the current week", async () => {
+    const a = stub();
+    await fetchInsights(parseInsightParams({ weeks: "4" }));
+    const req = a.getRetentionCohorts.mock.calls[0][0];
+    expect(req.from.toDate().getTime()).toBe(NOW.getTime() - 3 * 7 * DAY);
+  });
+
   // Scenario: Weeks above the upper bound is not sent
   it.each(["27", "0", "-1", "x", "100"])("clamps weeks %j to 12", (v) => {
     expect(parseInsightParams({ weeks: v }).weeks).toBe(12);

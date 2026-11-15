@@ -115,7 +115,9 @@ export function fetchRetentionCohorts(weeks: number) {
       a.getRetentionCohorts(
         {
           weeks,
-          from: Timestamp.fromDate(new Date(Date.now() - weeks * 7 * DAY_MS)),
+          from: Timestamp.fromDate(
+            new Date(Date.now() - (weeks - 1) * 7 * DAY_MS),
+          ),
         },
         opts,
       ),
