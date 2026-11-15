@@ -125,7 +125,9 @@ features:
       - "When the seller calls GetDemandForecast for it"
       - "Then the response has the 14 stored daily forecasts, the stored model_version and generated_at, and is_cold_start false"
     tags: [analytics, forecast, seller, integration]
-    status: planned
+    status: automated
+    covered_by: "analytics/forecast_serving.feature::A forecast key is served as written"
+    notes: "analytics-forecast-serving: e2e analytics/forecast_serving.feature::A forecast key is served as written passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.demand-forecast-horizon
     title: "The horizon truncates and never pads"
@@ -141,7 +143,9 @@ features:
       - "When a seller calls GetDemandForecast with horizon_days 7 on a key holding 14 points, then with horizon_days 40"
       - "Then the first response has the first 7 stored points and the second has 14, none invented"
     tags: [analytics, forecast, seller, integration]
-    status: planned
+    status: automated
+    covered_by: "analytics/forecast_serving.feature::The horizon truncates and never pads"
+    notes: "analytics-forecast-serving: e2e analytics/forecast_serving.feature::The horizon truncates and never pads passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.demand-forecast-cold-start
     title: "No key means cold start without points"
@@ -158,7 +162,9 @@ features:
       - "When the seller calls GetDemandForecast for it"
       - "Then is_cold_start is true, there are no daily forecasts, suggested_reorder_point is 0 and generated_at is unset"
     tags: [analytics, forecast, seller, integration]
-    status: planned
+    status: automated
+    covered_by: "analytics/forecast_serving.feature::No key means cold start without points"
+    notes: "analytics-forecast-serving: e2e analytics/forecast_serving.feature::No key means cold start without points passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.demand-forecast-malformed
     title: "A malformed payload returns UNAVAILABLE"
@@ -175,7 +181,9 @@ features:
       - "When the seller calls GetDemandForecast for it"
       - "Then the RPC returns UNAVAILABLE and no numbers"
     tags: [analytics, forecast, seller, integration]
-    status: planned
+    status: automated
+    covered_by: "analytics/forecast_serving.feature::A malformed payload returns UNAVAILABLE"
+    notes: "analytics-forecast-serving: e2e analytics/forecast_serving.feature::A malformed payload returns UNAVAILABLE passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.demand-forecast-denied
     title: "Another seller's forecast is denied"
@@ -191,7 +199,9 @@ features:
       - "When seller A calls GetDemandForecast with the seller_id of seller B, and an unauthenticated caller does the same"
       - "Then the first call is PermissionDenied and the second Unauthenticated, while an admin caller receives B's forecast"
     tags: [analytics, forecast, seller, integration]
-    status: planned
+    status: automated
+    covered_by: "analytics/forecast_serving.feature::Another seller's forecast is denied"
+    notes: "analytics-forecast-serving: e2e analytics/forecast_serving.feature::Another seller's forecast is denied passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.demand-forecast-latency
     title: "A read stays within the latency budget"
@@ -207,7 +217,9 @@ features:
       - "When 200 sequential GetDemandForecast calls hit a stored key on the local stack"
       - "Then the p95 call latency is at most 30 ms"
     tags: [analytics, forecast, seller, integration]
-    status: planned
+    status: automated
+    covered_by: "analytics/forecast_serving.feature::A read stays within the latency budget"
+    notes: "analytics-forecast-serving: e2e analytics/forecast_serving.feature::A read stays within the latency budget passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.demand-forecast-reorder-point
     title: "Reorder point and safety stock are derived from the stored points"
@@ -4634,8 +4646,9 @@ features:
       - "When an admin calls `GetRetentionCohorts` and 3 users have a first `sign_up` on Wednesday of week W, one of them with a second `sign_up` two weeks later"
       - "Then exactly one cohort has `cohort_week` equal to the Monday of W with `cohort_size` 3"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/retention_cohorts.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/retention_cohorts.feature::Cohort is anchored on the first sign_up week"
+    notes: "analytics-experiment-reports: e2e analytics/retention_cohorts.feature::Cohort is anchored on the first sign_up week passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.aer-day-n-retention-counts-the-exact-utc-day
     title: "Day-N retention counts the exact UTC day"
@@ -4730,8 +4743,9 @@ features:
       - "When an admin calls `GetRetentionCohorts` on a warehouse with no `sign_up` events"
       - "Then the response has 0 cohorts and the call succeeds"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/retention_cohorts.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/retention_cohorts.feature::An empty warehouse returns an empty list"
+    notes: "analytics-experiment-reports: e2e analytics/retention_cohorts.feature::An empty warehouse returns an empty list passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.aer-default-and-maximum-weeks
     title: "Default and maximum weeks"
@@ -4810,8 +4824,9 @@ features:
       - "When one visitor has exposures to flag F as variant `a` and later as variant `b`"
       - "Then variant `a` has `exposed` 1 and variant `b` has no row"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/experiment_readout.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/experiment_readout.feature::A visitor is counted once in the first variant"
+    notes: "analytics-experiment-reports: e2e analytics/experiment_readout.feature::A visitor is counted once in the first variant passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.aer-conversion-within-seven-days-of-first-exposure
     title: "Conversion within seven days of first exposure"
@@ -4826,8 +4841,9 @@ features:
       - "When a logged-in visitor is exposed at T and has a PAID order line at T + 6 days, and another is exposed at T and pays at T + 8 days"
       - "Then the variant has `exposed` 2 and `converted` 1 and `rate` 0.5"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/experiment_readout.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/experiment_readout.feature::Conversion within seven days of first exposure"
+    notes: "analytics-experiment-reports: e2e analytics/experiment_readout.feature::Conversion within seven days of first exposure passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.aer-a-paid-order-before-the-exposure-does-not-convert
     title: "A paid order before the exposure does not convert"
@@ -4922,8 +4938,9 @@ features:
       - "When an admin calls `GetExperimentReadout` for a flag with no exposure in the window"
       - "Then the response has 0 variants and `window_days` 7"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/experiment_readout.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/experiment_readout.feature::Unknown flag returns no variants"
+    notes: "analytics-experiment-reports: e2e analytics/experiment_readout.feature::Unknown flag returns no variants passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.aer-missing-or-oversized-flag-is-rejected
     title: "Missing or oversized flag is rejected"
@@ -5002,8 +5019,9 @@ features:
       - "When the warehouse holds for surface `assistant` and model version `mock:v1|hybrid` 5 shown, 2 accepted, 1 edited and 1 dismissed events, and 3 shown events for surface `chat_copilot` and `rules-v1`"
       - "Then the report has exactly two rows with those counts"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/ai_surface_report.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/ai_surface_report.feature::Counts per surface and model version"
+    notes: "analytics-experiment-reports: e2e analytics/ai_surface_report.feature::Counts per surface and model version passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.aer-events-outside-the-window-are-not-counted
     title: "Events outside the window are not counted"
@@ -5066,8 +5084,9 @@ features:
       - "When an admin calls `GetAiSurfaceReport` over a window with no `ai_interaction` events"
       - "Then the response has 0 rows and the call succeeds"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/ai_surface_report.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/ai_surface_report.feature::Empty window returns no rows"
+    notes: "analytics-experiment-reports: e2e analytics/ai_surface_report.feature::Empty window returns no rows passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.aer-inverted-window-is-rejected
     title: "Inverted window is rejected"
@@ -5130,8 +5149,9 @@ features:
       - "When 30 admin calls of each report run over 26 weeks (or 366 days) on a warehouse with 200,000 tracking events and 20,000 paid order lines"
       - "Then the p95 of each report is at most 2 s"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/experiment_reports_access.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/experiment_reports_access.feature::Report latency within budget"
+    notes: "analytics-experiment-reports: e2e analytics/experiment_reports_access.feature::Report latency within budget passed on env docs-ai-data (2026-11-16)"
 
   - id: analytics.aer-consumer-names-the-new-event-type
     title: "Consumer names the new event type"

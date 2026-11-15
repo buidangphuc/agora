@@ -2107,8 +2107,9 @@ features:
       - "When a logged-in seller with at least 14 days of paid order lines on listing L and a forecast run after them opens `/seller/analytics`"
       - "Then the card lists L with 14 rows of date, p10, p50 and p90, a line \"Điểm đặt hàng lại: N đơn vị\" equal to the RPC `suggested_reorder_point` rounded up, the RPC `model_version` string and the `generated_at` date as `dd/mm/yyyy`"
     tags: [seller, forecast]
-    status: planned
-    notes: "e2e seller/seller_forecast_card.feature::Seller with history sees the forecast"
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Seller with history sees the forecast"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Seller with history sees the forecast passed on env docs-ai-data (2026-11-16)"
 
   - id: seller.forecast-card.values-are-rendered-exactly-as-served
     title: "Values are rendered exactly as served"
@@ -2203,8 +2204,9 @@ features:
       - "When a seller has paid orders on listing L but the forecast job wrote no key for L, so the RPC returns `is_cold_start=true` with no points"
       - "Then L's section reads \"Chưa đủ dữ liệu để dự báo\" and contains no digit-bearing forecast cell, no reorder point and no model version"
     tags: [seller, forecast]
-    status: planned
-    notes: "e2e seller/seller_forecast_card.feature::Listing without a forecast key"
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Listing without a forecast key"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Listing without a forecast key passed on env docs-ai-data (2026-11-16)"
 
   - id: seller.forecast-card.cold-start-with-stray-points-is-not-rendered
     title: "Cold start with stray points is not rendered"
@@ -2251,8 +2253,9 @@ features:
       - "When team-analytics cannot read the forecast store and `GetDemandForecast` returns `Unavailable` for every listing"
       - "Then every listing section reads \"Dự báo tạm thời không khả dụng\", no forecast number is shown, and the page responds 200"
     tags: [seller, forecast]
-    status: planned
-    notes: "e2e seller/seller_forecast_card.feature::Store unavailable"
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Store unavailable"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Store unavailable passed on env docs-ai-data (2026-11-16)"
 
   - id: seller.forecast-card.one-listing-fails-others-render
     title: "One listing fails, others render"
@@ -2411,8 +2414,9 @@ features:
       - "When a seller session calls `GetDemandForecast` through the gateway with another seller's id"
       - "Then the call is denied with `PermissionDenied` and no forecast is returned"
     tags: [seller, forecast]
-    status: planned
-    notes: "e2e seller/seller_forecast_card.feature::Gateway rejects a foreign seller id"
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Gateway rejects a foreign seller id"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Gateway rejects a foreign seller id passed on env docs-ai-data (2026-11-16)"
 
   - id: seller.forecast-card.shown-beacon-carries-provenance
     title: "Shown beacon carries provenance"
@@ -2491,8 +2495,9 @@ features:
       - "When a seller generates a Magic Listing suggestion on the stack with team-ai on the mock backend"
       - "Then the stored `ai_interaction` event has `model_version` equal to the response `model_version` and a non-empty `impression_id`"
     tags: [seller, forecast]
-    status: planned
-    notes: "e2e seller/seller_forecast_card.feature::Provenance reaches the warehouse"
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Provenance reaches the warehouse"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Provenance reaches the warehouse passed on env docs-ai-data (2026-11-16)"
 
   - id: seller.forecast-card.older-team-ai-returns-no-provenance
     title: "Older team-ai returns no provenance"

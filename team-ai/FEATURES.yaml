@@ -20,9 +20,9 @@ features:
       - When the buyer asks for a product recommendation
       - Then the assistant returns product cards that are published in-stock listings from live catalog search, with a reply that cites only those cards
     tags: [ai]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: planned covered_by ai/assistant_grounding.feature::A published in-stock listing is returned as a grounded card once green; also covered by ai/assistant_grounding.feature (grounded card, out-of-stock, unpublished, budget, mock reply, no match, provenance, search down, no RAG) and the UI smoke ai/assistant.feature::Assistant answers a shopping question. Back to automated once the grounding scenarios are green."
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::A published in-stock listing becomes a card"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::A published in-stock listing becomes a card passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.magic-listing
     title: AI magic-listing SEO fill
@@ -1249,9 +1249,9 @@ features:
       - "When a buyer asks the assistant for the unique title of a published listing with stock 5"
       - "Then the response has a product card whose listing_id, title and price equal that listing's domain values"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::A published in-stock listing is returned as a grounded card"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::A published in-stock listing becomes a card"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::A published in-stock listing becomes a card passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-out-of-stock
     title: "Out-of-stock listing is never returned"
@@ -1264,9 +1264,9 @@ features:
       - "When a buyer asks the assistant for the title of a published listing whose stock is 0"
       - "Then the response contains no product card for that listing"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::An out-of-stock listing is not returned"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::An out-of-stock listing is never returned"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::An out-of-stock listing is never returned passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-unpublished
     title: "Unpublished listing is not returned"
@@ -1279,9 +1279,9 @@ features:
       - "When a seller changes a returned listing to draft and a buyer asks for it again"
       - "Then the response contains no product card for that listing"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::A listing unpublished in domain disappears from the assistant"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::An unpublished listing is not returned"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::An unpublished listing is not returned passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-budget
     title: "Budget phrase narrows the cards"
@@ -1294,9 +1294,9 @@ features:
       - "When a buyer asks \"tai nghe dưới 500k\" and the catalog holds matching listings priced 300000 and 800000"
       - "Then every returned card has price at most 500000"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::A budget in the question limits the prices"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::A budget phrase narrows the cards"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::A budget phrase narrows the cards passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-mock-reply
     title: "Mock reply is deterministic over real cards"
@@ -1309,9 +1309,9 @@ features:
       - "When the same message is asked twice against unchanged catalog data with ASSISTANT_BACKEND=mock"
       - "Then both replies are byte-identical and name the first card's title and its price"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::The mock reply is the template over the real cards"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::The mock reply is deterministic over real cards"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::The mock reply is deterministic over real cards passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-no-match
     title: "No match gives a no-result reply without cards"
@@ -1324,9 +1324,9 @@ features:
       - "When a buyer asks for a product that no published in-stock listing matches"
       - "Then the response has no product cards and a reply that names no product"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::A question with no match returns no cards"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::No match gives a no-result reply without cards"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::No match gives a no-result reply without cards passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-provenance
     title: "Provenance on a grounded answer"
@@ -1339,9 +1339,9 @@ features:
       - "When a buyer asks a question that returns cards with ASSISTANT_BACKEND=mock"
       - "Then request_id is 32 hex characters and model_version matches mock:assistant-v1|<search model_version>"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::The response carries request id and model version"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::Provenance on a grounded answer"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::Provenance on a grounded answer passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-search-down
     title: "Search is down"
@@ -1354,9 +1354,9 @@ features:
       - "When team-search is stopped and a buyer asks the assistant a question"
       - "Then the call succeeds with the retrieval-failed reply and no product cards, and no card carries rating or discount text"
     tags: [ai, grounding, destructive]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::The assistant answers when search is down"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::Search is down and no invented catalog remains"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::Search is down and no invented catalog remains passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-no-rag-demo
     title: "No demo cards with RAG disabled"
@@ -1369,9 +1369,24 @@ features:
       - "When team-ai runs with RAG_ENABLED=false and a buyer asks for a t-shirt"
       - "Then the response contains only cards whose listing ids exist in team-domain"
     tags: [ai, grounding, destructive]
-    status: planned
-    covered_by: null
-    notes: "ai-assistant-grounding: ai/assistant_grounding.feature::Without the RAG store the assistant still returns real listings only"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::No demo cards with RAG disabled"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::No demo cards with RAG disabled passed on env docs-ai-data (2026-11-16)"
+
+  - id: ai.asg-no-invented-catalog
+    title: "No invented catalog remains"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai, team-search, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ShoppingAssistant]
+    acceptance:
+      - "When the assistant answers with team-search unavailable"
+      - "Then no card carries any rating or discount text"
+    tags: [ai, grounding, destructive]
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::Search is down and no invented catalog remains"
+    notes: "ai-assistant-grounding: e2e ai/assistant_grounding.feature::Search is down and no invented catalog remains passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.asg-hit-missing
     title: "Search hit unknown to domain is dropped"
@@ -1575,7 +1590,7 @@ features:
       - "Then the call is rejected with PERMISSION_DENIED and no search call is made"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_scope_denied_makes_no_search_call in team-ai/tests/unit/test_assistant_grounding.py. Needs injected search, listing and LLM fakes, logs or boot config that the gateway cannot reach."
+    notes: "VERIFIED BY test_caller_without_the_shopper_scope_is_denied_before_grounding in team-ai/tests/unit/transport/test_ai_servicer.py. Needs injected search, listing and LLM fakes, logs or boot config that the gateway cannot reach."
 
   - id: ai.asg-boot-extra
     title: "Invalid backend value is rejected at boot"
@@ -1587,7 +1602,7 @@ features:
       - "Then startup fails with an error naming ASSISTANT_BACKEND"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_llm_backend_without_extra_fails_at_boot in team-ai/tests/unit/test_assistant_grounding.py. Needs injected search, listing and LLM fakes, logs or boot config that the gateway cannot reach."
+    notes: "VERIFIED BY test_llm_backend_without_the_ai_extra_fails_at_boot in team-ai/tests/unit/bootstrap/test_assistant_addon.py and test_invalid_backend_value_is_rejected_at_boot in team-ai/tests/unit/core/test_assistant_settings.py. Needs injected search, listing and LLM fakes, logs or boot config that the gateway cannot reach."
 
   - id: ai.asg-eval-groundedness
     title: "Groundedness eval set passes"
@@ -1599,7 +1614,7 @@ features:
       - "Then the score is at least 0.8, where each case scores 1 only if all reply prices and titles are on the cards"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY team-ai/evals/assistant_grounding.jsonl run by the team-ai eval gate run_eval --min-score 0.8. An offline eval over fixed cases, not a gateway journey."
+    notes: "VERIFIED BY test_run_eval_gate_passes_on_the_grounding_set in team-ai/tests/unit/test_run_eval_assistant.py (team-ai/evals/assistant_grounding.jsonl through run_eval --min-score 0.8). An offline eval over fixed cases, not a gateway journey."
 
   - id: ai.tra-anonymous-refused
     title: "Anonymous tag requests are refused"
@@ -2933,9 +2948,9 @@ features:
       - 'When an enabled 50/50 variant flag `recs-home-feed-ranker` exists and one anonymous visitor requests homepage recommendations 5 times through the gateway'
       - 'Then all 5 responses carry the same arm segment of `model_version`, and it is `recs-home-feed-ranker:control` or `recs-home-feed-ranker:similarity`'
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::A visitor always lands in the same arm"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::A visitor always lands in the same arm"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::A visitor always lands in the same arm passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.era-both-variants
     title: "Both variants receive traffic"
@@ -2951,9 +2966,9 @@ features:
       - 'When 40 distinct anonymous visitors request homepage recommendations while the 50/50 flag is enabled'
       - 'Then the responses contain both arm `recs-home-feed-ranker:control` and arm `recs-home-feed-ranker:similarity`'
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::Both variants receive traffic"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::Both variants receive traffic"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::Both variants receive traffic passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.era-disabled-no-arm
     title: "A disabled flag means no arm"
@@ -2969,9 +2984,9 @@ features:
       - 'When the flag `recs-home-feed-ranker` is disabled and a buyer requests homepage recommendations through the gateway'
       - 'Then the arm segment of `model_version` is `none` and the response is otherwise served as before'
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::A disabled flag means no arm"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::A disabled flag means no arm"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::A disabled flag means no arm passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.era-similarity-ranker
     title: "The similarity arm changes the ranker segment"
@@ -2987,9 +3002,9 @@ features:
       - 'When a visitor is assigned the `similarity` variant whose attachment is `{"ranking":{"model":"cosine_rank"}}`'
       - 'Then the ranker segment of `model_version` is `similarity` and the tier segment is the one the default ladder would produce'
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::The similarity arm changes the ranker segment"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::The similarity arm changes the ranker segment"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::The similarity arm changes the ranker segment passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.era-flipt-down
     title: "Flipt unreachable serves the default ranker as unassigned"
@@ -3005,9 +3020,9 @@ features:
       - 'When Flipt is stopped and a buyer requests homepage recommendations through the gateway'
       - 'Then the call succeeds, the ranker segment is the placement default (`fixed_weights` or `gbdt`), and the arm segment is `recs-home-feed-ranker:unassigned`'
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::Flipt unreachable serves the default ranker as unassigned"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::Flipt unreachable serves the default ranker as unassigned"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::Flipt unreachable serves the default ranker as unassigned passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.era-seed-idempotent
     title: "Seeding creates a disabled flag and is idempotent"
@@ -3023,9 +3038,9 @@ features:
       - 'When the seed script runs twice against a Flipt without the flag'
       - 'Then the flag exists with `enabled=false` and both variants, and the second run exits 0 without changing it'
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::Seeding creates a disabled flag and is idempotent"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::Seeding creates a disabled flag and is idempotent"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::Seeding creates a disabled flag and is idempotent passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.era-user-tier
     title: "A buyer with precomputed recommendations reports the user tier"
@@ -3041,9 +3056,9 @@ features:
       - 'When a signed-in buyer who has a precomputed list requests homepage recommendations through the gateway'
       - 'Then `model_version` matches `<serving generation>/user_precomputed/<ranker>/<arm>`'
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::A buyer with precomputed recommendations reports the user tier"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::A buyer with precomputed recommendations reports the user tier"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::A buyer with precomputed recommendations reports the user tier passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.era-seed-tier
     title: "A similar-items request reports the seed tier and similarity ranker"
@@ -3059,9 +3074,9 @@ features:
       - 'When a visitor requests similar items for a listing that has vector neighbours'
       - 'Then `model_version` matches `<serving generation>/seed_vector_similarity/similarity/none`'
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::A similar-items request reports the seed tier and similarity ranker"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::A similar-items request reports the seed tier and similarity ranker"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::A similar-items request reports the seed tier and similarity ranker passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.era-served-log
     title: "The served log line carries tier, ranker and arm"
@@ -3077,9 +3092,9 @@ features:
       - 'When a buyer requests homepage recommendations twice through the gateway'
       - "Then each `recs.served` log line carries `tier`, `ranker` and `arm` equal to the segments of that response's `model_version`, and no raw user id"
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
-    notes: "recs-experiment-arms: recommendations/experiment_arms.feature::The served log line carries tier, ranker and arm"
+    status: automated
+    covered_by: "recommendations/experiment_arms.feature::The served log line carries tier, ranker and arm"
+    notes: "recs-experiment-arms: e2e recommendations/experiment_arms.feature::The served log line carries tier, ranker and arm passed on env docs-ai-data (2026-11-16)"
 
   # ---- recs-experiment-arms: unit-verified scenarios ----
 
@@ -3237,9 +3252,9 @@ features:
       - "When a seller calls `ChatCopilot` with buyer message 'còn hàng không?' for a published own listing whose stock is 0"
       - "Then none of the returned drafts contains a phrase claiming availability ('còn hàng', 'còn sẵn', 'có sẵn' without a negation) and at least one draft tells the buyer the item is out of stock"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot does not claim stock for an out-of-stock listing"
+    status: automated
+    covered_by: "ai/chat_copilot.feature::Copilot does not claim stock for an out-of-stock listing"
+    notes: "ai-copilot-grounding: e2e ai/chat_copilot.feature::Copilot does not claim stock for an out-of-stock listing passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.ccg-in-stock-listing
     title: "In-stock listing"
@@ -3312,9 +3327,9 @@ features:
       - "When seller A calls `ChatCopilot` with a `listing_id` owned by seller B, with stock 5"
       - "Then no returned draft makes a stock claim, no field of B's listing appears in the response, and no field of it is put in the LLM prompt"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot ignores another seller's listing"
+    status: automated
+    covered_by: "ai/chat_copilot.feature::Copilot ignores a listing owned by another seller"
+    notes: "ai-copilot-grounding: e2e ai/chat_copilot.feature::Copilot ignores a listing owned by another seller passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.ccg-stock-boundary-of-one
     title: "Stock boundary of one"
@@ -3339,9 +3354,9 @@ features:
       - "When a seller calls `ChatCopilot` with 'giao hàng bao lâu vậy shop?'"
       - "Then no returned draft matches a duration, a cut-off hour or 'trong ngày' / 'hỏa tốc' / 'ngay hôm nay', and at least one draft asks the buyer for the delivery address"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot makes no delivery-time promise"
+    status: automated
+    covered_by: "ai/chat_copilot.feature::Copilot makes no promise on a delivery-time question"
+    notes: "ai-copilot-grounding: e2e ai/chat_copilot.feature::Copilot makes no promise on a delivery-time question passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.ccg-default-drafts-carry-no-availability-claim
     title: "Default drafts carry no availability claim"
@@ -3438,9 +3453,9 @@ features:
       - "When 200 sequential `ChatCopilot` calls run with `COPILOT_BACKEND=mock` against a local team-domain"
       - "Then the p95 latency is at most 300 ms"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot answers within the mock latency budget"
+    status: automated
+    covered_by: "ai/chat_copilot.feature::Copilot latency with the mock backend stays within budget"
+    notes: "ai-copilot-grounding: e2e ai/chat_copilot.feature::Copilot latency with the mock backend stays within budget passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.ccg-seller-impersonation-is-denied
     title: "Seller impersonation is denied"
@@ -3477,9 +3492,9 @@ features:
       - "When a seller calls `ChatCopilot` with the mock backend"
       - "Then the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-copilot-grounding: ai/chat_copilot.feature::Copilot response carries request id and model version"
+    status: automated
+    covered_by: "ai/chat_copilot.feature::Copilot response carries provenance"
+    notes: "ai-copilot-grounding: e2e ai/chat_copilot.feature::Copilot response carries provenance passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.ccg-copilot-llm-output-names-the-prompt-version
     title: "Copilot LLM output names the prompt version"
@@ -3504,9 +3519,9 @@ features:
       - "When a seller calls `MagicListing` with a title and category"
       - "Then the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`, and the generated fields are unchanged"
     tags: [ai, grounding]
-    status: planned
-    covered_by: null
-    notes: "ai-copilot-grounding: ai/magic_listing.feature::Magic Listing response carries request id and model version"
+    status: automated
+    covered_by: "ai/magic_listing.feature::Magic Listing response carries provenance"
+    notes: "ai-copilot-grounding: e2e ai/magic_listing.feature::Magic Listing response carries provenance passed on env docs-ai-data (2026-11-16)"
 
   - id: ai.ccg-review-summary-carries-provenance
     title: "Review summary carries provenance"
@@ -3566,7 +3581,7 @@ features:
       - "Then the score is 1.0 and the command exits 0"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_copilot_groundedness_set_passes in team-ai/tests/unit/test_run_eval_entry.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+    notes: "VERIFIED BY test_copilot_groundedness_set_passes in team-ai/tests/unit/test_run_eval_copilot.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
 
   - id: ai.ccg-eval-fails-on-a-stock-contradicting-draft
     title: "Eval fails on a stock-contradicting draft"
@@ -3578,4 +3593,4 @@ features:
       - "Then the score is below 0.8 and the command exits non-zero"
     tags: [ai, grounding]
     status: not-testable
-    notes: "VERIFIED BY test_copilot_groundedness_set_fails_on_contradiction in team-ai/tests/unit/test_run_eval_entry.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."
+    notes: "VERIFIED BY test_copilot_groundedness_set_fails_on_contradiction in team-ai/tests/unit/test_run_eval_copilot.py. Needs a stubbed team-domain, fault injection or unit-level access the gateway does not expose."

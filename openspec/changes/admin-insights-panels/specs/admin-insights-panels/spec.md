@@ -6,7 +6,7 @@ The cockpit at `/admin/cockpit` SHALL show a placements panel built from `GetRec
 #### Scenario: Recommendation rows per model version
 - **WHEN** an admin opens `/admin/cockpit` and the warehouse holds `home_feed` impressions served by two different `model_version` values
 - **THEN** the placements panel `insights_placements` lists one row per placement and `model_version` pair with impressions, clicks, CTR, add-to-carts, purchases and conversion rate, and the `model_version` text equals the stored value verbatim
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin reads placement performance per model version"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin reads recommendation rows per model version"
 
 #### Scenario: Search rows are shown in their own table
 - **WHEN** the same window contains search impressions with a `request_id`-stamped `model_version`
@@ -49,7 +49,7 @@ The cockpit SHALL show a retention panel from `GetRetentionCohorts` with one row
 #### Scenario: Cohort rows
 - **WHEN** an admin opens `/admin/cockpit` and `GetRetentionCohorts` returns a cohort for week 2026-11-02 with size 40, d1 0.5, d7 0.25, d30 0.1 and repeat_purchase_30d 0.05
 - **THEN** `insights_retention` shows a row "2026-11-02", size 40, "50.0%", "25.0%", "10.0%" and "5.0%"
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin reads weekly retention cohorts"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin reads weekly cohort rows"
 
 #### Scenario: Weekly-active series is shown in order
 - **WHEN** a cohort carries `weekly_active` of [1, 0.6, 0.4]
@@ -82,7 +82,7 @@ The cockpit SHALL show an experiments panel from `GetExperimentReadout` for the 
 #### Scenario: Variant rows with interval
 - **WHEN** the admin opens `/admin/cockpit?flag=home_feed_ranker` and the readout returns variant `control` exposed 200 converted 20 rate 0.1 ci_low 0.066 ci_high 0.149
 - **THEN** `insights_experiments` shows a `control` row with 200, 20, "10.0%" and "6.6% – 14.9%"
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin reads an experiment readout"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin reads variant rows with interval"
 
 #### Scenario: Conversion window is stated
 - **WHEN** the response has `window_days=7`
@@ -130,7 +130,7 @@ The cockpit SHALL show an AI-surfaces panel from `GetAiSurfaceReport` for a rang
 #### Scenario: Surface rows with shares
 - **WHEN** the report returns surface `assistant` and `model_version` `mock:v1|hybrid-v2` with shown 10, accepted 4, edited 1, dismissed 2
 - **THEN** `insights_ai_surfaces` shows that row with 10, 4, 1, 2, accepted "40.0%" and dismissed "20.0%"
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin reads AI surface usage"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin reads surface rows with shares"
 
 #### Scenario: Zero shown has no share
 - **WHEN** a row has shown 0 and dismissed 3
@@ -163,7 +163,7 @@ The five report calls SHALL run only in server code with the per-request session
 #### Scenario: Admin sees all four panels
 - **WHEN** a logged-in admin opens `/admin/cockpit`
 - **THEN** `insights_placements`, `insights_retention`, `insights_experiments` and `insights_ai_surfaces` are present on the page
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin sees all four insight panels"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/admin/insights_panels.feature` "Admin sees all four panels"
 
 #### Scenario: Non-admin gets no report calls
 - **WHEN** a logged-in user without the `admin` scope opens `/admin/cockpit`

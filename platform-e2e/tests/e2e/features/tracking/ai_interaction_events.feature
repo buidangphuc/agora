@@ -105,6 +105,13 @@ Feature: AI surfaces report shown, accepted and edited as ai_interaction beacons
     Then exactly 2 "chat_copilot" "accepted" AI events are captured
     And exactly 1 "chat_copilot" "edited" AI events are captured
 
+  Scenario: A buyer has no copilot
+    Given a seller has a chat thread with a buyer who asked about a listing
+    And the browser records AI beacons
+    When the buyer of that thread opens it
+    Then the "Gợi ý AI" button is absent
+    And zero "chat_copilot" AI events are captured
+
   Scenario: Not the owner of the thread, no copilot and no copilot events
     Given a seller has a chat thread with a buyer who asked about a listing
     And the browser records AI beacons

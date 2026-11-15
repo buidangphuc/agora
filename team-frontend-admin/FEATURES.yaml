@@ -3339,7 +3339,9 @@ features:
       - "When an admin opens `/admin/cockpit` and the warehouse holds `home_feed` impressions served by two different `model_version` values"
       - "Then the placements panel `insights_placements` lists one row per placement and `model_version` pair with impressions, clicks, CTR, add-to-carts, purchases and conversion rate, and the `model_version` text equals the stored value verbatim"
     tags: [admin, analytics]
-    status: planned
+    status: automated
+    covered_by: "admin/insights_panels.feature::Admin reads recommendation rows per model version"
+    notes: "admin-insights-panels: e2e admin/insights_panels.feature::Admin reads recommendation rows per model version passed on env docs-ai-data (2026-11-16)"
 
   - id: admin-insights.search-rows-are-shown-in-their-own-table
     title: "Search rows are shown in their own table"
@@ -3452,7 +3454,9 @@ features:
       - "When an admin opens `/admin/cockpit` and `GetRetentionCohorts` returns a cohort for week 2026-11-02 with size 40, d1 0.5, d7 0.25, d30 0.1 and repeat_purchase_30d 0.05"
       - "Then `insights_retention` shows a row \"2026-11-02\", size 40, \"50.0%\", \"25.0%\", \"10.0%\" and \"5.0%\""
     tags: [admin, analytics]
-    status: planned
+    status: automated
+    covered_by: "admin/insights_panels.feature::Admin reads weekly cohort rows"
+    notes: "admin-insights-panels: e2e admin/insights_panels.feature::Admin reads weekly cohort rows passed on env docs-ai-data (2026-11-16)"
 
   - id: admin-insights.weekly-active-series-is-shown-in-order
     title: "Weekly-active series is shown in order"
@@ -3537,7 +3541,9 @@ features:
       - "When the admin opens `/admin/cockpit?flag=home_feed_ranker` and the readout returns variant `control` exposed 200 converted 20 rate 0.1 ci_low 0.066 ci_high 0.149"
       - "Then `insights_experiments` shows a `control` row with 200, 20, \"10.0%\" and \"6.6% – 14.9%\""
     tags: [admin, analytics]
-    status: planned
+    status: automated
+    covered_by: "admin/insights_panels.feature::Admin reads variant rows with interval"
+    notes: "admin-insights-panels: e2e admin/insights_panels.feature::Admin reads variant rows with interval passed on env docs-ai-data (2026-11-16)"
 
   - id: admin-insights.conversion-window-is-stated
     title: "Conversion window is stated"
@@ -3664,7 +3670,9 @@ features:
       - "When the report returns surface `assistant` and `model_version` `mock:v1|hybrid-v2` with shown 10, accepted 4, edited 1, dismissed 2"
       - "Then `insights_ai_surfaces` shows that row with 10, 4, 1, 2, accepted \"40.0%\" and dismissed \"20.0%\""
     tags: [admin, analytics]
-    status: planned
+    status: automated
+    covered_by: "admin/insights_panels.feature::Admin reads surface rows with shares"
+    notes: "admin-insights-panels: e2e admin/insights_panels.feature::Admin reads surface rows with shares passed on env docs-ai-data (2026-11-16)"
 
   - id: admin-insights.zero-shown-has-no-share
     title: "Zero shown has no share"
@@ -3749,7 +3757,9 @@ features:
       - "When a logged-in admin opens `/admin/cockpit`"
       - "Then `insights_placements`, `insights_retention`, `insights_experiments` and `insights_ai_surfaces` are present on the page"
     tags: [admin, analytics]
-    status: planned
+    status: automated
+    covered_by: "admin/insights_panels.feature::Admin sees all four panels"
+    notes: "admin-insights-panels: e2e admin/insights_panels.feature::Admin sees all four panels passed on env docs-ai-data (2026-11-16)"
 
   - id: admin-insights.non-admin-gets-no-report-calls
     title: "Non-admin gets no report calls"
@@ -3834,7 +3844,9 @@ features:
       - "When a logged-in buyer opens /admin/cockpit"
       - "Then the 403 result is shown and none of insights_placements, insights_retention, insights_experiments, insights_ai_surfaces is rendered"
     tags: [admin, analytics]
-    status: planned
+    status: automated
+    covered_by: "admin/insights_panels.feature::Non-admin sees the 403 result and none of the insight panels"
+    notes: "admin-insights-panels: e2e admin/insights_panels.feature::Non-admin sees the 403 result and none of the insight panels passed on env docs-ai-data (2026-11-16)"
 
   - id: admin.insights-experiments-empty
     title: "Experiments panel empty state for a never-exposed flag"
@@ -3849,4 +3861,6 @@ features:
       - "When the admin opens /admin/cockpit?flag=<never exposed flag>"
       - "Then the experiments panel shows the empty state and no variant rows"
     tags: [admin, analytics]
-    status: planned
+    status: automated
+    covered_by: "admin/insights_panels.feature::Flag with no exposures shows the empty state"
+    notes: "admin-insights-panels: e2e admin/insights_panels.feature::Flag with no exposures shows the empty state passed on env docs-ai-data (2026-11-16)"

@@ -8,7 +8,7 @@ Feature: The nightly forecast job writes honest per-listing demand forecasts to 
   (the 300 s export cycle is waited out once). The compose and CronJob scenarios are static.
   (forecast-nightly-job / demand-forecast-job)
 
-  Scenario: A missing export is a configuration error
+  Scenario: A missing export file is a configuration error
     Given an input directory without order_facts.parquet
     When the forecast job runs with AS_OF 2026-11-10T02:45:00Z
     Then the job exits with code 2 and its stderr names order_facts.parquet
@@ -19,6 +19,11 @@ Feature: The nightly forecast job writes honest per-listing demand forecasts to 
     When the forecast job runs with AS_OF 2026-11-10T02:45:00Z
     Then the job exits with code 0
     And Redis holds the listing key with 14 daily forecasts dated 2026-11-10 to 2026-11-23, each with 0 <= p10 <= p50 <= p90
+
+  Scenario: Keys expire after 48 hours
+    Given a listing with 30 days of paid lines before 2026-11-10
+    When the forecast job runs with AS_OF 2026-11-10T02:45:00Z
+    Then the job exits with code 0
     And the listing key expires in 48 hours
 
   Scenario: A listing without paid lines gets no key
@@ -51,7 +56,7 @@ Feature: The nightly forecast job writes honest per-listing demand forecasts to 
     Then fc:v1:meta has status ok and the paid order's listings each have a key
     And every fc:v1 payload carries lgbm_quantile_v1 only if the meta wape is lower than baseline_wape
 
-  Scenario: The compose job is hardened
+  Scenario: The compose job runs as a non-root user
     When the compose service forecast-job of profile forecast is rendered and started
     Then the service mounts analytics_data read-only at /data and writes Redis DB 3
     And the container user id is 1001 and the export mount rejects a write

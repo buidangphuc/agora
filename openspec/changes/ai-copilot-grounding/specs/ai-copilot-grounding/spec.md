@@ -36,7 +36,7 @@
 #### Scenario: Listing owned by another seller
 - **WHEN** seller A calls `ChatCopilot` with a `listing_id` owned by seller B, with stock 5
 - **THEN** no returned draft makes a stock claim, no field of B's listing appears in the response, and no field of it is put in the LLM prompt
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/chat_copilot.feature` `Copilot ignores another seller's listing`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/chat_copilot.feature` `Copilot ignores a listing owned by another seller`
 
 #### Scenario: Stock boundary of one
 - **WHEN** a seller asks a stock question about a published own listing whose stock is exactly 1
@@ -49,7 +49,7 @@ No draft returned by `ChatCopilot` SHALL state a delivery duration, a dispatch d
 #### Scenario: Delivery-time question
 - **WHEN** a seller calls `ChatCopilot` with "giao hàng bao lâu vậy shop?"
 - **THEN** no returned draft matches a duration, a cut-off hour or "trong ngày" / "hỏa tốc" / "ngay hôm nay", and at least one draft asks the buyer for the delivery address
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/chat_copilot.feature` `Copilot makes no delivery-time promise`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/chat_copilot.feature` `Copilot makes no promise on a delivery-time question`
 
 #### Scenario: Default drafts carry no availability claim
 - **WHEN** a seller calls `ChatCopilot` with "shop ơi" for a listing whose stock is 0
@@ -92,7 +92,7 @@ team-ai SHALL read `COPILOT_BACKEND` with values `mock` and `llm_router`, defaul
 #### Scenario: Copilot latency with the mock backend
 - **WHEN** 200 sequential `ChatCopilot` calls run with `COPILOT_BACKEND=mock` against a local team-domain
 - **THEN** the p95 latency is at most 300 ms
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/chat_copilot.feature` `Copilot answers within the mock latency budget`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/chat_copilot.feature` `Copilot latency with the mock backend stays within budget`
 
 ### Requirement: Copilot keeps its caller authorisation
 `ChatCopilot` SHALL keep rejecting a `seller_id` that differs from the caller, unless the caller is admin, before any listing lookup.
@@ -100,12 +100,12 @@ team-ai SHALL read `COPILOT_BACKEND` with values `mock` and `llm_router`, defaul
 #### Scenario: Seller impersonation is denied
 - **WHEN** seller A calls `ChatCopilot` with `seller_id` of seller B
 - **THEN** the call fails with `PERMISSION_DENIED` and no `GetListing` call is made
-- **VERIFIED BY**: `team-ai/tests/unit/transport/grpc/test_ai_copilot_authz.py` `test_other_seller_id_denied_before_lookup`
+- **VERIFIED BY**: `team-ai/tests/unit/transport/test_ai_copilot_authz.py` `test_other_seller_id_denied_before_lookup`
 
 #### Scenario: Caller without the seller scope is refused
 - **WHEN** a buyer principal calls `ChatCopilot`
 - **THEN** the call fails with `PERMISSION_DENIED`
-- **VERIFIED BY**: `team-ai/tests/unit/transport/grpc/test_ai_copilot_authz.py` `test_buyer_scope_denied`
+- **VERIFIED BY**: `team-ai/tests/unit/transport/test_ai_copilot_authz.py` `test_buyer_scope_denied`
 
 ### Requirement: Copilot, Magic Listing and review summary responses carry request_id and model_version
 `ChatCopilot`, `MagicListing` and `SummarizeReviews` SHALL set `request_id` to a UUID hex minted per call and `model_version` to the version that produced the output: `rules-v1` for rule output and `llm_router:<prompt_version>` for LLM output.
@@ -113,7 +113,7 @@ team-ai SHALL read `COPILOT_BACKEND` with values `mock` and `llm_router`, defaul
 #### Scenario: Copilot response carries provenance
 - **WHEN** a seller calls `ChatCopilot` with the mock backend
 - **THEN** the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/chat_copilot.feature` `Copilot response carries request id and model version`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/chat_copilot.feature` `Copilot response carries provenance`
 
 #### Scenario: Copilot LLM output names the prompt version
 - **WHEN** `COPILOT_BACKEND=llm_router` and a valid LLM draft set is returned
@@ -123,22 +123,22 @@ team-ai SHALL read `COPILOT_BACKEND` with values `mock` and `llm_router`, defaul
 #### Scenario: Magic Listing response carries provenance
 - **WHEN** a seller calls `MagicListing` with a title and category
 - **THEN** the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`, and the generated fields are unchanged
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/magic_listing.feature` `Magic Listing response carries request id and model version`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/magic_listing.feature` `Magic Listing response carries provenance`
 
 #### Scenario: Review summary carries provenance
 - **WHEN** a buyer calls `SummarizeReviews` with 3 reviews
 - **THEN** the response has a 32-character hex `request_id` and `model_version` equal to `rules-v1`
-- **VERIFIED BY**: `team-ai/tests/unit/transport/grpc/test_ai_provenance.py` `test_summarize_reviews_has_provenance`
+- **VERIFIED BY**: `team-ai/tests/unit/transport/test_ai_provenance.py` `test_summarize_reviews_has_provenance`
 
 #### Scenario: Copilot request ids are unique per call
 - **WHEN** the same `ChatCopilot` request is sent twice
 - **THEN** the two responses carry different `request_id` values
-- **VERIFIED BY**: `team-ai/tests/unit/transport/grpc/test_ai_provenance.py` `test_request_id_unique_per_call`
+- **VERIFIED BY**: `team-ai/tests/unit/transport/test_ai_provenance.py` `test_request_id_unique_per_call`
 
 #### Scenario: Failed call returns no provenance
 - **WHEN** `ChatCopilot` fails with `INVALID_ARGUMENT` because `buyer_message` is empty
 - **THEN** the call returns the error status and no response body
-- **VERIFIED BY**: `team-ai/tests/unit/transport/grpc/test_ai_provenance.py` `test_error_has_no_response_body`
+- **VERIFIED BY**: `team-ai/tests/unit/transport/test_ai_provenance.py` `test_error_has_no_response_body`
 
 ### Requirement: Copilot logs carry no raw ids
 team-ai SHALL NOT write a raw account id or unredacted message text to any log line produced by `ChatCopilot`, including the listing-lookup failure path.
@@ -154,9 +154,9 @@ team-ai SHALL ship a copilot groundedness eval set where every case pins listing
 #### Scenario: Eval passes on the grounded copilot
 - **WHEN** `run_eval --min-score 0.8` runs the copilot groundedness set with `COPILOT_BACKEND=mock`
 - **THEN** the score is 1.0 and the command exits 0
-- **VERIFIED BY**: `team-ai/tests/unit/test_run_eval_entry.py` `test_copilot_groundedness_set_passes`
+- **VERIFIED BY**: `team-ai/tests/unit/test_run_eval_copilot.py` `test_copilot_groundedness_set_passes`
 
 #### Scenario: Eval fails on a stock-contradicting draft
 - **WHEN** the eval runs against a copilot stub that answers "còn hàng" for a stock-0 case
 - **THEN** the score is below 0.8 and the command exits non-zero
-- **VERIFIED BY**: `team-ai/tests/unit/test_run_eval_entry.py` `test_copilot_groundedness_set_fails_on_contradiction`
+- **VERIFIED BY**: `team-ai/tests/unit/test_run_eval_copilot.py` `test_copilot_groundedness_set_fails_on_contradiction`

@@ -23,7 +23,7 @@ The job SHALL exit 0 on success or empty input, 2 on a configuration or input er
 
 - **WHEN** the job runs and `order_facts.parquet` is missing from `INPUT_DIR`
 - **THEN** the process exits with code 2, names the missing file on stderr and writes no Redis key
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/forecast/nightly_forecast.feature` `A missing export is a configuration error`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/forecast/nightly_forecast.feature` `A missing export file is a configuration error`
 
 #### Scenario: FNJ-4 An export without a required column is rejected
 
@@ -54,7 +54,7 @@ For every listing with at least one paid line in the window, the job SHALL write
 
 - **WHEN** the job has written a listing key
 - **THEN** the key's TTL is between 172700 and 172800 seconds
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/forecast/nightly_forecast.feature` `A listing with history gets a 14-day key`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/forecast/nightly_forecast.feature` `Keys expire after 48 hours`
 
 #### Scenario: FNJ-8 A listing without paid lines gets no key
 
@@ -143,7 +143,7 @@ carry a `FEATURES.yaml`, a services-ci job and a `.env.example` that matches the
 
 - **WHEN** `docker compose --profile forecast run --rm forecast-job` starts
 - **THEN** the container user id is 1001 and the export mount is read-only
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/forecast/nightly_forecast.feature` `The compose job is hardened`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/forecast/nightly_forecast.feature` `The compose job runs as a non-root user`
 
 #### Scenario: FNJ-19 The CronJob is scheduled after the export and isolated
 

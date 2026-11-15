@@ -5,31 +5,31 @@ Feature: Admin cockpit insight panels
   real tracking collector and real orders; each scenario uses its own model version or flag key.
   Scenario titles for the e2e-verified spec scenarios belong to change admin-insights-panels.
 
-  Scenario: Admin sees all four insight panels
+  Scenario: Admin sees all four panels
     Given an admin is logged in
     When the admin opens the insights cockpit
     Then the four insight panels are present on the page
 
-  Scenario: Admin reads placement performance per model version
+  Scenario: Admin reads recommendation rows per model version
     Given an admin is logged in
     And home_feed impressions served by two different model versions were tracked
     When the admin opens the insights cockpit
     Then the placements panel lists one row per model version with its stored value verbatim
 
-  Scenario: Admin reads weekly retention cohorts
+  Scenario: Admin reads weekly cohort rows
     Given an admin is logged in
     And 3 buyers signed up this week
     When the admin opens the insights cockpit
     Then the retention panel shows a row for this week's cohort with a size of at least 3 and percentage cells
 
-  Scenario: Admin reads an experiment readout
+  Scenario: Admin reads variant rows with interval
     Given an admin is logged in
     And the seeded admin for experiment reports
     When a logged-in buyer is exposed to variant "control" of a fresh flag and then pays an order, and another visitor is exposed to the same variant and never pays
     And the admin opens the insights cockpit for that flag
     Then the experiments panel shows a control row with 2 exposed, 1 converted, "50.0%" and an interval
 
-  Scenario: Admin reads AI surface usage
+  Scenario: Admin reads surface rows with shares
     Given an admin is logged in
     And assistant events were tracked as 10 shown, 4 accepted, 1 edited and 2 dismissed under a fresh model version
     When the admin opens the insights cockpit

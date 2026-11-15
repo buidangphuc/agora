@@ -12611,8 +12611,9 @@ features:
     acceptance:
       - "One call per question and no stream"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
-    status: planned
-    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::One call per question and no stream"
+    status: automated
+    covered_by: "frontend/buyer_ai_surfaces.feature::One call per question and no stream"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::One call per question and no stream passed on env docs-ai-data (2026-11-16)"
 
   - id: buyer-ai-surfaces-ui.the-stream-route-is-gone
     title: "The stream route is gone"
@@ -12625,8 +12626,9 @@ features:
     acceptance:
       - "The stream route is gone"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
-    status: planned
-    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The stream route is gone"
+    status: automated
+    covered_by: "frontend/buyer_ai_surfaces.feature::The stream route is gone"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The stream route is gone passed on env docs-ai-data (2026-11-16)"
 
   - id: buyer-ai-surfaces-ui.a-card-without-a-rating-shows-no-rating-line
     title: "A card without a rating shows no rating line"
@@ -12687,8 +12689,9 @@ features:
     acceptance:
       - "Card impressions carry the placement and the request id"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
-    status: planned
-    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id"
+    status: automated
+    covered_by: "frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id passed on env docs-ai-data (2026-11-16)"
 
   - id: buyer-ai-surfaces-ui.a-reply-without-a-request-id-sends-no-impression-id
     title: "A reply without a request id sends no impression id"
@@ -12749,8 +12752,9 @@ features:
     acceptance:
       - "The assistant accepted click reuses the reply provenance"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
-    status: planned
-    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance passed on env docs-ai-data (2026-11-16)"
 
   - id: buyer-ai-surfaces-ui.copilot-events-carry-the-copilot-response-provenance
     title: "Copilot events carry the copilot response provenance"
@@ -12787,8 +12791,25 @@ features:
     acceptance:
       - "Provenance never enters properties or free text"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
-    status: planned
-    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Provenance never enters properties or free text"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::Provenance never enters properties or free text passed on env docs-ai-data (2026-11-16)"
+
+  - id: buyer-ai-surfaces-ui.the-shown-event-carries-the-reply-provenance-in-wire-fields-only
+    title: "The shown event carries the reply provenance in wire fields only"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer asks the assistant for a product and a product card is shown"
+      - "Then exactly one assistant shown beacon is captured, its impressionId equals the reply request id, its modelVersion is non-empty and neither field is in its properties"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::The shown event carries the reply provenance in wire fields only"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The shown event carries the reply provenance in wire fields only passed on env docs-ai-data (2026-11-16)"
 
   - id: buyer-ai-surfaces-ui.a-viewer-without-the-seller-role-emits-no-copilot-provenance
     title: "A viewer without the seller role emits no copilot provenance"
@@ -12823,8 +12844,9 @@ features:
     acceptance:
       - "The home entry points to the assistant page"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
-    status: planned
-    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page"
+    status: automated
+    covered_by: "frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page passed on env docs-ai-data (2026-11-16)"
 
   - id: buyer-ai-surfaces-ui.no-invented-score-is-rendered
     title: "No invented score is rendered"
@@ -12885,8 +12907,9 @@ features:
     acceptance:
       - "A buyer has no copilot"
     tags: [ai-surfaces, buyer-ai-surfaces-ui]
-    status: planned
-    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A buyer has no copilot"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::A buyer has no copilot passed on env docs-ai-data (2026-11-16)"
 
   - id: buyer-ai-surfaces-ui.a-resolved-variant-is-returned-and-the-id-is-hashed
     title: "A resolved variant is returned and the id is hashed"

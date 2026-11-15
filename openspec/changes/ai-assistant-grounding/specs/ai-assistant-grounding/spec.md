@@ -6,17 +6,17 @@ The system SHALL build the `ShoppingAssistant` product cards from team-search `S
 #### Scenario: Published in-stock listing becomes a card
 - **WHEN** a buyer asks the assistant for the unique title of a published listing with stock 5
 - **THEN** the response has a product card whose `listing_id`, `title` and `price` equal that listing's domain values
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `A published in-stock listing is returned as a grounded card`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `A published in-stock listing becomes a card`
 
 #### Scenario: Out-of-stock listing is never returned
 - **WHEN** a buyer asks the assistant for the title of a published listing whose stock is 0
 - **THEN** the response contains no product card for that listing
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `An out-of-stock listing is not returned`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `An out-of-stock listing is never returned`
 
 #### Scenario: Unpublished listing is not returned
 - **WHEN** a seller changes a returned listing to draft and a buyer asks for it again
 - **THEN** the response contains no product card for that listing
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `A listing unpublished in domain disappears from the assistant`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `An unpublished listing is not returned`
 
 #### Scenario: Search hit unknown to domain is dropped
 - **WHEN** search returns a hit whose `GetListing` call answers NotFound
@@ -34,7 +34,7 @@ The system SHALL parse a maximum price from the buyer message ("dưới 500k", "
 #### Scenario: Budget phrase narrows the cards
 - **WHEN** a buyer asks "tai nghe dưới 500k" and the catalog holds matching listings priced 300000 and 800000
 - **THEN** every returned card has `price` at most 500000
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `A budget in the question limits the prices`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `A budget phrase narrows the cards`
 
 #### Scenario: Unit parsing
 - **WHEN** the messages "dưới 500k", "không quá 1 triệu", "under 300000" and "tai nghe" are parsed
@@ -57,7 +57,7 @@ The system SHALL write a reply in which every product title and price appears on
 #### Scenario: Mock reply is deterministic over real cards
 - **WHEN** the same message is asked twice against unchanged catalog data with `ASSISTANT_BACKEND=mock`
 - **THEN** both replies are byte-identical and name the first card's title and its price
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `The mock reply is the template over the real cards`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `The mock reply is deterministic over real cards`
 
 #### Scenario: LLM reply with an invented price is rejected
 - **WHEN** the LLM backend returns text naming a price that no card carries
@@ -72,12 +72,12 @@ The system SHALL write a reply in which every product title and price appears on
 #### Scenario: Groundedness eval set passes
 - **WHEN** `run_eval --min-score 0.8` runs the groundedness set against the assistant
 - **THEN** the score is at least 0.8, where each case scores 1 only if all reply prices and titles are on the cards
-- **VERIFIED BY**: `team-ai/evals/assistant_grounding.jsonl` run by `team-ai` eval gate `run_eval --min-score 0.8`
+- **VERIFIED BY**: `team-ai/tests/unit/test_run_eval_assistant.py` `test_run_eval_gate_passes_on_the_grounding_set`
 
 #### Scenario: No match gives a no-result reply without cards
 - **WHEN** a buyer asks for a product that no published in-stock listing matches
 - **THEN** the response has no product cards and a reply that names no product
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `A question with no match returns no cards`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `No match gives a no-result reply without cards`
 
 ### Requirement: Ratings come only from review data
 The system SHALL fill `rating_text` only from the search hit's `rating_avg` and `review_count`, formatted `<rating_avg to 1 decimal>/5 (<review_count> đánh giá)`, and SHALL leave it empty when `review_count` is 0. `discount_rate` SHALL be 0.
@@ -95,7 +95,7 @@ The system SHALL fill `rating_text` only from the search hit's `rating_avg` and 
 #### Scenario: No invented catalog remains
 - **WHEN** the assistant answers with team-search unavailable
 - **THEN** no card carries any rating or discount text
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `The assistant answers when search is down`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `Search is down and no invented catalog remains`
 
 ### Requirement: Retrieval failure degrades without an RPC error
 The system SHALL answer with the existing "chưa tra cứu được" reply and no cards when team-search fails or times out, and SHALL NOT fail the RPC because of a search or domain outage.
@@ -103,7 +103,7 @@ The system SHALL answer with the existing "chưa tra cứu được" reply and n
 #### Scenario: Search is down
 - **WHEN** team-search is stopped and a buyer asks the assistant a question
 - **THEN** the call succeeds with the retrieval-failed reply and no product cards
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `The assistant answers when search is down`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `Search is down and no invented catalog remains`
 
 #### Scenario: Every hydration fails
 - **WHEN** search returns hits and every `GetListing` call fails with UNAVAILABLE
@@ -121,7 +121,7 @@ The system SHALL set `request_id` (a UUID hex minted per call) and `model_versio
 #### Scenario: Provenance on a grounded answer
 - **WHEN** a buyer asks a question that returns cards with `ASSISTANT_BACKEND=mock`
 - **THEN** `request_id` is 32 hex characters and `model_version` matches `mock:assistant-v1|<search model_version>`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `The response carries request id and model version`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `Provenance on a grounded answer`
 
 #### Scenario: Request ids are unique per call
 - **WHEN** the same message is asked twice
@@ -154,7 +154,7 @@ The system SHALL NOT write the raw `user_id` to any log line, and SHALL NOT send
 #### Scenario: Caller without the shopper scope is denied
 - **WHEN** a caller lacking the AI shopper scope calls `ShoppingAssistant` while `require_ai_use` is on
 - **THEN** the call is rejected with PERMISSION_DENIED and no search call is made
-- **VERIFIED BY**: `team-ai/tests/unit/test_assistant_grounding.py` `test_scope_denied_makes_no_search_call`
+- **VERIFIED BY**: `team-ai/tests/unit/transport/test_ai_servicer.py` `test_caller_without_the_shopper_scope_is_denied_before_grounding`
 
 ### Requirement: Demo catalog and assistant RAG path are removed
 The system SHALL NOT serve any built-in demo catalog card, and the assistant SHALL NOT read team-ai's Qdrant RAG store, whatever the value of `RAG_ENABLED`.
@@ -162,9 +162,9 @@ The system SHALL NOT serve any built-in demo catalog card, and the assistant SHA
 #### Scenario: No demo cards with RAG disabled
 - **WHEN** team-ai runs with `RAG_ENABLED=false` and a buyer asks for a t-shirt
 - **THEN** the response contains only cards whose listing ids exist in team-domain
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `Without the RAG store the assistant still returns real listings only`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/ai/assistant_grounding.feature` `No demo cards with RAG disabled`
 
 #### Scenario: Invalid backend value is rejected at boot
 - **WHEN** team-ai starts with `ASSISTANT_BACKEND=llm_router` and the optional `ai` extra is not installed
 - **THEN** startup fails with an error naming `ASSISTANT_BACKEND`
-- **VERIFIED BY**: `team-ai/tests/unit/test_assistant_grounding.py` `test_llm_backend_without_extra_fails_at_boot`
+- **VERIFIED BY**: `team-ai/tests/unit/bootstrap/test_assistant_addon.py` `test_llm_backend_without_the_ai_extra_fails_at_boot`; `team-ai/tests/unit/core/test_assistant_settings.py` `test_invalid_backend_value_is_rejected_at_boot`

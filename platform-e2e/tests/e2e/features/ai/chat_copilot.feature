@@ -12,24 +12,24 @@ Feature: Seller chat copilot
     When the seller asks the copilot "còn hàng không?" about the listing
     Then no draft claims the item is available and at least one draft says it is out of stock
 
-  Scenario: Copilot ignores another seller's listing
+  Scenario: Copilot ignores a listing owned by another seller
     Given another seller has a published listing with stock 5
     When the seller asks the copilot "còn hàng không?" about the other seller's listing
     Then no draft claims the item is available
     And no draft contains the other seller's listing title or id
 
-  Scenario: Copilot makes no delivery-time promise
+  Scenario: Copilot makes no promise on a delivery-time question
     Given the seller has a published listing with stock 5
     When the seller asks the copilot "giao hàng bao lâu vậy shop?" about the listing
     Then no draft states a delivery duration, cut-off hour or same-day dispatch
     And at least one draft asks the buyer for the delivery address
 
-  Scenario: Copilot response carries request id and model version
+  Scenario: Copilot response carries provenance
     Given the seller has a published listing with stock 5
     When the seller asks the copilot "còn hàng không?" about the listing
     Then the response has a 32-character hex request id and the model version "rules-v1"
 
-  Scenario: Copilot answers within the mock latency budget
+  Scenario: Copilot latency with the mock backend stays within budget
     Given the seller has a published listing with stock 5
     When the seller makes 200 sequential copilot calls about the listing
     Then the 95th percentile latency is at most 300 ms

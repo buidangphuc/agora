@@ -3191,8 +3191,9 @@ features:
       - "When the seeded admin calls the three procedures through the gateway"
       - "Then each returns 200 with the team-analytics response unchanged"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/experiment_reports_access.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/experiment_reports_access.feature::Admin reads each report through the gateway"
+    notes: "analytics-experiment-reports: e2e analytics/experiment_reports_access.feature::Admin reads each report through the gateway passed on env docs-ai-data (2026-11-16)"
 
   - id: gateway.aer-buyer-or-seller-is-refused-at-the-edge
     title: "Buyer or seller is refused at the edge"
@@ -3207,8 +3208,9 @@ features:
       - "When a logged-in buyer, then a logged-in seller, calls each of the three procedures through the gateway"
       - "Then every call returns 403 and team-analytics receives no request"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: analytics/experiment_reports_access.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "analytics/experiment_reports_access.feature::Buyer or seller is refused at the edge"
+    notes: "analytics-experiment-reports: e2e analytics/experiment_reports_access.feature::Buyer or seller is refused at the edge passed on env docs-ai-data (2026-11-16)"
 
   - id: gateway.aer-anonymous-caller-is-refused-at-the-edge
     title: "Anonymous caller is refused at the edge"
@@ -3256,7 +3258,7 @@ features:
       - "Then the gateway returns the same error code to the admin and no partial body"
     tags: [analytics, experiment-reports, unit]
     status: not-testable
-    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/analytics_test.go TestReportForwarder_UnavailablePassesThrough. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/analytics_test.go TestExperimentReportForwarder_UnavailablePassesThrough. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
 
   - id: gateway.aer-a-valid-exposure-is-stored
     title: "A valid exposure is stored"
@@ -3271,8 +3273,9 @@ features:
       - "When a visitor posts a beacon of type `experiment_exposure` with properties `flag` `home-feed-ranker` and `variant` `treatment`"
       - "Then the warehouse holds one row with `event_type` `experiment_exposure` and `properties` equal to those two keys and values"
     tags: [analytics, experiment-reports, e2e]
-    status: planned
-    notes: "analytics-experiment-reports: tracking/experiment_exposure.feature. Red until the change is implemented."
+    status: automated
+    covered_by: "tracking/experiment_exposure.feature::A valid exposure is stored"
+    notes: "analytics-experiment-reports: e2e tracking/experiment_exposure.feature::A valid exposure is stored passed on env docs-ai-data (2026-11-16)"
 
   - id: gateway.aer-a-third-property-is-rejected
     title: "A third property is rejected"
@@ -3288,7 +3291,7 @@ features:
       - "Then the collector drops it with the invalid-properties error and nothing is published"
     tags: [analytics, experiment-reports, unit]
     status: not-testable
-    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExposureRejectsExtraProperty. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExperimentExposureRejectsExtraProperty. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
 
   - id: gateway.aer-free-text-or-an-email-in-a-value-is-rejected
     title: "Free text or an email in a value is rejected"
@@ -3304,7 +3307,7 @@ features:
       - "Then the collector drops it and nothing is published"
     tags: [analytics, experiment-reports, unit]
     status: not-testable
-    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExposureRejectsFreeText. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExperimentExposureRejectsFreeText. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
 
   - id: gateway.aer-missing-property-is-rejected
     title: "Missing property is rejected"
@@ -3320,7 +3323,7 @@ features:
       - "Then the collector drops it and nothing is published"
     tags: [analytics, experiment-reports, unit]
     status: not-testable
-    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExposureRejectsMissingVariant. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExperimentExposureRejectsMissingVariant. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
 
   - id: gateway.aer-value-length-boundary
     title: "Value length boundary"
@@ -3336,7 +3339,7 @@ features:
       - "Then the first is published and the second is dropped"
     tags: [analytics, experiment-reports, unit]
     status: not-testable
-    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExposureValueLengthBoundary. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExperimentExposureValueLengthBoundary. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
 
   - id: gateway.aer-existing-event-types-are-unaffected
     title: "Existing event types are unaffected"
@@ -3352,4 +3355,4 @@ features:
       - "Then each is accepted or rejected exactly as before"
     tags: [analytics, experiment-reports, unit]
     status: not-testable
-    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExistingTypesUnchanged. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."
+    notes: "analytics-experiment-reports: VERIFIED BY team-gateway/internal/edge/collector_test.go TestCollector_ExperimentExposureExistingTypesUnchanged. Not verifiable end to end: it needs a stubbed store fault, a repository fixture, a frozen clock or a code-level check that no public-edge call can produce."

@@ -18,13 +18,14 @@ features:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::A missing export is a configuration error once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A missing export file is a configuration error"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A missing export file is a configuration error passed on env docs-ai-data (2026-11-16)"
 - id: forecast.nightly-listing-key
   title: FNJ-6 A listing with history gets a 14-day key
   persona: seller
   priority: P1
-  summary: A listing with history gets a 14-day key with a 48 hour TTL (FNJ-6, FNJ-7).
+  summary: A listing with history gets a 14-day key (FNJ-6).
   entry_route: /
   services:
   - platform-forecast
@@ -33,13 +34,33 @@ features:
     data: Stack with Redis DB 3; platform-forecast:local image built.
   acceptance:
   - FNJ-6 A listing with history gets a 14-day key
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A listing with history gets a 14-day key"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A listing with history gets a 14-day key passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-key-ttl
+  title: FNJ-7 Keys expire after 48 hours
+  persona: seller
+  priority: P1
+  summary: A written listing key carries a 48 hour TTL.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
   - FNJ-7 Keys expire after 48 hours
   tags:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::A listing with history gets a 14-day key once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::Keys expire after 48 hours"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::Keys expire after 48 hours passed on env docs-ai-data (2026-11-16)"
 - id: forecast.nightly-no-paid-no-key
   title: FNJ-8 A listing without paid lines gets no key
   persona: seller
@@ -57,8 +78,9 @@ features:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::A listing without paid lines gets no key once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A listing without paid lines gets no key"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A listing without paid lines gets no key passed on env docs-ai-data (2026-11-16)"
 - id: forecast.nightly-cold-start
   title: FNJ-13 A short history is a cold start
   persona: seller
@@ -76,8 +98,9 @@ features:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::A short history is a cold start once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A short history is a cold start"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A short history is a cold start passed on env docs-ai-data (2026-11-16)"
 - id: forecast.nightly-label-honesty
   title: FNJ-14 A label never overstates the model
   persona: seller
@@ -95,8 +118,9 @@ features:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::A label never overstates the model once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A label never overstates the model"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A label never overstates the model passed on env docs-ai-data (2026-11-16)"
 - id: forecast.nightly-run-summary
   title: FNJ-15 The summary counts the run
   persona: seller
@@ -114,8 +138,9 @@ features:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::The summary counts the run once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::The summary counts the run"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::The summary counts the run passed on env docs-ai-data (2026-11-16)"
 - id: forecast.nightly-empty-export
   title: FNJ-16 An empty export writes nothing and succeeds
   persona: seller
@@ -133,8 +158,9 @@ features:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::An empty export writes nothing and succeeds once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::An empty export writes nothing and succeeds"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::An empty export writes nothing and succeeds passed on env docs-ai-data (2026-11-16)"
 - id: forecast.nightly-compose-hardened
   title: FNJ-18 The compose job runs as a non-root user
   persona: seller
@@ -152,8 +178,9 @@ features:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::The compose job is hardened once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::The compose job runs as a non-root user"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::The compose job runs as a non-root user passed on env docs-ai-data (2026-11-16)"
 - id: forecast.nightly-cronjob
   title: FNJ-19 The CronJob is scheduled after the export and isolated
   persona: seller
@@ -171,8 +198,9 @@ features:
   - analytics
   - batch
   - ml
-  status: planned
-  notes: red before implementation; will be covered_by forecast/nightly_forecast.feature::The CronJob is scheduled after the export and isolated once green
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::The CronJob is scheduled after the export and isolated"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::The CronJob is scheduled after the export and isolated passed on env docs-ai-data (2026-11-16)"
 - id: forecast.unit-only-paid-complete-days
   title: FNJ-1 Only paid lines before the as-of day are counted
   persona: guest

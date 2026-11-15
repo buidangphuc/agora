@@ -7,16 +7,18 @@ spec: plans/docs-ai-data/00-spec.md (Locked 2026-11-13)
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| docs-ai-data-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3a9d21916b42 | [x] |
-| forecast-nightly-job | platform-forecast | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 19b344b05766 | [x] |
-| analytics-forecast-serving | team-analytics | [docs-ai-data-contract, forecast-nightly-job] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d53c8e85412e | [x] |
-| recs-experiment-arms | team-ai | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 31f1eb885578 | [x] |
-| analytics-experiment-reports | team-analytics | [docs-ai-data-contract, analytics-forecast-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c06fea1873ba | [x] |
-| ai-assistant-grounding | team-ai | [docs-ai-data-contract, recs-experiment-arms] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6e5b9b48e616 | [x] |
-| ai-copilot-grounding | team-ai | [docs-ai-data-contract, ai-assistant-grounding] | 1 | pass | pass (1 PERM warning, false positive) | pass | ENGINE_DOWN (LLM fallback) | f1c635233431 | [x] |
-| seller-forecast-card | team-frontend-seller | [analytics-forecast-serving, ai-copilot-grounding] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c22f5e119ead | [x] |
-| admin-insights-panels | team-frontend-admin | [analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4f298a3bd310 | [x] |
-| buyer-ai-surfaces-ui | team-frontend | [ai-assistant-grounding, ai-copilot-grounding, analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 89bc443965e2 | [x] |
+| docs-ai-data-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3a9d21916b42 → 8365f87a8ba0 | [x] |
+| forecast-nightly-job | platform-forecast | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 19b344b05766 → 1ef28e2ca471 | [x] |
+| analytics-forecast-serving | team-analytics | [docs-ai-data-contract, forecast-nightly-job] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d53c8e85412e → 2b5ec0e327db | [x] |
+| recs-experiment-arms | team-ai | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 31f1eb885578 → d0d3b3fb68d1 | [x] |
+| analytics-experiment-reports | team-analytics | [docs-ai-data-contract, analytics-forecast-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c06fea1873ba → 7994db0f075c | [x] |
+| ai-assistant-grounding | team-ai | [docs-ai-data-contract, recs-experiment-arms] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6e5b9b48e616 → 343d735f6f25 | [x] |
+| ai-copilot-grounding | team-ai | [docs-ai-data-contract, ai-assistant-grounding] | 1 | pass | pass (1 PERM warning, false positive) | pass | ENGINE_DOWN (LLM fallback) | f1c635233431 → cbb14e16cbf4 | [x] |
+| seller-forecast-card | team-frontend-seller | [analytics-forecast-serving, ai-copilot-grounding] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c22f5e119ead → 1e60e2e9b35a | [x] |
+| admin-insights-panels | team-frontend-admin | [analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4f298a3bd310 → 76bde5374028 | [x] |
+| buyer-ai-surfaces-ui | team-frontend | [ai-assistant-grounding, ai-copilot-grounding, analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 89bc443965e2 → 8b93728ef3f4 | [x] |
+
+Digest update 2026-11-16 (converge): every slice's openspec/changes/<slice>/** changed (tasks.md ticks; VERIFIED BY citation lines in spec.md for forecast-nightly-job, ai-assistant-grounding, ai-copilot-grounding, admin-insights-panels and buyer-ai-surfaces-ui; renamed e2e scenario names in tasks.md); the digest cell shows old → new.
 
 decide.py was ENGINE_DOWN for every slice (no Kev engine or units file; system python lacks `yaml`). Each verdict is the spec-quality-reviewer's own checklist.
 

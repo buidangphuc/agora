@@ -70,7 +70,7 @@ Each product card rendered for a reply SHALL be wrapped in `TrackImpression` wit
 #### Scenario: The assistant accepted click reuses the reply provenance
 - **WHEN** the buyer clicks "Xem Ngay" on a card of the reply with `request_id` "r1"
 - **THEN** the queued `ai_interaction` has `impressionId = "r1"`, `listingId` = the card listing and `modelVersion` of that reply
-- **VERIFIED BY**: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `accepted carries reply provenance`; `platform-e2e/tests/e2e/features/frontend/ai_interaction_events.feature` `The assistant accepted click reuses the reply provenance`
+- **VERIFIED BY**: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `accepted carries reply provenance`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `The assistant accepted click reuses the reply provenance`
 
 #### Scenario: Copilot events carry the copilot response provenance
 - **WHEN** the seller loads suggestions whose response has `request_id` "c1" and then inserts and edits one
@@ -133,7 +133,7 @@ Each product card rendered for a reply SHALL be wrapped in `TrackImpression` wit
 #### Scenario: A buyer has no copilot
 - **WHEN** a buyer who is not the thread's seller (not the owner of the thread) opens the thread
 - **THEN** the "Gợi ý AI" button is absent and `chatCopilotAction` is never called
-- **VERIFIED BY**: `team-frontend/src/features/chat/ChatView.test.tsx` `buyer quick replies emit nothing`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `Not the owner of the thread, no copilot and no copilot events`
+- **VERIFIED BY**: `team-frontend/src/features/chat/ChatView.test.tsx` `buyer quick replies emit nothing`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `A buyer has no copilot`
 
 ### Requirement: Flag variants are evaluated on the server and exposure is reported once
 
