@@ -2093,3 +2093,59 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."
+
+  - id: seller.terms-consent.link-opens-seller-terms
+    title: "Terms link opens the seller terms page"
+    persona: buyer
+    priority: P2
+    summary: "Terms link opens the seller terms page"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "On /seller/new the terms link targets the buyer app /dieu-khoan-nguoi-ban in a new tab and the page returns 200"
+    tags: [seller, legal]
+    status: planned
+
+  - id: seller.terms-consent.accepting-records-ledger-row
+    title: "Accepting seller terms records a ledger row"
+    persona: buyer
+    priority: P1
+    summary: "Accepting seller terms records a ledger row"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "After BecomeSeller succeeds ListMyConsents returns a SELLER_TERMS row with the seller terms version and source seller_onboarding"
+    tags: [seller, legal]
+    status: planned
+
+  - id: seller.terms-consent.denied-writes-no-row
+    title: "Denied BecomeSeller writes no consent row"
+    persona: buyer
+    priority: P1
+    summary: "Denied BecomeSeller writes no consent row"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When BecomeSeller is denied no SELLER_TERMS row is written"
+    tags: [seller, legal]
+    status: planned
+
+  - id: seller.terms-consent.write-failure-keeps-seller
+    title: "Consent write failure does not undo seller status"
+    persona: buyer
+    priority: P1
+    summary: "Consent write failure does not undo seller status"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the consent write fails after BecomeSeller succeeds the user is still a seller and sees no error"
+    tags: [seller, legal]
+    status: planned

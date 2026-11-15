@@ -3,11 +3,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ConsentPurpose } from "@/generated/platform/identity/v1/identity_pb.js";
+
 import { acceptSellerTerms } from "./onboarding";
 
 const seen = vi.hoisted(() => ({
   calls: [] as { headers: Headers; message: unknown; method: string }[],
-  reply: (() => ({})) as () => unknown,
+  reply: ((_m: string) => ({})) as (m: string) => unknown,
 }));
 
 vi.mock("@connectrpc/connect-node", () => ({
@@ -31,7 +33,7 @@ vi.mock("@connectrpc/connect-node", () => ({
           method: method.name,
         });
         return {
-          message: seen.reply(),
+          message: seen.reply(method.name),
           header: new Headers(),
           trailer: new Headers(),
         };
@@ -95,13 +97,83 @@ function fail(code: Code, msg = "boom") {
   };
 }
 
+describe("acceptSellerTerms consent ledger", () => {
+  it("[Accepting seller terms records a ledger row] RecordConsent carries one SELLER_TERMS record after BecomeSeller", async () => {
+    await acceptSellerTerms(VERSION);
+    const consent = seen.calls.filter((c) => c.method === "RecordConsent");
+    expect(consent).toHaveLength(1);
+    expect(seen.calls[0].method).toBe("BecomeSeller");
+    const records = (consent[0].message as { records: unknown[] }).records;
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      purpose: ConsentPurpose.SELLER_TERMS,
+      granted: true,
+      version: VERSION,
+      source: "seller_onboarding",
+    });
+    expect(consent[0].headers.get("authorization")).toMatch(/^Bearer .+/);
+    expect(redirect).toHaveBeenCalledWith("/seller/new");
+  });
+
+  it("[Accepting seller terms records a ledger row] the displayed version is the recorded version", async () => {
+    await acceptSellerTerms("2027-01-01");
+    const consent = seen.calls.find((c) => c.method === "RecordConsent");
+    expect(
+      (consent?.message as { records: { version: string }[] }).records[0]
+        .version,
+    ).toBe("2027-01-01");
+  });
+
+  it("[Denied BecomeSeller writes no consent row] permission denied never calls RecordConsent", async () => {
+    fail(Code.PermissionDenied, "account restricted");
+    const result = await acceptSellerTerms(VERSION);
+    expect(result).toEqual({ error: "denied" });
+    expect(seen.calls.map((c) => c.method)).toEqual(["BecomeSeller"]);
+  });
+
+  it("[Denied BecomeSeller writes no consent row] an empty token never calls RecordConsent", async () => {
+    seen.reply = () => ({ result: { token: "" } });
+    await acceptSellerTerms(VERSION);
+    expect(seen.calls.some((c) => c.method === "RecordConsent")).toBe(false);
+  });
+
+  it("[Consent write failure does not undo seller status] RecordConsent UNAVAILABLE still sets the session cookie and redirects without error", async () => {
+    seen.reply = (m) => {
+      if (m === "RecordConsent")
+        throw new ConnectError("ledger down", Code.Unavailable);
+      return { result: { token: NEW } };
+    };
+    const result = await acceptSellerTerms(VERSION);
+    expect(seen.calls.some((c) => c.method === "RecordConsent")).toBe(true);
+    const sets = await setCookies();
+    expect(sets.map((c) => c[0])).toEqual(["seller_session"]);
+    expect(sets[0][1]).toBe(NEW);
+    expect(redirect).toHaveBeenCalledWith("/seller/new");
+    expect(JSON.stringify(result ?? null)).not.toContain("ledger down");
+    expect((result as { error?: string } | undefined)?.error ?? "").toBe("");
+  });
+
+  it("[Consent write failure does not undo seller status] a non-connect RecordConsent failure is also swallowed", async () => {
+    seen.reply = (m) => {
+      if (m === "RecordConsent") throw new Error("dns");
+      return { result: { token: NEW } };
+    };
+    await acceptSellerTerms(VERSION);
+    expect(redirect).toHaveBeenCalledWith("/seller/new");
+    expect((await setCookies()).map((c) => c[0])).toEqual(["seller_session"]);
+  });
+});
+
 describe("acceptSellerTerms", () => {
   it("[Seller onboarding UI: accepting sends the displayed version and updates the session cookie] accept sets only the session cookie and redirects", async () => {
     await acceptSellerTerms(VERSION);
 
     const rpcs = seen.calls.filter((c) => c.method === "BecomeSeller");
     expect(rpcs).toHaveLength(1);
-    expect(seen.calls).toHaveLength(1);
+    expect(seen.calls.map((c) => c.method)).toEqual([
+      "BecomeSeller",
+      "RecordConsent",
+    ]);
     expect(rpcs[0].message).toMatchObject({ termsVersion: VERSION });
     expect(rpcs[0].headers.get("authorization")).toBe(`Bearer ${OLD}`);
 

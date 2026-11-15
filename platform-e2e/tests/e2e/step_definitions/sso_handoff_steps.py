@@ -20,6 +20,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
+from src.constants import legal_versions as legal
 from src.core.base_page import wait_streamed
 from tests.e2e.support import audit_support as aud
 from tests.e2e.support import handoff_support as ho
@@ -61,7 +62,7 @@ def _new_session_owner(world: World, role: str, username: str | None = None) -> 
         owner = ho.new_user(role)
     else:
         password = SETTINGS.seed_password
-        resp = ue.call(ue.REGISTER, {"username": username, "password": password, "role": role})
+        resp = ue.call(ue.REGISTER, {"username": username, "password": password, "role": role, **legal.versions()})
         owner = {"username": username, "password": password, "role": role}
         if resp.status_code != 200:
             assert ue.login_raw(username, password).status_code == 200, f"cannot sign in {username[:20]}"

@@ -49,6 +49,18 @@ Implement OpenSpec change `identity-legal-consent` test-first per its tasks.md; 
 - platform-e2e/tests/e2e/step_definitions/test_order_receipt_completion.py
 - platform-e2e/tests/e2e/step_definitions/session_continuity_steps.py
 - platform-e2e/tests/e2e/step_definitions/referral_reward_steps.py
+- widened (P1):
+  - openspec/changes/identity-legal-consent/specs/identity-consent/spec.md — the slice's own OpenSpec folder; only VERIFIED BY citations set to the real legal_consent.feature scenario names (no requirement or scenario wording change)
+  - platform-e2e/pyproject.toml — pytest marker registration (legal_consent, legal_versions_override)
+  - platform-e2e/src/constants/legal_versions.py — e2e support constant of this change; current Terms/Privacy versions every Register body now carries
+  - platform-e2e/tests/e2e/step_definitions/listing_moderation_ui_steps.py — existing e2e step directly broken by the new rule (Register requires terms_version/privacy_version)
+  - platform-e2e/tests/e2e/step_definitions/referral_invite_steps.py — existing e2e step directly broken by the new rule (Register requires terms_version/privacy_version)
+  - platform-e2e/tests/e2e/step_definitions/session_client_context_steps.py — existing e2e step directly broken by the new rule (Register requires terms_version/privacy_version)
+  - platform-e2e/tests/e2e/step_definitions/session_refresh_steps.py — existing e2e step directly broken by the new rule (Register requires terms_version/privacy_version)
+  - platform-e2e/tests/e2e/step_definitions/sso_handoff_steps.py — existing e2e step directly broken by the new rule (Register requires terms_version/privacy_version)
+- widened (user-approved 2026-11-15):
+  - team-gateway/internal/edge/server.go — PrivacyService mux registration needed by the forwarder
+  - team-gateway/internal/upstream/clients.go — PrivacyService client dial needed by the forwarder
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-identity --vet`

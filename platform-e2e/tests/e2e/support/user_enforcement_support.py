@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 
 from config.settings import get_settings
+from src.constants import legal_versions as legal
 from src.utils import data as fake
 from tests.e2e.support import audit_support as aud
 from tests.e2e.support.world import World
@@ -86,7 +87,7 @@ def register_user(role: str = "buyer", prefix: str = "ue") -> dict:
     """Register a fresh user and log in once. Returns username, password, id, token, refresh."""
     username = fake.unique_username(prefix)
     password = get_settings().seed_password
-    resp = call(REGISTER, {"username": username, "password": password, "role": role})
+    resp = call(REGISTER, {"username": username, "password": password, "role": role, **legal.versions()})
     assert resp.status_code == 200, f"Register({role}) failed: {resp.status_code} {resp.text}"
     user = {"username": username, "password": password, "role": role}
     user.update(login(user))

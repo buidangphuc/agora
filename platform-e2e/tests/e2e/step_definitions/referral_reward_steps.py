@@ -7,6 +7,7 @@ import httpx
 from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
+from src.constants import legal_versions as legal
 from tests.e2e.support import oic_order_support as s
 from tests.e2e.support import order_lifecycle_support as ol
 from tests.e2e.support import prm_rma_support as rma
@@ -62,6 +63,7 @@ def _register(oic, name: str, code: str | None = None) -> s.Actor:
         "username": f"ref_{uuid.uuid4().hex[:10]}",
         "password": get_settings().seed_password,
         "role": "buyer",
+        **legal.versions(),
     }
     if code is not None:
         body["referralCode"] = code

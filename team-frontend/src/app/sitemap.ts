@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { LEGAL_SLUGS } from "@/features/legal/content";
 import { listCategories } from "@/lib/gateway/listings";
 import { readSitemapListings } from "@/lib/gateway/sitemap";
 import { absoluteUrl } from "@/lib/seo";
@@ -15,6 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const l of listings) if (l.sellerId) shops.add(l.sellerId);
   return [
     { url: absoluteUrl("/") },
+    ...LEGAL_SLUGS.map((s) => ({ url: absoluteUrl(`/${s}`) })),
     ...categories.map((c) => ({
       url: absoluteUrl(`/search?category=${encodeURIComponent(c.id)}`),
     })),

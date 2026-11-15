@@ -17,6 +17,10 @@ Implement OpenSpec change `domain-seller-erasure` test-first per its tasks.md; c
 - platform-e2e/tests/e2e/features/domain/seller_erasure.feature
 - platform-e2e/tests/e2e/step_definitions/test_seller_erasure.py
 - platform-e2e/tests/e2e/step_definitions/seller_erasure_steps.py
+- widened (P1):
+  - openspec/changes/domain-seller-erasure/specs/domain-seller-erasure/spec.md — VERIFIED BY citations replaced with real test names (no requirement/scenario wording change)
+  - openspec/changes/domain-seller-erasure/tasks.md — task ticks for this change's own OpenSpec folder
+  - platform-e2e/tests/e2e/support/seller_erasure_support.py — e2e support file of this change, named differently from the packet
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-domain --vet`

@@ -15,6 +15,7 @@ import { EngagementService } from "@/generated/platform/engagement/v1/engagement
 import {
   AddressService,
   AuthService,
+  PrivacyService,
 } from "@/generated/platform/identity/v1/identity_connect.js";
 import { ListingService } from "@/generated/platform/listing/v1/listing_connect.js";
 import {
@@ -54,6 +55,7 @@ export function makeClients(
     listing: createPromiseClient(ListingService, transport),
     auth: createPromiseClient(AuthService, transport),
     address: createPromiseClient(AddressService, transport),
+    privacy: createPromiseClient(PrivacyService, transport),
     engagement: createPromiseClient(EngagementService, transport),
     cart: createPromiseClient(CartService, transport),
     order: createPromiseClient(OrderService, transport),

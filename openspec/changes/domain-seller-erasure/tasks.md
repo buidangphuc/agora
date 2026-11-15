@@ -15,7 +15,7 @@ Depends on slice trust-legal-contract (generated stubs for `UserErased`; copy `i
 
 ## 2. E2E track (platform-e2e; FEATURES.yaml by e2e-author)
 
-- [ ] 2.1 Feature file `domain/seller_erasure.feature` covering every scenario in `specs/domain-seller-erasure/spec.md`; replace each `VERIFIED BY: TBD` with its path and scenario title. Produce `UserErased` through the real identity deletion path once `identity-account-deletion` has landed, otherwise a Kafka test producer on `identity.events` (scenarios: all)
-- [ ] 2.2 Step "listing leaves search within 60 s and GetListing is NotFound" reusing the seller-hold steps (scenario: Deleted listings leave the store)
-- [ ] 2.3 Step that reads `identity.events.team-domain.dlq` for the malformed-event case (scenario: Malformed event goes to the DLQ, A poison erasure event does not block seller hold)
-- [ ] 2.4 `team-domain/FEATURES.yaml` entry `listing.seller_erasure` (e2e-author)
+- [x] 2.1 Feature file `domain/seller_erasure.feature` covering every scenario in `specs/domain-seller-erasure/spec.md`; replace each `VERIFIED BY: TBD` with its path and scenario title. Produce `UserErased` through the real identity deletion path once `identity-account-deletion` has landed, otherwise a Kafka test producer on `identity.events` (scenarios: all)
+- [x] 2.2 Step "listing leaves search within 60 s and GetListing is NotFound" reusing the seller-hold steps (scenario: Deleted listings leave the store)
+- [x] 2.3 Step that reads `identity.events.team-domain.dlq` for the malformed-event case (scenario: Malformed event goes to the DLQ, A poison erasure event does not block seller hold)
+- [x] 2.4 `team-domain/FEATURES.yaml` entry `listing.seller_erasure` (e2e-author)

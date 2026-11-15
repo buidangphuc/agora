@@ -20,6 +20,7 @@ from pytest_bdd import given, parsers, then, when
 from config.settings import get_settings
 from src.api.services import AuthService, SessionService
 from src.constants import gateway_endpoints as ep
+from src.constants import legal_versions as legal
 from src.utils import data as fake
 from tests.e2e.flows import session_id_of
 from tests.e2e.support.world import World
@@ -115,7 +116,10 @@ def login_keep(world: World) -> None:
 @when("a new buyer registers directly at the gateway")
 def register_keep(world: World) -> None:
     username, password = _new_buyer(world)
-    resp = _post(ep.AUTH_REGISTER, {"username": username, "password": password, "role": "buyer"})
+    resp = _post(
+        ep.AUTH_REGISTER,
+        {"username": username, "password": password, "role": "buyer", **legal.versions()},
+    )
     world.state.extra["last_result"] = _result(resp)
 
 

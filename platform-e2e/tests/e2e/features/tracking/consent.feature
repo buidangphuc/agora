@@ -13,14 +13,14 @@ Feature: Consent banner, Consent Mode v2 gating of GTM, and edge consent stampin
 
   Scenario: Accept analytics loads GTM and updates consent
     When a visitor with no consent cookie opens the home page
-    And the visitor clicks "Accept all" on the consent banner
+    And the visitor clicks "Chấp nhận tất cả" on the consent banner
     Then window.dataLayer holds a consent default with every signal denied followed by a consent update with analytics_storage granted
     And exactly 1 GTM script is injected
     And the consent banner is removed from the DOM
 
   Scenario: Rejected analytics never loads GTM
     When a visitor with no consent cookie opens the home page
-    And the visitor clicks "Reject all" on the consent banner
+    And the visitor clicks "Từ chối tất cả" on the consent banner
     And the visitor reloads the page and waits for the tracking queue idle window
     Then the DOM has 0 googletagmanager.com scripts
     And the browser issued 0 requests to googletagmanager.com and google-analytics.com
@@ -29,7 +29,7 @@ Feature: Consent banner, Consent Mode v2 gating of GTM, and edge consent stampin
   Scenario: Rejected visitor still sends a beacon
     Given a listing has been seeded via the API
     When a visitor with no consent cookie opens the home page
-    And the visitor clicks "Reject all" on the consent banner
+    And the visitor clicks "Từ chối tất cả" on the consent banner
     And the visitor views the seeded listing and waits for the tracking queue idle window
     Then at least one POST to /api/track was sent
     And no beacon body has a consent key
@@ -38,7 +38,7 @@ Feature: Consent banner, Consent Mode v2 gating of GTM, and edge consent stampin
   Scenario: Consent change applies to later beacons only
     Given a listing has been seeded via the API
     When a visitor with no consent cookie opens the home page
-    And the visitor clicks "Reject all" on the consent banner
+    And the visitor clicks "Từ chối tất cả" on the consent banner
     And the visitor views the seeded listing and waits for the tracking queue idle window
     And the visitor grants personalization through the Cookie settings link
     And the visitor views the seeded listing and waits for the tracking queue idle window
@@ -49,7 +49,7 @@ Feature: Consent banner, Consent Mode v2 gating of GTM, and edge consent stampin
   Scenario: Rejected buyer is flagged personalization-denied
     Given a listing has been seeded via the API
     When a visitor with no consent cookie opens the home page
-    And the visitor clicks "Reject all" on the consent banner
+    And the visitor clicks "Từ chối tất cả" on the consent banner
     And the visitor views the seeded listing and waits for the tracking queue idle window
     Then every event published for the seeded listing carries consent personalization false and version 1
 
@@ -67,6 +67,6 @@ Feature: Consent banner, Consent Mode v2 gating of GTM, and edge consent stampin
   Scenario: No ecommerce push without analytics consent
     Given a listing has been seeded via the API
     When a visitor with no consent cookie opens the home page
-    And the visitor clicks "Reject all" on the consent banner
+    And the visitor clicks "Từ chối tất cả" on the consent banner
     And the visitor views the seeded listing and waits for the tracking queue idle window
     Then window.dataLayer holds 0 ecommerce events and still holds the consent default

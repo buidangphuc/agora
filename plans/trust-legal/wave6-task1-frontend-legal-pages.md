@@ -44,6 +44,21 @@ Implement OpenSpec change `frontend-legal-pages` test-first per its tasks.md; co
 - platform-e2e/tests/e2e/step_definitions/test_seller_terms_consent.py
 - platform-e2e/tests/e2e/step_definitions/legal_ui_steps.py
 - platform-e2e/src/pages/register_page.py
+- widened (P1):
+  - openspec/changes/frontend-legal-pages/specs/frontend-legal-pages/spec.md — own OpenSpec folder: VERIFIED BY citations only
+  - openspec/changes/frontend-legal-pages/tasks.md — own OpenSpec folder: task ticks
+  - platform-e2e/pyproject.toml — pytest marker registration for this change's features
+  - platform-e2e/tests/e2e/step_definitions/frontend_legal_steps.py — e2e step file of this change (named differently from packet)
+  - platform-e2e/tests/e2e/step_definitions/seller_terms_consent_steps.py — e2e step file of this change (named differently from packet)
+  - platform-e2e/tests/e2e/support/legal_ui_support.py — e2e support file of this change
+  - platform-e2e/src/pages/admin_campaigns_page.py — page object broken by Vietnamese banner title
+  - platform-e2e/src/pages/admin_moderation_page.py — page object broken by Vietnamese banner title
+  - platform-e2e/src/pages/admin_vouchers_page.py — page object broken by Vietnamese banner title
+  - platform-e2e/tests/e2e/features/tracking/consent.feature — existing e2e broken by Vietnamese banner labels
+  - platform-e2e/tests/e2e/features/tracking/ga4_destination.feature — existing e2e broken by Vietnamese banner labels
+  - platform-e2e/tests/e2e/step_definitions/consent_steps.py — existing steps broken by Vietnamese banner labels
+  - platform-e2e/tests/e2e/step_definitions/ga4_destination_steps.py — existing steps broken by Vietnamese banner labels
+  - team-frontend/src/features/tracking/AnalyticsProvider.test.tsx — existing unit test broken by Vietnamese banner labels
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend` and `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller` (`npm ci && npm run proto` first)
