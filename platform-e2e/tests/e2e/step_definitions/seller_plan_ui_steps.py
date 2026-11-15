@@ -38,8 +38,12 @@ def _cards(world: World):
     return world.page.locator("main .grid > div.grid")
 
 
+_TIER_HEADINGS = {"FREE": "Miễn phí", "PRO": "Pro", "PREMIUM": "Premium"}
+
+
 def _card(world: World, name: str):
-    return _cards(world).filter(has=world.page.get_by_text(name, exact=True))
+    heading = world.page.get_by_role("heading", name=_TIER_HEADINGS.get(name, name), exact=True)
+    return _cards(world).filter(has=heading)
 
 
 def _confirm(world: World):

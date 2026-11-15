@@ -5,8 +5,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
-import { formatPeriodEnd } from "./SubscribeButton";
 import { cancelSubscriptionAction } from "./actions";
+import { formatPeriodEnd } from "./periodEnd";
 import { usePending } from "./usePending";
 
 export function CancelSubscriptionButton({

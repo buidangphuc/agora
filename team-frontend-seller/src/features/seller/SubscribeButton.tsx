@@ -9,14 +9,10 @@ import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/components/ui/format";
 import { subscribeAction } from "./actions";
+import { formatPeriodEnd } from "./periodEnd";
 import { usePending } from "./usePending";
 
 export type PlanDirection = "upgrade" | "downgrade" | "current";
-
-export function formatPeriodEnd(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
-}
 
 const INSUFFICIENT = "Số dư có thể rút không đủ để trả gói này.";
 

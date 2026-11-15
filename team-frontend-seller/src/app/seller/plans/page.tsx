@@ -8,8 +8,8 @@ import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
 import { CancelSubscriptionButton } from "@/features/seller/CancelSubscriptionButton";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
-import { formatPeriodEnd } from "@/features/seller/SubscribeButton";
 import { SubscribeButton } from "@/features/seller/SubscribeButton";
+import { formatPeriodEnd } from "@/features/seller/periodEnd";
 import {
   getEntitlements,
   getMySubscription,
