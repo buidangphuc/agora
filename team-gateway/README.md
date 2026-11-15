@@ -50,6 +50,10 @@ authenticated principal (`UNAUTHENTICATED` for anonymous); `BecomeSeller` needs 
 (`UNAUTHENTICATED` for anonymous, `PERMISSION_DENIED` otherwise); `PeekHandoffCode` (read) and
 `RedeemHandoffCode` (write) are open, the code is the credential.
 
+Verification extras at the edge (`internal/edge/verification.go`): `CreateKycUploadUrl` needs an
+authenticated principal (`UNAUTHENTICATED` for anonymous); `ListKycSubmissions`,
+`GetKycDocumentUrl` and `ReviewKyc` need the `admin` scope; `GetPublicBadges` is open, anonymous included.
+
 ### Authorization at the edge
 
 For every unary RPC the interceptor chain runs, outermost first: request id, auth, logging,
@@ -267,7 +271,7 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 - The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
   or `/api/admin/metrics`, which read only the `Authorization` header.
 - Revocation is fail-open and per replica. Edge-side admin gating is the `adminProcedures` map
-  in `policy.go` (21 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
+  in `policy.go` (23 procedures: `ReviewKyc`, `ListKycSubmissions`, `GetKycDocumentUrl`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
   `ResolveReport`, `QueryAuditLog`, `ModerateListing`, `ListModerationQueue`, `ForceFailSaga`,
   `AccountAdmin` `ListUsers` / `SetUserStatus`, four analytics reports, and promotion
   `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).
