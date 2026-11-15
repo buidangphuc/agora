@@ -42,7 +42,7 @@ DEFAULT = "buyer"
 def _psql(sql: str) -> str:
     out = subprocess.run(
         [
-            "docker", "exec", os.getenv("BCO_POSTGRES_CONTAINER", "mainx-postgres-1"),
+            "docker", "exec", os.getenv("BCO_POSTGRES_CONTAINER") or os.getenv("POSTGRES_CONTAINER", "mainx-postgres-1"),
             "psql", "-U", "postgres", "-d", "listing_db", "-v", "ON_ERROR_STOP=1", "-At", "-c", sql,
         ],
         capture_output=True, text=True, timeout=60, check=True,
@@ -175,7 +175,9 @@ def _update_listing(w: OicWorld, listing_id: str, **changes: Any) -> None:
 
 def _stock(w: OicWorld, listing_id: str) -> int:
     return int(
-        ok(post(w, None, LISTING, "GetListing", {"id": listing_id}))["listing"].get("stock", 0)
+        ok(post(w, _seller(w), LISTING, "GetListing", {"id": listing_id}))["listing"].get(
+            "stock", 0
+        )
     )
 
 
