@@ -14,10 +14,9 @@ describe("SellerPagination cursor mode", () => {
       />,
     );
     const nav = screen.getByRole("navigation", { name: "Phân trang" });
-    expect(within(nav).getByRole("link", { name: "Trang sau" })).toHaveAttribute(
-      "href",
-      "/seller/orders?cursor=c20&page=2",
-    );
+    expect(
+      within(nav).getByRole("link", { name: "Trang sau" }),
+    ).toHaveAttribute("href", "/seller/orders?cursor=c20&page=2");
     expect(within(nav).getByText("Trang 1")).toHaveAttribute(
       "aria-current",
       "page",
@@ -35,10 +34,9 @@ describe("SellerPagination cursor mode", () => {
       />,
     );
     const nav = screen.getByRole("navigation", { name: "Phân trang" });
-    expect(within(nav).getByRole("link", { name: "Trang đầu" })).toHaveAttribute(
-      "href",
-      "/seller/orders",
-    );
+    expect(
+      within(nav).getByRole("link", { name: "Trang đầu" }),
+    ).toHaveAttribute("href", "/seller/orders");
     expect(within(nav).getByText("Trang 2")).toHaveAttribute(
       "aria-current",
       "page",
@@ -55,9 +53,7 @@ describe("SellerPagination cursor mode", () => {
       />,
     );
     expect(screen.queryByText("Trang sau")).toBeNull();
-    expect(
-      screen.getByRole("link", { name: "Trang đầu" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Trang đầu" })).toBeInTheDocument();
   });
 
   it("Last page has no next link: a single page renders no pagination", () => {

@@ -68,13 +68,17 @@ describe("cursor paging params", () => {
   });
 
   it("Next page uses the returned cursor: buildListHref keeps cursor and page", () => {
-    expect(
-      buildListHref("/seller/orders", { cursor: "c20", page: 2 }),
-    ).toBe("/seller/orders?cursor=c20&page=2");
+    expect(buildListHref("/seller/orders", { cursor: "c20", page: 2 })).toBe(
+      "/seller/orders?cursor=c20&page=2",
+    );
   });
 
   it("Changing tab or search resets the position: an href built without cursor and page has neither", () => {
-    const { cursor: _c, page: _p, ...rest } = parseListParams(
+    const {
+      cursor: _c,
+      page: _p,
+      ...rest
+    } = parseListParams(
       { cursor: "c40", page: "3", q: "ab", status: "shipped" },
       STATUSES,
     );

@@ -750,7 +750,9 @@ describe("listSellerOrdersPage", () => {
     stubOrder({
       listSellerOrders: vi
         .fn()
-        .mockRejectedValue(new ConnectError("bad cursor", Code.InvalidArgument)),
+        .mockRejectedValue(
+          new ConnectError("bad cursor", Code.InvalidArgument),
+        ),
     });
     await expect(
       listSellerOrdersPage({ cursor: "not-a-cursor" }),
@@ -767,8 +769,12 @@ describe("listSellerOrdersPage", () => {
     await expect(
       listSellerOrdersPage({ query: "SECRET-needle-42" }),
     ).rejects.toThrow();
-    const out = spies.flatMap((s) => s.mock.calls).flat().map(String).join(" ");
-    spies.forEach((s) => s.mockRestore());
+    const out = spies
+      .flatMap((s) => s.mock.calls)
+      .flat()
+      .map(String)
+      .join(" ");
+    for (const s of spies) s.mockRestore();
     expect(out).not.toContain("SECRET-needle-42");
   });
 

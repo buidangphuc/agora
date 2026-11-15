@@ -167,9 +167,9 @@ describe("/seller/orders", () => {
     expect(listSellerOrders).not.toHaveBeenCalled();
     expect(screen.getAllByRole("link", { name: "Chi tiết" })).toHaveLength(20);
     const tabs = screen.getByRole("navigation", { name: "Tabs" });
-    expect(within(tabs).getByRole("link", { name: /Tất cả/ })).toHaveTextContent(
-      "5000",
-    );
+    expect(
+      within(tabs).getByRole("link", { name: /Tất cả/ }),
+    ).toHaveTextContent("5000");
     expect(lastRequest().pageSize).toBe(20);
     expect(lastRequest().cursor ?? "").toBe("");
     expect(lastRequest().statuses ?? []).toEqual([]);
@@ -218,11 +218,13 @@ describe("/seller/orders", () => {
     );
     await renderList({ status: "shipped", q: "ab12cd34" });
     expect(lastRequest().query).toBe("ab12cd34");
-    expect(screen.getByRole("link", { name: "#ab12cd34" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: `#${"ab12cd34"}` }),
+    ).toBeInTheDocument();
     const tabs = screen.getByRole("navigation", { name: "Tabs" });
-    expect(within(tabs).getByRole("link", { name: /Tất cả/ })).toHaveTextContent(
-      "11",
-    );
+    expect(
+      within(tabs).getByRole("link", { name: /Tất cả/ }),
+    ).toHaveTextContent("11");
     expect(
       within(tabs).getByRole("link", { name: /Chờ xử lý/ }),
     ).toHaveTextContent("5");
@@ -258,10 +260,9 @@ describe("/seller/orders", () => {
     expect(screen.getByRole("link", { name: "#ord21" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "#ord1" })).toBeNull();
     const nav = screen.getByRole("navigation", { name: "Phân trang" });
-    expect(within(nav).getByRole("link", { name: "Trang đầu" })).toHaveAttribute(
-      "href",
-      "/seller/orders",
-    );
+    expect(
+      within(nav).getByRole("link", { name: "Trang đầu" }),
+    ).toHaveAttribute("href", "/seller/orders");
     expect(within(nav).getByText("Trang 2")).toBeInTheDocument();
   });
 
@@ -365,8 +366,12 @@ describe("/seller/orders", () => {
     document.body.innerHTML = "";
     vi.mocked(listSellerOrdersPage).mockRejectedValue(new Error("down"));
     await renderList({ q: secret });
-    const out = spies.flatMap((s) => s.mock.calls).flat().map(String).join(" ");
-    spies.forEach((s) => s.mockRestore());
+    const out = spies
+      .flatMap((s) => s.mock.calls)
+      .flat()
+      .map(String)
+      .join(" ");
+    for (const s of spies) s.mockRestore();
     expect(out).not.toContain(secret);
   });
 
