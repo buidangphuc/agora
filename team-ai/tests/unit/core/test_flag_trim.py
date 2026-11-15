@@ -75,6 +75,7 @@ def test_switches_are_the_five_that_remain():
         "CHAT_BACKEND",
         "SCREEN_BACKEND",  # ai-listing-screen: mock|llm_router selector
         "ASSISTANT_BACKEND",  # ai-assistant-grounding: mock|llm_router selector
+        "COPILOT_BACKEND",  # ai-copilot-grounding: mock|llm_router selector
     }
     assert "AI_USE_SCOPE_REQUIRED" in Settings.model_fields
 

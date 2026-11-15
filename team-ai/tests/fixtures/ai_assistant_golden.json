@@ -1062,10 +1062,11 @@
       "rag": null,
       "response": {
         "quick_replies": [
-          "Dạ chào bạn, sản phẩm bên shop hiện vẫn còn sẵn hàng ạ! Bạn đặt sớm để shop đóng gói gửi đi ngay trong ngày nhé.",
-          "Chào bạn, hàng luôn có sẵn tại kho và được kiểm tra kỹ trước khi gửi. Bạn cần shop tư vấn thêm về size hay màu sắc không ạ?",
-          "Dạ shop còn bạn nhé! Mọi đơn đặt trước 16h hôm nay sẽ được giao cho đơn vị vận chuyển ngay ạ."
-        ]
+          "Dạ chào bạn, shop kiểm tra tình trạng sản phẩm rồi phản hồi bạn sớm nhé ạ.",
+          "Chào bạn, bạn cho shop xin thêm size hoặc màu bạn quan tâm để shop kiểm tra giúp bạn ạ.",
+          "Dạ bạn chờ shop một chút để xác nhận hàng trong kho rồi báo lại bạn nhé!"
+        ],
+        "model_version": "rules-v1"
       }
     },
     {
@@ -1079,10 +1080,11 @@
       "rag": null,
       "response": {
         "quick_replies": [
-          "Dạ chào bạn, shop gửi hàng từ kho ngay trong ngày. Khu vực nội thành nhận sau 1-2 ngày, ngoại tỉnh khoảng 2-3 ngày làm việc ạ.",
-          "Chào bạn, shop có hỗ trợ giao hàng hỏa tốc trong 2 giờ hoặc chuyển phát nhanh. Bạn đặt hàng để shop ưu tiên xử lý sớm nhé!",
-          "Dạ thời gian giao trung bình từ 1-3 ngày tùy khu vực ạ. Bạn có thể theo dõi trực tiếp lộ trình đơn hàng trên ứng dụng nha!"
-        ]
+          "Dạ chào bạn, thời gian giao hàng phụ thuộc vào khu vực nhận. Bạn cho shop xin địa chỉ nhận hàng để shop kiểm tra giúp bạn nhé ạ.",
+          "Chào bạn, bạn gửi shop địa chỉ nhận hàng, shop sẽ xác nhận với đơn vị vận chuyển và báo lại bạn ạ.",
+          "Dạ bạn có thể theo dõi lộ trình đơn hàng trên ứng dụng sau khi đặt nha. Bạn cho shop xin địa chỉ để shop hỗ trợ thêm ạ!"
+        ],
+        "model_version": "rules-v1"
       }
     },
     {
@@ -1097,7 +1099,8 @@
           "Dạ giá trên sản phẩm hiện đã là mức giá ưu đãi tốt nhất của shop rồi ạ. Bạn nhớ vào trang chủ shop thu thập thêm voucher giảm giá và mã freeship nhé!",
           "Chào bạn, hiện shop đang có chương trình tặng mã giảm giá theo dõi shop và voucher cho đơn hàng mới. Bạn áp dụng ngay ở bước thanh toán nha!",
           "Dạ nếu bạn mua số lượng nhiều, bạn nhắn tin số lượng cụ thể để shop gửi bạn bảng giá ưu đãi kèm quà tặng thêm nhé!"
-        ]
+        ],
+        "model_version": "rules-v1"
       }
     },
     {
@@ -1109,10 +1112,11 @@
       "rag": null,
       "response": {
         "quick_replies": [
-          "Dạ shop cam kết sản phẩm 100% chính hãng, có bảo hành đầy đủ và hỗ trợ đổi trả miễn phí trong 7 ngày nếu có lỗi từ nhà sản xuất ạ!",
+          "Dạ shop cam kết sản phẩm 100% chính hãng, có bảo hành đầy đủ và hỗ trợ đổi trả theo chính sách của shop nếu có lỗi từ nhà sản xuất ạ!",
           "Chào bạn, sản phẩm chuẩn như mô tả và hình ảnh shop đăng. Bạn được kiểm tra hàng thoải mái trước khi thanh toán nên hoàn toàn yên tâm nhé!",
           "Dạ sản phẩm đi kèm phiếu bảo hành chính hãng và tem niêm phong. Shop luôn đặt uy tín và sự hài lòng của khách hàng lên hàng đầu ạ."
-        ]
+        ],
+        "model_version": "rules-v1"
       }
     },
     {
@@ -1127,7 +1131,8 @@
           "Dạ bạn cho shop xin thêm thông tin chiều cao và cân nặng để shop tư vấn chuẩn size nhất cho bạn nhé!",
           "Chào bạn, mẫu này form chuẩn regular/oversize thoải mái. Nếu bạn thích mặc rộng rãi một chút có thể tăng 1 size nha!",
           "Dạ bạn xem bảng quy đổi kích thước ở phần mô tả sản phẩm, hoặc nhắn tin số đo 3 vòng để shop chọn size vừa vặn nhất cho bạn ạ."
-        ]
+        ],
+        "model_version": "rules-v1"
       }
     },
     {
@@ -1141,8 +1146,9 @@
         "quick_replies": [
           "Dạ chào bạn! Shop có thể hỗ trợ thông tin chi tiết gì cho bạn về sản phẩm này ạ?",
           "Dạ cảm ơn bạn đã quan tâm đến sản phẩm của shop. Bạn cần tư vấn thêm về tính năng, màu sắc hay khuyến mãi cứ nhắn shop nhé!",
-          "Chào bạn! Sản phẩm đang có sẵn và có nhiều ưu đãi hôm nay. Bạn đặt hàng ngay để nhận quà tặng kèm nhé!"
-        ]
+          "Chào bạn! Bạn nhắn shop điều bạn quan tâm về sản phẩm, shop sẽ phản hồi bạn sớm nhé!"
+        ],
+        "model_version": "rules-v1"
       }
     },
     {

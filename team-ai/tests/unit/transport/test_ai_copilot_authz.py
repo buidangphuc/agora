@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import grpc
-import pytest
 
-from tests.unit.transport.test_ai_servicer import _fails, _md
-from tests.unit.transport.test_ai_provenance import _serving_copilot
+from app.transport.grpc._pb.platform.ai.v1 import ai_pb2
 from tests.unit.modules.business.ai_assistant.test_copilot_grounding import (
     LISTING,
     OTHER_SELLER,
@@ -16,7 +14,8 @@ from tests.unit.modules.business.ai_assistant.test_copilot_grounding import (
     _facts,
     says_out_of_stock,
 )
-from app.transport.grpc._pb.platform.ai.v1 import ai_pb2
+from tests.unit.transport.test_ai_provenance import _serving_copilot
+from tests.unit.transport.test_ai_servicer import _fails, _md
 
 
 async def test_other_seller_id_denied_before_lookup():

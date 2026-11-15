@@ -93,9 +93,7 @@ async def test_mock_default_is_deterministic(monkeypatch: pytest.MonkeyPatch):
     """Scenario: Mock is the default and is deterministic"""
     llm = FakeLLM(json.dumps(LLM_DRAFTS))
     _use_llm(monkeypatch, llm)
-    service = build_copilot_service(
-        build_test_settings(), FakeListing(_facts(stock=0))
-    )
+    service = build_copilot_service(build_test_settings(), FakeListing(_facts(stock=0)))
 
     first = await _suggest(service)
     second = await _suggest(service)
