@@ -14,7 +14,7 @@ spec: plans/docs-ai-data/00-spec.md (Locked 2026-11-13)
 | analytics-experiment-reports | team-analytics | [docs-ai-data-contract, analytics-forecast-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c06fea1873ba | [x] |
 | ai-assistant-grounding | team-ai | [docs-ai-data-contract, recs-experiment-arms] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6e5b9b48e616 | [x] |
 | ai-copilot-grounding | team-ai | [docs-ai-data-contract, ai-assistant-grounding] | 1 | pass | pass (1 PERM warning, false positive) | pass | ENGINE_DOWN (LLM fallback) | f1c635233431 | [x] |
-| seller-forecast-card | team-frontend-seller | [analytics-forecast-serving, ai-copilot-grounding] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 79b4f5651141 | [x] |
+| seller-forecast-card | team-frontend-seller | [analytics-forecast-serving, ai-copilot-grounding] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c22f5e119ead | [x] |
 | admin-insights-panels | team-frontend-admin | [analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4f298a3bd310 | [x] |
 | buyer-ai-surfaces-ui | team-frontend | [ai-assistant-grounding, ai-copilot-grounding, analytics-experiment-reports] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a20103630a0a | [x] |
 
