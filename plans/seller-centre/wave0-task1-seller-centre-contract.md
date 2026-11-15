@@ -26,8 +26,7 @@ Implement OpenSpec change `seller-centre-contract` test-first per its tasks.md; 
 - fe-platform/packages/api-client/src/generated/**
 - fe-platform/.changeset/**
 - team-*/README.md
-- widened (P1):
-  - platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go — pinned VoucherService RPC list broken by the new ListMyShopVouchers/DeactivateMyShopVoucher RPCs
+- platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go (widened at build: P1, pinned VoucherService RPC list broken by the new ListMyShopVouchers/DeactivateMyShopVoucher RPCs)
 
 ## Verify
 - `cd platform-core/packages/proto && go test ./platform/promotion/v1/... ./platform/order/v1/... ./platform/listing/v1/... && bash sellercentre_consumer_copies_test.sh`

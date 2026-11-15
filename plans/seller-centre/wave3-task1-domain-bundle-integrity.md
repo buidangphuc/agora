@@ -26,8 +26,7 @@ Implement OpenSpec change `domain-bundle-integrity` test-first per its tasks.md;
 - platform-e2e/tests/e2e/step_definitions/test_bundle_integrity.py
 - platform-e2e/test-data/bundle_integrity/**
 - platform-e2e/src/api/services/listing_service.py
-- widened (P1):
-  - docs/asdlc/ci.md — doc updated by docs-sync (tdd row: red_first drops remote BSR plugins without a local binary, scripts/asdlc/red_first.sh:173)
+- docs/asdlc/ci.md (widened at build: P1, doc updated by docs-sync (tdd row: red_first drops remote BSR plugins without a local binary, scripts/asdlc/red_first.sh:173))
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-domain --vet`

@@ -19,9 +19,8 @@ Implement OpenSpec change `seller-getting-started` test-first per its tasks.md; 
 - platform-e2e/tests/e2e/step_definitions/seller_getting_started_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_seller_getting_started.py
 - platform-e2e/src/pages/seller_dashboard_page.py
-- widened (P1):
-  - platform-e2e/src/pages/seller_getting_started_card.py — e2e page object of this change (SellerGettingStartedPage), named differently from the packet
-  - platform-e2e/src/pages/__init__.py — e2e page-object registration of this change's SellerGettingStartedPage
+- platform-e2e/src/pages/seller_getting_started_card.py (widened at build: P1, e2e page object of this change (SellerGettingStartedPage), named differently from the packet)
+- platform-e2e/src/pages/__init__.py (widened at build: P1, e2e page-object registration of this change's SellerGettingStartedPage)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller`

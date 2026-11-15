@@ -28,10 +28,9 @@ Implement OpenSpec change `seller-marketing-hub` test-first per its tasks.md; co
 - platform-e2e/src/pages/vouchers_page.py
 - platform-e2e/src/constants/routes.py
 - platform-e2e/src/constants/pages.py
-- widened (P1):
-  - openspec/changes/seller-marketing-hub/specs/seller-marketing-hub/spec.md — own OpenSpec folder: VERIFIED BY citation lines only, no requirement or scenario wording change
-  - platform-e2e/src/pages/__init__.py — e2e page-object registration of this change's SellerMarketingPage
-  - platform-e2e/tests/e2e/support/seller_marketing_hub_support.py — e2e support helpers of this change's seller_marketing_hub feature
+- openspec/changes/seller-marketing-hub/specs/seller-marketing-hub/spec.md (widened at build: P1, own OpenSpec folder: VERIFIED BY citation lines only, no requirement or scenario wording change)
+- platform-e2e/src/pages/__init__.py (widened at build: P1, e2e page-object registration of this change's SellerMarketingPage)
+- platform-e2e/tests/e2e/support/seller_marketing_hub_support.py (widened at build: P1, e2e support helpers of this change's seller_marketing_hub feature)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller`

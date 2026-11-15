@@ -29,9 +29,8 @@ Implement OpenSpec change `shop-bundle-purchase-ui` test-first per its tasks.md;
 - platform-e2e/src/pages/cart_page.py
 - platform-e2e/src/pages/checkout_page.py
 - platform-e2e/src/api/services/listing_service.py
-- widened (P1):
-  - openspec/changes/shop-bundle-purchase-ui/specs/ui-shop-bundle-purchase/spec.md — own OpenSpec folder: VERIFIED BY citation lines only, no requirement or scenario wording change
-  - team-frontend/src/features/order/CheckoutGroups.test.tsx — existing test fixture broken by new required ViewCartItem fields bundleId/bundleDiscount
+- openspec/changes/shop-bundle-purchase-ui/specs/ui-shop-bundle-purchase/spec.md (widened at build: P1, own OpenSpec folder: VERIFIED BY citation lines only, no requirement or scenario wording change)
+- team-frontend/src/features/order/CheckoutGroups.test.tsx (widened at build: P1, existing test fixture broken by new required ViewCartItem fields bundleId/bundleDiscount)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend`

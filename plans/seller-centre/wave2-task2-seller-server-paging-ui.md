@@ -30,10 +30,9 @@ Implement OpenSpec change `seller-server-paging-ui` test-first per its tasks.md;
 - platform-e2e/src/pages/seller_listings_page.py
 - platform-e2e/src/pages/seller_dashboard_page.py
 - platform-e2e/src/pages/components/listing_picker.py
-- widened (P1):
-  - openspec/changes/seller-server-paging-ui/specs/seller-server-paging-ui/spec.md — own OpenSpec folder; VERIFIED BY citation for the listing.write denial scenario
-  - platform-e2e/src/pages/seller_paging_page.py — e2e page object of this change, named differently from the packet
-  - platform-e2e/src/pages/__init__.py — e2e page-object support file; exports SellerPagingPage of this change
+- openspec/changes/seller-server-paging-ui/specs/seller-server-paging-ui/spec.md (widened at build: P1, own OpenSpec folder; VERIFIED BY citation for the listing.write denial scenario)
+- platform-e2e/src/pages/seller_paging_page.py (widened at build: P1, e2e page object of this change, named differently from the packet)
+- platform-e2e/src/pages/__init__.py (widened at build: P1, e2e page-object support file; exports SellerPagingPage of this change)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller`

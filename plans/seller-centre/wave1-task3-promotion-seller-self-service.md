@@ -22,8 +22,7 @@ Implement OpenSpec change `promotion-seller-self-service` test-first per its tas
 - platform-e2e/tests/e2e/step_definitions/promotion_seller_self_service_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_promotion_seller_self_service.py
 - platform-e2e/src/api/services/promotion_service.py
-- widened (P1):
-  - openspec/changes/promotion-seller-self-service/specs/promotion-seller-self-service/spec.md — VERIFIED BY citations aligned to the real test names (no requirement or scenario wording change)
+- openspec/changes/promotion-seller-self-service/specs/promotion-seller-self-service/spec.md (widened at build: P1, VERIFIED BY citations aligned to the real test names (no requirement or scenario wording change))
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-promotion --vet`
