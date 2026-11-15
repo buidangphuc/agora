@@ -60,7 +60,7 @@ export function LegalReacceptance() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-surface-overlay p-4">
       <dialog
         open
         aria-labelledby="legal-reaccept-title"
