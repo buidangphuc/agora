@@ -41,6 +41,7 @@ type PrivacyHandler struct {
 	seller   []string
 	logger   *slog.Logger
 	deletion *identity.AccountDeletionService
+	export   ExportRepository
 }
 
 func NewPrivacyHandler(repo ConsentRepository, terms config.LegalTerms, privacy config.PrivacyPolicy, seller config.SellerTerms, logger *slog.Logger) *PrivacyHandler {
