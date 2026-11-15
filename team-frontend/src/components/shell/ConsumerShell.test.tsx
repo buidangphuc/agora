@@ -68,3 +68,12 @@ describe("footer legal links", () => {
     }
   });
 });
+
+describe("legal re-acceptance mount", () => {
+  const shell = readFileSync(join(__dirname, "ConsumerShell.tsx"), "utf8");
+
+  it("[A legacy user is prompted and accepts] the shell imports and mounts LegalReacceptance", () => {
+    expect(shell).toMatch(/features\/legal\/LegalReacceptance/);
+    expect(shell).toMatch(/<LegalReacceptance\b/);
+  });
+});

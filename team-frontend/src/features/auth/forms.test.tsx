@@ -174,6 +174,93 @@ describe("RegisterForm", () => {
   });
 });
 
+describe("RegisterForm legal acceptance", () => {
+  async function fillCredentials(user: ReturnType<typeof setupUser>) {
+    await user.type(screen.getByLabelText(/Tên đăng nhập/), "alice");
+    await user.type(screen.getByLabelText(/Mật khẩu/), "pass1234");
+  }
+
+  it("[Unchecked box blocks submission] shows two unchecked checkboxes named acceptTerms and acceptPrivacy", () => {
+    render(<RegisterForm />);
+    const terms = screen.getByRole("checkbox", { name: /Điều khoản sử dụng/ });
+    const privacy = screen.getByRole("checkbox", {
+      name: /Chính sách bảo mật/,
+    });
+    expect(terms).not.toBeChecked();
+    expect(privacy).not.toBeChecked();
+    expect(terms).toHaveAttribute("name", "acceptTerms");
+    expect(privacy).toHaveAttribute("name", "acceptPrivacy");
+  });
+
+  it("[Unchecked box blocks submission] each checkbox links its page in a new tab", () => {
+    render(<RegisterForm />);
+    const t = document.querySelector('a[href="/dieu-khoan-su-dung"]');
+    const p = document.querySelector('a[href="/chinh-sach-bao-mat"]');
+    expect(t).toHaveAttribute("target", "_blank");
+    expect(p).toHaveAttribute("target", "_blank");
+  });
+
+  it("[Unchecked box blocks submission] Terms unchecked blocks the submit and flags that box", async () => {
+    const user = setupUser();
+    render(<RegisterForm />);
+    await fillCredentials(user);
+    await user.click(
+      screen.getByRole("checkbox", { name: /Chính sách bảo mật/ }),
+    );
+    expect(submit()).toBe(false);
+    expect(
+      screen.getByRole("checkbox", { name: /Điều khoản sử dụng/ }),
+    ).toHaveAttribute("aria-invalid", "true");
+    expect(
+      screen.getByRole("checkbox", { name: /Chính sách bảo mật/ }),
+    ).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/đồng ý/i, { selector: "p, span, div" })).toBeVisible();
+  });
+
+  it("[Unchecked box blocks submission] Privacy unchecked blocks the submit and flags that box", async () => {
+    const user = setupUser();
+    render(<RegisterForm />);
+    await fillCredentials(user);
+    await user.click(
+      screen.getByRole("checkbox", { name: /Điều khoản sử dụng/ }),
+    );
+    expect(submit()).toBe(false);
+    expect(
+      screen.getByRole("checkbox", { name: /Chính sách bảo mật/ }),
+    ).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("[Registering with both boxes checked records two consents] both checked raises no acceptance error", async () => {
+    const user = setupUser();
+    render(<RegisterForm />);
+    await fillCredentials(user);
+    await user.click(
+      screen.getByRole("checkbox", { name: /Điều khoản sử dụng/ }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: /Chính sách bảo mật/ }),
+    );
+    submit();
+    for (const box of screen.getAllByRole("checkbox")) {
+      expect(box).not.toHaveAttribute("aria-invalid", "true");
+    }
+  });
+
+  it("[A stale version is reported to the user] shows the server message", () => {
+    mocked.state = {
+      ok: false,
+      error:
+        "Điều khoản đã được cập nhật. Vui lòng tải lại trang và đồng ý lại.",
+    };
+    render(<RegisterForm />);
+    expect(
+      screen.getByText(
+        "Điều khoản đã được cập nhật. Vui lòng tải lại trang và đồng ý lại.",
+      ),
+    ).toBeVisible();
+  });
+});
+
 describe("forms keep returnUrl on cross links (frontend-login-return)", () => {
   const RU = "/listing/abc?variant=v2";
 
