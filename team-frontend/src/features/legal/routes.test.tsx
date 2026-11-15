@@ -44,24 +44,39 @@ describe("legal route", () => {
   it("[A legal page renders title, version and placeholder] renders h1, Phiên bản and placeholder", async () => {
     const mod = await import(/* @vite-ignore */ PAGE);
     const page = readLegalPage("dieu-khoan-su-dung");
-    render(await mod.default({ params: Promise.resolve({ slug: "dieu-khoan-su-dung" }) }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(page?.title);
+    render(
+      await mod.default({
+        params: Promise.resolve({ slug: "dieu-khoan-su-dung" }),
+      }),
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      page?.title,
+    );
     expect(document.body.textContent).toMatch(
       new RegExp(`Phiên bản\\s*:?\\s*${page?.version}`),
     );
-    expect(document.body.textContent).toContain("NỘI DUNG DO BỘ PHẬN PHÁP CHẾ CUNG CẤP");
+    expect(document.body.textContent).toContain(
+      "NỘI DUNG DO BỘ PHẬN PHÁP CHẾ CUNG CẤP",
+    );
   });
 
   it("[An unknown legal slug is not found] page calls notFound", async () => {
     const mod = await import(/* @vite-ignore */ PAGE);
     await expect(
-      mod.default({ params: Promise.resolve({ slug: "chinh-sach-khong-ton-tai" }) }),
+      mod.default({
+        params: Promise.resolve({ slug: "chinh-sach-khong-ton-tai" }),
+      }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
   it("[Legal pages need no login] the legal route group makes no gateway or session call", () => {
-    const src = readFileSync(join(SRC, "app/(shop)/(legal)/[slug]/page.tsx"), "utf8");
-    expect(src).not.toMatch(/lib\/gateway|lib\/session|requireSession|redirect\(/);
+    const src = readFileSync(
+      join(SRC, "app/(shop)/(legal)/[slug]/page.tsx"),
+      "utf8",
+    );
+    expect(src).not.toMatch(
+      /lib\/gateway|lib\/session|requireSession|redirect\(/,
+    );
   });
 });
 
@@ -69,7 +84,9 @@ describe("sitemap and robots", () => {
   it("[All seven slugs resolve] sitemap contains exactly the 7 legal URLs", async () => {
     const { default: sitemap } = await import("@/app/sitemap");
     const urls = (await sitemap()).map((e) => e.url);
-    const legal = urls.filter((u) => [...LEGAL_SLUGS].some((s) => u.endsWith(`/${s}`)));
+    const legal = urls.filter((u) =>
+      [...LEGAL_SLUGS].some((s) => u.endsWith(`/${s}`)),
+    );
     expect(legal).toHaveLength(7);
     expect(new Set(legal).size).toBe(7);
   });

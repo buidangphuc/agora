@@ -269,7 +269,8 @@ describe("registerAction", () => {
 });
 
 describe("registerAction legal acceptance", () => {
-  const STALE = "Điều khoản đã được cập nhật. Vui lòng tải lại trang và đồng ý lại.";
+  const STALE =
+    "Điều khoản đã được cập nhật. Vui lòng tải lại trang và đồng ý lại.";
 
   it("[Registering with both boxes checked records two consents] sends both configured versions on Register", async () => {
     const register = vi.fn().mockResolvedValue({ result: { token: "jwt" } });
@@ -335,7 +336,10 @@ describe("registerAction legal acceptance", () => {
         register: vi
           .fn()
           .mockRejectedValue(
-            new ConnectError(`${name}: not an accepted version`, Code.InvalidArgument),
+            new ConnectError(
+              `${name}: not an accepted version`,
+              Code.InvalidArgument,
+            ),
           ),
       });
       const res = await registerAction(

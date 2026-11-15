@@ -214,7 +214,9 @@ describe("RegisterForm legal acceptance", () => {
     expect(
       screen.getByRole("checkbox", { name: /Chính sách bảo mật/ }),
     ).not.toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByText(/đồng ý/i, { selector: "p, span, div" })).toBeVisible();
+    expect(
+      screen.getByText(/đồng ý/i, { selector: "p, span, div" }),
+    ).toBeVisible();
   });
 
   it("[Unchecked box blocks submission] Privacy unchecked blocks the submit and flags that box", async () => {

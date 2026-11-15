@@ -235,7 +235,9 @@ describe("Scenario: Banner is keyboard operable", () => {
   it("a choice can be made with the keyboard alone (Enter on Reject all)", async () => {
     const user = userEvent.setup();
     mountPage();
-    const reject = await screen.findByRole("button", { name: /Từ chối tất cả/i });
+    const reject = await screen.findByRole("button", {
+      name: /Từ chối tất cả/i,
+    });
     reject.focus();
     await user.keyboard("{Enter}");
     expect(rawCookie()).toBe("v=1&a=0&m=0&p=0&ts=1760000000");
@@ -264,7 +266,9 @@ describe("Scenario: Banner text is Vietnamese", () => {
     mountPage();
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveAccessibleName("Tùy chọn cookie");
-    expect(screen.getByRole("heading", { name: "Tùy chọn cookie" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Tùy chọn cookie" }),
+    ).toBeVisible();
     for (const g of ["Phân tích", "Tiếp thị", "Cá nhân hóa"]) {
       expect(screen.getByRole("checkbox", { name: g })).toBeInTheDocument();
     }

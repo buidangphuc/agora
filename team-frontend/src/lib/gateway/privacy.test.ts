@@ -145,7 +145,12 @@ describe("recordConsents", () => {
     rpc.recordConsent.mockRejectedValue(new Error("unavailable"));
     await expect(
       recordConsents([
-        { purpose: "ANALYTICS", granted: false, version: "1", source: "banner" },
+        {
+          purpose: "ANALYTICS",
+          granted: false,
+          version: "1",
+          source: "banner",
+        },
       ]),
     ).rejects.toThrow("unavailable");
   });

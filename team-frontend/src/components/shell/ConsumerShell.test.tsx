@@ -64,7 +64,9 @@ describe("footer legal links", () => {
     const legal = hrefs.filter((h) => slugs.includes(h));
     expect(new Set(legal).size).toBe(7);
     for (const h of new Set(legal)) {
-      expect(existsSync(join(__dirname, "../../../content/legal", `${h}.md`))).toBe(true);
+      expect(
+        existsSync(join(__dirname, "../../../content/legal", `${h}.md`)),
+      ).toBe(true);
     }
   });
 });
