@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PayoutButton, validatePayoutAmount } from "./PayoutButton";
@@ -76,6 +76,53 @@ describe("PayoutButton", () => {
     );
     expect(toastError).toHaveBeenCalledWith("Từ chối");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("seller-kyc-ui: payout verification messages", () => {
+  const VERIFY = "Cần xác minh danh tính để rút tiền";
+  const RETRY = "Chưa kiểm tra được trạng thái xác minh, vui lòng thử lại sau";
+
+  it("A refused payout shows the verification message with a link", async () => {
+    vi.mocked(requestWalletPayoutAction).mockResolvedValue({
+      ok: false,
+      error: VERIFY,
+    });
+    render(<PayoutButton sellerId="s1" balance={1000} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rút tiền" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận rút tiền" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(dialog).toHaveTextContent(VERIFY));
+    expect(
+      within(dialog).getByRole("link", { name: /xác minh/i }),
+    ).toHaveAttribute("href", "/seller/verification");
+  });
+
+  it("Verification outage during payout shows a retry message and re-enables confirm", async () => {
+    vi.mocked(requestWalletPayoutAction).mockResolvedValue({
+      ok: false,
+      error: RETRY,
+    });
+    render(<PayoutButton sellerId="s1" balance={1000} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rút tiền" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận rút tiền" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(RETRY),
+    );
+    expect(
+      screen.getByRole("button", { name: "Xác nhận rút tiền" }),
+    ).toBeEnabled();
+    expect(screen.queryByRole("link", { name: /xác minh/i })).toBeNull();
+  });
+
+  it("A verified seller sees no notice and can pay out", async () => {
+    vi.mocked(requestWalletPayoutAction).mockResolvedValue({ ok: true });
+    render(<PayoutButton sellerId="s1" balance={1000} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rút tiền" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận rút tiền" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(toastSuccess).toHaveBeenCalledWith("Đã tạo lệnh rút tiền");
+    expect(screen.queryByText(VERIFY)).toBeNull();
   });
 });
 
