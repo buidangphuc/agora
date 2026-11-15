@@ -57,6 +57,7 @@ seller's orders matching `statuses`/`status_filter` and `query`. The seller SHAL
 
 - **WHEN** migrations run up to 0025 and down one step on a database holding orders
 - **THEN** the index exists after up, is absent after down, and no order row changes
+- **VERIFIED BY**: team-order migrations TestMigration0025_AppliesAndReverts
 
 ### Requirement: ListSellerOrders filters by status
 
