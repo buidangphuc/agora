@@ -3617,3 +3617,353 @@ features:
     tags: [seller]
     status: planned
     covered_by: null
+
+  - id: seller-bulk-ship.only-shippable-rows-can-be-selected
+    title: "Bulk ship: only shippable rows can be selected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When a seller opens `/seller/orders` with one PAID, one PENDING COD, one PENDING online-payment, one SHIPPED and one CANCELLED order on the page"
+      - "Then exactly the PAID and the PENDING COD rows carry a checkbox"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/SellerOrdersTable.test.tsx checkbox only on shippable rows. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.select-all-selects-the-shippable-rows-of-the-page
+    title: "Bulk ship: select-all selects the shippable rows of the page"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the seller ticks the select-all checkbox on a page holding 8 shippable and 12 other rows"
+      - "Then the selection bar shows \"8\" selected and both buttons are enabled"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/BulkShipBar.test.tsx select all picks shippable rows. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.nothing-selected-disables-both-buttons
+    title: "Bulk ship: nothing selected disables both buttons"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the seller opens the order list without selecting any row"
+      - "Then \"Gửi hàng loạt\" and \"In phiếu hàng loạt\" are disabled"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/BulkShipBar.test.tsx buttons disabled when empty. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.the-fifty-first-selection-is-refused
+    title: "Bulk ship: the fifty-first selection is refused"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When 50 orders are selected and the seller ticks one more"
+      - "Then the message \"Chọn tối đa 50 đơn\" shows and the selection count stays 50"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/bulkShip.test.ts selection stops at 50. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.three-paid-orders-ship-with-tracking-numbers
+    title: "Bulk ship: three paid orders ship with tracking numbers"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the seller selects 3 PAID orders, types tracking numbers \"T1\" and \"T2\" for the first two and leaves the third empty, and confirms"
+      - "Then `UpdateOrderStatus` is called 3 times with status SHIPPED and tracking \"T1\", \"T2\" and \"\" and the result list shows 3 successes"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/order/actions.test.ts bulk ship sends status and tracking per order. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.one-order-cancelled-meanwhile-fails-only-its-row
+    title: "Bulk ship: one order cancelled meanwhile fails only its row"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When 3 orders are confirmed and `UpdateOrderStatus` answers FAILED_PRECONDITION for the second"
+      - "Then the result list shows rows 1 and 3 as success and row 2 as \"Trạng thái đơn không cho phép gửi (có thể đã huỷ hoặc đã gửi)\", and the other two calls still happened"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/order/actions.test.ts one failure does not stop the others. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.another-seller-s-order-is-denied-per-row
+    title: "Bulk ship: another seller's order is denied per row"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the input contains an order of another seller and `UpdateOrderStatus` answers PERMISSION_DENIED for it"
+      - "Then that row shows \"Không có quyền với đơn này\", no other row is affected, and no upstream error text is shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/order/actions.test.ts foreign order is denied per row. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.at-most-four-calls-are-in-flight
+    title: "Bulk ship: at most four calls are in flight"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When 50 orders are confirmed and each `UpdateOrderStatus` takes 100 ms"
+      - "Then the observed maximum of concurrent calls is 4 and all 50 results come back in input order"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/bulkShip.test.ts runner caps concurrency at 4 and keeps order. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.orders-not-started-within-15-seconds-are-reported-as-not-attempted
+    title: "Bulk ship: orders not started within 15 seconds are reported as not attempted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the batch has run for 15 s with 10 orders not yet started"
+      - "Then those 10 rows show \"Chưa xử lý, hãy thử lại\", no further call is started, and the 40 earlier rows keep their own results"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/bulkShip.test.ts deadline marks unstarted as not attempted. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.failed-rows-stay-selected-and-shipped-rows-leave
+    title: "Bulk ship: failed rows stay selected and shipped rows leave"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When a batch of 3 ends with row 2 failed"
+      - "Then the selection holds only order 2 and the list is revalidated once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/BulkShipModal.test.tsx failed rows stay selected. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.a-team-order-outage-fails-rows-with-a-reason
+    title: "Bulk ship: a team-order outage fails rows with a reason"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When `UpdateOrderStatus` answers UNAVAILABLE for every order of a batch of 2"
+      - "Then both rows show \"Dịch vụ đơn hàng đang bận\" and the modal stays open with the retry option"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/order/actions.test.ts unavailable maps to a busy reason. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.more-than-50-ids-are-rejected-before-any-call
+    title: "Bulk ship: more than 50 ids are rejected before any call"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the action receives 51 distinct order ids"
+      - "Then it returns an error \"Chọn tối đa 50 đơn\" and `UpdateOrderStatus` is never called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/order/actions.test.ts 51 ids rejected without calls. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.an-empty-batch-is-rejected
+    title: "Bulk ship: an empty batch is rejected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the action receives an empty list"
+      - "Then it returns an error and `UpdateOrderStatus` is never called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/order/actions.test.ts empty batch rejected. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.duplicate-ids-ship-once
+    title: "Bulk ship: duplicate ids ship once"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the action receives the same order id twice"
+      - "Then `UpdateOrderStatus` is called once and the result list has one row for it"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/order/actions.test.ts duplicate ids collapse. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.a-principal-without-listing-write-is-denied
+    title: "Bulk ship: a principal without listing.write is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the action runs for an anonymous visitor, and again for a signed-in principal without `listing.write`"
+      - "Then both get an error result and `UpdateOrderStatus` is never called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/order/actions.test.ts scope required before any call. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.three-selected-orders-print-three-slips
+    title: "Bulk ship: three selected orders print three slips"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders/print
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When the seller selects 3 orders and opens \"In phiếu hàng loạt\""
+      - "Then `/seller/orders/print` renders exactly 3 packing slips in the order of the ids, each with recipient name, phone, address, items and tracking number"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/orders/print/page.test.tsx renders one slip per order in id order. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.an-unreadable-order-is-named-and-skipped
+    title: "Bulk ship: an unreadable order is named and skipped"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When `GetOrder` answers PERMISSION_DENIED for one of 3 ids"
+      - "Then 2 slips render and a screen-only notice \"Không in được\" names the third id"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/orders/print/page.test.tsx unreadable order named not printed. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.more-than-50-print-ids-are-rejected
+    title: "Bulk ship: more than 50 print ids are rejected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders/print
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When `/seller/orders/print` is requested with 51 distinct ids"
+      - "Then the page shows an error and `GetOrder` is never called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/orders/print/page.test.tsx 51 ids rejected without calls. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.a-malformed-or-empty-ids-parameter-is-rejected
+    title: "Bulk ship: a malformed or empty ids parameter is rejected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When `/seller/orders/print` is requested with no `ids` or with an empty one"
+      - "Then the page shows an error and `GetOrder` is never called"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/features/seller/bulkShip.test.ts parseIds rejects empty and malformed. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.an-anonymous-visitor-or-a-non-seller-cannot-print
+    title: "Bulk ship: an anonymous visitor or a non-seller cannot print"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders/print
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When `/seller/orders/print` is requested by an anonymous visitor, and again by a principal without `listing.write`"
+      - "Then the visitor is redirected to login, the other principal gets no slips, and `GetOrder` is never called in either case"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/orders/print/page.test.tsx no slips and no calls without seller scope. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.the-print-page-is-not-cached-or-indexed
+    title: "Bulk ship: the print page is not cached or indexed"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders/print
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When `/seller/orders/print` is rendered for a seller"
+      - "Then the response has `Cache-Control: no-store` and robots noindex"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller/src/app/seller/orders/print/page.test.tsx no-store and noindex. Asserts component or action internals (RPC call counts, validation before send) that no browser response exposes."
+
+  - id: seller-bulk-ship.a-seller-ships-several-paid-orders-in-the-browser
+    title: "Bulk ship: a seller ships several paid orders in the browser"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When a seller with 3 PAID orders selects all three on `/seller/orders`, enters a tracking number for one and confirms"
+      - "Then the result list shows 3 successes and the three orders show status \"Đang giao\" on the list, the one tracking number on its detail page"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: seller-bulk-ship.an-order-cancelled-meanwhile-fails-only-its-row-in-the-browser
+    title: "Bulk ship: an order cancelled meanwhile fails only its row in the browser"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When a seller selects 3 PAID orders, one of them is cancelled by its buyer, and the seller confirms"
+      - "Then the cancelled order's row shows its failure reason and the other two orders become \"Đang giao\""
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: seller-bulk-ship.batch-print-shows-one-slip-per-selected-order-in-the-browser
+    title: "Bulk ship: batch print shows one slip per selected order in the browser"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders/print
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When a seller selects 2 orders and clicks \"In phiếu hàng loạt\""
+      - "Then the print page shows 2 packing slips with the two buyers' recipient names"
+    tags: [seller]
+    status: planned
+    covered_by: null
+
+  - id: seller-bulk-ship.another-seller-cannot-ship-or-print-a-foreign-order-in-the-browser
+    title: "Bulk ship: another seller cannot ship or print a foreign order in the browser"
+    persona: seller
+    priority: P2
+    summary: "Change seller-bulk-ship (initiative seller-centre)."
+    entry_route: /seller/orders/print
+    services: [team-frontend-seller, team-gateway, team-order]
+    acceptance:
+      - "When seller B opens `/seller/orders/print?ids=` with an order id of seller A"
+      - "Then the page shows no slip and names the order in the \"Không in được\" notice"
+    tags: [seller]
+    status: planned
+    covered_by: null

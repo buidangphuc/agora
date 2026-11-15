@@ -4,6 +4,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
 import { Tabs } from "@/components/ui/Tabs";
+import { BulkShipBar } from "@/features/seller/BulkShipBar";
+import { BulkShipSelectionProvider } from "@/features/seller/BulkShipSelection";
 import { LinkButton } from "@/features/seller/LinkButton";
 import { SellerFilterBar } from "@/features/seller/SellerFilterBar";
 import { SellerOrdersTable } from "@/features/seller/SellerOrdersTable";
@@ -92,7 +94,14 @@ export default async function SellerOrdersPage(props: {
       />
     );
   } else {
-    body = <SellerOrdersTable orders={rows} />;
+    body = (
+      <BulkShipSelectionProvider>
+        <div className="space-y-4">
+          <BulkShipBar orders={rows} />
+          <SellerOrdersTable orders={rows} />
+        </div>
+      </BulkShipSelectionProvider>
+    );
   }
 
   return (

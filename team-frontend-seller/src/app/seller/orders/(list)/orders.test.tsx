@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import {
   getOrder,
   getShipmentTracking,
@@ -34,6 +35,7 @@ vi.mock("@/lib/gateway/orders", () => ({
 }));
 vi.mock("@/features/order/actions", () => ({
   updateOrderStatusAction: vi.fn(),
+  bulkShipOrdersAction: vi.fn(),
 }));
 
 const STATUS_TEXT: Partial<Record<OrderStatus, string>> = {
@@ -509,5 +511,35 @@ describe("loading skeletons", () => {
       "aria-busy",
       "true",
     );
+  });
+});
+
+describe("/seller/orders bulk ship mount", () => {
+  it("Bulk ship: only shippable rows can be selected: the page mounts checkboxes on PAID and COD rows and the bar", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf([
+        order("pa1", OrderStatus.PAID),
+        order("cod1", OrderStatus.PENDING, {
+          paymentMethod: PaymentMethod.COD,
+        }),
+        order("sh1", OrderStatus.SHIPPED),
+      ]) as never,
+    );
+    await renderList();
+    expect(
+      screen.getByRole("checkbox", { name: "Chọn đơn #pa1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Chọn đơn #cod1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "Chọn đơn #sh1" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Gửi hàng loạt" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "In phiếu hàng loạt" }),
+    ).toBeDisabled();
   });
 });
