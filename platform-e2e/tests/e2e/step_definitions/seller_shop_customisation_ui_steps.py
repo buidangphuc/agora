@@ -122,6 +122,8 @@ def brand_shop(world: World, tagline: str, theme: str) -> None:
     banner.write_bytes(_PNG)
     page.banner_file_input.set_input_files(str(banner))
     expect(page.banner_preview).to_be_visible(timeout=timeouts.NAVIGATION)
+    if not page.name_input.input_value().strip():
+        page.name_input.fill(f"Tiệm hoa {x['tag']}")
     page.tagline_input.fill(tagline)
     for title in x["titles"]:
         page.picker_search.fill(title)

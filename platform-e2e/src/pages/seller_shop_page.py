@@ -71,7 +71,9 @@ class SellerShopPage(BasePage):
         )
 
     def selected_titles(self) -> Locator:
-        return self.page.get_by_test_id("featured-selected").get_by_role("listitem")
+        return self.page.get_by_role("listitem").filter(
+            has=self.page.get_by_role("button", name=re.compile(r"^Xóa "))
+        )
 
     def is_displayed(self) -> bool:
         return self.name_input.is_visible()
