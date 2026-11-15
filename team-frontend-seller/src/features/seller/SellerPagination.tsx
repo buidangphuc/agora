@@ -9,17 +9,51 @@ const compactOff =
  * Pagination for the seller tables: full page links from 768px up, and only
  * previous / current / next on a phone.
  */
-export function SellerPagination({
-  current,
-  total,
-  pageSize,
-  hrefFor,
-}: {
-  current: number;
-  total: number;
-  pageSize: number;
-  hrefFor: (page: number) => string;
-}) {
+export function SellerPagination(
+  props:
+    | {
+        current: number;
+        total: number;
+        pageSize: number;
+        hrefFor: (page: number) => string;
+        mode?: "offset";
+      }
+    | {
+        mode: "cursor";
+        current: number;
+        firstHref: string;
+        nextHref: string | null;
+      },
+) {
+  if (props.mode === "cursor") {
+    const { current, firstHref, nextHref } = props;
+    if (current <= 1 && !nextHref) return null;
+    return (
+      <nav
+        aria-label="Phân trang"
+        className="flex items-center justify-between gap-3"
+      >
+        {current > 1 ? (
+          <Link href={firstHref} variant="outline" size="xs">
+            Trang đầu
+          </Link>
+        ) : (
+          <span />
+        )}
+        <span className="text-sm text-text-secondary" aria-current="page">
+          Trang {current}
+        </span>
+        {nextHref ? (
+          <Link href={nextHref} rel="next" variant="outline" size="xs">
+            Trang sau
+          </Link>
+        ) : (
+          <span />
+        )}
+      </nav>
+    );
+  }
+  const { current, total, pageSize, hrefFor } = props;
   const pages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
   if (pages <= 1) return null;
   const page = Math.min(Math.max(1, current), pages);

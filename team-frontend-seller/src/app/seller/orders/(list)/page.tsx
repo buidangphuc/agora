@@ -13,17 +13,17 @@ import {
   type SearchParams,
   buildListHref,
   parseListParams,
-  slicePage,
 } from "@/features/seller/listParams";
 import {
   ORDERS_PAGE_SIZE,
   ORDER_TABS,
-  inTab,
-  searchOrders,
-  tabCounts,
+  tabCountsFromStatusCounts,
+  tabStatuses,
 } from "@/features/seller/ordersList";
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import { type ViewOrder, listSellerOrders } from "@/lib/gateway/orders";
+import {
+  type SellerOrdersPage as OrdersPageData,
+  listSellerOrdersPage,
+} from "@/lib/gateway/orders";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
@@ -43,24 +43,25 @@ export default async function SellerOrdersPage(props: {
 
   const params = parseListParams(searchParams, ORDER_TABS);
 
-  let orders: ViewOrder[] | null = null;
+  let data: OrdersPageData | null = null;
   try {
-    orders = await listSellerOrders(OrderStatus.UNSPECIFIED, {
-      throwOnError: true,
+    data = await listSellerOrdersPage({
+      statuses: tabStatuses(params.status),
+      query: params.q,
+      cursor: params.cursor,
+      pageSize: ORDERS_PAGE_SIZE,
     });
   } catch {
-    orders = null;
+    data = null;
   }
 
-  const here = buildListHref(BASE, params);
-  const counts = orders ? tabCounts(orders) : null;
-  const inStatus = orders ? inTab(orders, params.status) : [];
-  const matched = searchOrders(inStatus, params.q);
-  const rows = slicePage(matched, params.page, ORDERS_PAGE_SIZE);
+  const here = buildListHref(BASE, { q: params.q, status: params.status });
+  const counts = data ? tabCountsFromStatusCounts(data.statusCounts) : null;
+  const rows = data?.orders ?? [];
   const filtering = params.q !== "" || params.status !== "all";
 
   let body: React.ReactNode;
-  if (orders === null) {
+  if (data === null) {
     body = (
       <Alert
         type="error"
@@ -73,7 +74,7 @@ export default async function SellerOrdersPage(props: {
         }
       />
     );
-  } else if (orders.length === 0) {
+  } else if (rows.length === 0 && !filtering) {
     body = (
       <Empty description="Chưa có đơn hàng nào từ người mua. Khi có khách đặt mua, đơn sẽ hiển thị tại đây." />
     );
@@ -121,17 +122,26 @@ export default async function SellerOrdersPage(props: {
             q={params.q}
             fixed={params.status === "all" ? {} : { status: params.status }}
             searchLabel="Tìm đơn hàng"
-            placeholder="Mã đơn, người nhận, số điện thoại hoặc sản phẩm"
+            placeholder="Mã đơn hoặc tên sản phẩm"
           />
         </div>
         <div className="space-y-6 p-4 sm:p-6">
           {body}
-          {orders !== null && (
+          {data !== null && (
             <SellerPagination
+              mode="cursor"
               current={params.page}
-              total={matched.length}
-              pageSize={ORDERS_PAGE_SIZE}
-              hrefFor={(page) => buildListHref(BASE, { ...params, page })}
+              firstHref={here}
+              nextHref={
+                data.nextCursor
+                  ? buildListHref(BASE, {
+                      q: params.q,
+                      status: params.status,
+                      cursor: data.nextCursor,
+                      page: params.page + 1,
+                    })
+                  : null
+              }
             />
           )}
         </div>
