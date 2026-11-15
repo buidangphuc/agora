@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
     from app.core.telemetry_otel import Telemetry
     from app.modules.ai.rag.service import KnowledgeRetrievalService
+    from app.modules.business.ai_assistant.adapters.clients import AssistantClients
     from app.modules.business.ai_assistant.factory import AIAssistantServices
     from app.modules.business.chat.ports import ChatService
     from app.modules.business.completions.service import CompletionService
@@ -55,6 +56,7 @@ class ApplicationResources:
     principal_rate_limiter: RedisRateLimiter | None = None
     rag_service: KnowledgeRetrievalService | None = None
     taxonomy_store: RedisTaxonomyStore | None = None
+    assistant_clients: AssistantClients | None = None
     recommendation_clients: RecommendationClients | None = None
     telemetry: Telemetry | None = None
     # Addons opened for this runtime (closed in reverse by the exit stack)

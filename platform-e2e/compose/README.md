@@ -16,7 +16,7 @@ the overlays you need to its `-f` list.
 | `llm-fake.override.yaml` | `ai/llm_*.feature` | adds the `llm-fake` provider, switches team-ai to `CHAT_BACKEND=llm_router` against it |
 | `modelserve.override.yaml` | `modelserve/*.feature`, `search/hybrid_*.feature` | `tei-fake` and `modelserve-router` now live in the base compose (team-ai's RAG default needs them); this overlay publishes their host ports, names the images `agora-*`, sets `MAX_QUEUE_DEPTH=10` and points team-search and its indexer at the router (`MODEL_SERVER_URL`, `ENABLE_RERANKER=true`) |
 | `llm-fake-breaker.override.yaml` | `ai/llm_breaker.feature` | `LLM_BREAKER_FAILURE_THRESHOLD=2` on team-ai, layered on `llm-fake`; applied by the scenario itself, restored in teardown |
-| `rag-off.override.yaml` | `ai/assistant_grounding.feature` (demo-catalog scenario, `@destructive`) | team-ai with `RAG_ENABLED=false` and the listing indexer off; applied by the scenario itself, never part of the standing stack |
+| `rag-off.override.yaml` | `ai/assistant_grounding.feature` (no-RAG scenario, `@destructive`) | team-ai with `RAG_ENABLED=false` and the listing indexer off; applied by the scenario itself, never part of the standing stack |
 | `llm-fake-langfuse.override.yaml` | `ai/llm_tracing.feature` only | turns Langfuse on in team-ai, pointed at the fake's ingestion endpoint |
 | `recs-retrieve-budget.override.yaml` | every recommendation feature that calls `Recommend` (the recommendations row below) | team-ai `RECS_RETRIEVE_TIMEOUT_MS=200` instead of the 15 ms product default, which a local Docker stack exceeds; local main / e2e only |
 

@@ -87,6 +87,8 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
                 for card in result.product_cards
             ],
             suggested_followups=result.suggested_followups,
+            request_id=result.request_id,
+            model_version=result.model_version,
         )
 
     async def MagicListing(
