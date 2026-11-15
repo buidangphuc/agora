@@ -55,3 +55,7 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
   notFound: vi.fn(),
 }));
+
+Object.assign(globalThis, {
+  jest: { advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms) },
+});
