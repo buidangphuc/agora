@@ -167,3 +167,47 @@ func TestReadmeDocumentsPayoutObligationsAndErasure(t *testing.T) {
 		}
 	}
 }
+
+func TestReadmeDocumentsVerificationGate_BootFailsWithoutTheVerificationAddress(t *testing.T) {
+	md := read(t, "README.md")
+	contract := section(t, md, "Contract")
+	for _, want := range []string{"GetVerificationStatus", "FAILED_PRECONDITION", "RequestPayout", "RequestWalletPayout"} {
+		if !strings.Contains(contract, want) {
+			t.Errorf("README Contract section does not mention %q", want)
+		}
+	}
+	cfg := section(t, md, "Configuration")
+	var row string
+	for _, line := range strings.Split(cfg, "\n") {
+		if strings.Contains(line, "`UPSTREAM_VERIFICATION_ADDR`") {
+			row = line
+		}
+	}
+	if row == "" {
+		t.Fatal("Configuration section does not list UPSTREAM_VERIFICATION_ADDR")
+	}
+	low := strings.ToLower(row)
+	if !strings.Contains(low, "required") || !strings.Contains(low, "refuse") {
+		t.Errorf("UPSTREAM_VERIFICATION_ADDR row must say it is required and boot is refused without it: %s", row)
+	}
+	if !strings.Contains(md, "Consumes (upstream)") || !strings.Contains(strings.SplitN(md, "## Events", 2)[0], "UPSTREAM_VERIFICATION_ADDR") {
+		t.Error("upstream paragraph must name UPSTREAM_VERIFICATION_ADDR")
+	}
+}
+
+func TestSeedScriptsVerifyPayoutSellers_SeededDemoSellerCanPayOut(t *testing.T) {
+	for _, p := range []string{
+		"../platform-core/tools/seed-marketplace.sh",
+		"../platform-core/tools/seed_full_marketplace.py",
+	} {
+		src := read(t, p)
+		for _, want := range []string{"CreateKycUploadUrl", "SubmitKyc", "ReviewKyc"} {
+			if !strings.Contains(src, want) {
+				t.Errorf("%s does not call %s", p, want)
+			}
+		}
+		if !strings.Contains(strings.ToUpper(src), "PUT") {
+			t.Errorf("%s does not perform the presigned PUT", p)
+		}
+	}
+}
