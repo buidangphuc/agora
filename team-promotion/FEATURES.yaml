@@ -6846,3 +6846,440 @@ features:
     tags: [promotion, seller]
     status: planned
     notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
+
+  # promotion-ads-campaign-mgmt (e2e-author)
+  - id: promotion.acm-campaigns-survive-a-reload-with-their-counters
+    title: "Campaigns survive a reload with their counters"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Campaigns survive a reload with their counters"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestListMyAdCampaignsReturnsOwnNewestFirstWithCounters`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-another-seller-s-campaigns-are-not-listed
+    title: "Another seller's campaigns are not listed"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Another seller's campaigns are not listed"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestListMyAdCampaignsExcludesOtherSellers`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-pagination-walks-all-campaigns-without-repeats
+    title: "Pagination walks all campaigns without repeats"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Pagination walks all campaigns without repeats"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestListBySellerCursorPaging`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-oversized-page-size-is-clamped
+    title: "Oversized page size is clamped"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Oversized page size is clamped"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestListMyAdCampaignsClampsPageSize`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-seller-with-no-campaigns-gets-an-empty-list
+    title: "Seller with no campaigns gets an empty list"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller with no campaigns gets an empty list"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestListMyAdCampaignsEmpty`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-caller-without-the-seller-scope-is-denied
+    title: "Caller without the seller scope is denied"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Caller without the seller scope is denied"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestListMyAdCampaignsRequiresSellerScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-unauthenticated-caller-is-rejected
+    title: "Unauthenticated caller is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unauthenticated caller is rejected"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestListMyAdCampaignsUnauthenticated`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-seller-sees-campaigns-after-reload-through-the-gateway
+    title: "Seller sees campaigns after reload through the gateway"
+    persona: seller
+    priority: P1
+    summary: "Seller sees campaigns after reload through the gateway (promotion-ads-campaign-mgmt)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyAdCampaigns, promotion.v1.PauseAdCampaign, promotion.v1.ResumeAdCampaign]
+    acceptance:
+      - "Seller sees campaigns after reload through the gateway"
+    tags: [promotion, ads, seller]
+    status: planned
+    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Seller sees their campaigns after reload' in promotion/ad_campaign_management.feature, red before implementation."
+
+  - id: promotion.acm-active-campaign-is-paused-and-stops-being-served
+    title: "Active campaign is paused and stops being served"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Active campaign is paused and stops being served"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestPauseAdCampaignStopsServing`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-pausing-twice-succeeds-and-changes-nothing
+    title: "Pausing twice succeeds and changes nothing"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Pausing twice succeeds and changes nothing"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestPauseAdCampaignIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-budget-paused-campaign-can-be-paused-by-the-seller
+    title: "Budget-paused campaign can be paused by the seller"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Budget-paused campaign can be paused by the seller"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestPauseAdCampaignFromBudgetPaused`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-ended-campaign-cannot-be-paused
+    title: "Ended campaign cannot be paused"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Ended campaign cannot be paused"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestPauseAdCampaignEndedRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-another-seller-s-campaign-is-not-found-on-pause
+    title: "Another seller's campaign is NOT_FOUND on pause"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Another seller's campaign is NOT_FOUND on pause"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestPauseAdCampaignOtherSellerNotFound`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-unknown-campaign-id-is-not-found-on-pause
+    title: "Unknown campaign id is NOT_FOUND on pause"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unknown campaign id is NOT_FOUND on pause"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestPauseAdCampaignUnknownIDNotFound`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-empty-campaign-id-is-rejected
+    title: "Empty campaign id is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Empty campaign id is rejected"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestPauseAdCampaignEmptyIDInvalid`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-caller-without-the-seller-scope-cannot-pause
+    title: "Caller without the seller scope cannot pause"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Caller without the seller scope cannot pause"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestPauseAdCampaignRequiresSellerScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-seller-pauses-a-campaign-through-the-gateway
+    title: "Seller pauses a campaign through the gateway"
+    persona: seller
+    priority: P1
+    summary: "Seller pauses a campaign through the gateway (promotion-ads-campaign-mgmt)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyAdCampaigns, promotion.v1.PauseAdCampaign, promotion.v1.ResumeAdCampaign]
+    acceptance:
+      - "Seller pauses a campaign through the gateway"
+    tags: [promotion, ads, seller]
+    status: planned
+    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Seller pauses a campaign' in promotion/ad_campaign_management.feature, red before implementation."
+
+  - id: promotion.acm-paused-campaign-with-budget-resumes-and-is-served-again
+    title: "Paused campaign with budget resumes and is served again"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Paused campaign with budget resumes and is served again"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestResumeAdCampaignServesAgain`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-boundary-remaining-budget-equal-to-the-bid-resumes
+    title: "Boundary remaining budget equal to the bid resumes"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Boundary remaining budget equal to the bid resumes"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestResumeAdCampaignRemainingEqualsBid`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-remaining-budget-below-the-bid-cannot-resume
+    title: "Remaining budget below the bid cannot resume"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Remaining budget below the bid cannot resume"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestResumeAdCampaignInsufficientBudgetRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-budget-exhausted-campaign-cannot-be-resumed
+    title: "Budget-exhausted campaign cannot be resumed"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Budget-exhausted campaign cannot be resumed"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestResumeAdCampaignPausedBudgetRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-ended-campaign-cannot-be-resumed
+    title: "Ended campaign cannot be resumed"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Ended campaign cannot be resumed"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestResumeAdCampaignEndedRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-resuming-an-active-campaign-succeeds-and-changes-nothing
+    title: "Resuming an active campaign succeeds and changes nothing"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Resuming an active campaign succeeds and changes nothing"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestResumeAdCampaignIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-resume-racing-the-last-click-never-overspends
+    title: "Resume racing the last click never overspends"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Resume racing the last click never overspends"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestResumeVersusClickNeverOverspends`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-another-seller-s-campaign-is-not-found-on-resume
+    title: "Another seller's campaign is NOT_FOUND on resume"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Another seller's campaign is NOT_FOUND on resume"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestResumeAdCampaignOtherSellerNotFound`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-caller-without-the-seller-scope-cannot-resume
+    title: "Caller without the seller scope cannot resume"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Caller without the seller scope cannot resume"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestResumeAdCampaignRequiresSellerScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-seller-resumes-a-paused-campaign-through-the-gateway
+    title: "Seller resumes a paused campaign through the gateway"
+    persona: seller
+    priority: P1
+    summary: "Seller resumes a paused campaign through the gateway (promotion-ads-campaign-mgmt)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyAdCampaigns, promotion.v1.PauseAdCampaign, promotion.v1.ResumeAdCampaign]
+    acceptance:
+      - "Seller resumes a paused campaign through the gateway"
+    tags: [promotion, ads, seller]
+    status: planned
+    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Seller resumes a campaign' in promotion/ad_campaign_management.feature, red before implementation."
+
+  - id: promotion.acm-resume-without-budget-is-refused-through-the-gateway
+    title: "Resume without budget is refused through the gateway"
+    persona: seller
+    priority: P1
+    summary: "Resume without budget is refused through the gateway (promotion-ads-campaign-mgmt)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyAdCampaigns, promotion.v1.PauseAdCampaign, promotion.v1.ResumeAdCampaign]
+    acceptance:
+      - "Resume without budget is refused through the gateway"
+    tags: [promotion, ads, seller]
+    status: planned
+    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Resume without remaining budget is refused' in promotion/ad_campaign_management.feature, red before implementation."
+
+  - id: promotion.acm-another-seller-cannot-manage-a-campaign-through-the-gateway
+    title: "Another seller cannot manage a campaign through the gateway"
+    persona: seller
+    priority: P1
+    summary: "Another seller cannot manage a campaign through the gateway (promotion-ads-campaign-mgmt)."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyAdCampaigns, promotion.v1.PauseAdCampaign, promotion.v1.ResumeAdCampaign]
+    acceptance:
+      - "Another seller cannot manage a campaign through the gateway"
+    tags: [promotion, ads, seller]
+    status: planned
+    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Another seller's campaign is not found' in promotion/ad_campaign_management.feature, red before implementation."
+
+  - id: promotion.acm-anonymous-request-is-rejected-at-the-edge
+    title: "Anonymous request is rejected at the edge"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Anonymous request is rejected at the edge"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestSponsoredForwarderCampaignMgmtRequiresSession`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-upstream-not-found-is-passed-through
+    title: "Upstream NOT_FOUND is passed through"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Upstream NOT_FOUND is passed through"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestSponsoredForwarderPausePassesNotFound`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.acm-upstream-unavailable-is-surfaced
+    title: "Upstream unavailable is surfaced"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change promotion-ads-campaign-mgmt.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Upstream unavailable is surfaced"
+    tags: [promotion, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestSponsoredForwarderListUnavailable`. Not producible end to end through the gateway (unit level)."
