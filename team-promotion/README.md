@@ -114,6 +114,7 @@ Own database `promotion_db` (user `promotion_svc`). Migrations in `internal/stor
 | `0006_voucher_active` | adds `vouchers.active` (default true), `deactivated_at` |
 | `0007_campaign_cancel_idempotency` | adds `flash_sale_campaigns.cancelled_at`; `campaign_idempotency` (PK `actor_id`, `key`; payload hash, campaign id) |
 | `0008_user_vouchers` | adds `vouchers.owner_user_id`, `kind`, `per_user_limit`, `new_user_only`; `voucher_reservations.expires_at`; `promotion_processed_events` |
+| `0009_ad_serving` | adds `ad_campaigns.spent`, `impressions`, `clicks`, `category_id`; sets active campaigns with bid below 500 or budget below the bid to `ENDED`; `ad_impressions` (PK `token`, `campaign_id`, `listing_id`, `expires_at`, `clicked_at`); indexes `ad_impressions_campaign_idx`, `ad_campaigns_serving_idx` |
 | `0010_plan_billing` | adds `subscription_plans.term_days` (default 30, CHECK > 0) and sets PRO 199000 / PREMIUM 499000; adds `seller_subscriptions.current_period_start`, `current_period_end`, `auto_renew`, `pending_plan_id`, `period_seq` and index `seller_subscriptions_due_idx`; existing active paid rows get one free term with `auto_renew` on |
 
 Migrations are embedded in `internal/store/migrations` and applied by `server migrate up` (the
