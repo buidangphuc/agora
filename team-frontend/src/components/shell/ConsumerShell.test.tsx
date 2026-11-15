@@ -79,3 +79,11 @@ describe("legal re-acceptance mount", () => {
     expect(shell).toMatch(/<LegalReacceptance\b/);
   });
 });
+
+describe("account links", () => {
+  const shell = readFileSync(join(__dirname, "ConsumerShell.tsx"), "utf8");
+
+  it("PV1 the signed-in account links include /account/privacy", () => {
+    expect(shell).toContain('href="/account/privacy"');
+  });
+});
