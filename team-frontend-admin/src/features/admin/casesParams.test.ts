@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCasesParams } from "./casesParams";
+import { parseCasesParams, parseKycStatus } from "./casesParams";
 
 // Contract under test (implementer creates src/features/admin/casesParams.ts):
 //   parseCasesParams(searchParams) -> { tab: "reports" | "queue",
@@ -46,5 +46,38 @@ describe("parseCasesParams", () => {
       256,
     );
     expect(parseCasesParams({ cursor: "   " }).cursor).toBe("");
+  });
+});
+
+// Contract (implementer extends casesParams.ts): CasesTab gains "kyc";
+//   parseKycStatus(raw: string | string[] | undefined) -> "PENDING" | "VERIFIED" | "REJECTED"
+// PENDING is the default, VERIFIED/REJECTED are case-insensitive, trimmed, first array element,
+// anything else falls back to PENDING. Never throws.
+describe("kyc tab params", () => {
+  it("kyc status falls back to PENDING and cursor is capped at 256 (KYC queue: Unknown status or oversized cursor falls back)", () => {
+    expect(parseKycStatus("bogus")).toBe("PENDING");
+    expect(parseKycStatus(undefined)).toBe("PENDING");
+    expect(parseKycStatus("")).toBe("PENDING");
+    expect(parseKycStatus("OPEN")).toBe("PENDING");
+    const p = parseCasesParams({
+      tab: "kyc",
+      status: "bogus",
+      cursor: "y".repeat(300),
+    });
+    expect(p.tab).toBe("kyc");
+    expect(p.cursor).toHaveLength(256);
+  });
+
+  it("parses tab=kyc (KYC queue: Unknown status or oversized cursor falls back)", () => {
+    expect(parseCasesParams({ tab: "kyc" }).tab).toBe("kyc");
+    expect(parseCasesParams({ tab: ["kyc", "queue"] }).tab).toBe("kyc");
+  });
+
+  it("accepts PENDING, VERIFIED and REJECTED case-insensitively (KYC queue: Unknown status or oversized cursor falls back)", () => {
+    expect(parseKycStatus("PENDING")).toBe("PENDING");
+    expect(parseKycStatus("verified")).toBe("VERIFIED");
+    expect(parseKycStatus("Rejected")).toBe("REJECTED");
+    expect(parseKycStatus("  REJECTED ")).toBe("REJECTED");
+    expect(parseKycStatus(["verified", "REJECTED"])).toBe("VERIFIED");
   });
 });

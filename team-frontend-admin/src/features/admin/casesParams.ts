@@ -1,4 +1,4 @@
-export type CasesTab = "reports" | "queue";
+export type CasesTab = "reports" | "queue" | "kyc";
 export type CasesStatus = "OPEN" | "ACTIONED" | "DISMISSED";
 
 export interface CasesParams {
@@ -21,7 +21,7 @@ export function parseCasesParams(sp: Raw): CasesParams {
   const tab = first(sp.tab);
   const status = first(sp.status);
   return {
-    tab: tab === "queue" ? "queue" : "reports",
+    tab: tab === "queue" || tab === "kyc" ? tab : "reports",
     status: status === "ACTIONED" || status === "DISMISSED" ? status : "OPEN",
     cursor: first(sp.cursor).slice(0, MAX_CURSOR),
   };
@@ -36,4 +36,11 @@ export function formatVnSeconds(iso: string): string {
   if (Number.isNaN(t)) return iso;
   const d = new Date(t + VN_OFFSET_MS);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+}
+
+export type KycStatus = "PENDING" | "VERIFIED" | "REJECTED";
+
+export function parseKycStatus(raw: string | string[] | undefined): KycStatus {
+  const s = first(raw).toUpperCase();
+  return s === "VERIFIED" || s === "REJECTED" ? s : "PENDING";
 }

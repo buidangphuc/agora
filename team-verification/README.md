@@ -20,16 +20,22 @@ Identity comes from gateway-forwarded metadata (`x-principal-id`, `x-principal-t
 
 | RPC | Request -> response | Authorization | Errors |
 |---|---|---|---|
-| `SubmitKyc` | `doc_type`, `doc_ref` -> `id`, `status` (`PENDING`) | USER principal. Owner is the principal id, never the body. | `Unauthenticated` (none/anonymous), `PermissionDenied` (service principal), `InvalidArgument` (blank `doc_type`/`doc_ref`) |
-| `GetVerificationStatus` | `user_id` -> `status`, `badge` | Empty or own `user_id`: USER principal only. Any other `user_id`: `admin` scope. | `Unauthenticated`, `PermissionDenied` |
-| `ReviewKyc` | `id`, `decision` -> `status` | `admin` scope, and a reviewer cannot review their own submission. | `Unauthenticated`, `PermissionDenied` (missing scope / own submission), `InvalidArgument` (empty id, bad decision), `NotFound`, `FailedPrecondition` (already reviewed) |
+| `SubmitKyc` | `doc_type`, `doc_ref`, `additional_doc_refs` (1..3 keys from `CreateKycUploadUrl`) -> `id`, `status` (`PENDING`) | USER principal. Owner is the principal id, never the body. Each key must be the caller's unused grant with an uploaded object matching its type and size; earlier submissions get `superseded_at`. | `Unauthenticated` (none/anonymous), `PermissionDenied` (service principal), `InvalidArgument` (blank `doc_type`/`doc_ref`, more than 3 docs, unknown/foreign/used key), `FailedPrecondition` (expired grant, object missing or mismatching) |
+| `GetVerificationStatus` | `user_id` -> `status`, `badge`, `reject_reason_code` | Empty or own `user_id`: USER principal only. Any other `user_id`: `admin` scope, or a service principal with `verification.read` (no `reject_reason_code`). | `Unauthenticated`, `PermissionDenied` |
+| `CreateKycUploadUrl` | `content_type`, `size_bytes` -> presigned PUT `upload_url`, `doc_ref` | USER principal; at most 3 open grants | `Unauthenticated`, `PermissionDenied`, `InvalidArgument`, `ResourceExhausted` |
+| `ListKycSubmissions` | `status`, cursor, page size -> submissions (oldest first) | `admin` scope | `PermissionDenied`, `InvalidArgument` |
+| `GetKycDocumentUrl` | `submission_id`, `index` -> presigned GET (5 min) | `admin` scope; audited before the URL is issued | `PermissionDenied`, `NotFound`, `InvalidArgument`, `Unavailable` |
+| `GetPublicBadges` | 1..50 `user_ids` -> badges | Any caller, including anonymous | `InvalidArgument` |
+| `ReviewKyc` | `id`, `decision`, `reason_code` -> `status` | `admin` scope, and a reviewer cannot review their own submission. | `Unauthenticated`, `PermissionDenied` (missing scope / own submission), `InvalidArgument` (empty id, bad decision, `reason_code` missing on reject or set on approve), `NotFound`, `FailedPrecondition` (already reviewed) |
 
 Behavior notes:
 
 - `decision` accepts (case-insensitive) `approve|approved|verify|verified` -> `VERIFIED` and
   `reject|rejected|deny|denied` -> `REJECTED`.
 - A review is final: only a `PENDING` submission can be updated (guarded in the SQL `UPDATE`).
-- `badge` is `status == VERIFIED`. A user with no submission is reported as `PENDING`, no badge.
+- `badge` is `status == VERIFIED`. A user with no submission is reported as `NOT_SUBMITTED`, no badge.
+- `reason_code` is lower_snake_case, at most 64 characters, required on reject and empty on approve.
+- Upload grants: `image/jpeg`, `image/png` or `application/pdf`, 1..5242880 bytes, valid 15 minutes.
 - Status is that of the user's latest submission (by `created_at`).
 - gRPC health (`grpc.health.v1`) is always enabled: the overall status is readiness (follows the database), the `liveness` service does not depend on the database. Server reflection is off unless `GRPC_REFLECTION_ENABLED=true` in a local or test `ENV`.
 
@@ -43,16 +49,24 @@ Submit and status do not depend on team-audit.
 
 ## Events
 
-None. No Kafka or RabbitMQ in this service.
+Consumes `identity.events` (group `team-verification-identity`): `UserErased` deletes the user's
+KYC objects first, then their submissions, documents and upload grants in one transaction. A
+storage outage returns a retryable error; a malformed event is permanent. Dead letters go to
+`identity.events.team-verification.dlq`. Other event types are ignored. Publishes nothing.
+
+A retention sweeper runs hourly: documents of a `REJECTED` submission 90 days after review, and of
+a superseded submission 90 days after `superseded_at`, are deleted from storage first and then marked
+`deleted_at`; a failed object delete is retried on the next run.
 
 ## Data
 
 Database `verification_db` (role `verification_svc`), table `kyc_submissions`:
 `id`, `user_id`, `doc_type`, `doc_ref`, `status` (`PENDING|VERIFIED|REJECTED`, CHECK),
-`reviewed_at`, `created_at`. A user may have many submissions. Index
+`reviewed_at`, `created_at`, `reason_code`, `superseded_at`; plus `kyc_upload_grants` and
+`kyc_documents` (migration `002_kyc_documents`). A user may have many submissions. Index
 `idx_kyc_submissions_user_id (user_id, created_at DESC)` serves the latest-submission lookup.
 
-Migrations: `migrations/001_create_kyc_submissions.{up,down}.sql` (golang-migrate). In compose
+Migrations: `migrations/001_create_kyc_submissions.{up,down}.sql`, `migrations/002_kyc_documents.{up,down}.sql` (golang-migrate). In compose
 they run via the one-shot `team-verification-migrate` job, which the service depends on.
 The binary embeds the migrations: `server migrate up` (reads `DATABASE_URL`) applies them and exits. `app.Run` never migrates.
 
@@ -74,6 +88,12 @@ The binary embeds the migrations: `server migrate up` (reads `DATABASE_URL`) app
 | `DB_MAX_CONNS` | `10` | Postgres pool size |
 | `UPSTREAM_AUDIT_ADDR` | none | Required. team-audit gRPC address |
 | `MOCK_DATA` | empty | Mock-data adapters; the service has none, so any value fails boot (refused in strict ENV) |
+| `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | none | Required. MinIO bucket holding KYC documents |
+| `STORAGE_REGION`, `STORAGE_USE_SSL` | `us-east-1`, `false` | Storage region and TLS |
+| `KAFKA_BROKERS` | none | Kafka brokers (go-sdk `Kafka` group) |
+| `KAFKA_IDENTITY_TOPIC` | `identity.events` | UserErased source topic |
+| `KAFKA_IDENTITY_DLQ_TOPIC` | `identity.events.team-verification.dlq` | Dead-letter topic |
+| `KAFKA_IDENTITY_GROUP` | `team-verification-identity` | Consumer group |
 | `OTEL_ENABLED` | `false` | Enable OpenTelemetry export |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTLP endpoint |
 | `OTEL_SERVICE_NAME` | `team-verification` | OTel service name |
@@ -131,6 +151,9 @@ Lint config comes from the go-sdk `.golangci.yml`.
 - Principal metadata is trusted as-is, so the service must only be reachable from the gateway
   (network-level zero trust, ADR-0010).
 - No `.github` CI in this repo.
+- `docker-compose.services.yaml` sets `IDENTITY_EVENTS_TOPIC` for team-verification, but the
+  service reads `KAFKA_IDENTITY_TOPIC` (`internal/config/config.go`); it works only because the
+  default is `identity.events`.
 
 ## Links
 

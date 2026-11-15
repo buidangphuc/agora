@@ -14,6 +14,7 @@ import httpx
 from pytest_bdd import given, parsers, then, when
 
 from src.api.services.verification_service import VerificationService
+from tests.e2e.support import kyc_documents_support as kyc
 from tests.e2e.support.world import World
 
 PASSWORD = "Sup3r-secret-pass!"
@@ -22,11 +23,9 @@ PASSWORD = "Sup3r-secret-pass!"
 def _register_and_submit(world: World, role: str) -> None:
     username = f"e2e_{role}_{uuid.uuid4().hex[:10]}"
     token = world.service_factory.auth.register(username, PASSWORD, role=role)
-    submit = VerificationService(token=token).submit_kyc(
-        doc_type="national_id", doc_ref=f"kyc-ref-{uuid.uuid4().hex[:8]}"
-    )
+    sub_id, _, _ = kyc.submit_with_uploads(VerificationService(token=token), 1)
     world.state.extra["kyc_owner_token"] = token
-    world.state.extra["kyc_id"] = submit["id"]
+    world.state.extra["kyc_id"] = sub_id
     world.service_factory.set_token(token)
 
 

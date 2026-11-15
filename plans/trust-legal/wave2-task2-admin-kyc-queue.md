@@ -18,6 +18,13 @@ Implement OpenSpec change `admin-kyc-queue` test-first per its tasks.md; context
 - platform-e2e/tests/e2e/features/admin/kyc_queue.feature
 - platform-e2e/tests/e2e/step_definitions/test_admin_kyc_queue.py
 - platform-e2e/tests/e2e/step_definitions/admin_kyc_queue_steps.py
+- widened (P1):
+  - openspec/changes/admin-kyc-queue/specs/admin-kyc-queue-ui/spec.md — the slice's own OpenSpec folder; only VERIFIED BY citations replacing "TBD by e2e-author" (no requirement or scenario wording change)
+  - openspec/changes/admin-kyc-queue/tasks.md — the slice's own OpenSpec folder; e2e task ticks 2.1-2.6
+  - platform-e2e/pyproject.toml — pytest marker registration (kyc_queue)
+  - platform-e2e/src/pages/admin_kyc_queue_page.py — e2e page object of this change
+  - platform-e2e/tests/e2e/step_definitions/kyc_queue_steps.py — e2e steps of this change (packet named it admin_kyc_queue_steps.py)
+  - platform-e2e/tests/e2e/step_definitions/test_kyc_queue.py — e2e scenario binding of this change (packet named it test_admin_kyc_queue.py)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-admin`

@@ -153,8 +153,8 @@ func TestReviewKycWritesAuditEvent(t *testing.T) {
 	if ev.Action != "kyc.review" || ev.TargetType != "kyc_submission" || ev.TargetID != id || ev.ActorID != "adm-1" {
 		t.Fatalf("event shape = %+v", ev)
 	}
-	if len(ev.Metadata) != 2 || ev.Metadata["decision"] != "approve" || ev.Metadata["user_id"] != "u-1" {
-		t.Fatalf("event metadata = %v, want only decision and user_id", ev.Metadata)
+	if len(ev.Metadata) != 3 || ev.Metadata["decision"] != "approve" || ev.Metadata["user_id"] != "u-1" || ev.Metadata["reason_code"] != "" {
+		t.Fatalf("event metadata = %v, want only decision, user_id and an empty reason_code", ev.Metadata)
 	}
 }
 
@@ -162,7 +162,7 @@ func TestReviewKycWritesAuditEvent(t *testing.T) {
 func TestReviewKycAuditDecisionNormalized(t *testing.T) {
 	e := newEnv()
 	id := submit(buyer("u-1"), t, e.h)
-	rev, err := e.review(admin("adm-1"), id, " Rejected ")
+	rev, err := e.h.ReviewKyc(admin("adm-1"), &verificationv1.ReviewKycRequest{Id: id, Decision: " Rejected ", ReasonCode: "document_expired"})
 	if err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
