@@ -29,7 +29,7 @@
 #### Scenario: Seller without the listing scope sees nothing
 - **WHEN** a principal without `listing.write` requests `/seller/plans`
 - **THEN** the page renders nothing and none of the three plan reads is issued; a request with no principal redirects to login
-- **VERIFIED BY**: team-frontend-seller `src/app/seller/restrictedGuard.test.tsx` `plans page guard`
+- **VERIFIED BY**: team-frontend-seller `src/app/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`, `no principal calls redirectGuestToLogin with the page's own path` (the `/seller/plans` case)
 
 ### Requirement: Subscribing states the charge and handles the server refusal
 
@@ -58,12 +58,12 @@ Choosing a non-current plan SHALL open a confirm dialog before any write. The di
 #### Scenario: Insufficient balance is explained and nothing changes
 - **WHEN** `Subscribe` fails with FAILED_PRECONDITION because the balance of 100000 VND is below the PRO price 199000
 - **THEN** the seller sees `Số dư có thể rút không đủ để trả gói này.` with a `Xem ví` link to `/seller/wallet`, an error toast appears and after reload the current plan is still FREE
-- **VERIFIED BY**: platform-e2e `seller/seller_plans.feature::Subscribing with too little balance changes nothing`
+- **VERIFIED BY**: platform-e2e `seller/seller_plans.feature::Insufficient balance is explained and nothing changes`
 
 #### Scenario: Paying subscription end to end
 - **WHEN** a seller with a withdrawable balance of at least 199000 VND confirms the PRO upgrade
 - **THEN** after reload PRO is the current plan with `Hết hạn ngày` 30 days ahead, and the wallet ledger shows one subscription debit of 199000
-- **VERIFIED BY**: platform-e2e `seller/seller_plans.feature::Seller upgrades to PRO from the wallet balance`
+- **VERIFIED BY**: platform-e2e `seller/seller_plans.feature::Paying subscription end to end`
 
 ### Requirement: The seller can stop auto-renew
 
@@ -92,7 +92,7 @@ While the seller's subscription is a paid tier, ACTIVE, with `auto_renew` true, 
 #### Scenario: Cancelling keeps the plan until period end
 - **WHEN** a PRO seller cancels auto-renew in the running stack and reloads `/seller/plans`
 - **THEN** PRO is still the current plan, `Tự động gia hạn: Tắt` and `Sẽ chuyển về Miễn phí ngày` show, and no refund entry appears in the wallet
-- **VERIFIED BY**: platform-e2e `seller/seller_plans.feature::Seller cancels renewal and keeps PRO until period end`
+- **VERIFIED BY**: platform-e2e `seller/seller_plans.feature::Cancelling keeps the plan until period end`
 
 ### Requirement: A plan-cap refusal on listing creation offers the upgrade
 
@@ -121,9 +121,9 @@ When `CreateListing` fails with RESOURCE_EXHAUSTED and `ErrorInfo.reason` `PLAN_
 #### Scenario: Eleventh listing on FREE shows the upgrade CTA
 - **WHEN** a FREE seller who owns 10 listings submits a new listing in the running stack
 - **THEN** the form shows `Bạn đã đạt giới hạn số tin đăng của gói hiện tại.` and a `Nâng cấp gói` link that opens `/seller/plans`, and the seller's listing count stays 10
-- **VERIFIED BY**: platform-e2e `seller/create-listing.feature::Seller at the plan cap sees the upgrade link`
+- **VERIFIED BY**: platform-e2e `seller/create-listing.feature::Eleventh listing on FREE shows the upgrade CTA`
 
 #### Scenario: Boundary, the tenth listing is accepted
 - **WHEN** a FREE seller who owns 9 listings submits a valid new listing in the running stack
 - **THEN** the listing is created and no `Nâng cấp gói` link is shown
-- **VERIFIED BY**: platform-e2e `seller/create-listing.feature::Seller below the plan cap creates a listing`
+- **VERIFIED BY**: platform-e2e `seller/create-listing.feature::Boundary, the tenth listing is accepted`

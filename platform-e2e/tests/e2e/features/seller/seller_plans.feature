@@ -4,7 +4,7 @@ Feature: The seller pays for, cancels and reads a plan on the plans page
   confirms a subscription before charging the wallet and lets the seller stop auto-renew.
   Money is the mock payment only. (seller-plan-ui)
 
-  Scenario: Seller upgrades to PRO from the wallet balance
+  Scenario: Paying subscription end to end
     Given a seller with a listing "L" whose order pays 500000
     And a buyer "b1"
     And "b1" has paid an order of "L" whose credit has aged past the hold window
@@ -15,7 +15,7 @@ Feature: The seller pays for, cancels and reads a plan on the plans page
     Then the plan-ui PRO card is the current plan with a period end about 30 days ahead
     And the seller's ledger holds exactly one SUBSCRIPTION_FEE of -199000
 
-  Scenario: Subscribing with too little balance changes nothing
+  Scenario: Insufficient balance is explained and nothing changes
     Given a seller with a listing "L" whose order pays 100000
     And a buyer "b1"
     And "b1" has paid an order of "L" whose credit has aged past the hold window
@@ -28,7 +28,7 @@ Feature: The seller pays for, cancels and reads a plan on the plans page
     And the seller has no subscription
     And the seller's ledger has no SUBSCRIPTION_FEE entry
 
-  Scenario: Seller cancels renewal and keeps PRO until period end
+  Scenario: Cancelling keeps the plan until period end
     Given a seller with a listing "L" whose order pays 500000
     And a buyer "b1"
     And "b1" has paid an order of "L" whose credit has aged past the hold window

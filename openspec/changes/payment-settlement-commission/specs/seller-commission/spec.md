@@ -21,6 +21,7 @@ rate applied.
 - **THEN** the seller's ledger has one `ORDER_SETTLEMENT` of +310000 and one `COMMISSION` of -14000 referencing the
   same payment, written in one transaction
 - **AND** the seller's balance grew by 296000
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A paid order books 5% on subtotal minus shop voucher`
 
 #### Scenario: The platform voucher and shipping are outside the base
 
@@ -28,12 +29,14 @@ rate applied.
   platform_discount_amount 10000 is settled at 500 bps
 - **THEN** the `COMMISSION` entry is -15000
 - **AND** the `ORDER_SETTLEMENT` entry is +330000
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::The platform voucher and shipping are outside the base`
 
 #### Scenario: Commission rounds half up to whole VND
 
 - **WHEN** an order with items_subtotal 100010 and shop_discount_amount 0 is settled at 500 bps, and another with
   items_subtotal 100001 at 500 bps
 - **THEN** the first books a `COMMISSION` of -5001 and the second one of -5000
+- **VERIFIED BY**: `team-payment/internal/store/commission_math_test.go` `TestCommissionAmount_RoundsHalfUpToWholeVND`
 
 #### Scenario: A redelivered paid event books no second commission
 
@@ -41,22 +44,26 @@ rate applied.
 - **THEN** after a sentinel order of the same seller is settled, the seller has exactly one `COMMISSION` entry for the
   replayed order
 - **AND** the balance equals the sum of the two orders' credits minus their commissions
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A redelivered paid event books no second commission`
 
 #### Scenario: Concurrent settlements of one order book one commission
 
 - **WHEN** the same `OrderPaidEvent` is handled by eight concurrent consumers
 - **THEN** the ledger has exactly one `ORDER_SETTLEMENT` and one `COMMISSION` for that payment
+- **VERIFIED BY**: `team-payment/internal/store/commission_settlement_test.go` `TestCommissionSettlement_ConcurrentSettlementsBookOneCommission`
 
 #### Scenario: An event without the breakdown books no commission
 
 - **WHEN** an `OrderPaidEvent` with fields 9-12 absent is consumed
 - **THEN** the seller is credited the paid amount and the ledger has no `COMMISSION` entry for that payment
 - **AND** `payment_commission_skipped_total{reason="no_breakdown"}` increased by 1
+- **VERIFIED BY**: `team-payment/internal/settlement/breakdown_test.go` `TestConsumer_EventWithoutTheBreakdownBooksNoCommission`
 
 #### Scenario: A zero commission writes no row
 
 - **WHEN** an order with items_subtotal 5 and shop_discount_amount 0 is settled at 500 bps, or any order at 0 bps
 - **THEN** the ledger has no `COMMISSION` entry for it and the settlement credit is written
+- **VERIFIED BY**: `team-payment/internal/store/commission_settlement_test.go` `TestCommissionSettlement_ZeroCommissionWritesNoRow`
 
 #### Scenario: An inconsistent breakdown is parked and writes nothing
 
@@ -64,12 +71,14 @@ rate applied.
   `order.events`
 - **THEN** the record appears on `order.events.payment-settlement.dlq`
 - **AND** the ledger has no entry for that order, and a later paid order of the same seller is settled normally
+- **VERIFIED BY**: `team-payment/internal/settlement/breakdown_test.go` `TestConsumer_InconsistentBreakdownIsParkedAndWritesNothing`
 
 #### Scenario: A failed commission insert rolls back the credit
 
 - **WHEN** the `COMMISSION` insert fails inside the settlement transaction
 - **THEN** no `ORDER_SETTLEMENT` entry exists for that payment either
 - **AND** the record is retried and, once the failure clears, both entries are written once
+- **VERIFIED BY**: `team-payment/internal/store/commission_settlement_test.go` `TestCommissionSettlement_FailedCommissionInsertRollsBackTheCredit`
 
 #### Scenario: A client cannot set or forge a commission
 
@@ -77,12 +86,14 @@ rate applied.
 - **THEN** no request message carries a commission amount or rate, and a `COMMISSION` entry exists only for payments
   settled from `order.events`
 - **AND** a direct call to `ChargeSellerFee` with a seller token is denied by `team-gateway` as not routed
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A client cannot set or forge a commission`
 
 #### Scenario: Commission adds at most 5 ms p95 to settlement
 
 - **WHEN** 200 settlements with a breakdown and 200 without are run on the same local database in one run, median of
   3 runs
 - **THEN** the p95 of `CreditSettlement` with commission exceeds the p95 without it by at most 5 ms
+- **VERIFIED BY**: `team-payment/internal/store/commission_perf_test.go` `TestCommissionOverheadAtMostFiveMsP95`
 
 ### Requirement: Refunds return commission proportionally
 
@@ -103,57 +114,67 @@ refund of the remainder keyed `cancel:<order_id>`) and a return refund SHALL bot
 - **THEN** the ledger has a `REFUND_DEDUCTION` of -124000 and a `COMMISSION_REVERSAL` of +5600 referencing the same
   refund key
 - **AND** `GetOrderSettlement` reports `net` 177600
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A 40% partial refund returns 40% of the commission`
 
 #### Scenario: A full refund returns exactly the commission
 
 - **WHEN** the same order is then refunded the remaining 186000
 - **THEN** a second `COMMISSION_REVERSAL` of +8400 is booked and the reversals total 14000
 - **AND** the seller's balance for that order is 0
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A full refund returns exactly the commission`
 
 #### Scenario: Cumulative rounding never exceeds the commission
 
 - **WHEN** a payment of 310000 with a 14000 commission is refunded in 310 refunds of 1000
 - **THEN** the sum of `COMMISSION_REVERSAL` entries is exactly 14000 after the last refund
 - **AND** no prefix of the sequence has booked more than `round_half_up(14000 x refunded / 310000)`
+- **VERIFIED BY**: `team-payment/internal/store/commission_math_test.go` `TestReversalTarget_CumulativeNeverExceedsCommissionAndEndsExact`
 
 #### Scenario: A tiny refund whose share rounds to zero books no reversal
 
 - **WHEN** the same payment is refunded 1 VND once
 - **THEN** a `REFUND_DEDUCTION` of -1 is booked and no `COMMISSION_REVERSAL` entry is written
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A tiny refund whose share rounds to zero books no reversal`
 
 #### Scenario: Cancelling a paid order returns the whole commission
 
 - **WHEN** a credited order with a 14000 commission is cancelled from `Paid` and the `OrderCancelled` event is
   applied twice
 - **THEN** exactly one `COMMISSION_REVERSAL` of +14000 exists and the order's net is 0
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::Cancelling a paid order returns the whole commission`
 
 #### Scenario: A refund that landed before the credit still gets its reversal
 
 - **WHEN** a refund of 124000 is recorded for a payment before its `OrderPaidEvent` is consumed, and the event is then
   consumed
 - **THEN** the ledger has the credit, the commission, the deduction of -124000 and a reversal of +5600, once each
+- **VERIFIED BY**: `team-payment/internal/store/commission_settlement_test.go` `TestReversal_RefundBeforeCreditStillGetsItsReversal`
 
 #### Scenario: A refund by a seller who is not the order's seller is denied and reverses nothing
 
 - **WHEN** another seller calls `RefundPayment` for the payment of a commissioned order
 - **THEN** the call fails with `PERMISSION_DENIED` and the ledger has no new `REFUND_DEDUCTION` or
   `COMMISSION_REVERSAL`
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A refund by a seller who is not the order's seller is denied and reverses nothing`
 
 #### Scenario: A replayed refund writes no second reversal
 
 - **WHEN** the `ReturnRefunded` event of an already applied refund is redelivered
 - **THEN** the ledger entries and the balance are unchanged
+- **VERIFIED BY**: `team-payment/internal/store/commission_settlement_test.go` `TestReversal_ReplayedRefundWritesNoSecondReversal`
 
 #### Scenario: A payment without commission is refunded without a reversal
 
 - **WHEN** a payment credited from an event without the price breakdown is refunded in part
 - **THEN** a `REFUND_DEDUCTION` is booked and no `COMMISSION_REVERSAL` entry exists for it
+- **VERIFIED BY**: `team-payment/internal/store/commission_settlement_test.go` `TestReversal_PaymentWithoutCommissionIsRefundedWithoutReversal`
 
 #### Scenario: Concurrent refunds never reverse more than the commission
 
 - **WHEN** eight concurrent refunds of 1/8 of a credited payment with a 14000 commission, each with its own refund
   key, are applied
 - **THEN** the reversals sum to exactly 14000 and the payment reads `REFUNDED`
+- **VERIFIED BY**: `team-payment/internal/store/commission_settlement_test.go` `TestReversal_ConcurrentRefundsNeverReverseMoreThanTheCommission`
 
 #### Scenario: The ledger reconciles after any order of events
 
@@ -161,6 +182,7 @@ refund of the remainder keyed `cancel:<order_id>`) and a return refund SHALL bot
   duplicates
 - **THEN** each seller's balance equals the sum of their ledger entries and equals, per order, the
   `net` reported by `GetOrderSettlement`
+- **VERIFIED BY**: `team-payment/internal/store/commission_reconcile_test.go` `TestReconcile_LedgerReconcilesAfterAnyOrderOfEvents`
 
 ### Requirement: The ledger store keeps commission rows unique and sign-consistent
 
@@ -174,27 +196,32 @@ reference. Entries of the existing types SHALL keep their rules and every existi
 - **WHEN** a second `COMMISSION` row with the reference of an already charged payment is inserted directly into
   `team-payment`'s database
 - **THEN** the insert fails with a unique violation and the seller's balance is unchanged
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::The store refuses a second commission for one payment`
 
 #### Scenario: The store refuses a commission that is not negative
 
 - **WHEN** a `COMMISSION` row of +1 with a fresh reference is inserted directly
 - **THEN** the insert fails with a check violation
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::The store refuses a commission that is not negative`
 
 #### Scenario: The store refuses a reversal that is not positive
 
 - **WHEN** a `COMMISSION_REVERSAL` row of -1 with a fresh reference is inserted directly
 - **THEN** the insert fails with a check violation
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::The store refuses a reversal that is not positive`
 
 #### Scenario: The store refuses a commission without a reference
 
 - **WHEN** a `COMMISSION` row of -1 without a reference is inserted directly
 - **THEN** the insert fails with a check violation
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::The store refuses a commission without a reference`
 
 #### Scenario: The migration keeps existing ledger rows valid
 
 - **WHEN** migration `0018` is applied to a database holding `ORDER_SETTLEMENT`, `REFUND_DEDUCTION` and `PAYOUT`
   rows, then rolled back and applied again
 - **THEN** it succeeds each time and the sum of entries per seller is unchanged
+- **VERIFIED BY**: `team-payment/internal/store/migration0019_pg_test.go` `TestMigration0019_ExistingLedgerRowsSurviveUpDownUp`
 
 ### Requirement: The commission rate is configured and validated at startup
 
@@ -207,11 +234,13 @@ only orders settled afterwards.
 
 - **WHEN** the `team-payment` image is started with `COMMISSION_RATE_BPS=-1`, `3001`, `abc` or `5.5`
 - **THEN** each container exits non-zero and its log names `COMMISSION_RATE_BPS`
+- **VERIFIED BY**: `team-payment/internal/config/config_test.go` `TestCommissionRateInvalidRefusesStart`
 
 #### Scenario: The boundary rates are accepted
 
 - **WHEN** `team-payment` is started with `COMMISSION_RATE_BPS=0` and with `3000`
 - **THEN** it starts, and with 3000 an order of items_subtotal 100000 books a `COMMISSION` of -30000
+- **VERIFIED BY**: `team-payment/internal/config/config_test.go` `TestCommissionRateBoundariesAccepted`
 
 #### Scenario: A rate change does not alter earlier orders
 
@@ -219,6 +248,7 @@ only orders settled afterwards.
   refunded in full
 - **THEN** the reversal equals the original commission and `GetOrderSettlement` for it reports
   `commission_rate_bps` 500
+- **VERIFIED BY**: `team-payment/internal/rpc/get_order_settlement_test.go` `TestGetOrderSettlement_RateChangeDoesNotAlterEarlierOrders`
 
 ### Requirement: A seller reads gross, commission and net of a settled order
 
@@ -237,48 +267,58 @@ write nothing.
   the gateway
 - **THEN** the response is credited 310000, commission 14000, commission_reversed 0, refund_deducted 0, net 296000,
   commission_rate_bps 500
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::The seller reads the breakdown of a settled order`
 
 #### Scenario: The breakdown reflects a partial refund
 
 - **WHEN** the same order has been refunded 124000 and the seller calls it again
 - **THEN** commission_reversed is 5600, refund_deducted is 124000 and net is 177600
+- **VERIFIED BY**: `team-payment/internal/rpc/get_order_settlement_test.go` `TestGetOrderSettlement_BreakdownReflectsAPartialRefund`
 
 #### Scenario: An order settled without commission reports zero commission
 
 - **WHEN** the seller calls it for an order credited from an event without the breakdown, paid 320000
 - **THEN** credited is 320000, commission 0, commission_rate_bps 0 and net 320000
+- **VERIFIED BY**: `team-payment/internal/rpc/get_order_settlement_test.go` `TestGetOrderSettlement_OrderSettledWithoutCommissionReportsZeroCommission`
 
 #### Scenario: Another seller gets NOT_FOUND
 
 - **WHEN** a different seller calls it for that order
 - **THEN** the call fails with `NOT_FOUND`, the same as for an unknown order id
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::Another seller gets NOT_FOUND`
 
 #### Scenario: A buyer gets NOT_FOUND
 
 - **WHEN** the buyer of the order calls it
 - **THEN** the call fails with `NOT_FOUND`
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A buyer gets NOT_FOUND`
 
 #### Scenario: An admin can read any settlement
 
 - **WHEN** an admin calls it for that order
 - **THEN** the response equals the seller's
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::An admin can read any settlement`
 
 #### Scenario: An unsettled order is not found
 
 - **WHEN** the seller calls it for an order that is `Pending`, and for one whose payment was voided by cancellation
 - **THEN** each call fails with `NOT_FOUND`
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::An unsettled order is not found`
 
 #### Scenario: A missing order id is rejected
 
 - **WHEN** the seller calls it with an empty `order_id`
 - **THEN** the call fails with `INVALID_ARGUMENT`
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::A missing order id is rejected`
 
 #### Scenario: An unauthenticated call is refused
 
 - **WHEN** the gateway receives the call without a token
 - **THEN** it responds `UNAUTHENTICATED` and `team-payment` receives no request
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::An unauthenticated call is refused`
 
 #### Scenario: Reading the settlement writes nothing
 
 - **WHEN** the seller calls it ten times in a row
 - **THEN** the ledger entry count and the balance are unchanged
+- **VERIFIED BY**: platform-e2e `payment/psc_commission.feature::Reading the settlement writes nothing`

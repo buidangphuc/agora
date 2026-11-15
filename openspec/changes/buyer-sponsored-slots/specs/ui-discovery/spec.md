@@ -11,7 +11,7 @@ that page SHALL be shown only as the sponsored slot. The page SHALL NOT request 
 
 - **WHEN** a guest opens `/search?category=<c>` where an ACTIVE campaign exists for a published listing L in category c
 - **THEN** the page shows L in an element `sponsored-slot` that contains the text "Tài trợ", positioned before the first organic card
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/buyer_sponsored_slots.feature` `Search shows a sponsored slot in its category`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/buyer_sponsored_slots.feature` `Sponsored slot is shown labelled in its category`
 
 #### Scenario: Sponsored listing is not duplicated in organic results
 
@@ -23,19 +23,19 @@ that page SHALL be shown only as the sponsored slot. The page SHALL NOT request 
 
 - **WHEN** a visitor opens `/search?page=2`
 - **THEN** zero `sponsored-slot` elements are rendered and `ListSponsoredSlots` is not called
-- **VERIFIED BY**: `team-frontend/src/features/search/SearchBlocks.test.tsx` `page 2 requests no sponsored slots`
+- **VERIFIED BY**: `team-frontend/src/features/search/SearchBlocks.test.tsx` `Page 2 has no sponsored slots`
 
 #### Scenario: Slot service failure leaves organic results intact
 
 - **WHEN** `ListSponsoredSlots` fails with UNAVAILABLE or does not answer within 150 ms while the organic search succeeds
 - **THEN** the page responds 200 with the organic grid, count and pagination unchanged and zero `sponsored-slot` elements
-- **VERIFIED BY**: `team-frontend/src/features/search/SearchBlocks.test.tsx` `sponsored failure or timeout renders organic only`
+- **VERIFIED BY**: `team-frontend/src/features/search/SearchBlocks.test.tsx` `Slot service failure leaves organic results intact`
 
 #### Scenario: No slots when the organic search has no results
 
 - **WHEN** the organic search returns zero items for the query
 - **THEN** the page shows "Không tìm thấy sản phẩm" and zero `sponsored-slot` elements
-- **VERIFIED BY**: `team-frontend/src/features/search/SearchBlocks.test.tsx` `no sponsored row on empty results`
+- **VERIFIED BY**: `team-frontend/src/features/search/SearchBlocks.test.tsx` `No slots when the organic search has no results`
 
 #### Scenario: Unpublished sponsored listing is dropped
 
@@ -59,19 +59,19 @@ sponsored slot. A sponsored lookup failure SHALL NOT change the rest of the home
 
 - **WHEN** a guest opens `/` while an ACTIVE campaign exists whose slot is served for placement `home`
 - **THEN** the feed section "Gợi ý hôm nay" contains a `sponsored-slot` with the text "Tài trợ" before its first organic card
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/buyer_sponsored_slots.feature` `Home feed shows a sponsored slot`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/buyer_sponsored_slots.feature` `Sponsored slot is shown on the home feed`
 
 #### Scenario: Home dedupes the sponsored listing
 
 - **WHEN** the sponsored listing also occurs in the feed items
 - **THEN** it appears once on the page, inside `sponsored-slot`
-- **VERIFIED BY**: `team-frontend/src/features/home/blocks.test.tsx` `feed removes sponsored duplicates`
+- **VERIFIED BY**: `team-frontend/src/features/home/blocks.test.tsx` `Home dedupes the sponsored listing`
 
 #### Scenario: Home slot failure does not break the feed
 
 - **WHEN** the sponsored lookup fails or exceeds 150 ms
 - **THEN** the feed renders its organic items and zero `sponsored-slot` elements, and the other home blocks still render
-- **VERIFIED BY**: `team-frontend/src/features/home/blocks.test.tsx` `feed renders organic items when sponsored fails`
+- **VERIFIED BY**: `team-frontend/src/features/home/blocks.test.tsx` `Home slot failure does not break the feed`
 
 ### Requirement: A click on a sponsored slot is charged once and never blocks navigation
 

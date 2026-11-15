@@ -5700,7 +5700,7 @@ features:
 
   # promotion-ads-serving (e2e-author; planned until the feature scenarios run green)
   - id: promotion.ads-search-slot-is-served-for-the-category
-    title: "Search slot is served for the category"
+    title: "Served slots are visible end to end"
     persona: buyer
     priority: P1
     summary: "Sponsored serving (promotion-ads-serving): a seller's ACTIVE ad campaign is served in the search and home slots with an impression token."
@@ -5711,11 +5711,12 @@ features:
     acceptance:
       - "Search slot is served for the category"
     tags: [promotion, ads]
-    status: planned
-    notes: "Target: ads/sponsored_serving.feature::Search slot is served for the category"
+    status: automated
+    covered_by: "ads/sponsored_serving.feature::Served slots are visible end to end"
+    notes: "Change promotion-ads-serving; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.ads-click-charges-the-bid-once
-    title: "Click charges the bid once"
+    title: "Click and budget burn end to end"
     persona: buyer
     priority: P1
     summary: "Sponsored click (promotion-ads-serving): a click charges the campaign bid once per impression token."
@@ -5726,11 +5727,12 @@ features:
     acceptance:
       - "Click charges the bid once"
     tags: [promotion, ads]
-    status: planned
-    notes: "Target: ads/sponsored_click.feature::Click charges the bid once"
+    status: automated
+    covered_by: "ads/sponsored_click.feature::Click and budget burn end to end"
+    notes: "Change promotion-ads-serving; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.ads-exhausted-campaign-stops-being-served
-    title: "Exhausted campaign stops being served"
+    title: "Budget exhaustion stops serving end to end"
     persona: buyer
     priority: P1
     summary: "Sponsored budget burn (promotion-ads-serving): a campaign that can no longer pay its bid is paused and not served."
@@ -5741,8 +5743,9 @@ features:
     acceptance:
       - "Exhausted campaign stops being served"
     tags: [promotion, ads]
-    status: planned
-    notes: "Target: ads/sponsored_click.feature::Exhausted campaign stops being served"
+    status: automated
+    covered_by: "ads/sponsored_click.feature::Budget exhaustion stops serving end to end"
+    notes: "Change promotion-ads-serving; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.ads-unit-bid-at-the-minimum-is-accepted
     title: "Bid at the minimum is accepted"
@@ -6793,8 +6796,9 @@ features:
     acceptance:
       - "Seller upgrades to PRO and the wallet is debited"
     tags: [promotion, seller]
-    status: planned
-    notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/seller_plan_billing.feature::Seller upgrades to PRO and the wallet is debited"
+    notes: "Change promotion-plan-billing; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.ppb-seller-without-funds-cannot-upgrade
     title: "Seller without funds cannot upgrade"
@@ -6810,8 +6814,9 @@ features:
     acceptance:
       - "Seller without funds cannot upgrade"
     tags: [promotion, seller]
-    status: planned
-    notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/seller_plan_billing.feature::Seller without funds cannot upgrade"
+    notes: "Change promotion-plan-billing; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.ppb-cancelled-plan-lapses-at-period-end
     title: "Cancelled plan lapses at period end"
@@ -6827,8 +6832,9 @@ features:
     acceptance:
       - "Cancelled plan lapses at period end"
     tags: [promotion, seller]
-    status: planned
-    notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/seller_plan_billing.feature::Cancelled plan lapses at period end"
+    notes: "Change promotion-plan-billing; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.ppb-another-seller-cannot-cancel-my-plan
     title: "Another seller cannot cancel my plan"
@@ -6844,8 +6850,9 @@ features:
     acceptance:
       - "Another seller cannot cancel my plan"
     tags: [promotion, seller]
-    status: planned
-    notes: "promotion-plan-billing: e2e scenario in promotion/seller_plan_billing.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/seller_plan_billing.feature::Another seller cannot cancel my plan"
+    notes: "Change promotion-plan-billing; green in the initiative e2e run on env monetization (2026-11-15)."
 
   # promotion-ads-campaign-mgmt (e2e-author)
   - id: promotion.acm-campaigns-survive-a-reload-with-their-counters
@@ -6953,8 +6960,9 @@ features:
     acceptance:
       - "Seller sees campaigns after reload through the gateway"
     tags: [promotion, ads, seller]
-    status: planned
-    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Seller sees their campaigns after reload' in promotion/ad_campaign_management.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/ad_campaign_management.feature::Seller sees campaigns after reload through the gateway"
+    notes: "Change promotion-ads-campaign-mgmt; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.acm-active-campaign-is-paused-and-stops-being-served
     title: "Active campaign is paused and stops being served"
@@ -7074,8 +7082,9 @@ features:
     acceptance:
       - "Seller pauses a campaign through the gateway"
     tags: [promotion, ads, seller]
-    status: planned
-    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Seller pauses a campaign' in promotion/ad_campaign_management.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/ad_campaign_management.feature::Seller pauses a campaign through the gateway"
+    notes: "Change promotion-ads-campaign-mgmt; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.acm-paused-campaign-with-budget-resumes-and-is-served-again
     title: "Paused campaign with budget resumes and is served again"
@@ -7208,8 +7217,9 @@ features:
     acceptance:
       - "Seller resumes a paused campaign through the gateway"
     tags: [promotion, ads, seller]
-    status: planned
-    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Seller resumes a campaign' in promotion/ad_campaign_management.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/ad_campaign_management.feature::Seller resumes a paused campaign through the gateway"
+    notes: "Change promotion-ads-campaign-mgmt; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.acm-resume-without-budget-is-refused-through-the-gateway
     title: "Resume without budget is refused through the gateway"
@@ -7225,8 +7235,9 @@ features:
     acceptance:
       - "Resume without budget is refused through the gateway"
     tags: [promotion, ads, seller]
-    status: planned
-    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Resume without remaining budget is refused' in promotion/ad_campaign_management.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/ad_campaign_management.feature::Resume without budget is refused through the gateway"
+    notes: "Change promotion-ads-campaign-mgmt; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.acm-another-seller-cannot-manage-a-campaign-through-the-gateway
     title: "Another seller cannot manage a campaign through the gateway"
@@ -7242,8 +7253,9 @@ features:
     acceptance:
       - "Another seller cannot manage a campaign through the gateway"
     tags: [promotion, ads, seller]
-    status: planned
-    notes: "promotion-ads-campaign-mgmt: e2e scenario 'Another seller's campaign is not found' in promotion/ad_campaign_management.feature, red before implementation."
+    status: automated
+    covered_by: "promotion/ad_campaign_management.feature::Another seller cannot manage a campaign through the gateway"
+    notes: "Change promotion-ads-campaign-mgmt; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: promotion.acm-anonymous-request-is-rejected-at-the-edge
     title: "Anonymous request is rejected at the edge"
@@ -7256,7 +7268,7 @@ features:
       - "Anonymous request is rejected at the edge"
     tags: [promotion, ads, unit]
     status: not-testable
-    notes: "VERIFIED BY team-gateway `internal/edge` `TestSponsoredForwarderCampaignMgmtRequiresSession`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-gateway `internal/edge/promotion_ad_campaigns_test.go` `TestPromotionAdCampaigns_AnonymousRejectedAtEdge`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.acm-upstream-not-found-is-passed-through
     title: "Upstream NOT_FOUND is passed through"
@@ -7269,7 +7281,7 @@ features:
       - "Upstream NOT_FOUND is passed through"
     tags: [promotion, ads, unit]
     status: not-testable
-    notes: "VERIFIED BY team-gateway `internal/edge` `TestSponsoredForwarderPausePassesNotFound`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-gateway `internal/edge/promotion_ad_campaigns_test.go` `TestPromotionAdCampaigns_UpstreamNotFoundPassedThrough`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.acm-upstream-unavailable-is-surfaced
     title: "Upstream unavailable is surfaced"
@@ -7282,4 +7294,4 @@ features:
       - "Upstream unavailable is surfaced"
     tags: [promotion, ads, unit]
     status: not-testable
-    notes: "VERIFIED BY team-gateway `internal/edge` `TestSponsoredForwarderListUnavailable`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-gateway `internal/edge/promotion_ad_campaigns_test.go` `TestPromotionAdCampaigns_UpstreamUnavailableSurfaced`. Not producible end to end through the gateway (unit level)."

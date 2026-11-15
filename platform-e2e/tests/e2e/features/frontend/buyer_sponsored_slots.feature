@@ -7,7 +7,7 @@ Feature: Buyers see labelled sponsored slots and a click is charged once
   (openspec change buyer-sponsored-slots, initiative monetization; the unit-level scenarios are
   not-testable entries in team-frontend/FEATURES.yaml)
 
-  Scenario: Search shows a sponsored slot in its category
+  Scenario: Sponsored slot is shown labelled in its category
     Given a sponsored-slot seller with a sponsored listing and an organic listing in a fresh category
     And the seller has an ACTIVE sponsored-slot campaign with bid 1000 and budget 5000
     And both listings are searchable in that category
@@ -21,7 +21,7 @@ Feature: Buyers see labelled sponsored slots and a click is charged once
     When a guest opens the search page of that category
     Then the sponsored listing appears once on the page, inside "sponsored-slot" and not inside "search-results"
 
-  Scenario: Home feed shows a sponsored slot
+  Scenario: Sponsored slot is shown on the home feed
     Given a sponsored-slot seller with a sponsored listing and an organic listing in a fresh category
     And the seller has an ACTIVE sponsored-slot campaign with bid 1000 and budget 5000
     When a guest opens the home page

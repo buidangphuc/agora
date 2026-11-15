@@ -3,7 +3,7 @@ Feature: Sponsored slots are served end to end
   A seller's ACTIVE ad campaign is served in the search and home sponsored slots, each slot
   carrying an opaque impression token.
 
-  Scenario: Search slot is served for the category
+  Scenario: Served slots are visible end to end
     Given an ads seller with a published listing in a fresh category
     And the seller has an ACTIVE ad campaign with bid 900 and budget 5000 on that listing
     When a buyer lists the sponsored slots for placement "search" in that category with limit 2

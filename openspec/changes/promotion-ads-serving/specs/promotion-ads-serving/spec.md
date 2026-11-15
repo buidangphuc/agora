@@ -88,7 +88,7 @@
 #### Scenario: Served slots are visible end to end
 - **WHEN** a buyer searches a category in which a seller has an ACTIVE campaign (e2e, real stack)
 - **THEN** the gateway answers ListSponsoredSlots with that listing in a slot carrying a non-empty impression_token
-- **VERIFIED BY**: platform-e2e `ads/sponsored_serving.feature` "Search slot is served for the category"
+- **VERIFIED BY**: platform-e2e `ads/sponsored_serving.feature::Served slots are visible end to end`
 
 ### Requirement: Every served slot carries a single-use impression token
 
@@ -181,12 +181,12 @@ For each slot returned, `ListSponsoredSlots` SHALL persist one `ad_impressions` 
 #### Scenario: Click and budget burn end to end
 - **WHEN** a buyer clicks a served sponsored slot twice through the gateway (e2e, real stack)
 - **THEN** the first RecordAdClick is charged, the second is not, and the seller's campaign shows spent equal to one bid
-- **VERIFIED BY**: platform-e2e `ads/sponsored_click.feature` "Click charges the bid once"
+- **VERIFIED BY**: platform-e2e `ads/sponsored_click.feature::Click and budget burn end to end`
 
 #### Scenario: Budget exhaustion stops serving end to end
 - **WHEN** clicks burn a campaign's budget below its bid (e2e, real stack)
 - **THEN** the next ListSponsoredSlots for its category no longer contains the listing
-- **VERIFIED BY**: platform-e2e `ads/sponsored_click.feature` "Exhausted campaign stops being served"
+- **VERIFIED BY**: platform-e2e `ads/sponsored_click.feature::Budget exhaustion stops serving end to end`
 
 ### Requirement: The gateway exposes the anonymous click and slot calls without ad logic
 

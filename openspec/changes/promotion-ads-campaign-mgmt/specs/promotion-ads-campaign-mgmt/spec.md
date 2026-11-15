@@ -44,7 +44,7 @@
 #### Scenario: Seller sees campaigns after reload through the gateway
 - **WHEN** seller S creates a campaign through the gateway, then a new session of S calls ListMyAdCampaigns through the gateway
 - **THEN** the response contains that campaign with status ACTIVE and spent 0
-- **VERIFIED BY**: platform-e2e `tests/e2e/features/promotion/ad_campaign_management.feature` "Seller sees their campaigns after reload"
+- **VERIFIED BY**: platform-e2e `promotion/ad_campaign_management.feature::Seller sees campaigns after reload through the gateway`
 
 ### Requirement: A seller pauses their own campaign
 
@@ -93,7 +93,7 @@
 #### Scenario: Seller pauses a campaign through the gateway
 - **WHEN** seller S pauses an ACTIVE campaign through the gateway and lists campaigns again
 - **THEN** the listed campaign shows status PAUSED
-- **VERIFIED BY**: platform-e2e `tests/e2e/features/promotion/ad_campaign_management.feature` "Seller pauses a campaign"
+- **VERIFIED BY**: platform-e2e `promotion/ad_campaign_management.feature::Seller pauses a campaign through the gateway`
 
 ### Requirement: A seller resumes their own campaign only while budget remains
 
@@ -147,17 +147,17 @@
 #### Scenario: Seller resumes a paused campaign through the gateway
 - **WHEN** seller S pauses then resumes a campaign through the gateway and lists campaigns
 - **THEN** the listed campaign shows status ACTIVE
-- **VERIFIED BY**: platform-e2e `tests/e2e/features/promotion/ad_campaign_management.feature` "Seller resumes a campaign"
+- **VERIFIED BY**: platform-e2e `promotion/ad_campaign_management.feature::Seller resumes a paused campaign through the gateway`
 
 #### Scenario: Resume without budget is refused through the gateway
 - **WHEN** seller S resumes a paused campaign whose remaining budget is below its bid through the gateway
 - **THEN** the gateway returns a failed-precondition error and the campaign list still shows PAUSED
-- **VERIFIED BY**: platform-e2e `tests/e2e/features/promotion/ad_campaign_management.feature` "Resume without remaining budget is refused"
+- **VERIFIED BY**: platform-e2e `promotion/ad_campaign_management.feature::Resume without budget is refused through the gateway`
 
 #### Scenario: Another seller cannot manage a campaign through the gateway
 - **WHEN** seller T pauses or resumes seller S's campaign through the gateway
 - **THEN** the gateway returns not-found and S's campaign status is unchanged
-- **VERIFIED BY**: platform-e2e `tests/e2e/features/promotion/ad_campaign_management.feature` "Another seller's campaign is not found"
+- **VERIFIED BY**: platform-e2e `promotion/ad_campaign_management.feature::Another seller cannot manage a campaign through the gateway`
 
 ### Requirement: The gateway forwards campaign management to team-promotion with the caller identity
 
@@ -166,14 +166,14 @@ team-gateway SHALL expose `ListMyAdCampaigns`, `PauseAdCampaign` and `ResumeAdCa
 #### Scenario: Anonymous request is rejected at the edge
 - **WHEN** a request without a session calls ListMyAdCampaigns on the gateway
 - **THEN** the gateway returns unauthenticated and team-promotion receives no call
-- **VERIFIED BY**: team-gateway `internal/edge` `TestSponsoredForwarderCampaignMgmtRequiresSession`
+- **VERIFIED BY**: team-gateway `internal/edge/promotion_ad_campaigns_test.go` `TestPromotionAdCampaigns_AnonymousRejectedAtEdge`
 
 #### Scenario: Upstream NOT_FOUND is passed through
 - **WHEN** team-promotion returns NOT_FOUND for PauseAdCampaign
 - **THEN** the gateway returns not-found to the caller
-- **VERIFIED BY**: team-gateway `internal/edge` `TestSponsoredForwarderPausePassesNotFound`
+- **VERIFIED BY**: team-gateway `internal/edge/promotion_ad_campaigns_test.go` `TestPromotionAdCampaigns_UpstreamNotFoundPassedThrough`
 
 #### Scenario: Upstream unavailable is surfaced
 - **WHEN** team-promotion is unavailable while ListMyAdCampaigns is forwarded
 - **THEN** the gateway returns unavailable
-- **VERIFIED BY**: team-gateway `internal/edge` `TestSponsoredForwarderListUnavailable`
+- **VERIFIED BY**: team-gateway `internal/edge/promotion_ad_campaigns_test.go` `TestPromotionAdCampaigns_UpstreamUnavailableSurfaced`

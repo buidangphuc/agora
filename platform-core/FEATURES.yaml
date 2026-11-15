@@ -9130,7 +9130,7 @@ features:
       - "Breakdown fields present at 9 to 12 (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` scenario 'Breakdown fields present at 9 to 12' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_OrderPaidBreakdownShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-missing-breakdown-is-distinct-from-zero
     title: "Missing breakdown is distinct from zero"
@@ -9145,7 +9145,7 @@ features:
       - "Missing breakdown is distinct from zero (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` scenario 'Missing breakdown is distinct from zero' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_BreakdownPresenceRoundTrip\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-event-published-before-deploy-still-parses
     title: "Event published before deploy still parses"
@@ -9160,7 +9160,7 @@ features:
       - "Event published before deploy still parses (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` scenario 'Event published before deploy still parses' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_OldOrderPaidParses\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-breakdown-semantics-are-documented
     title: "Breakdown semantics are documented"
@@ -9175,7 +9175,7 @@ features:
       - "Breakdown semantics are documented (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` scenario 'Breakdown semantics are documented' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_BreakdownDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-four-new-types-at-4-to-7
     title: "Four new types at 4 to 7"
@@ -9190,7 +9190,7 @@ features:
       - "Four new types at 4 to 7 (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'Four new types at 4 to 7' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_WalletTypesShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-old-consumer-meets-a-new-type
     title: "Old consumer meets a new type"
@@ -9205,7 +9205,7 @@ features:
       - "Old consumer meets a new type (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'Old consumer meets a new type' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_OldSchemaParsesNewType\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-ad-spend-is-documented-as-reserved
     title: "AD_SPEND is documented as reserved"
@@ -9220,7 +9220,7 @@ features:
       - "AD_SPEND is documented as reserved (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'AD_SPEND is documented as reserved' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_AdSpendDocumentedReserved\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-rpc-and-messages-present-at-the-specified-numbers
     title: "RPC and messages present at the specified numbers"
@@ -9235,7 +9235,7 @@ features:
       - "RPC and messages present at the specified numbers (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'RPC and messages present at the specified numbers' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_GetOrderSettlementShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-net-formula-and-access-rule-are-documented
     title: "Net formula and access rule are documented"
@@ -9250,7 +9250,7 @@ features:
       - "Net formula and access rule are documented (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'Net formula and access rule are documented' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_SettlementSemanticsDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-another-seller-and-an-unsettled-order-are-denied-as-not-found
     title: "Another seller and an unsettled order are denied as not found"
@@ -9265,7 +9265,7 @@ features:
       - "Another seller and an unsettled order are denied as not found (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'Another seller and an unsettled order are denied as not found' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_SettlementNotFoundDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-amount-fields-are-integer-vnd
     title: "Amount fields are integer VND"
@@ -9280,7 +9280,7 @@ features:
       - "Amount fields are integer VND (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'Amount fields are integer VND' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_NoFloatMoney\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-rpc-enum-and-messages-present-at-the-specified-numbers
     title: "RPC, enum and messages present at the specified numbers"
@@ -9295,7 +9295,7 @@ features:
       - "RPC, enum and messages present at the specified numbers (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'RPC, enum and messages present at the specified numbers' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-idempotency-and-error-rules-are-documented
     title: "Idempotency and error rules are documented"
@@ -9310,7 +9310,7 @@ features:
       - "Idempotency and error rules are documented (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'Idempotency and error rules are documented' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeSemanticsDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-the-rpc-is-documented-as-internal-and-ad-spend-as-reserved
     title: "The RPC is documented as internal and ad spend as reserved"
@@ -9325,7 +9325,7 @@ features:
       - "The RPC is documented as internal and ad spend as reserved (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'The RPC is documented as internal and ad spend as reserved' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeInternalOnlyDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-fee-charge-is-not-reachable-by-a-seller-through-the-edge
     title: "Fee charge is not reachable by a seller through the edge"
@@ -9340,7 +9340,7 @@ features:
       - "Fee charge is not reachable by a seller through the edge (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'Fee charge is not reachable by a seller through the edge' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeNoUserScopeDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-existing-payment-surface-is-untouched
     title: "Existing payment surface is untouched"
@@ -9355,7 +9355,7 @@ features:
       - "Existing payment surface is untouched (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` scenario 'Existing payment surface is untouched' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ExistingPaymentSurfaceUntouched\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-term-and-period-fields-present-at-the-specified-numbers
     title: "Term and period fields present at the specified numbers"
@@ -9370,7 +9370,7 @@ features:
       - "Term and period fields present at the specified numbers (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Term and period fields present at the specified numbers' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_PlanTermShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-subscription-rpcs-present-with-empty-requests
     title: "Subscription RPCs present with empty requests"
@@ -9385,7 +9385,7 @@ features:
       - "Subscription RPCs present with empty requests (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Subscription RPCs present with empty requests' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionRpcShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-price-unit-and-cancel-semantics-are-documented
     title: "Price unit and cancel semantics are documented"
@@ -9400,7 +9400,7 @@ features:
       - "Price unit and cancel semantics are documented (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Price unit and cancel semantics are documented' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionSemanticsDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-subscription-reads-take-no-seller-id
     title: "Subscription reads take no seller id"
@@ -9415,7 +9415,7 @@ features:
       - "Subscription reads take no seller id (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Subscription reads take no seller id' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionRequestsCarryNoSellerId\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-status-and-counters-present-at-the-specified-numbers
     title: "Status and counters present at the specified numbers"
@@ -9430,7 +9430,7 @@ features:
       - "Status and counters present at the specified numbers (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Status and counters present at the specified numbers' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdCampaignShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-old-consumer-meets-the-new-status
     title: "Old consumer meets the new status"
@@ -9445,7 +9445,7 @@ features:
       - "Old consumer meets the new status (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Old consumer meets the new status' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_OldSchemaParsesPausedBudget\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-minimum-bid-and-budget-status-are-documented
     title: "Minimum bid and budget status are documented"
@@ -9460,7 +9460,7 @@ features:
       - "Minimum bid and budget status are documented (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Minimum bid and budget status are documented' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdCampaignSemanticsDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-request-and-response-fields-present-at-the-specified-numbers
     title: "Request and response fields present at the specified numbers"
@@ -9475,7 +9475,7 @@ features:
       - "Request and response fields present at the specified numbers (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Request and response fields present at the specified numbers' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SponsoredSlotsShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-limit-bound-and-token-semantics-are-documented
     title: "Limit bound and token semantics are documented"
@@ -9490,7 +9490,7 @@ features:
       - "Limit bound and token semantics are documented (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Limit bound and token semantics are documented' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SlotBoundAndTokenDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-a-request-without-the-new-fields-still-parses
     title: "A request without the new fields still parses"
@@ -9505,7 +9505,7 @@ features:
       - "A request without the new fields still parses (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'A request without the new fields still parses' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_OldSponsoredSlotsParse\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-the-slot-carries-no-buyer-identifier
     title: "The slot carries no buyer identifier"
@@ -9520,7 +9520,7 @@ features:
       - "The slot carries no buyer identifier (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'The slot carries no buyer identifier' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_NoBuyerIdentifiers\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-four-rpcs-and-their-messages-present-at-the-specified-numbers
     title: "Four RPCs and their messages present at the specified numbers"
@@ -9535,7 +9535,7 @@ features:
       - "Four RPCs and their messages present at the specified numbers (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Four RPCs and their messages present at the specified numbers' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdRpcsShape\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-ownership-and-error-rules-are-documented
     title: "Ownership and error rules are documented"
@@ -9550,7 +9550,7 @@ features:
       - "Ownership and error rules are documented (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Ownership and error rules are documented' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_CampaignRulesDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-click-rules-are-documented
     title: "Click rules are documented"
@@ -9565,7 +9565,7 @@ features:
       - "Click rules are documented (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Click rules are documented' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_ClickRulesDocumented\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-existing-promotion-surface-is-untouched
     title: "Existing promotion surface is untouched"
@@ -9580,7 +9580,7 @@ features:
       - "Existing promotion surface is untouched (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` scenario 'Existing promotion surface is untouched' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_ExistingPromotionSurfaceUntouched\". monetization-contract: not producible end to end."
 
   - id: monetization.contract-copies-match-the-source
     title: "Copies match the source"
@@ -9595,7 +9595,7 @@ features:
       - "Copies match the source (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/monetization_consumer_copies_test.sh` scenario 'Copies match the source' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `copies match`. monetization-contract: not producible end to end."
 
   - id: monetization.contract-drifted-or-missing-copy-is-rejected
     title: "Drifted or missing copy is rejected"
@@ -9610,7 +9610,7 @@ features:
       - "Drifted or missing copy is rejected (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/monetization_consumer_copies_test.sh` scenario 'Drifted or missing copy is rejected' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `drifted and missing copy rejected and named`. monetization-contract: not producible end to end."
 
   - id: monetization.contract-renumbering-is-rejected
     title: "Renumbering is rejected"
@@ -9625,7 +9625,7 @@ features:
       - "Renumbering is rejected (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/monetization_consumer_copies_test.sh` scenario 'Renumbering is rejected' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `renumbering $label rejected and names $name`. monetization-contract: not producible end to end."
 
   - id: monetization.contract-lint-and-breaking-check-pass
     title: "Lint and breaking check pass"
@@ -9640,4 +9640,4 @@ features:
       - "Lint and breaking check pass (unit-verified)"
     tags: [monetization-contract, unit]
     status: not-testable
-    notes: "monetization-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/monetization_consumer_copies_test.sh` scenario 'Lint and breaking check pass' (tasks 2.1)"
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` checks `buf lint` and `buf breaking vs $BASE_REF`. monetization-contract: not producible end to end."

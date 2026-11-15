@@ -185,19 +185,19 @@ Every repo that vendors `order.proto`, `payment.proto` or `promotion.proto` unde
 #### Scenario: Copies match the source
 - **WHEN** each vendored `proto/platform/{order,payment,promotion}/v1/*.proto` in the 14, 14 and 7 consumer repos is compared with the platform-core file
 - **THEN** all 35 copies are byte-identical
-- **VERIFIED BY**: `platform-core/packages/proto/monetization_consumer_copies_test.sh` "Copies match the source"
+- **VERIFIED BY**: `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `copies match`
 
 #### Scenario: Drifted or missing copy is rejected
 - **WHEN** the check runs on a tree where one vendored copy has an extra byte and another is missing
 - **THEN** it exits non-zero and names both files
-- **VERIFIED BY**: `platform-core/packages/proto/monetization_consumer_copies_test.sh` "Drifted or missing copy is rejected"
+- **VERIFIED BY**: `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `drifted and missing copy rejected and named`
 
 #### Scenario: Renumbering is rejected
 - **WHEN** a scratch copy of the proto module renumbers one new field or enum value and `buf breaking` runs against the real module
 - **THEN** it fails and names the changed element, for at least `items_subtotal`, `COMMISSION`, `ChargeSellerFeeRequest.amount`, `term_days`, `impression_token` and `PAUSED_BUDGET`
-- **VERIFIED BY**: `platform-core/packages/proto/monetization_consumer_copies_test.sh` "Renumbering is rejected"
+- **VERIFIED BY**: `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `renumbering $label rejected and names $name`
 
 #### Scenario: Lint and breaking check pass
 - **WHEN** `buf lint` and `buf breaking --against '.git#branch=origin/main'` (FILE) run in `platform-core/packages/proto`
 - **THEN** both exit 0
-- **VERIFIED BY**: `platform-core/packages/proto/monetization_consumer_copies_test.sh` "Lint and breaking check pass"
+- **VERIFIED BY**: `platform-core/packages/proto/monetization_consumer_copies_test.sh` checks `buf lint` and `buf breaking vs $BASE_REF`

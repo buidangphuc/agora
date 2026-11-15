@@ -2109,8 +2109,9 @@ features:
     acceptance:
       - "Breakdown of a settled order"
     tags: [seller, fintech]
-    status: planned
-    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Breakdown of a settled order); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Breakdown of a settled order"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-fee-breakdown-ui.breakdown-after-a-partial-refund
     title: "Breakdown after a partial refund"
     persona: seller
@@ -2126,8 +2127,9 @@ features:
     acceptance:
       - "Breakdown after a partial refund"
     tags: [seller, fintech]
-    status: planned
-    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Breakdown after a partial refund); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Breakdown after a partial refund"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-fee-breakdown-ui.unsettled-order-shows-the-not-settled-state
     title: "Unsettled order shows the not-settled state"
     persona: seller
@@ -2143,8 +2145,9 @@ features:
     acceptance:
       - "Unsettled order shows the not-settled state"
     tags: [seller, fintech]
-    status: planned
-    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Unsettled order shows the not-settled state); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Unsettled order shows the not-settled state"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-fee-breakdown-ui.another-sellers-order-is-not-found-and-nothing-is-fetched
     title: "Another seller's order is not found and nothing is fetched"
     persona: seller
@@ -2160,8 +2163,9 @@ features:
     acceptance:
       - "Another seller's order is not found and nothing is fetched"
     tags: [seller, fintech]
-    status: planned
-    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Another seller's order is not found and nothing is fetched); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Another seller's order is not found and nothing is fetched"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-fee-breakdown-ui.guest-cannot-see-the-breakdown
     title: "Guest cannot see the breakdown"
     persona: seller
@@ -2177,8 +2181,9 @@ features:
     acceptance:
       - "Guest cannot see the breakdown"
     tags: [seller, fintech]
-    status: planned
-    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Guest cannot see the breakdown); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Guest cannot see the breakdown"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-fee-breakdown-ui.commission-rows-are-labelled
     title: "Commission rows are labelled"
     persona: seller
@@ -2194,8 +2199,9 @@ features:
     acceptance:
       - "Commission rows are labelled"
     tags: [seller, fintech]
-    status: planned
-    notes: "seller-fee-breakdown-ui: written red in frontend/seller_fee_breakdown_ui.feature (scenario Commission rows are labelled); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Commission rows are labelled"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-fee-breakdown-ui.zero-commission-is-shown-not-hidden
     title: "Zero commission is shown, not hidden"
     persona: seller
@@ -2371,7 +2377,7 @@ features:
       - "Then the page renders nothing and none of the three plan reads is issued; a request with no principal redirects to login"
     tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/restrictedGuard.test.tsx` `plans page guard`"
+    notes: "VERIFIED BY team-frontend-seller `src/app/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`, `no principal calls redirectGuestToLogin with the page's own path` (the `/seller/plans` case). seller-plan-ui: not producible end to end."
 
   - id: uisl.seller-plan-ui-upgrade-confirm-dialog-states-price-and-no-proration
     title: "Upgrade confirm dialog states price and no proration"
@@ -2450,8 +2456,9 @@ features:
       - "When `Subscribe` fails with FAILED_PRECONDITION because the balance of 100000 VND is below the PRO price 199000"
       - "Then the seller sees `Số dư có thể rút không đủ để trả gói này.` with a `Xem ví` link to `/seller/wallet`, an error toast appears and after reload the current plan is still FREE"
     tags: [seller, promo]
-    status: planned
-    notes: "e2e: seller/seller_plans.feature::Subscribing with too little balance changes nothing"
+    status: automated
+    covered_by: "seller/seller_plans.feature::Insufficient balance is explained and nothing changes"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: uisl.seller-plan-ui-paying-subscription-end-to-end
     title: "Paying subscription end to end"
@@ -2466,8 +2473,9 @@ features:
       - "When a seller with a withdrawable balance of at least 199000 VND confirms the PRO upgrade"
       - "Then after reload PRO is the current plan with `Hết hạn ngày` 30 days ahead, and the wallet ledger shows one subscription debit of 199000"
     tags: [seller, promo]
-    status: planned
-    notes: "e2e: seller/seller_plans.feature::Seller upgrades to PRO from the wallet balance"
+    status: automated
+    covered_by: "seller/seller_plans.feature::Paying subscription end to end"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: uisl.seller-plan-ui-cancel-button-only-for-renewing-paid-plans
     title: "Cancel button only for renewing paid plans"
@@ -2546,8 +2554,9 @@ features:
       - "When a PRO seller cancels auto-renew in the running stack and reloads `/seller/plans`"
       - "Then PRO is still the current plan, `Tự động gia hạn: Tắt` and `Sẽ chuyển về Miễn phí ngày` show, and no refund entry appears in the wallet"
     tags: [seller, promo]
-    status: planned
-    notes: "e2e: seller/seller_plans.feature::Seller cancels renewal and keeps PRO until period end"
+    status: automated
+    covered_by: "seller/seller_plans.feature::Cancelling keeps the plan until period end"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: uisl.seller-plan-ui-cap-refusal-shows-the-upgrade-link
     title: "Cap refusal shows the upgrade link"
@@ -2626,8 +2635,9 @@ features:
       - "When a FREE seller who owns 10 listings submits a new listing in the running stack"
       - "Then the form shows `Bạn đã đạt giới hạn số tin đăng của gói hiện tại.` and a `Nâng cấp gói` link that opens `/seller/plans`, and the seller's listing count stays 10"
     tags: [seller, promo]
-    status: planned
-    notes: "e2e: seller/create-listing.feature::Seller at the plan cap sees the upgrade link"
+    status: automated
+    covered_by: "seller/create-listing.feature::Eleventh listing on FREE shows the upgrade CTA"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: uisl.seller-plan-ui-boundary-the-tenth-listing-is-accepted
     title: "Boundary, the tenth listing is accepted"
@@ -2642,8 +2652,9 @@ features:
       - "When a FREE seller who owns 9 listings submits a valid new listing in the running stack"
       - "Then the listing is created and no `Nâng cấp gói` link is shown"
     tags: [seller, promo]
-    status: planned
-    notes: "e2e: seller/create-listing.feature::Seller below the plan cap creates a listing"
+    status: automated
+    covered_by: "seller/create-listing.feature::Boundary, the tenth listing is accepted"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: seller-ads-ui.campaigns-persist-after-reload
     title: "Campaigns persist after reload"
@@ -2661,8 +2672,9 @@ features:
       - "When a seller who created a campaign with budget 50 000 and bid 1 000 reloads `/seller/ads`"
       - "Then the table shows one row with \"₫1.000\" bid, \"₫50.000\" budget, \"₫0\" spent, \"₫50.000\" remaining, 0 impressions, 0 clicks and \"Đang chạy\""
     tags: [seller, promo, ads]
-    status: planned
-    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Campaigns persist after reload); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Campaigns persist after reload"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-ads-ui.spend-and-counters-come-from-the-service
     title: "Spend and counters come from the service"
     persona: seller
@@ -2679,8 +2691,9 @@ features:
       - "When a buyer's click has charged the campaign once at bid 1 000 and the seller opens `/seller/ads`"
       - "Then the row shows \"₫1.000\" spent, \"₫49.000\" remaining, 1 click and at least 1 impression"
     tags: [seller, promo, ads]
-    status: planned
-    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Spend and counters come from the service); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Spend and counters come from the service"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-ads-ui.seller-with-no-campaign-sees-an-empty-state
     title: "Seller with no campaign sees an empty state"
     persona: seller
@@ -2742,8 +2755,9 @@ features:
       - "When an unauthenticated guest (401) opens `/seller/ads`, and separately a signed-in buyer without `listing.write` opens it"
       - "Then the guest is redirected to the login page with `/seller/ads` as the return path, the buyer sees no campaign data, and no `ListMyAdCampaigns` call is made for either"
     tags: [seller, promo, ads]
-    status: planned
-    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Guest and non-seller are not authorized to open the page); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Guest and non-seller are not authorized to open the page"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-ads-ui.pause-an-active-campaign
     title: "Pause an active campaign"
     persona: seller
@@ -2760,8 +2774,9 @@ features:
       - "When the seller activates \"Tạm dừng\" on an ACTIVE campaign"
       - "Then the row status becomes \"Tạm dừng\" and the button becomes \"Tiếp tục\", still so after reload, and the campaign is no longer served to buyers"
     tags: [seller, promo, ads]
-    status: planned
-    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Pause an active campaign); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Pause an active campaign"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-ads-ui.resume-a-paused-campaign
     title: "Resume a paused campaign"
     persona: seller
@@ -2778,8 +2793,9 @@ features:
       - "When the seller activates \"Tiếp tục\" on a PAUSED campaign whose remaining budget is at least its bid"
       - "Then the row status becomes \"Đang chạy\" and the button becomes \"Tạm dừng\", still so after reload"
     tags: [seller, promo, ads]
-    status: planned
-    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Resume a paused campaign); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Resume a paused campaign"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-ads-ui.budget-exhausted-campaign-cannot-resume
     title: "Budget-exhausted campaign cannot resume"
     persona: seller
@@ -2841,8 +2857,9 @@ features:
       - "When seller B submits Pause or Resume with the id of seller A's campaign"
       - "Then the action returns `ok: false` with \"Không tìm thấy chiến dịch.\", A's campaign is unchanged, and B's list does not contain it"
     tags: [seller, promo, ads]
-    status: planned
-    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Another seller's campaign is not found); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Another seller's campaign is not found"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-ads-ui.bid-below-minimum-is-rejected
     title: "Bid below minimum is rejected"
     persona: seller
@@ -2874,8 +2891,9 @@ features:
       - "When the seller submits a campaign with bid 500 and budget 5 000"
       - "Then the campaign is created and appears in the list as \"Đang chạy\" with \"₫500\" bid"
     tags: [seller, promo, ads]
-    status: planned
-    notes: "seller-ads-ui: written red in frontend/seller_ads_ui.feature (scenario Bid of exactly 500 is accepted); covered_by is set when it flips to automated."
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Bid of exactly 500 is accepted"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
   - id: seller-ads-ui.ad-form-budget-below-the-bid-is-rejected
     title: "Ad form: budget below the bid is rejected"
     persona: seller

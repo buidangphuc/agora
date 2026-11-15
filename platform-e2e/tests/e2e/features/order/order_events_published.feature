@@ -12,7 +12,7 @@ Feature: A paid order is published to order.events
     And exactly one OrderPaidEvent envelope for the order is published to the "order.events" topic
     And its payload carries the order id as the key and the order's line items
 
-  Scenario: Paid order event carries its price breakdown
+  Scenario: Paid order's event matches GetOrder
     Given a shop "A" selling a listing priced 300000
     And a shop voucher "VA" of shop "A" worth 20000 off
     And a platform voucher "PV" worth 30000 off with min spend 0
@@ -24,7 +24,7 @@ Feature: A paid order is published to order.events
     Then the single OrderPaidEvent on the "order.events" topic for the first placed order of "b1" matches its GetOrder price breakdown
     And that breakdown has a positive shipping fee, a positive platform discount and a positive shop discount
 
-  Scenario: Paid order without voucher reports zero discounts
+  Scenario: Event for an order without a voucher reports zero discounts
     Given a shop "A" selling a listing priced 300000
     And a buyer "b1" in "Đà Nẵng" with 1 of each shop's listing in the cart
     When "b1" places the order with the same selection

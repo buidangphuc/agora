@@ -67,9 +67,9 @@ On the real broker, the `OrderPaidEvent` for an order paid online SHALL carry th
 #### Scenario: Paid order's event matches GetOrder
 - **WHEN** a buyer completes the demo payment for a pending order with a shipping fee and a voucher
 - **THEN** the single OrderPaidEvent on the "order.events" topic has items_subtotal, shipping_fee, shop_discount_amount and platform_discount_amount equal to the order's items_subtotal, shipping_fee, discount_amount minus platform_discount_amount and platform_discount_amount
-- **VERIFIED BY**: platform-e2e `order/order_events_published.feature::Paid order event carries its price breakdown`
+- **VERIFIED BY**: platform-e2e `order/order_events_published.feature::Paid order's event matches GetOrder`
 
 #### Scenario: Event for an order without a voucher reports zero discounts
 - **WHEN** a buyer completes the demo payment for a pending order without any voucher
 - **THEN** the OrderPaidEvent on the "order.events" topic has shop_discount_amount 0 and platform_discount_amount 0 with presence true
-- **VERIFIED BY**: platform-e2e `order/order_events_published.feature::Paid order without voucher reports zero discounts`
+- **VERIFIED BY**: platform-e2e `order/order_events_published.feature::Event for an order without a voucher reports zero discounts`

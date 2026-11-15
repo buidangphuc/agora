@@ -7,18 +7,20 @@ spec: plans/monetization/00-spec.md (Locked 2026-11-13)
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| monetization-contract | platform-core | [] | 1 | pass | pass (1 PERM warning, accepted) | pass | ENGINE_DOWN (LLM fallback) | f4e79137debd | [x] |
-| order-paid-price-breakdown | team-order | [monetization-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d46c34ca75da | [x] |
-| payment-settlement-commission | team-payment | [order-paid-price-breakdown] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d5732d11bc16 | [x] |
-| payment-seller-fee-charge | team-payment | [monetization-contract] | 1 | pass | pass (2 PERM warnings, false positive) | pass | ENGINE_DOWN (LLM fallback) | 6ca8f809d7d5 | [x] |
-| seller-fee-breakdown-ui | team-frontend-seller | [payment-settlement-commission] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a8637630a8c4 | [x] |
-| promotion-plan-billing | team-promotion | [payment-seller-fee-charge] | 1 | pass | pass (1 PERM warning on sweeper) | pass | ENGINE_DOWN (LLM fallback) | aa23a86f4f7c | [x] |
-| listing-plan-cap | team-domain | [monetization-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 7447b7996677 | [x] |
-| seller-plan-ui | team-frontend-seller | [promotion-plan-billing, listing-plan-cap] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0448636b6787 | [x] |
-| promotion-ads-serving | team-promotion | [monetization-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | ca7ecb76bc52 | [x] |
-| promotion-ads-campaign-mgmt | team-promotion | [promotion-ads-serving] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0f165738f7b7 | [x] |
-| buyer-sponsored-slots | team-frontend | [promotion-ads-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 97a32ec5baae | [x] |
-| seller-ads-ui | team-frontend-seller | [promotion-ads-campaign-mgmt] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 5a7e6ce9b756 | [x] |
+| monetization-contract | platform-core | [] | 1 | pass | pass (1 PERM warning, accepted) | pass | ENGINE_DOWN (LLM fallback) | f4e79137debd → b1796c7e6e56 | [x] |
+| order-paid-price-breakdown | team-order | [monetization-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d46c34ca75da → ef9251129b84 | [x] |
+| payment-settlement-commission | team-payment | [order-paid-price-breakdown] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d5732d11bc16 → ccc5e4fcec36 | [x] |
+| payment-seller-fee-charge | team-payment | [monetization-contract] | 1 | pass | pass (2 PERM warnings, false positive) | pass | ENGINE_DOWN (LLM fallback) | 6ca8f809d7d5 → 87a9f2952de7 | [x] |
+| seller-fee-breakdown-ui | team-frontend-seller | [payment-settlement-commission] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a8637630a8c4 → ed9c1e669df8 | [x] |
+| promotion-plan-billing | team-promotion | [payment-seller-fee-charge] | 1 | pass | pass (1 PERM warning on sweeper) | pass | ENGINE_DOWN (LLM fallback) | aa23a86f4f7c → f3d4f445c7ad | [x] |
+| listing-plan-cap | team-domain | [monetization-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 7447b7996677 → e589c21116a3 | [x] |
+| seller-plan-ui | team-frontend-seller | [promotion-plan-billing, listing-plan-cap] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0448636b6787 → df4ccd1eb57d | [x] |
+| promotion-ads-serving | team-promotion | [monetization-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | ca7ecb76bc52 → 5b8370a5fb23 | [x] |
+| promotion-ads-campaign-mgmt | team-promotion | [promotion-ads-serving] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0f165738f7b7 → d019682256f1 | [x] |
+| buyer-sponsored-slots | team-frontend | [promotion-ads-serving] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 97a32ec5baae → 0c92243af27e | [x] |
+| seller-ads-ui | team-frontend-seller | [promotion-ads-campaign-mgmt] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 5a7e6ce9b756 → 4f2c50d186eb | [x] |
+
+Digest update 2026-11-15 (converge): every slice's openspec/changes/<slice>/** changed (VERIFIED BY citation lines in spec.md, tasks.md ticks and renamed e2e scenario names); the digest cell shows old → new.
 
 decide.py was not run for any slice: it needs a `--units` file and the kev engine, and the system python lacks `yaml`. Each spec-quality-reviewer's own checklist is the verdict.
 

@@ -171,22 +171,22 @@ On the running stack, a seller on each plan SHALL be limited by that plan's `max
 - **GIVEN** a seeded FREE seller who owns 10 listings on the running stack
 - **WHEN** the seller creates an 11th listing through the gateway
 - **THEN** the response is RESOURCE_EXHAUSTED with reason PLAN_LISTING_LIMIT and the seller's listing list still has 10 entries
-- **VERIFIED BY**: platform-e2e `listing/listing_plan_cap.feature::FREE seller is blocked at the 11th listing`
+- **VERIFIED BY**: platform-e2e `listing/listing_plan_cap.feature::FREE seller is blocked at the 11th listing end to end`
 
 #### Scenario: PRO seller is not blocked at the 11th listing end to end
 - **GIVEN** a seeded PRO seller who owns 10 listings on the running stack
 - **WHEN** the seller creates an 11th listing through the gateway
 - **THEN** the create succeeds and the seller's listing list has 11 entries
-- **VERIFIED BY**: platform-e2e `listing/listing_plan_cap.feature::PRO seller can create beyond the FREE cap`
+- **VERIFIED BY**: platform-e2e `listing/listing_plan_cap.feature::PRO seller is not blocked at the 11th listing end to end`
 
 #### Scenario: Over-cap seller keeps their listings end to end
 - **GIVEN** a seeded seller on FREE who owns 12 listings
 - **WHEN** the seller opens their listings
 - **THEN** all 12 are returned and none is hidden or removed
-- **VERIFIED BY**: platform-e2e `listing/listing_plan_cap.feature::Downgraded seller keeps existing listings`
+- **VERIFIED BY**: platform-e2e `listing/listing_plan_cap.feature::Over-cap seller keeps their listings end to end`
 
 #### Scenario: Another seller's listings are not exposed to the capped seller
 - **GIVEN** the running stack with seller A at the cap and seller B owning 3 listings
 - **WHEN** seller A lists their listings and seller B's token is not used
 - **THEN** only A's listings are returned and none of B's listings is included
-- **VERIFIED BY**: platform-e2e `listing/listing_plan_cap.feature::Capped seller sees only their own listings`
+- **VERIFIED BY**: platform-e2e `listing/listing_plan_cap.feature::Another seller's listings are not exposed to the capped seller`

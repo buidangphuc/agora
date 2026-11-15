@@ -7524,3 +7524,39 @@ features:
     tags: [order, outbox, unit]
     status: not-testable
     notes: "VERIFIED BY team-order internal/store TestPaidReplayKeepsSingleBreakdownRow. Not producible end to end through the gateway (unit level)."
+
+  - id: order.opb-paid-order-s-event-matches-getorder
+    title: "Paid order's event matches GetOrder"
+    persona: buyer
+    priority: P1
+    summary: The OrderPaidEvent of an order paid with a shop and a platform voucher carries the price breakdown GetOrder reports.
+    entry_route: /
+    services: [team-order, team-payment, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own shop, listing, vouchers and buyer through the gateway.
+    acceptance:
+      - "When a buyer pays an order with a shipping fee, a shop voucher and a platform voucher"
+      - "Then the single OrderPaidEvent on order.events for the order carries items_subtotal, shipping_fee, shop_discount_amount and platform_discount_amount equal to GetOrder"
+    tags: [order, outbox, integration, monetization]
+    status: automated
+    covered_by: "order/order_events_published.feature::Paid order's event matches GetOrder"
+    notes: "Change order-paid-price-breakdown; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: order.opb-event-for-an-order-without-a-voucher-reports-zero-discounts
+    title: "Event for an order without a voucher reports zero discounts"
+    persona: buyer
+    priority: P1
+    summary: The OrderPaidEvent of an order paid without any voucher reports both discounts as present zeros.
+    entry_route: /
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own shop, listing and buyer through the gateway.
+    acceptance:
+      - "When a buyer pays an order without any voucher"
+      - "Then the OrderPaidEvent on order.events reports shop_discount_amount 0 and platform_discount_amount 0 with presence true"
+    tags: [order, outbox, integration, monetization]
+    status: automated
+    covered_by: "order/order_events_published.feature::Event for an order without a voucher reports zero discounts"
+    notes: "Change order-paid-price-breakdown; green in the initiative e2e run on env monetization (2026-11-15)."

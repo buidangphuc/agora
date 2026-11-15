@@ -3279,7 +3279,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` subtest \"A fee is debited from the wallet\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.replaying-a-reference-books-nothing
     title: "Replaying a reference books nothing"
@@ -3296,7 +3296,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` subtest \"Replaying a reference books nothing\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.concurrent-charges-of-one-reference-book-once
     title: "Concurrent charges of one reference book once"
@@ -3313,7 +3313,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` subtest \"Concurrent charges of one reference book once\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.a-replay-still-succeeds-after-the-balance-dropped
     title: "A replay still succeeds after the balance dropped"
@@ -3330,7 +3330,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` subtest \"A replay still succeeds after the balance dropped\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.reusing-a-reference-with-a-different-amount-is-rejected
     title: "Reusing a reference with a different amount is rejected"
@@ -3347,7 +3347,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` (Docker-backed integration test; the RPC is service-only and not exposed by the gateway). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` subtest \"Reusing a reference with a different amount is rejected\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.a-fee-above-the-balance-is-refused
     title: "A fee above the balance is refused"
@@ -3364,7 +3364,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable`, `TestChargeSellerFeeConcurrentWithPayout`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFee` subtest \"A fee above the balance is refused\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.a-fee-against-funds-still-on-hold-is-refused
     title: "A fee against funds still on hold is refused"
@@ -3381,7 +3381,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable`, `TestChargeSellerFeeConcurrentWithPayout`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable` subtest \"A fee against funds still on hold is refused\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.a-fee-equal-to-the-withdrawable-balance-is-accepted
     title: "A fee equal to the withdrawable balance is accepted"
@@ -3398,7 +3398,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable`, `TestChargeSellerFeeConcurrentWithPayout`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeWithdrawable` subtest \"A fee equal to the withdrawable balance is accepted\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.concurrent-fees-and-payouts-cannot-overdraw
     title: "Concurrent fees and payouts cannot overdraw"
@@ -3432,7 +3432,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation` cases \"A zero amount is rejected\", \"A negative amount is rejected\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.the-reserved-ad-spend-kind-is-rejected
     title: "The reserved ad-spend kind is rejected"
@@ -3449,7 +3449,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation` case \"The reserved ad-spend kind is rejected\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.a-missing-reference-or-seller-is-rejected
     title: "A missing reference or seller is rejected"
@@ -3466,7 +3466,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation` cases \"A missing reference is rejected\", \"A missing seller is rejected\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.a-reference-of-65-characters-is-rejected-and-64-is-accepted
     title: "A reference of 65 characters is rejected and 64 is accepted"
@@ -3483,7 +3483,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeValidation` case \"A reference of 65 characters is rejected\" and subtest \"A reference of 64 characters is accepted\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.a-seller-cannot-charge-a-fee
     title: "A seller cannot charge a fee"
@@ -3500,7 +3500,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` (principal rules); the gateway scenario is covered by `platform-e2e/tests/e2e/features/payment/seller_fee_charge.feature` `The gateway does not expose the fee RPC`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` case \"A seller cannot charge a fee\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.an-admin-cannot-charge-a-fee
     title: "An admin cannot charge a fee"
@@ -3517,7 +3517,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` (principal rules); the gateway scenario is covered by `platform-e2e/tests/e2e/features/payment/seller_fee_charge.feature` `The gateway does not expose the fee RPC`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` case \"An admin cannot charge a fee\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.an-unauthenticated-call-is-rejected
     title: "An unauthenticated call is rejected"
@@ -3534,7 +3534,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` (principal rules); the gateway scenario is covered by `platform-e2e/tests/e2e/features/payment/seller_fee_charge.feature` `The gateway does not expose the fee RPC`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/rpc/seller_fee_test.go` `TestChargeSellerFeeAuthz` case \"An unauthenticated call is rejected\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.the-gateway-does-not-expose-the-fee-rpc
     title: "The gateway does not expose the fee RPC"
@@ -3556,8 +3556,9 @@ features:
     tags:
     - payment
     - seller
-    status: planned
-    notes: "Scenario of change payment-seller-fee-charge; feature payment/seller_fee_charge.feature."
+    status: automated
+    covered_by: "payment/seller_fee_charge.feature::The gateway does not expose the fee RPC"
+    notes: "Change payment-seller-fee-charge; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-seller-fee-charge.the-store-refuses-a-positive-fee-row
     title: "The store refuses a positive fee row"
@@ -3574,7 +3575,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` subtest \"refuses a positive fee row\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.the-store-refuses-a-fee-row-without-a-reference
     title: "The store refuses a fee row without a reference"
@@ -3591,7 +3592,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` subtest \"refuses a fee row without a reference\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.the-store-refuses-a-second-fee-row-for-one-reference
     title: "The store refuses a second fee row for one reference"
@@ -3608,7 +3609,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` subtest \"refuses a second fee row for one reference\". Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment-seller-fee-charge.existing-ledger-types-still-migrate-cleanly
     title: "Existing ledger types still migrate cleanly"
@@ -3625,7 +3626,7 @@ features:
     - monetization
     - unit
     status: not-testable
-    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeConstraints` (store-level, not reachable through any public API). Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
+    notes: "VERIFIED BY `team-payment/internal/store/ledger_fee_integration_test.go` `TestSubscriptionFeeMigration_ExistingTypesStillMigrate`. Service-only RPC or store constraint: no public trigger; the end-to-end fee flow is covered by promotion-plan-billing."
 
   - id: payment.psc-a-paid-order-books-5-on-subtotal-minus-shop-voucher
     title: "A paid order books 5% on subtotal minus shop voucher"
@@ -3642,8 +3643,9 @@ features:
     acceptance:
       - "A paid order books 5% on subtotal minus shop voucher"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A paid order books 5% on subtotal minus shop voucher"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-the-platform-voucher-and-shipping-are-outside-the-base
     title: "The platform voucher and shipping are outside the base"
@@ -3660,8 +3662,9 @@ features:
     acceptance:
       - "The platform voucher and shipping are outside the base"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::The platform voucher and shipping are outside the base"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.commission-rounds-half-up-to-whole-vnd
     title: "Commission rounds half up to whole VND"
@@ -3695,8 +3698,9 @@ features:
     acceptance:
       - "A redelivered paid event books no second commission"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A redelivered paid event books no second commission"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.concurrent-settlements-of-one-order-book-one-commission
     title: "Concurrent settlements of one order book one commission"
@@ -3798,8 +3802,9 @@ features:
     acceptance:
       - "A client cannot set or forge a commission"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A client cannot set or forge a commission"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.commission-adds-at-most-5-ms-p95-to-settlement
     title: "Commission adds at most 5 ms p95 to settlement"
@@ -3833,8 +3838,9 @@ features:
     acceptance:
       - "A 40% partial refund returns 40% of the commission"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A 40% partial refund returns 40% of the commission"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-a-full-refund-returns-exactly-the-commission
     title: "A full refund returns exactly the commission"
@@ -3851,8 +3857,9 @@ features:
     acceptance:
       - "A full refund returns exactly the commission"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A full refund returns exactly the commission"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.cumulative-rounding-never-exceeds-the-commission
     title: "Cumulative rounding never exceeds the commission"
@@ -3886,8 +3893,9 @@ features:
     acceptance:
       - "A tiny refund whose share rounds to zero books no reversal"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A tiny refund whose share rounds to zero books no reversal"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-cancelling-a-paid-order-returns-the-whole-commission
     title: "Cancelling a paid order returns the whole commission"
@@ -3904,8 +3912,9 @@ features:
     acceptance:
       - "Cancelling a paid order returns the whole commission"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::Cancelling a paid order returns the whole commission"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.a-refund-that-landed-before-the-credit-still-gets-its-revers
     title: "A refund that landed before the credit still gets its reversal"
@@ -3939,8 +3948,9 @@ features:
     acceptance:
       - "A refund by a seller who is not the order's seller is denied and reverses nothing"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A refund by a seller who is not the order's seller is denied and reverses nothing"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.a-replayed-refund-writes-no-second-reversal
     title: "A replayed refund writes no second reversal"
@@ -4025,8 +4035,9 @@ features:
     acceptance:
       - "The store refuses a second commission for one payment"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::The store refuses a second commission for one payment"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-the-store-refuses-a-commission-that-is-not-negative
     title: "The store refuses a commission that is not negative"
@@ -4043,8 +4054,9 @@ features:
     acceptance:
       - "The store refuses a commission that is not negative"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::The store refuses a commission that is not negative"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-the-store-refuses-a-reversal-that-is-not-positive
     title: "The store refuses a reversal that is not positive"
@@ -4061,8 +4073,9 @@ features:
     acceptance:
       - "The store refuses a reversal that is not positive"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::The store refuses a reversal that is not positive"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-the-store-refuses-a-commission-without-a-reference
     title: "The store refuses a commission without a reference"
@@ -4079,8 +4092,9 @@ features:
     acceptance:
       - "The store refuses a commission without a reference"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::The store refuses a commission without a reference"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.the-migration-keeps-existing-ledger-rows-valid
     title: "The migration keeps existing ledger rows valid"
@@ -4165,8 +4179,9 @@ features:
     acceptance:
       - "The seller reads the breakdown of a settled order"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::The seller reads the breakdown of a settled order"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.the-breakdown-reflects-a-partial-refund
     title: "The breakdown reflects a partial refund"
@@ -4217,8 +4232,9 @@ features:
     acceptance:
       - "Another seller gets NOT_FOUND"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::Another seller gets NOT_FOUND"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-a-buyer-gets-not-found
     title: "A buyer gets NOT_FOUND"
@@ -4235,8 +4251,9 @@ features:
     acceptance:
       - "A buyer gets NOT_FOUND"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A buyer gets NOT_FOUND"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-an-admin-can-read-any-settlement
     title: "An admin can read any settlement"
@@ -4253,8 +4270,9 @@ features:
     acceptance:
       - "An admin can read any settlement"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::An admin can read any settlement"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-an-unsettled-order-is-not-found
     title: "An unsettled order is not found"
@@ -4271,8 +4289,9 @@ features:
     acceptance:
       - "An unsettled order is not found"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::An unsettled order is not found"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-a-missing-order-id-is-rejected
     title: "A missing order id is rejected"
@@ -4289,8 +4308,9 @@ features:
     acceptance:
       - "A missing order id is rejected"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A missing order id is rejected"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-an-unauthenticated-call-is-refused
     title: "An unauthenticated call is refused"
@@ -4307,8 +4327,9 @@ features:
     acceptance:
       - "An unauthenticated call is refused"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::An unauthenticated call is refused"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-reading-the-settlement-writes-nothing
     title: "Reading the settlement writes nothing"
@@ -4325,8 +4346,9 @@ features:
     acceptance:
       - "Reading the settlement writes nothing"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::Reading the settlement writes nothing"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment.psc-a-platform-voucher-is-credited-to-the-seller-on-top-of-the-p
     title: "A platform voucher is credited to the seller on top of the paid amount"
@@ -4343,8 +4365,9 @@ features:
     acceptance:
       - "A platform voucher is credited to the seller on top of the paid amount"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A platform voucher is credited to the seller on top of the paid amount"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: payment-settlement-commission.an-event-without-the-price-breakdown-credits-the-paid-amount
     title: "An event without the price breakdown credits the paid amount only"
@@ -4378,5 +4401,26 @@ features:
     acceptance:
       - "A held sale is held net of its commission"
     tags: [fintech, monetization]
-    status: planned
-    notes: "payment-settlement-commission: written red from the spec in payment/psc_commission.feature (scenario of the same name); covered_by is set when it flips to automated after the code lands."
+    status: automated
+    covered_by: "payment/psc_commission.feature::A held sale is held net of its commission"
+    notes: "Change payment-settlement-commission; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: payment.psc-a-redelivered-cancellation-books-no-second-reversal
+    title: "A redelivered cancellation books no second reversal"
+    persona: seller
+    priority: P1
+    summary: Producing the OrderCancelled record of a cancelled paid order again books no second COMMISSION_REVERSAL.
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and shop voucher through the gateway.
+    api:
+      exercised: [payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When the OrderCancelled record of a cancelled paid order is produced to order.events again, byte for byte"
+      - "Then the seller still has exactly one COMMISSION_REVERSAL of 14000 and one COMMISSION of -14000"
+    tags: [fintech, monetization]
+    status: automated
+    covered_by: "payment/psc_commission.feature::A redelivered cancellation books no second reversal"
+    notes: "Change payment-settlement-commission (idempotent reversal on a replayed cancellation; no spec scenario of its own). @destructive: serial lane only. green in the initiative e2e run on env monetization (2026-11-15)."

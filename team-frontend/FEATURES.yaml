@@ -12624,9 +12624,9 @@ features:
       - "When a guest opens `/search?category=<c>` where an ACTIVE campaign exists for a published listing L in category c"
       - "Then the page shows L in an element `sponsored-slot` that contains the text \"Tài trợ\", positioned before the first organic card"
     tags: [buyer, ads]
-    status: planned
-    covered_by: null
-    notes: "buyer-sponsored-slots: frontend/buyer_sponsored_slots.feature::Search shows a sponsored slot in its category. Red until the change is implemented."
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored slot is shown labelled in its category"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: frontend.bss-sponsored-listing-is-not-duplicated-in-organic-results
     title: "Sponsored listing is not duplicated in organic results"
@@ -12639,9 +12639,9 @@ features:
       - "When the sponsored listing L also matches the organic search of page 1"
       - "Then L appears exactly once on the page, inside `sponsored-slot`, and zero times in `search-results`"
     tags: [buyer, ads]
-    status: planned
-    covered_by: null
-    notes: "buyer-sponsored-slots: frontend/buyer_sponsored_slots.feature::Sponsored listing is not duplicated in organic results. Red until the change is implemented."
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored listing is not duplicated in organic results"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: frontend.bss-page-2-has-no-sponsored-slots
     title: "Page 2 has no sponsored slots"
@@ -12655,7 +12655,7 @@ features:
       - "Then zero `sponsored-slot` elements are rendered and `ListSponsoredSlots` is not called"
     tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `page 2 requests no sponsored slots`. Not producible end to end: a unit-level behaviour."
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `Page 2 has no sponsored slots`. Not producible end to end: a unit-level behaviour."
 
   - id: frontend.bss-slot-service-failure-leaves-organic-results-intact
     title: "Slot service failure leaves organic results intact"
@@ -12669,7 +12669,7 @@ features:
       - "Then the page responds 200 with the organic grid, count and pagination unchanged and zero `sponsored-slot` elements"
     tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `sponsored failure or timeout renders organic only`. Not producible end to end: a unit-level behaviour."
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `Slot service failure leaves organic results intact`. Not producible end to end: a unit-level behaviour."
 
   - id: frontend.bss-no-slots-when-the-organic-search-has-no-results
     title: "No slots when the organic search has no results"
@@ -12683,7 +12683,7 @@ features:
       - "Then the page shows \"Không tìm thấy sản phẩm\" and zero `sponsored-slot` elements"
     tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `no sponsored row on empty results`. Not producible end to end: a unit-level behaviour."
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `No slots when the organic search has no results`. Not producible end to end: a unit-level behaviour."
 
   - id: frontend.bss-unpublished-sponsored-listing-is-dropped
     title: "Unpublished sponsored listing is dropped"
@@ -12724,9 +12724,9 @@ features:
       - "When a guest opens `/` while an ACTIVE campaign exists whose slot is served for placement `home`"
       - "Then the feed section \"Gợi ý hôm nay\" contains a `sponsored-slot` with the text \"Tài trợ\" before its first organic card"
     tags: [buyer, ads]
-    status: planned
-    covered_by: null
-    notes: "buyer-sponsored-slots: frontend/buyer_sponsored_slots.feature::Home feed shows a sponsored slot. Red until the change is implemented."
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored slot is shown on the home feed"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: frontend.bss-home-dedupes-the-sponsored-listing
     title: "Home dedupes the sponsored listing"
@@ -12740,7 +12740,7 @@ features:
       - "Then it appears once on the page, inside `sponsored-slot`"
     tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `feed removes sponsored duplicates`. Not producible end to end: a unit-level behaviour."
+    notes: "VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `Home dedupes the sponsored listing`. Not producible end to end: a unit-level behaviour."
 
   - id: frontend.bss-home-slot-failure-does-not-break-the-feed
     title: "Home slot failure does not break the feed"
@@ -12754,7 +12754,7 @@ features:
       - "Then the feed renders its organic items and zero `sponsored-slot` elements, and the other home blocks still render"
     tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `feed renders organic items when sponsored fails`. Not producible end to end: a unit-level behaviour."
+    notes: "VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `Home slot failure does not break the feed`. Not producible end to end: a unit-level behaviour."
 
   - id: frontend.bss-click-charges-the-campaign-once-and-opens-the-listing
     title: "Click charges the campaign once and opens the listing"
@@ -12767,9 +12767,9 @@ features:
       - "When a buyer clicks the sponsored slot of campaign C (bid 1 000, budget remaining 5 000) on `/search`"
       - "Then the browser lands on `/listing/<L>` and C's spent equals 1 000 (remaining 4 000) when read back through `ListMyAdCampaigns`"
     tags: [buyer, ads]
-    status: planned
-    covered_by: null
-    notes: "buyer-sponsored-slots: frontend/buyer_sponsored_slots.feature::Click charges the campaign once and opens the listing. Red until the change is implemented."
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Click charges the campaign once and opens the listing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: frontend.bss-second-click-on-the-same-slot-charges-nothing
     title: "Second click on the same slot charges nothing"
@@ -12782,9 +12782,9 @@ features:
       - "When the buyer returns to the same results page without reloading and clicks the same slot again"
       - "Then C's spent is still 1 000 and the navigation to `/listing/<L>` still works"
     tags: [buyer, ads]
-    status: planned
-    covered_by: null
-    notes: "buyer-sponsored-slots: frontend/buyer_sponsored_slots.feature::Second click on the same slot charges nothing. Red until the change is implemented."
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Second click on the same slot charges nothing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: frontend.bss-rendering-the-page-charges-nothing
     title: "Rendering the page charges nothing"
@@ -12797,9 +12797,9 @@ features:
       - "When a visitor loads `/search?category=<c>` with a sponsored slot and never clicks"
       - "Then C's spent stays 0 and `RecordAdClick` is not called"
     tags: [buyer, ads]
-    status: planned
-    covered_by: null
-    notes: "buyer-sponsored-slots: frontend/buyer_sponsored_slots.feature::Rendering the page charges nothing. Red until the change is implemented."
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Rendering the page charges nothing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: frontend.bss-a-seller-clicking-their-own-ad-is-not-charged
     title: "Sponsored slot: a seller clicking their own ad is not charged"
@@ -12812,9 +12812,9 @@ features:
       - "When the seller who owns C is logged in, opens `/search?category=<c>` and clicks the sponsored slot"
       - "Then the navigation to `/listing/<L>` works and C's spent stays 0"
     tags: [buyer, ads]
-    status: planned
-    covered_by: null
-    notes: "buyer-sponsored-slots: frontend/buyer_sponsored_slots.feature::Seller clicking their own ad is not charged. Red until the change is implemented."
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Seller clicking their own ad is not charged"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
   - id: frontend.bss-click-beacon-fires-once-per-gesture-and-does-not-prevent-navigation
     title: "Click beacon fires once per gesture and does not prevent navigation"
