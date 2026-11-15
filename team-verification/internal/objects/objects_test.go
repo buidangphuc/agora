@@ -81,9 +81,9 @@ func startMinio(t *testing.T) *objects.Minio {
 	return m
 }
 
-func put(t *testing.T, rawURL, contentType string, body []byte) int {
+func put(ctx context.Context, t *testing.T, rawURL, contentType string, body []byte) int {
 	t.Helper()
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, rawURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, rawURL, bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestMinioStorageBehaviour(t *testing.T) {
 		if err != nil {
 			t.Fatalf("PresignPut: %v", err)
 		}
-		if code := put(t, raw, "image/jpeg", body); code < 200 || code > 299 {
+		if code := put(ctx, t, raw, "image/jpeg", body); code < 200 || code > 299 {
 			t.Fatalf("PUT status = %d, want 2xx", code)
 		}
 		info, err := m.Stat(ctx, "kyc/u-1/ok")
@@ -184,7 +184,7 @@ func TestMinioStorageBehaviour(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if code := put(t, raw, "image/png", bytes.Repeat([]byte("a"), 10)); code != http.StatusForbidden {
+		if code := put(ctx, t, raw, "image/png", bytes.Repeat([]byte("a"), 10)); code != http.StatusForbidden {
 			t.Errorf("PUT status = %d, want 403", code)
 		}
 		if _, err := m.Stat(ctx, "kyc/u-1/badtype"); !errors.Is(err, objects.ErrNotFound) {
@@ -197,7 +197,7 @@ func TestMinioStorageBehaviour(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if code := put(t, raw, "image/jpeg", bytes.Repeat([]byte("a"), 11)); code != http.StatusForbidden {
+		if code := put(ctx, t, raw, "image/jpeg", bytes.Repeat([]byte("a"), 11)); code != http.StatusForbidden {
 			t.Errorf("PUT status = %d, want 403", code)
 		}
 		if _, err := m.Stat(ctx, "kyc/u-1/badlen"); !errors.Is(err, objects.ErrNotFound) {
@@ -210,7 +210,7 @@ func TestMinioStorageBehaviour(t *testing.T) {
 		if err != nil {
 			t.Fatalf("PresignPut: %v", err)
 		}
-		if code := put(t, raw, "application/pdf", bytes.Repeat([]byte("p"), maxBytes)); code < 200 || code > 299 {
+		if code := put(ctx, t, raw, "application/pdf", bytes.Repeat([]byte("p"), maxBytes)); code < 200 || code > 299 {
 			t.Fatalf("PUT status = %d, want 2xx", code)
 		}
 		info, err := m.Stat(ctx, "kyc/u-1/max")
@@ -256,7 +256,7 @@ func TestMinioStorageBehaviour(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if code := put(t, raw, "image/png", []byte("abc")); code != http.StatusOK {
+			if code := put(ctx, t, raw, "image/png", []byte("abc")); code != http.StatusOK {
 				t.Fatalf("PUT %s = %d", k, code)
 			}
 		}

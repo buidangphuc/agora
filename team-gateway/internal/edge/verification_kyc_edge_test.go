@@ -31,7 +31,7 @@ func (k *kycUpstream) GetPublicBadges(_ context.Context, in *verificationv1.GetP
 	return out, nil
 }
 
-func (k *kycUpstream) CreateKycUploadUrl(context.Context, *verificationv1.CreateKycUploadUrlRequest, ...grpc.CallOption) (*verificationv1.CreateKycUploadUrlResponse, error) {
+func (k *kycUpstream) CreateKycUploadUrl(context.Context, *verificationv1.CreateKycUploadUrlRequest, ...grpc.CallOption) (*verificationv1.CreateKycUploadUrlResponse, error) { //nolint:revive // bound to generated interface
 	k.upload.Add(1)
 	return &verificationv1.CreateKycUploadUrlResponse{UploadUrl: "http://s/put", DocRef: "kyc/u/1"}, nil
 }
@@ -41,7 +41,7 @@ func (k *kycUpstream) ListKycSubmissions(context.Context, *verificationv1.ListKy
 	return &verificationv1.ListKycSubmissionsResponse{}, nil
 }
 
-func (k *kycUpstream) GetKycDocumentUrl(context.Context, *verificationv1.GetKycDocumentUrlRequest, ...grpc.CallOption) (*verificationv1.GetKycDocumentUrlResponse, error) {
+func (k *kycUpstream) GetKycDocumentUrl(context.Context, *verificationv1.GetKycDocumentUrlRequest, ...grpc.CallOption) (*verificationv1.GetKycDocumentUrlResponse, error) { //nolint:revive // bound to generated interface
 	k.docURL.Add(1)
 	return &verificationv1.GetKycDocumentUrlResponse{Url: "http://s/get"}, nil
 }

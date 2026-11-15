@@ -120,7 +120,9 @@ func (e *kycEnv) status(ctx context.Context, userID string) *verificationv1.GetV
 
 func (e *kycEnv) list(ctx context.Context, st verificationv1.VerificationStatus, cursor string, size int32) (*verificationv1.ListKycSubmissionsResponse, error) {
 	return e.h.ListKycSubmissions(ctx, &verificationv1.ListKycSubmissionsRequest{
-		Status: st, Page: &commonv1.PageRequest{Cursor: cursor, PageSize: size}})
+		Status: st,
+		Page:   &commonv1.PageRequest{Cursor: cursor, PageSize: size},
+	})
 }
 
 func (e *kycEnv) assertNoSubmission(user string) {

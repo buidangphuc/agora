@@ -270,7 +270,9 @@ def anon_requests_url(world: World, ctype: str, size: int) -> None:
 @when(parsers.parse('seller "{name}" uploads {size:d} bytes of "{ctype}" to the upload URL'))
 def seller_uploads(world: World, name: str, size: int, ctype: str) -> None:
     grant = _person(world, name).get("grant")
-    assert grant, f"no upload grant was issued: {_x(world)['resp'].status_code} {_x(world)['resp'].text}"
+    assert (
+        grant
+    ), f"no upload grant was issued: {_x(world)['resp'].status_code} {_x(world)['resp'].text}"
     _x(world)["storage_resp"] = kyc.http_put(grant["uploadUrl"], b"x" * size, ctype)
 
 

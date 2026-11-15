@@ -90,7 +90,7 @@ func clone(s *store.Submission) *store.Submission {
 	return &out
 }
 
-func (r *InMemoryKycRepo) CreateGrant(_ context.Context, g *store.Grant, cap int, now time.Time) error {
+func (r *InMemoryKycRepo) CreateGrant(_ context.Context, g *store.Grant, maxOpen int, now time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	open := 0
@@ -99,7 +99,7 @@ func (r *InMemoryKycRepo) CreateGrant(_ context.Context, g *store.Grant, cap int
 			open++
 		}
 	}
-	if open >= cap {
+	if open >= maxOpen {
 		return store.ErrGrantCapReached
 	}
 	c := *g
@@ -201,7 +201,7 @@ func (r *InMemoryKycRepo) ListSubmissions(_ context.Context, f store.ListFilter)
 		if f.Status != "" && s.Status != f.Status {
 			continue
 		}
-		if f.HasCursor && !(s.CreatedAt.After(f.AfterAt) || (s.CreatedAt.Equal(f.AfterAt) && s.ID > f.AfterID)) {
+		if f.HasCursor && !s.CreatedAt.After(f.AfterAt) && (!s.CreatedAt.Equal(f.AfterAt) || s.ID <= f.AfterID) {
 			continue
 		}
 		all = append(all, s)

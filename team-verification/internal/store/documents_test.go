@@ -22,10 +22,10 @@ func grant(user, key string, size int64) *store.Grant {
 	return &store.Grant{ObjectKey: key, UserID: user, ContentType: "image/jpeg", SizeBytes: size, IssuedAt: t0, ExpiresAt: t0.Add(15 * time.Minute)}
 }
 
-func seed(t *testing.T, repo *store.PostgresKycRepo, user string, keys ...string) {
+func seed(ctx context.Context, t *testing.T, repo *store.PostgresKycRepo, user string, keys ...string) {
 	t.Helper()
 	for _, k := range keys {
-		if err := repo.CreateGrant(context.Background(), grant(user, k, 100), 10, t0); err != nil {
+		if err := repo.CreateGrant(ctx, grant(user, k, 100), 10, t0); err != nil {
 			t.Fatalf("CreateGrant %s: %v", k, err)
 		}
 	}
@@ -33,10 +33,10 @@ func seed(t *testing.T, repo *store.PostgresKycRepo, user string, keys ...string
 
 func okVerify(_ []store.Grant) error { return nil }
 
-func countSubmissions(t *testing.T, pool *pgxpool.Pool, user string) int {
+func countSubmissions(ctx context.Context, t *testing.T, pool *pgxpool.Pool, user string) int {
 	t.Helper()
 	var n int
-	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM kyc_submissions WHERE user_id=$1`, user).Scan(&n); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM kyc_submissions WHERE user_id=$1`, user).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	return n
@@ -93,7 +93,7 @@ func TestSubmitWithDocumentsHappyPath(t *testing.T) {
 	ctx := context.Background()
 	pool := migratedPool(t)
 	repo := store.NewPostgresKycRepo(pool)
-	seed(t, repo, "u-1", "kyc/u-1/a", "kyc/u-1/b")
+	seed(ctx, t, repo, "u-1", "kyc/u-1/a", "kyc/u-1/b")
 
 	var seen []store.Grant
 	sub, err := repo.SubmitWithDocuments(ctx, &store.Submission{ID: "kyc_1", UserID: "u-1", DocType: "national_id", Status: store.StatusPending},
@@ -126,7 +126,7 @@ func TestKeyCannotBeSubmittedTwice(t *testing.T) {
 	ctx := context.Background()
 	pool := migratedPool(t)
 	repo := store.NewPostgresKycRepo(pool)
-	seed(t, repo, "u-1", "kyc/u-1/a", "kyc/u-1/b")
+	seed(ctx, t, repo, "u-1", "kyc/u-1/a", "kyc/u-1/b")
 	if _, err := repo.SubmitWithDocuments(ctx, &store.Submission{ID: "kyc_1", UserID: "u-1", DocType: "national_id", Status: store.StatusPending},
 		[]string{"kyc/u-1/a"}, t0, okVerify); err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestKeyCannotBeSubmittedTwice(t *testing.T) {
 		if !errors.Is(err, store.ErrGrantInvalid) {
 			t.Fatalf("err = %v, want ErrGrantInvalid", err)
 		}
-		if n := countSubmissions(t, pool, "u-1"); n != 1 {
+		if n := countSubmissions(ctx, t, pool, "u-1"); n != 1 {
 			t.Errorf("submissions = %d, want 1", n)
 		}
 	})
@@ -148,7 +148,7 @@ func TestKeyCannotBeSubmittedTwice(t *testing.T) {
 		if !errors.Is(err, store.ErrGrantInvalid) {
 			t.Fatalf("err = %v, want ErrGrantInvalid", err)
 		}
-		if n := countSubmissions(t, pool, "u-1"); n != 1 {
+		if n := countSubmissions(ctx, t, pool, "u-1"); n != 1 {
 			t.Errorf("submissions = %d, want 1", n)
 		}
 		if g, _ := repo.GetGrant(ctx, "kyc/u-1/b"); g == nil || g.UsedAt != nil {
@@ -156,7 +156,7 @@ func TestKeyCannotBeSubmittedTwice(t *testing.T) {
 		}
 	})
 	t.Run(sc+": key issued to another user or unknown", func(t *testing.T) {
-		seed(t, repo, "u-2", "kyc/u-2/a")
+		seed(ctx, t, repo, "u-2", "kyc/u-2/a")
 		for _, key := range []string{"kyc/u-2/a", "kyc/u-1/never-issued"} {
 			_, err := repo.SubmitWithDocuments(ctx, &store.Submission{ID: "kyc_x", UserID: "u-1", DocType: "national_id", Status: store.StatusPending},
 				[]string{key}, t0, okVerify)
@@ -175,7 +175,7 @@ func TestExpiredGrantAndVerifyFailureCreateNothing(t *testing.T) {
 	ctx := context.Background()
 	pool := migratedPool(t)
 	repo := store.NewPostgresKycRepo(pool)
-	seed(t, repo, "u-1", "kyc/u-1/a", "kyc/u-1/b")
+	seed(ctx, t, repo, "u-1", "kyc/u-1/a", "kyc/u-1/b")
 
 	_, err := repo.SubmitWithDocuments(ctx, &store.Submission{ID: "kyc_1", UserID: "u-1", DocType: "national_id", Status: store.StatusPending},
 		[]string{"kyc/u-1/a"}, t0.Add(16*time.Minute), okVerify)
@@ -189,7 +189,7 @@ func TestExpiredGrantAndVerifyFailureCreateNothing(t *testing.T) {
 	if !errors.Is(err, boom) {
 		t.Fatalf("%s: verify err = %v, want the verify error", sc, err)
 	}
-	if n := countSubmissions(t, pool, "u-1"); n != 0 {
+	if n := countSubmissions(ctx, t, pool, "u-1"); n != 0 {
 		t.Errorf("%s: submissions = %d, want 0", sc, n)
 	}
 	if docs, _ := repo.ListDocuments(ctx, "kyc_2"); len(docs) != 0 {
@@ -214,7 +214,7 @@ func TestConcurrentSubmitsCannotShareAKey(t *testing.T) {
 
 	for round := range 10 {
 		key := fmt.Sprintf("kyc/u-1/race-%d", round)
-		seed(t, repo, "u-1", key)
+		seed(ctx, t, repo, "u-1", key)
 		errs := make([]error, 2)
 		start := make(chan struct{})
 		var wg sync.WaitGroup
@@ -257,8 +257,8 @@ func TestNewSubmissionSupersedesEarlierOnes(t *testing.T) {
 	ctx := context.Background()
 	pool := migratedPool(t)
 	repo := store.NewPostgresKycRepo(pool)
-	seed(t, repo, "u-1", "kyc/u-1/a", "kyc/u-1/b")
-	seed(t, repo, "u-2", "kyc/u-2/a")
+	seed(ctx, t, repo, "u-1", "kyc/u-1/a", "kyc/u-1/b")
+	seed(ctx, t, repo, "u-2", "kyc/u-2/a")
 
 	for i, k := range []string{"kyc/u-1/a", "kyc/u-1/b"} {
 		if _, err := repo.SubmitWithDocuments(ctx, &store.Submission{ID: fmt.Sprintf("kyc_%d", i+1), UserID: "u-1", DocType: "national_id", Status: store.StatusPending},
