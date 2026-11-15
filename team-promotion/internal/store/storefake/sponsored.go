@@ -54,12 +54,15 @@ func (r *InMemoryAdCampaignRepository) GetByID(_ context.Context, id string) (st
 	return c, nil
 }
 
-func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID string, limit int, _ *store.AdCampaignCursor) ([]store.AdCampaign, error) {
+func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID string, limit int, after *store.AdCampaignCursor) ([]store.AdCampaign, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var all []store.AdCampaign
 	for _, c := range r.campaigns {
-		if c.SellerID == sellerID {
+		if c.SellerID != sellerID {
+			continue
+		}
+		if after == nil || c.CreatedAt.Before(after.CreatedAt) || (c.CreatedAt.Equal(after.CreatedAt) && c.ID < after.ID) {
 			all = append(all, c)
 		}
 	}
@@ -69,7 +72,7 @@ func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID 
 		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
 			return all[i].CreatedAt.After(all[j].CreatedAt)
 		}
-		return all[i].ID < all[j].ID
+		return all[i].ID > all[j].ID
 	})
 	if limit > 0 && limit < len(all) {
 		all = all[:limit]

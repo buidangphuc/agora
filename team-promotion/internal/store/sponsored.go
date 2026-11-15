@@ -34,15 +34,33 @@ type AdCampaignCursor struct {
 // forbids the transition; the returned AdCampaign is the unchanged row.
 var ErrAdCampaignState = errors.New("ad campaign state forbids transition")
 
-var errPauseResumeNotImplemented = errors.New("pause/resume not implemented")
-
-// Pause and Resume are red-phase stubs the implementer replaces (task 1.3).
-func (r *PostgresAdCampaignRepository) Pause(_ context.Context, _, _ string) (AdCampaign, error) {
-	return AdCampaign{}, errPauseResumeNotImplemented
+func (r *PostgresAdCampaignRepository) transition(ctx context.Context, id, sellerID, set, guard string) (AdCampaign, error) {
+	q := `UPDATE ad_campaigns SET status = ` + set + ` WHERE id = $1 AND seller_id = $2 AND (` + guard + `) RETURNING ` + adCampaignColumns
+	var c AdCampaign
+	err := scanAdCampaign(r.pool.QueryRow(ctx, q, id, sellerID), &c)
+	if err == nil {
+		return c, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return AdCampaign{}, fmt.Errorf("transition ad campaign %q: %w", id, err)
+	}
+	err = scanAdCampaign(r.pool.QueryRow(ctx,
+		`SELECT `+adCampaignColumns+` FROM ad_campaigns WHERE id = $1 AND seller_id = $2`, id, sellerID), &c)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AdCampaign{}, ErrAdCampaignNotFound
+	}
+	if err != nil {
+		return AdCampaign{}, fmt.Errorf("get ad campaign %q: %w", id, err)
+	}
+	return c, ErrAdCampaignState
 }
 
-func (r *PostgresAdCampaignRepository) Resume(_ context.Context, _, _ string) (AdCampaign, error) {
-	return AdCampaign{}, errPauseResumeNotImplemented
+func (r *PostgresAdCampaignRepository) Pause(ctx context.Context, id, sellerID string) (AdCampaign, error) {
+	return r.transition(ctx, id, sellerID, "2", "status IN (1, 2, 4)")
+}
+
+func (r *PostgresAdCampaignRepository) Resume(ctx context.Context, id, sellerID string) (AdCampaign, error) {
+	return r.transition(ctx, id, sellerID, "1", "status = 1 OR (status = 2 AND budget - spent >= bid)")
 }
 
 const ImpressionTTL = 30 * time.Minute
@@ -150,12 +168,19 @@ func (r *PostgresAdCampaignRepository) GetByID(ctx context.Context, id string) (
 	return c, nil
 }
 
-func (r *PostgresAdCampaignRepository) ListBySeller(ctx context.Context, sellerID string, limit int, _ *AdCampaignCursor) ([]AdCampaign, error) {
+func (r *PostgresAdCampaignRepository) ListBySeller(ctx context.Context, sellerID string, limit int, after *AdCampaignCursor) ([]AdCampaign, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	const q = `SELECT ` + adCampaignColumns + ` FROM ad_campaigns WHERE seller_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET 0`
-	rows, err := r.pool.Query(ctx, q, sellerID, limit)
+	const q = `SELECT ` + adCampaignColumns + ` FROM ad_campaigns WHERE seller_id = $1
+		AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3))
+		ORDER BY created_at DESC, id DESC LIMIT $4`
+	var cAt *time.Time
+	var cID string
+	if after != nil {
+		cAt, cID = &after.CreatedAt, after.ID
+	}
+	rows, err := r.pool.Query(ctx, q, sellerID, cAt, cID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list ad campaigns: %w", err)
 	}
