@@ -19,6 +19,9 @@ Implement OpenSpec change `admin-insights-panels` test-first per its tasks.md; c
 - platform-e2e/tests/e2e/step_definitions/test_insights_panels.py
 - platform-e2e/tests/e2e/step_definitions/insights_panels_steps.py
 - platform-e2e/tests/e2e/flows/tracking_flow.py
+- widened (P1):
+  - platform-e2e/tests/e2e/step_definitions/admin_insights_steps.py — e2e step file of this change (admin/insights_panels.feature)
+  - platform-e2e/tests/e2e/step_definitions/test_admin_insights_panels.py — e2e binding of this change (admin/insights_panels.feature)
 
 ## Verify
 - `cd team-frontend-admin && npm ci && npm run proto && npm run check`
