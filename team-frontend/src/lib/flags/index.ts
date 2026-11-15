@@ -60,3 +60,5 @@ export async function getFlag(
 export function isCheckoutEnabled(): Promise<boolean> {
   return getFlag(FLAG_CHECKOUT_ENABLED, true);
 }
+
+export { getVariant } from "./variant.js";
