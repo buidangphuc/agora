@@ -30,7 +30,8 @@ def _seed(world: World, name: str, addresses: int, sessions: int, events: int, c
     user = ue.register_user("buyer", "exp_b")
     _users(world)[name] = user
     _x(world)[f"exp_addr_{name}"] = de.add_addresses(user, addresses)
-    de.extra_logins(user, ok=max(sessions - 1, 0), failed=max(events - sessions, 0))
+    ok = max(sessions - 2, 0)
+    de.extra_logins(user, ok=ok, failed=max(events - 1 - ok, 0))
     have = de.consent_total(user)
     if consents > have:
         purposes = ["CONSENT_PURPOSE_ANALYTICS", "CONSENT_PURPOSE_MARKETING",
