@@ -3,8 +3,8 @@
 ### Requirement: The KYC tab is admin-only
 
 `/admin/cases?tab=kyc` SHALL redirect a request with no session principal or token to login through `redirectGuestToLogin`,
-SHALL render the `Result status="403"` titled "Cần tài khoản Quản trị" when the principal lacks the `admin` scope, and SHALL
-NOT call the gateway in either case. A gateway `PermissionDenied` SHALL render the same 403 and `Unauthenticated` SHALL redirect to login.
+SHALL render the admin layout's `Result status="403"` titled "Không có quyền" when the principal lacks the `admin` scope, and SHALL
+NOT call the gateway in either case. A gateway `PermissionDenied` SHALL render a 403 result in the page and `Unauthenticated` SHALL redirect to login.
 The tab strip on every `/admin/cases` tab SHALL include "Xác minh người bán" linking to `/admin/cases?tab=kyc`.
 
 #### Scenario: KYC queue: Anonymous visitor is redirected to login
@@ -14,7 +14,7 @@ The tab strip on every `/admin/cases` tab SHALL include "Xác minh người bán
 
 #### Scenario: KYC queue: Non-admin sees the 403 result
 - **WHEN** a signed-in buyer or seller without the `admin` scope opens `/admin/cases?tab=kyc`
-- **THEN** the page renders status 403 titled "Cần tài khoản Quản trị" and `ListKycSubmissions` is called 0 times
+- **THEN** the admin layout renders status 403 titled "Không có quyền" and `ListKycSubmissions` is called 0 times
 - **VERIFIED BY**: platform-e2e/tests/e2e/features/admin/kyc_queue.feature: KYC queue: Non-admin sees the 403 result
 
 #### Scenario: KYC queue: Gateway refusal is shown as the same 403

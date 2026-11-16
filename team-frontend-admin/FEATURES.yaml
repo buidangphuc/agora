@@ -3357,7 +3357,7 @@ features:
       exercised: [verification.v1.ListKycSubmissions, verification.v1.GetKycDocumentUrl, verification.v1.ReviewKyc]
     acceptance:
       - "When a signed-in buyer or seller without the `admin` scope opens `/admin/cases?tab=kyc`"
-      - "Then the page renders status 403 titled \"Cần tài khoản Quản trị\" and `ListKycSubmissions` is called 0 times"
+      - "Then the admin layout renders status 403 titled \"Không có quyền\" and `ListKycSubmissions` is called 0 times"
     tags: [admin, kyc_queue]
     status: planned
 

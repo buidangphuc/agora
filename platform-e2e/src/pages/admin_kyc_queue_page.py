@@ -15,7 +15,7 @@ from src.core.base_page import BasePage
 TAB_NAME = "Xác minh người bán"
 NEXT_LINK = "Trang sau"
 EMPTY_TEXT = "Không có hồ sơ nào đang chờ duyệt."
-FORBIDDEN_TITLE = "Cần tài khoản Quản trị"
+FORBIDDEN_TITLE = "Không có quyền"
 OPEN_LINK = "Mở tài liệu"
 APPROVE = "Duyệt"
 REJECT = "Từ chối"

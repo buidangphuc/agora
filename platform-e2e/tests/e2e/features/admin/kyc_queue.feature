@@ -17,7 +17,7 @@ Feature: Admin KYC verification queue in the browser (admin-kyc-queue)
     Given seller "A" has a pending KYC submission
     And seller "A" is signed in the browser
     When the visitor opens the KYC tab
-    Then the 403 result "Cần tài khoản Quản trị" is shown
+    Then the 403 result "Không có quyền" is shown
     And the KYC table is not shown
     When the seeded admin is signed in the browser
     And the visitor opens the KYC tab
