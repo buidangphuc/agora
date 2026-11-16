@@ -1,7 +1,7 @@
 # LOCK — monetization
 status: approved
 approved-by: Bùi Đăng Phúc
-date: 2026-11-13
+date: 2026-11-16
 spec: plans/monetization/00-spec.md (Locked 2026-11-13)
 
 ## Slices
@@ -21,6 +21,7 @@ spec: plans/monetization/00-spec.md (Locked 2026-11-13)
 | seller-ads-ui | team-frontend-seller | [promotion-ads-campaign-mgmt] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 5a7e6ce9b756 → 4f2c50d186eb | [x] |
 
 Digest update 2026-11-15 (converge): every slice's openspec/changes/<slice>/** changed (VERIFIED BY citation lines in spec.md, tasks.md ticks and renamed e2e scenario names); the digest cell shows old → new.
+Re-approved 2026-11-16 by Bùi Đăng Phúc: batch re-approval after converge (decision 5, extended to monetization). All 12 new digests recomputed on 2026-11-16 and match the cells.
 
 decide.py was not run for any slice: it needs a `--units` file and the kev engine, and the system python lacks `yaml`. Each spec-quality-reviewer's own checklist is the verdict.
 
