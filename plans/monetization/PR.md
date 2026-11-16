@@ -1,6 +1,6 @@
 ## Summary
 
-Monetization initiative: 12 locked OpenSpec slices (commission on sales, paid seller plans, sponsored ads), built test-first on `asdlc/monetization`. 176 commits, 347 files.
+Monetization initiative: 12 locked OpenSpec slices (commission on sales, paid seller plans, sponsored ads), built test-first on `asdlc/monetization`. 179 commits, 346 files. No `scripts/` file differs from origin/main any more: the red_first edit moved to the tooling PR (chore/asdlc-tooling).
 
 ```mermaid
 flowchart LR
@@ -65,7 +65,7 @@ sponsored ads (team-promotion SponsoredService)
 
 - e2e, converge (2026-11-16): 78/78 monetization scenarios green.
 - e2e re-run of the 7 modules holding the 22 scenarios renamed in converge, fresh env `monetization`: 30/30 passed after the fix. First run 26/30; failing then: `tests/e2e/step_definitions/test_seller.py::test_seller_creates_a_new_listing[chromium]`, `::test_a_saved_listing_shows_a_success_toast_and_a_link_to_the_list[chromium]`, `::test_eleventh_listing_on_free_shows_the_upgrade_cta[chromium]`, `::test_boundary_the_tenth_listing_is_accepted[chromium]` (category `cat-laptop` exists only in the old seed script; fixed in 8c7186437 to `cat-electronics`). No failing node ids in the final run.
-- Local CI (`scripts/asdlc/ci_local.sh`, BASE = merge-base 06c44c17), 2026-11-16:
+- Local CI (`scripts/asdlc/ci_local.sh`, BASE = merge-base 06c44c17), 2026-11-16, re-run at 8050f711d for specs, features, repo, proto, tests-asdlc and tdd after the red_first revert and the LOCK re-approval (the commits since the last PR body touch only `scripts/asdlc` and `plans/monetization/LOCK.md`, so no service repo CI was re-run):
 
 | check | result | evidence |
 |---|---|---|
@@ -73,9 +73,9 @@ sponsored ads (team-promotion SponsoredService)
 | features | pass | `make -C platform-e2e features-check` |
 | repo | pass | repo-doctor no drift; validate_plan 12 packets / 6 waves; check_gates OK |
 | proto | pass | buf lint + buf breaking vs base |
-| tests-asdlc | pass | pytest + guard + red_first self-tests ALL OK |
-| tdd: no_self_mock | pass | 0 findings in 28 files |
-| tdd: red_first | fail, not this branch | e2e-order: first impl b2a9742b (vendored proto copies) before first e2e d7d6b7b6; fixed by chore/asdlc-tooling (decision 10) |
+| tests-asdlc | pass | pytest + guard + red_first self-tests ALL OK, with red_first.sh back at origin/main content |
+| tdd: no_self_mock | pass | 0 findings in 28 files (earlier run) |
+| tdd: red_first | fail, expected until the tooling PR merges | 64 Go + 24 TS tests: 75 `red@base=yes green@head=yes`, the rest EXEMPT by trailer or SKIP (no Test funcs); only red is e2e-order: first impl b2a9742b (vendored proto copies) before first e2e d7d6b7b6; fixed by chore/asdlc-tooling (decision 10) |
 | security | not run | gitleaks, trivy, semgrep not installed |
 | Go vet+test team-order, team-domain, team-gateway, team-payment, team-promotion | pass | gate_digest go --vet: 0 failed, 0 skipped |
 | Go test platform-core/packages/proto | 4 fail, not this branch | `TestWriteAuditEventRequest_Comment_*` fails identically on origin/main; 3 `TestQ6Gate_*` need a local `main` branch and gitignored `platform-core/gen` (environment) |
@@ -97,7 +97,7 @@ Four forward migrations change data on deploy: team-payment 0018/0019 widen the 
 - team-domain `CreateListing` and `UpsertStorefront` now depend on team-promotion `GetEntitlements` and fail closed when it is unreachable or misconfigured: a promotion outage blocks listing creation.
 - Seller plan charges and renewals debit wallets through `ChargeSellerFee`; the scope name must match on both sides.
 - `RecordAdClick` is public (no scope) and charges the bid; rate limit is the gateway edge default.
-- `scripts/asdlc/red_first.sh` is also touched here (1b553b3d6, drops remote BSR plugins without a local binary); the tooling PR edits the same file, so whichever merges second resolves a conflict.
+- Merge order: the tooling PR (chore/asdlc-tooling) first. It carries the red_first BSR remote-plugin fix that was reverted here (468e2b956) and the e2e-order fix the tdd red above waits for; after the revert this branch no longer touches `scripts/asdlc/red_first.sh`, so the two PRs do not conflict there.
 - Merge order with the other initiative PRs: all four re-vendor proto copies into the same team-*/proto paths; expect conflicts there and in fe-platform api-client generated files.
 
 ## Needs human
@@ -129,13 +129,13 @@ db4906ccf [2], 49052aaaf [2], 740784239 [1], 1cda4316c [1], c1158b718 [1], a5636
 
 **LOCK re-approvals**
 
-All 12 slice digests changed at converge (VERIFIED BY citations, task ticks, renamed scenario names); LOCK.md shows old → new and every current digest matches. The converge re-digest has not been re-signed; decision 5 batch-approved seller-centre, trust-legal and docs-ai-data only.
+All 12 slice digests changed at converge (VERIFIED BY citations, task ticks, renamed scenario names); LOCK.md shows old → new and every current digest matches (recomputed 2026-11-16). Re-approved 2026-11-16 as a batch re-approval after converge (decision 5, extended to monetization), recorded in LOCK.md in 8050f711d.
 
 **Accepted exceptions** (LOCK.md "Known exceptions", decision 9)
 
 - validate_plan wave 1: `platform-e2e/pyproject.toml` marker line shared by listing-plan-cap and promotion-ads-serving (ed4e25aba).
 - validate_plan --audit does not parse "widened (P1)" `path — reason` entries.
-- red_first e2e-order red from vendored proto copies: fixed by chore/asdlc-tooling.
+- red_first e2e-order red from vendored proto copies: fixed by chore/asdlc-tooling, which must merge first.
 - Pre-existing on main: `TestWriteAuditEventRequest_Comment_Scenarios_NamingRuleCatalogueAndAdminPathWording` in platform-core proto.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
