@@ -170,10 +170,6 @@ gen_proto() { # gen_proto <worktree> <moddir>: `buf generate` from buf.gen.yaml 
     # `remote: buf.build/x/y[:version]  # comment` -> `local: protoc-gen-y` (version pinned by the installed binary)
     sed -E "s#remote:[[:space:]]*${remote}(:[^[:space:]]*)?([[:space:]].*)?\$#local: ${plugin}#" "$tmpl" > "$tmpl.new" && mv "$tmpl.new" "$tmpl"
   done
-  if [ "${RED_FIRST_KEEP_REMOTE:-0}" != 1 ] && grep -qE '^[[:space:]]*-[[:space:]]*remote:' "$tmpl"; then
-    echo "red_first: note: dropping remote BSR plugins without a local binary in $mod: $(grep -E '^[[:space:]]*-[[:space:]]*remote:' "$tmpl" | sed -E 's/.*remote:[[:space:]]*//' | tr '\n' ' ')" >&2
-    awk '/^[[:space:]]*-[[:space:]]*(remote|local):/ { drop = ($0 ~ /remote:/) } /^[^[:space:]-]/ { drop = 0 } !drop' "$tmpl" > "$tmpl.new" && mv "$tmpl.new" "$tmpl"
-  fi
   if ! (cd "$wt/$mod" && PATH="$path" buf generate --template "$tmpl" >"$SCRATCH/buf.log" 2>&1); then
     echo "red_first: ERROR buf generate failed in $mod ($(basename "$wt")): $(tail -3 "$SCRATCH/buf.log" | tr '\n' ' ')" >&2
     GEN_FAIL+=("$mod"); return 1

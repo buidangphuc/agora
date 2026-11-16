@@ -417,7 +417,7 @@ def e2e_exports(st):
         "KAFKA_BROKERS": f"127.0.0.1:{port(19092)}",
         "SELLER_BASE_URL": f"http://localhost:{port(3001)}", "ADMIN_BASE_URL": f"http://localhost:{port(3002)}", "FLIPT_URL": f"http://localhost:{port(8083)}",
         "TEAM_AI_URL": f"http://localhost:{port(8001)}", "PROMETHEUS_URL": f"http://localhost:{port(9090)}",
-        "MLFLOW_URL": f"http://localhost:{port(5050)}", "MINIO_URL": f"http://localhost:{port(9000)}", "KYC_S3_ENDPOINT": f"http://localhost:{port(9000)}",
+        "MLFLOW_URL": f"http://localhost:{port(5050)}", "MINIO_URL": f"http://localhost:{port(9000)}",
         "SRM_OPENSEARCH_URL": f"http://localhost:{port(9200)}", "QDRANT_URL": f"http://localhost:{port(6333)}",
         "STACK_NETWORK": f"{P}_default", "MODELREGISTRY_COMPOSE_PROJECT": P, "UIF_COMPOSE_PROJECT": P,
         "DC_WRAPPER": str(write_dc_wrapper(st)), "WAREHOUSE_DB_PATH": "/data/analytics.duckdb",
@@ -426,15 +426,14 @@ def e2e_exports(st):
     }
     if st["env"] != MAIN:
         e["FSM_REDIS_PORT"] = str(port(6379))
-        e["AUE_REDIS_PORT"] = str(port(6379))
     c = lambda n: container(st, services, n)
-    for k in ("POSTGRES", "PLP_POSTGRES", "OIC_INV_POSTGRES", "AUDIT_POSTGRES", "KYC_POSTGRES"):
+    for k in ("POSTGRES", "PLP_POSTGRES", "OIC_INV_POSTGRES", "AUDIT_POSTGRES"):
         e[f"{k}_CONTAINER"] = c("postgres")
     for k in ("REDPANDA", "PLP_REDPANDA"):
         e[f"{k}_CONTAINER"] = c("redpanda")
-    e.update({"KYC_MINIO_CONTAINER": c("minio"), "REDIS_CONTAINER": c("redis"), "JAEGER_CONTAINER": c("jaeger"), "MS_ROUTER_CONTAINER": c("modelserve-router"),
+    e.update({"REDIS_CONTAINER": c("redis"), "JAEGER_CONTAINER": c("jaeger"), "MS_ROUTER_CONTAINER": c("modelserve-router"),
               "MLFLOW_CONTAINER": c("mlflow"), "GA4_RELAY_CONTAINER": c("ga4-relay"), "TEAM_ANALYTICS_CONTAINER": c("team-analytics")})
-    for short in ("gateway", "identity", "domain", "payment", "frontend", "audit", "ai", "notification", "search", "verification"):
+    for short in ("gateway", "identity", "domain", "payment", "frontend", "audit", "ai", "notification", "search"):
         e[f"{short.upper()}_CONTAINER"] = c(f"team-{short}")
     img = lambda n: image_ref(st, services, n)
     e.update({"IDENTITY_IMAGE": img("team-identity"), "IDENTITY_BOOT_IMAGE": img("team-identity"), "GATEWAY_BOOT_IMAGE": img("team-gateway"),

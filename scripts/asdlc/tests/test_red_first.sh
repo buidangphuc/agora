@@ -159,7 +159,7 @@ echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 1 ] && echo "$OUT" | grep -q "ERROR buf generate failed in \." && echo "$OUT" | grep -q "FAIL: buf generate failed" &&
   ! echo "$OUT" | grep -q "red at head" && ok "(k) buf generate failure is explicit" || bad "(k) expected exit 1 with buf generate error, got $RC"
 
-# (l) remote BSR plugins are rewritten to local protoc-gen-* binaries on PATH; unmapped remotes are dropped with a note
+# (l) remote BSR plugins are rewritten to local protoc-gen-* binaries on PATH; unmapped remotes stay
 rm -rf "$T/l"; cp -R "$T/i" "$T/l"; cd "$T/l" || exit 1
 mkdir -p "$T/binlocal"
 cat > "$T/binlocal/buf" <<SH
@@ -175,8 +175,7 @@ commit "remote plugins"
 OUT=$(PATH="$T/binlocal:$PATH" "$RF" 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'; sed 's/^/    tmpl| /' "$T/l-template.log"
 [ $RC -eq 0 ] && grep -qx '  - local: protoc-gen-go' "$T/l-template.log" && grep -qx '  - local: protoc-gen-go-grpc' "$T/l-template.log" &&
-  grep -qx '  - local: protoc-gen-connect-go' "$T/l-template.log" && ! grep -q 'remote:' "$T/l-template.log" &&
-  echo "$OUT" | grep -q 'dropping remote BSR plugins without a local binary in .: buf.build/protocolbuffers/python' &&
+  grep -qx '  - local: protoc-gen-connect-go' "$T/l-template.log" && grep -q 'remote: buf.build/protocolbuffers/python' "$T/l-template.log" &&
   ! grep -qE 'remote: buf.build/(protocolbuffers|grpc|connectrpc)/go' "$T/l-template.log" &&
   ok "(l) remote plugins rewritten to local" || bad "(l) expected local plugins in template, got $RC"
 
