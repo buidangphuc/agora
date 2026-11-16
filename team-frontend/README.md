@@ -23,8 +23,8 @@ Route groups and page-level gates:
 
 | Group | Routes | Gate |
 |---|---|---|
-| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect; referral links set the `agora_ref` cookie and go to `/register?ref=`), `/login`, `/register`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
-| `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification}` | redirect to `/login` without a session |
+| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect; referral links set the `agora_ref` cookie and go to `/register?ref=`), `/login`, `/register`, `/cart`, `/assistant`, `/[slug]` legal pages (`(legal)/[slug]`, one per `content/legal/*.md`: `dieu-khoan-su-dung`, `chinh-sach-bao-mat`, `dieu-khoan-nguoi-ban`, `chinh-sach-doi-tra`, `giai-quyet-khieu-nai`, `hang-cam-kinh-doanh`, `quy-che-hoat-dong`; any other slug is `notFound()`) | no page-level redirect (the gateway still scopes the data) |
+| `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification,privacy}` | redirect to `/login` without a session |
 | `(shop)` | `/chat/[id]` | redirects to `/chat?thread=<id>` |
 | `(shop)/dev/ui` | UI component gallery | `notFound()` when `NODE_ENV=production` |
 | `(checkout)` | `/checkout`, `/checkout/pay/[id]` | `/checkout` redirects to `/login` if anonymous and to `/cart` if the cart is empty |

@@ -14,13 +14,13 @@ domain logic** (AGENTS.md rules 1-3). Status: deployed service, part of the root
 
 ### Connect services (forwarded, one handler per service)
 
-The gateway serves 23 services; each RPC is a thin forward to the upstream below. Registered in
+The gateway serves 24 services; each RPC is a thin forward to the upstream below. Registered in
 `internal/edge/server.go`, dialed in `internal/upstream/clients.go`. Server reflection (v1 and
 v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refused in staging/production).
 
 | Contract service(s) | Upstream (env var) |
 |---|---|
-| identity `AuthService`, `AddressService`, `SessionService`, `AccountAdminService` | team-identity (`UPSTREAM_IDENTITY_ADDR`) |
+| identity `AuthService`, `AddressService`, `SessionService`, `AccountAdminService`, `PrivacyService` | team-identity (`UPSTREAM_IDENTITY_ADDR`) |
 | listing `ListingService` | team-domain (`UPSTREAM_LISTING_ADDR`) |
 | search `SearchService` | team-search (`UPSTREAM_SEARCH_ADDR`) |
 | engagement `EngagementService` | team-engagement (`UPSTREAM_ENGAGEMENT_ADDR`) |
@@ -49,6 +49,8 @@ Identity `AuthService` extras at the edge (`internal/edge/auth.go`): `CreateHand
 authenticated principal (`UNAUTHENTICATED` for anonymous); `BecomeSeller` needs a `user` principal; `AuthService.GetMyAccount` needs any authenticated principal (no scope) and is forwarded with the verified principal only; `Register` stays public and forwards `referral_code` unchanged
 (`UNAUTHENTICATED` for anonymous, `PERMISSION_DENIED` otherwise); `PeekHandoffCode` (read) and
 `RedeemHandoffCode` (write) are open, the code is the credential.
+
+Identity `PrivacyService` at the edge (`internal/edge/privacy.go`): every RPC (`RecordConsent`, `ListMyConsents`, `RequestAccountDeletion`, `CancelAccountDeletion`, `GetAccountDeletionStatus`, `ExportMyData`) needs a signed-in principal (`UNAUTHENTICATED` for anonymous) and is forwarded with the verified principal, without `x-principal-sid`.
 
 Verification extras at the edge (`internal/edge/verification.go`): `CreateKycUploadUrl` needs an
 authenticated principal (`UNAUTHENTICATED` for anonymous); `ListKycSubmissions`,
@@ -277,6 +279,7 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
   `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
+- `PrivacyService.RequestAccountDeletion` is forwarded with `outgoing`, not `outgoingWithSID` (`internal/edge/privacy.go:76`), so team-identity gets no `x-principal-sid` and its "keep the calling session" revocation (`team-identity/internal/store/account_deletion.go:60`) revokes every session of the caller, the current one included, through the edge.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at
   this hop).
 

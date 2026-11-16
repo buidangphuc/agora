@@ -22,7 +22,7 @@ There are no RPCs served here. This repo defines them: 19 `.proto` files under
 |---|---|
 | `common` | shared messages (incl. `Principal`), no service |
 | `events` | `EventEnvelope` only, no service (see Events) |
-| `identity` | `AuthService`, `AddressService`, `SessionService`, `PublicProfileService`, `AccountAdminService` |
+| `identity` | `AuthService`, `AddressService`, `SessionService`, `PublicProfileService`, `AccountAdminService`, `PrivacyService` |
 | `listing` | `ListingService` |
 | `search` | `SearchService` |
 | `engagement` | `EngagementService` |
