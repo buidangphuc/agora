@@ -537,6 +537,34 @@ func TestErasureWritersRekeyTombstonedUserOnIngest(t *testing.T) {
 	}
 }
 
+// Scenario: AUE-11 An erased seller is re-keyed everywhere
+func TestErasureWritersRekeyTombstonedSellerOnIngest(t *testing.T) {
+	w := erOpen(t, erSecret)
+	ctx := context.Background()
+	erWrite(t, w, erTrack("seed", "seller-erase-11", "sess-S", "anon-S", ""))
+	erErase(t, w, "seller-erase-11")
+	pseudo := erPseudonym(t, w, "seller-erase-11")
+
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{
+		{ListingID: "l-11", SellerID: "seller-erase-11", UpdatedAt: erAt, Status: "LISTING_STATUS_DELETED"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{
+		{EventID: "late-o-11", OrderID: "ord", ListingID: "l-11", SellerID: "seller-erase-11", Quantity: 1, UnitPrice: 5, Currency: "VND", OccurredAt: erAt, Status: "PAID", BuyerID: "buyer-keep-11"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	erRequireNoTrace(t, w, "seller-erase-11")
+	if n := erScalar(t, w, `SELECT count(*) FROM listing_sellers WHERE listing_id = 'l-11' AND seller_id = ?`, pseudo); n != 1 {
+		t.Error("late listing_sellers row not re-keyed to the pseudonym")
+	}
+	if n := erScalar(t, w, `SELECT count(*) FROM order_facts WHERE event_id = 'late-o-11' AND seller_id = ? AND buyer_id = 'buyer-keep-11'`, pseudo); n != 1 {
+		t.Error("late order fact seller not re-keyed to the pseudonym")
+	}
+}
+
 // Scenario: AUE-37 A late event for a non-erased user is stored as is
 func TestErasureWriterStoresNonErasedUserAsIs(t *testing.T) {
 	w := erOpen(t, erSecret)

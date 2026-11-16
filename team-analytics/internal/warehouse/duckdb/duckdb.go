@@ -535,7 +535,7 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 
 	var buyers []string
 	for _, r := range batch {
-		buyers = append(buyers, r.BuyerID)
+		buyers = append(buyers, r.BuyerID, r.SellerID)
 	}
 	erased, err := w.tombstones(ctx, tx, distinct(buyers))
 	if err != nil {
@@ -548,12 +548,16 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 		if pseudo, ok := erased[buyer]; ok {
 			buyer = pseudo
 		}
+		seller := r.SellerID
+		if pseudo, ok := erased[seller]; ok {
+			seller = pseudo
+		}
 		if _, err := stmt.ExecContext(ctx,
 			r.EventID,
 			r.OrderID,
 			r.ListingID,
 			r.VariantID,
-			r.SellerID,
+			seller,
 			int64(r.Quantity),
 			r.UnitPrice,
 			r.Currency,
@@ -597,7 +601,20 @@ func (w *Writer) UpsertListingSellers(ctx context.Context, batch []*warehouse.Li
 		return fmt.Errorf("prepare upsert listing_sellers: %w", err)
 	}
 	defer stmt.Close()
+	sellers := make([]string, 0, len(batch))
 	for _, r := range batch {
+		sellers = append(sellers, r.SellerID)
+	}
+	erased, err := w.tombstones(ctx, tx, distinct(sellers))
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	for _, r := range batch {
+		seller := r.SellerID
+		if pseudo, ok := erased[seller]; ok {
+			seller = pseudo
+		}
 		var category any
 		if r.CategoryID != "" {
 			category = r.CategoryID
@@ -610,7 +627,7 @@ func (w *Writer) UpsertListingSellers(ctx context.Context, batch []*warehouse.Li
 		if r.Status != "" {
 			status = r.Status
 		}
-		if _, err := stmt.ExecContext(ctx, r.ListingID, r.SellerID, r.UpdatedAt.UTC(), category, price, status); err != nil {
+		if _, err := stmt.ExecContext(ctx, r.ListingID, seller, r.UpdatedAt.UTC(), category, price, status); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("upsert listing_sellers %s: %w", r.ListingID, err)
 		}
