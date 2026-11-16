@@ -206,7 +206,7 @@ def footer_operator(world: World) -> None:
     text = lu.visible_text(world.page.locator("footer").inner_html())
     assert text.count(lu.OPERATOR_PLACEHOLDER) == 4, text.count(lu.OPERATOR_PLACEHOLDER)
     labels = {
-        "company name": r"Tên (công ty|doanh nghiệp)|Công ty",
+        "company name": r"Tên (công ty|doanh nghiệp|đơn vị)|Công ty",
         "business registration number": r"(Mã số|Số) (doanh nghiệp|đăng ký kinh doanh|ĐKKD)|Giấy chứng nhận đăng ký",
         "address": r"Địa chỉ",
         "Ministry of Industry and Trade notice": r"Bộ Công Thương",
@@ -310,9 +310,11 @@ def two_rows(world: World, source: str) -> None:
 
 @then('a field error is shown on the register form and the browser stays on "/register"')
 def field_error(world: World) -> None:
-    expect(world.page.locator("form").get_by_role("alert").first).to_be_visible(
-        timeout=timeouts.NAVIGATION
-    )
+    box = world.page.locator('form input[type="checkbox"][aria-invalid="true"]').first
+    expect(box).to_be_visible(timeout=timeouts.NAVIGATION)
+    error = world.page.locator(f"#{box.get_attribute('aria-describedby')}")
+    expect(error).to_be_visible()
+    assert error.inner_text().strip(), "field error has no text"
     assert urlsplit(world.page.url).path == "/register", world.page.url
 
 
@@ -463,13 +465,18 @@ def page_normal(world: World) -> None:
     _idle(world)
     expect(world.page.locator("header").first).to_be_visible()
     expect(world.page.locator("footer")).to_be_visible()
-    expect(world.page.get_by_role("alert")).to_have_count(0)
+    expect(lu.page_alerts(world.page)).to_have_count(0)
 
 
 @then('the session cookies are cleared and the user is on "/" as anonymous')
 def signed_out(world: World) -> None:
-    world.page.wait_for_url(f"{_base(world)}/", timeout=timeouts.NAVIGATION)
+    deadline = time.monotonic() + timeouts.NAVIGATION / 1000
     names = {c["name"] for c in world.context.cookies(_base(world))}
+    while SESSION_COOKIE in names and time.monotonic() < deadline:
+        time.sleep(0.25)
+        names = {c["name"] for c in world.context.cookies(_base(world))}
+    world.page.wait_for_url(f"{_base(world)}/", timeout=timeouts.NAVIGATION)
+    expect(_reaccept_dialog(world)).to_have_count(0, timeout=timeouts.NAVIGATION)
     assert SESSION_COOKIE not in names, names
     assert not any(n.endswith("refresh") for n in names), names
 
@@ -617,4 +624,4 @@ def ledger_three(world: World) -> None:
 def banner_closed(world: World) -> None:
     expect(_banner(world)).to_have_count(0, timeout=timeouts.NAVIGATION)
     expect(world.page.get_by_role("alertdialog")).to_have_count(0)
-    expect(world.page.get_by_role("alert")).to_have_count(0)
+    expect(lu.page_alerts(world.page)).to_have_count(0)

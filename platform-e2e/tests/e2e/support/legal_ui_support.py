@@ -97,3 +97,7 @@ def strip_multipart_fields(body: bytes, names: tuple[str, ...]) -> bytes:
             continue
         kept.append(part)
     return first.join(kept)
+
+
+def page_alerts(page):
+    return page.locator('[role="alert"]:not(#__next-route-announcer__)')
