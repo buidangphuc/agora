@@ -2279,7 +2279,8 @@ features:
       - "When a signed-in user without the `listing.write` scope opens `/seller/verification`"
       - "Then the seller onboarding screen renders instead of the page and 0 verification calls are made"
     tags: [seller-kyc-ui]
-    status: planned
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A buyer without seller scope cannot use the page"
 
   - id: seller-kyc-ui.three-valid-files-are-uploaded-and-submitted
     title: "Three valid files are uploaded and submitted"
