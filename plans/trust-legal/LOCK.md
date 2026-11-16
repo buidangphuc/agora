@@ -48,6 +48,11 @@ approved-by: Bùi Đăng Phúc, 2026-11-16 — batch re-approval after converge 
 
 Canonical legal terms/privacy version is `2026-11` (decision 6): identity compose, frontend fallback and build args, seeds and e2e constants; LOCK item A.14's `2026-11-13` default is superseded.
 
+Confirmed by Bùi Đăng Phúc on 2026-11-16 (converge):
+- (a) Canonical legal version `2026-11` is final and supersedes LOCK item A.14's `2026-11-13`.
+- (b) Decision 3 also removes the requirement clause "SHALL answer the not-yet-implemented PrivacyService RPCs with UNIMPLEMENTED" from identity-legal-consent; those RPCs are now built.
+- (c) AUE-11 (analytics-user-erasure) checks only that a DELETED seller listing stays DELETED.
+
 ## Known exceptions (decision 9)
 
 Accepted by Bùi Đăng Phúc on 2026-11-16; the validate_plan.py parsing fix is tracked in the tooling PR.
