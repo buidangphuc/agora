@@ -432,8 +432,7 @@ def e2e_exports(st):
     for k in ("REDPANDA", "PLP_REDPANDA"):
         e[f"{k}_CONTAINER"] = c("redpanda")
     e.update({"REDIS_CONTAINER": c("redis"), "JAEGER_CONTAINER": c("jaeger"), "MS_ROUTER_CONTAINER": c("modelserve-router"),
-              "MLFLOW_CONTAINER": c("mlflow"), "GA4_RELAY_CONTAINER": c("ga4-relay"), "TEAM_ANALYTICS_CONTAINER": c("team-analytics"),
-              "FLIPT_CONTAINER": c("flipt")})
+              "MLFLOW_CONTAINER": c("mlflow"), "GA4_RELAY_CONTAINER": c("ga4-relay"), "TEAM_ANALYTICS_CONTAINER": c("team-analytics")})
     for short in ("gateway", "identity", "domain", "payment", "frontend", "audit", "ai", "notification", "search"):
         e[f"{short.upper()}_CONTAINER"] = c(f"team-{short}")
     img = lambda n: image_ref(st, services, n)
