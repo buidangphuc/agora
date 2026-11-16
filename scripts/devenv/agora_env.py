@@ -21,6 +21,7 @@ MAIN_TAG = "local"
 MAIN_OVERLAYS = ["platform-e2e/compose/order-inventory.override.yaml", "platform-e2e/compose/rag-off.override.yaml"]
 FEATURE_OVERLAYS = list(MAIN_OVERLAYS)
 ENTRY = ["team-gateway"]
+BASE_REF = "origin/main"
 MAIN_INFRA = ["postgres", "redpanda", "redis"]
 NOT_DEPS = {"TRUSTED_PROXIES", "CORS_ORIGINS", "JAEGER_UI_URL"}
 OPTIONAL_HOSTS = {"otel-collector", "jaeger", "prometheus", "grafana", "kafka-ui"}
@@ -167,6 +168,42 @@ def closure(services, start, with_optional=False):
 def owners_from_slices(path):
     doc = yaml.safe_load(Path(path).read_text())
     return sorted({s["owner"] for s in doc.get("slices", []) if s.get("owner") and s["owner"] != "platform-core"})
+
+
+def merge_overlays(prev, extra):
+    merged = []
+    for o in [*(FEATURE_OVERLAYS if prev is None else prev), *(extra or [])]:
+        if o not in merged:
+            merged.append(o)
+    return merged
+
+
+def changed_builders(services, src, files):
+    owners = set()
+    for n, s in services.items():
+        d = build_dir(src, s) if s.get("build") else None
+        if d and any(f.startswith(d + "/") for f in files):
+            owners.add(n)
+    if any(f.startswith("platform-core/packages/proto/") for f in files):
+        owners.update(n for n, s in services.items() if s.get("build") and (Path(src) / (build_dir(src, s) or "-") / "buf.gen.yaml").exists())
+    return owners
+
+
+def one_per_image(services, names, src):
+    by_image = {}
+    for n in sorted(names, key=lambda n: (build_dir(src, services[n]) != n, n)):
+        by_image.setdefault(base_image(services[n]), n)
+    return sorted(by_image.values())
+
+
+def branch_changed_files(src, ref=BASE_REF):
+    mb = run(["git", "merge-base", ref, "HEAD"], cwd=src, check=False, capture=True)
+    if mb.returncode != 0:
+        print(f"agora-env: no merge-base with {ref} in {src}; building only --slices/--services", file=sys.stderr)
+        return []
+    tracked = out(["git", "diff", "--name-only", mb.stdout.strip()], cwd=src).split()
+    untracked = out(["git", "ls-files", "--others", "--exclude-standard"], cwd=src).split()
+    return sorted(set(tracked) | set(untracked))
 
 
 def resolve_builders(services, names):
@@ -337,15 +374,16 @@ def write_dc_wrapper(st):
     return w
 
 
-def cmd_plan(a):
+def cmd_plan(a, overlays=None):
     src = Path(a.src or REPO).resolve()
-    services = config(src, FEATURE_OVERLAYS)
+    services = config(src, overlays or FEATURE_OVERLAYS)
     names = list(a.services or [])
     if a.slices:
         names += owners_from_slices(a.slices)
-    if not names:
-        sys.exit("agora-env: give --slices or --services")
-    owners = resolve_builders(services, names)
+    changed = changed_builders(services, src, branch_changed_files(src))
+    if not names and not changed:
+        sys.exit(f"agora-env: give --slices or --services (no service differs from {BASE_REF})")
+    owners = one_per_image(services, set(resolve_builders(services, names)) | changed, src)
     start = set(ENTRY) | set(owners) | set(a.with_ or [])
     for o in owners:
         start.update(image_users(services, o))
@@ -363,8 +401,9 @@ def cmd_up(a):
     env = slug(a.env)
     if env == MAIN:
         sys.exit("agora-env: main is updated with `promote`")
-    src, services, owners, run_set = cmd_plan(a)
     prev = json.loads((state_dir(env) / "state.json").read_text()) if (state_dir(env) / "state.json").exists() else {}
+    overlays = merge_overlays(prev.get("overlays"), a.overlay)
+    src, services, owners, run_set = cmd_plan(a, overlays)
     slot = prev.get("slot")
     if slot is None:
         taken = {json.loads(p.read_text()).get("slot") for p in STATE_ROOT.glob("*/state.json")}
@@ -373,7 +412,7 @@ def cmd_up(a):
     branch = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=src).strip()
     st = {"env": env, "project": env, "src": str(src), "branch": a.branch or branch, "slot": slot,
           "owners": sorted(set(prev.get("owners", [])) | set(owners)), "services": sorted(set(prev.get("services", [])) | set(run_set)),
-          "overlays": FEATURE_OVERLAYS + (a.overlay or []), "ports": {str(k): v for k, v in pm.items()}}
+          "overlays": overlays, "ports": {str(k): v for k, v in pm.items()}}
     if not prev:
         busy = listening_ports() & set(pm.values())
         if busy:
@@ -548,14 +587,8 @@ def cmd_promote(a):
           "overlays": prev.get("overlays", MAIN_OVERLAYS) if not a.overlay else MAIN_OVERLAYS + a.overlay, "ports": {}, "owners": []}
     services = config(src, st["overlays"])
     files = changed_files(old, new)
-    owners = set()
-    for n, s in services.items():
-        d = build_dir(src, s) if s.get("build") else None
-        if d and any(f.startswith(d + "/") for f in files):
-            owners.add(n)
+    owners = changed_builders(services, src, files)
     owners.update(resolve_builders(services, a.services or []))
-    if any(f.startswith("platform-core/packages/proto/") for f in files):
-        owners.update(n for n, s in services.items() if s.get("build") and (Path(src) / (build_dir(src, s) or "-") / "buf.gen.yaml").exists())
     existing = set(out(["docker", "ps", "-a", "--filter", f"label=com.docker.compose.project={MAIN_PROJECT}", "--format", '{{.Label "com.docker.compose.service"}}']).split())
     running = set(out(["docker", "ps", "--filter", f"label=com.docker.compose.project={MAIN_PROJECT}", "--format", '{{.Label "com.docker.compose.service"}}']).split())
     owners = deployed_owners(services, owners, existing, lambda img: image_id(f"{img}:{MAIN_TAG}") is not None, src)

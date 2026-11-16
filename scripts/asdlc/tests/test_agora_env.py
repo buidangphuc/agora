@@ -266,3 +266,103 @@ def test_promote_records_deployed_on_success(monkeypatch, tmp_path):
     args, _, state = _promote_env(monkeypatch, tmp_path, running={"postgres", "redpanda", "redis", "team-identity"})
     ae.cmd_promote(args)
     assert json.loads(state.read_text())["deployed"] == "b" * 40
+
+
+def test_merge_overlays_keeps_recorded_and_appends_new():
+    assert ae.merge_overlays(None, None) == ae.FEATURE_OVERLAYS
+    prev = [*ae.FEATURE_OVERLAYS, "platform-e2e/compose/modelserve.override.yaml"]
+    got = ae.merge_overlays(prev, ["platform-e2e/compose/recs.override.yaml", "platform-e2e/compose/modelserve.override.yaml"])
+    assert got == [*prev, "platform-e2e/compose/recs.override.yaml"]
+
+
+def test_changed_builders_maps_files_to_build_dirs():
+    files = ["team-sharing/internal/x.go", "docs/readme.md", "team-gateway/go.mod"]
+    assert ae.changed_builders(SERVICES, "/r", files) == {"team-sharing", "team-gateway"}
+    assert ae.changed_builders(SERVICES, "/r", ["openspec/x.md"]) == set()
+
+
+def test_changed_builders_rebuilds_proto_consumers_on_contract_change(tmp_path):
+    (tmp_path / "team-order").mkdir()
+    (tmp_path / "team-order" / "buf.gen.yaml").write_text("version: v2\n")
+    (tmp_path / "team-sharing").mkdir()
+    services = {
+        "team-order": {"image": "team-order:local", "build": {"context": str(tmp_path / "team-order")}},
+        "team-sharing": {"image": "team-sharing:local", "build": {"context": str(tmp_path / "team-sharing")}},
+    }
+    got = ae.changed_builders(services, tmp_path, ["platform-core/packages/proto/platform/order/v1/order.proto"])
+    assert got == {"team-order"}
+
+
+def test_one_per_image_prefers_the_service_named_like_its_dir():
+    services = {
+        "team-order": {"image": "team-order:local", "build": {"context": "/r/team-order"}},
+        "team-order-consumer": {"image": "team-order:local", "build": {"context": "/r/team-order"}},
+        "team-sharing": SERVICES["team-sharing"],
+    }
+    assert ae.one_per_image(services, {"team-order-consumer", "team-order", "team-sharing"}, "/r") == ["team-order", "team-sharing"]
+
+
+def _plan_args(**kw):
+    base = {"src": "/r", "services": None, "slices": None, "with_": None, "with_optional": False}
+    return types.SimpleNamespace(**{**base, **kw})
+
+
+def test_plan_builds_branch_changes_without_slices(monkeypatch):
+    monkeypatch.setattr(ae, "config", lambda src, overlays: SERVICES)
+    monkeypatch.setattr(ae, "branch_changed_files", lambda src: ["team-sharing/main.go"])
+    _, _, owners, run_set = ae.cmd_plan(_plan_args())
+    assert owners == ["team-sharing"]
+    assert {"team-sharing", "team-gateway", "team-identity", "postgres"} <= set(run_set)
+
+
+def test_plan_adds_explicit_services_to_branch_changes(monkeypatch):
+    monkeypatch.setattr(ae, "config", lambda src, overlays: SERVICES)
+    monkeypatch.setattr(ae, "branch_changed_files", lambda src: ["team-sharing/main.go"])
+    _, _, owners, _ = ae.cmd_plan(_plan_args(services=["team-order"]))
+    assert owners == ["team-order", "team-sharing"]
+
+
+def test_plan_without_changes_or_names_exits(monkeypatch):
+    monkeypatch.setattr(ae, "config", lambda src, overlays: SERVICES)
+    monkeypatch.setattr(ae, "branch_changed_files", lambda src: [])
+    with pytest.raises(SystemExit):
+        ae.cmd_plan(_plan_args())
+
+
+def _up_env(monkeypatch, tmp_path, prev, services=SERVICES):
+    monkeypatch.setattr(ae, "STATE_ROOT", tmp_path)
+    if prev is not None:
+        (tmp_path / "feat").mkdir()
+        (tmp_path / "feat" / "state.json").write_text(json.dumps(prev))
+    seen = {"config": []}
+
+    def fake_config(src, overlays):
+        seen["config"].append(list(overlays))
+        return services
+
+    monkeypatch.setattr(ae, "config", fake_config)
+    monkeypatch.setattr(ae, "branch_changed_files", lambda src: ["team-sharing/main.go"])
+    monkeypatch.setattr(ae, "out", lambda cmd, cwd=None: "feat\n")
+    monkeypatch.setattr(ae, "listening_ports", lambda: set())
+    monkeypatch.setattr(ae, "compose", lambda st, *a, **kw: types.SimpleNamespace(returncode=0, stdout=""))
+    monkeypatch.setattr(ae, "check_images", lambda *a: None)
+    monkeypatch.setattr(ae, "build", lambda st, svcs, owners: [])
+    monkeypatch.setattr(ae, "drop_unused", lambda ids: None)
+    return seen
+
+
+def _up_args(**kw):
+    base = {"env": "feat", "src": "/r", "services": None, "slices": None, "with_": None, "with_optional": False,
+            "branch": None, "overlay": None, "no_build": False}
+    return types.SimpleNamespace(**{**base, **kw})
+
+
+def test_up_keeps_recorded_overlays_and_adds_new_ones(monkeypatch, tmp_path):
+    extra = "platform-e2e/compose/modelserve.override.yaml"
+    prev = {"env": "feat", "slot": 3, "owners": [], "services": [], "overlays": [*ae.FEATURE_OVERLAYS, extra]}
+    seen = _up_env(monkeypatch, tmp_path, prev)
+    ae.cmd_up(_up_args(overlay=["platform-e2e/compose/recs.override.yaml"]))
+    st = json.loads((tmp_path / "feat" / "state.json").read_text())
+    assert st["overlays"] == [*ae.FEATURE_OVERLAYS, extra, "platform-e2e/compose/recs.override.yaml"]
+    assert seen["config"] == [st["overlays"]]
+    assert st["owners"] == ["team-sharing"]
