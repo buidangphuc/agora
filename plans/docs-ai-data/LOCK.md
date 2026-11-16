@@ -22,6 +22,11 @@ Digest update 2026-11-16 (converge): every slice's openspec/changes/<slice>/** c
 
 Digest update 2026-11-16 (CI): two scenario titles renamed so each matches exactly one FEATURES.yaml (cross_change_check ownership), wording of the steps unchanged: ai-copilot-grounding `Unknown listing` → `Copilot stock question for an unknown listing` (collided with team-promotion), admin-insights-panels `Anonymous visitor is redirected` → `Anonymous visitor is redirected from the cockpit` (collided with team-frontend).
 
+Re-approval 2026-11-16: approved-by Bùi Đăng Phúc 2026-11-16 "batch re-approval after converge (decision 5)". Digests verified on asdlc/docs-ai-data at ba2f52da8: all 10 slices match the new digest in the table. Reasons: ai-copilot-grounding dfc3e8444b6b (scenario title renamed to match one FEATURES manifest); admin-insights-panels 165b23297301 (scenario title renamed to match one FEATURES manifest); every other slice: converge tasks.md ticks, VERIFIED BY citation lines and renamed e2e scenario names in tasks.md, no requirement wording change.
+
+## Known exceptions
+- validate_plan wave 4/5/6 widened conflicts (decision 9, 2026-11-16): validate_plan.py read the `- widened (P1)` bullet of each packet as a write-set entry named `widened`, so every same-wave packet pair conflicted: wave 4 analytics-experiment-reports / ai-assistant-grounding, wave 5 ai-copilot-grounding / admin-insights-panels, wave 6 seller-forecast-card / buyer-ai-surfaces-ui. The widened paths themselves do not overlap within a wave. The packet header is plain text since 99ff6c459, and the parser fix (widened entries parsed, marker-only pyproject edits tolerated) is in the tooling PR. `validate_plan.py plans/docs-ai-data` reports the plan valid (10 packets, 7 waves) with both the branch copy and the tooling copy.
+
 decide.py was ENGINE_DOWN for every slice (no Kev engine or units file; system python lacks `yaml`). Each verdict is the spec-quality-reviewer's own checklist.
 
 ## Build order (cross_change_check)
