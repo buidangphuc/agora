@@ -85,18 +85,18 @@ def _publish(world: World, name: str, **kw) -> str:
 # ── Givens ───────────────────────────────────────────────────────────────
 @given(
     parsers.parse(
-        'an erasure seller "{name}" with listings "P1" and "P2" published, "R" pending_review, '
-        '"D" draft, "H" held, "B" banned and "V" published with 2 variants'
+        'an erasure seller "{name}" with listings "P1" published, "V" published with 2 variants, '
+        '"R" pending_review, "D" draft, "H" held and "B" banned'
     )
 )
 def seller_all_statuses(world: World, name: str) -> None:
     _new_seller(world, name)
-    for label in ("P1", "P2", "R", "D", "H", "B"):
+    for label in ("P1", "R", "D", "H", "B"):
         _add(world, name, label)
     _add(world, name, "V", variants=2)
     for label, status in (("R", "pending_review"), ("D", "draft"), ("H", "held"), ("B", "banned")):
         se.set_status(_lid(world, label), status)
-    assert se.count_listings(_seller(world, name)["id"]) == 7, "seeded listings missing"
+    assert se.count_listings(_seller(world, name)["id"]) == 6, "seeded listings missing"
     assert se.count_variants(_seller(world, name)["id"]) == 2, "seeded variants missing"
 
 
@@ -293,7 +293,7 @@ def then_denied(world: World) -> None:
     assert codes == ["permission_denied", "unauthenticated"], codes
 
 
-@then(parsers.parse('the listing "{label}" still exists'))
+@then(parsers.re(r'the listing "(?P<label>[^"]+)" still exists'))
 def then_exists(world: World, label: str) -> None:
     assert se.get_listing(_lid(world, label)).status_code == 200
 

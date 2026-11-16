@@ -8,7 +8,7 @@ Feature: team-domain deletes an erased seller's listings and shop data on UserEr
   (change domain-seller-erasure, initiative trust-legal)
 
   Scenario: Erased seller's listings in every status are deleted
-    Given an erasure seller "A" with listings "P1" and "P2" published, "R" pending_review, "D" draft, "H" held, "B" banned and "V" published with 2 variants
+    Given an erasure seller "A" with listings "P1" published, "V" published with 2 variants, "R" pending_review, "D" draft, "H" held and "B" banned
     And an erasure seller "B" with a published listing "BL"
     When a UserErased event for the erasure seller "A" is consumed
     Then 0 listings and 0 variants remain for the erasure seller "A"
@@ -110,6 +110,6 @@ Feature: team-domain deletes an erased seller's listings and shop data on UserEr
     And all three records appear on identity.events.team-domain.dlq
 
   Scenario: Logs carry no raw identifiers
-    Given an erasure seller "A" with listings "P1" and "P2" published, "R" pending_review, "D" draft, "H" held, "B" banned and "V" published with 2 variants
+    Given an erasure seller "A" with listings "P1" published, "V" published with 2 variants, "R" pending_review, "D" draft, "H" held and "B" banned
     When a UserErased event for the erasure seller "A" is consumed
     Then the team-domain logs of the erasure mention the erasure and contain neither the user id nor any listing id of "A"

@@ -100,7 +100,7 @@ def new_seller(prefix: str) -> dict:
 
 def create_listing(seller: dict, title: str | None = None, variants: int = 0) -> tuple[str, str]:
     """A published listing through the gateway; (id, title). `variants` adds that many variants."""
-    title = title or f"Erasure probe {uuid.uuid4().hex[:12]}"
+    title = title or f"Erasureprobe{uuid.uuid4().hex[:16]}"
     listing: dict[str, Any] = {
         "title": title,
         "description": "seller erasure e2e",
