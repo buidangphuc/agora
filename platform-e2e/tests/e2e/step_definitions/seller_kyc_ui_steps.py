@@ -8,6 +8,7 @@ container stops (team-verification, the document storage), restored by world cle
 from __future__ import annotations
 
 import re
+import time
 from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import expect
@@ -19,6 +20,7 @@ from src.pages import SellerVerificationPage, SellerWalletPage
 from tests.e2e.flows import kyc_flow as k
 from tests.e2e.flows import login_via_api, scenario_buyer
 from tests.e2e.support import kyc_documents_support as kyc
+from tests.e2e.support import plp_stack
 from tests.e2e.support import seller_kyc_ui_support as sup
 from tests.e2e.support.world import World
 
@@ -476,6 +478,7 @@ def confirm_payout(world: World) -> None:
     amount = page.confirm_dialog.get_by_label("Số tiền", exact=False)
     if not amount.input_value().strip():
         amount.fill(str(_x(world)["balance_before"]))
+    time.sleep(plp_stack.require_hold_wait() + 4)
     page.confirm_payout.click()
 
 
