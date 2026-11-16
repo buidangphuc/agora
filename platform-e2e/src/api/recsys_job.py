@@ -19,6 +19,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -250,12 +251,58 @@ def compose_chain(wrapper: str, *, job_env: dict[str, str] | None = None) -> lis
     return out
 
 
+_EXPORTED_ROWS = """
+import duckdb
+print(duckdb.connect(":memory:").execute(
+    "select count(*) from read_parquet('/data/tracking_events.parquet')"
+).fetchone()[0])
+"""
+
+
+def exported_event_rows() -> int:
+    volume = os.getenv("ANALYTICS_VOLUME", "agora_analytics_data")
+    image = os.getenv("FEATURESTORE_IMAGE", "platform-featurestore:local")
+    proc = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{volume}:/data:ro",
+            "--entrypoint",
+            "python",
+            image,
+            "-c",
+            _EXPORTED_ROWS,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    return (
+        int(proc.stdout.strip().splitlines()[-1])
+        if proc.returncode == 0 and proc.stdout.strip()
+        else 0
+    )
+
+
+def wait_events_exported(timeout_s: float = 480.0) -> None:
+    deadline = time.monotonic() + timeout_s
+    while exported_event_rows() == 0:
+        assert time.monotonic() < deadline, (
+            "[recsys] the analytics Parquet export has no tracking events; the restore has no data to train on"
+        )
+        time.sleep(15)
+
+
 def restore_real_generation(wrapper: str) -> None:
     """Leave a REAL generation serving after destructive scenarios (production path, no force).
 
     The nightly job is denied a force promotion, so the registry is emptied first: with no
     `recsys-als` champion the real dataset's candidate is promotable and becomes the champion.
     """
+    wait_events_exported()
     run_actions([RESET])
     MlflowRegistry().reset_registry()
     runs = compose_chain(wrapper, job_env={"MLFLOW_TRACKING_URI": MLFLOW_IN_STACK})
