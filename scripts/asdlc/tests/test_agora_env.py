@@ -59,6 +59,17 @@ def test_closure_follows_depends_on_and_env_hosts_but_not_gateway_fanout():
     assert got == {"team-gateway", "team-sharing", "team-identity", "team-identity-migrate", "postgres", "redpanda"}
 
 
+def test_closure_adds_the_init_job_of_every_service_it_starts():
+    services = {
+        **SERVICES,
+        "minio": {"image": "minio/minio"},
+        "minio-init": {"image": "minio/mc", "depends_on": {"minio": {}}},
+        "mlflow": {"image": "mlflow", "depends_on": {"minio": {}}},
+    }
+    assert ae.closure(services, {"mlflow"}) == {"mlflow", "minio", "minio-init"}
+    assert "minio-init" not in ae.closure(services, {"team-sharing"})
+
+
 def test_closure_follows_owner_upstreams_and_optional_hosts_on_request():
     assert "team-identity" in ae.closure(SERVICES, {"team-order"})
     assert "otel-collector" in ae.closure(SERVICES, {"team-identity"}, with_optional=True)
@@ -391,13 +402,14 @@ def test_up_without_recsys_does_not_seed(monkeypatch, tmp_path):
     assert seen["seeded"] == 0
 
 
-def test_recsys_seed_uses_published_listings_when_enough_else_stable_synthetic_ids():
+def test_recsys_seed_uses_published_listings_first_and_pads_with_stable_synthetic_ids():
     n = ae.RECSYS_SEED_CLUSTERS * ae.RECSYS_SEED_ITEMS
     real = [f"l{i}" for i in range(n + 5)]
     assert ae.recsys_seed_listings(real) == real[:n]
     few = ae.recsys_seed_listings(real[:3])
-    assert len(few) == n and len(set(few)) == n and few == ae.recsys_seed_listings([])
-    assert not set(few) & set(real)
+    assert len(few) == n and len(set(few)) == n and few[:3] == real[:3]
+    synthetic = ae.recsys_seed_listings([])
+    assert few[3:] == synthetic[:n - 3] and not set(synthetic) & set(real)
 
 
 def test_recsys_seed_beacons_give_each_cluster_its_own_items():
@@ -556,3 +568,8 @@ def test_plan_resolves_slice_owners_against_src(monkeypatch, tmp_path):
     monkeypatch.setattr(ae, "branch_changed_files", lambda src: [])
     _, _, owners, _ = ae.cmd_plan(_plan_args(src="/w", services=["platform-forecast"]))
     assert owners == ["forecast-job"]
+
+
+def test_e2e_paths_accept_repo_relative_test_paths():
+    got = ae.e2e_paths(["platform-e2e/tests/e2e/x.py::t", "tests/e2e/y.py", "-k", "z"])
+    assert got == ["tests/e2e/x.py::t", "tests/e2e/y.py", "-k", "z"]

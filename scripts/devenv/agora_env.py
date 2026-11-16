@@ -169,6 +169,8 @@ def closure(services, start, with_optional=False):
             continue
         seen.add(n)
         todo.extend(deps_of(n, services[n], hostmap, with_optional) - seen)
+        if f"{n}-init" in services:
+            todo.append(f"{n}-init")
     return seen
 
 
@@ -385,9 +387,8 @@ PUBLISHED_LISTINGS = "select id from listings where status = 'published' order b
 
 
 def recsys_seed_listings(real, n=RECSYS_SEED_CLUSTERS * RECSYS_SEED_ITEMS):
-    if len(real) >= n:
-        return list(real[:n])
-    return [str(uuid.uuid5(uuid.NAMESPACE_URL, f"agora-env/recsys-seed/{i}")) for i in range(n)]
+    picked = list(real[:n])
+    return picked + [str(uuid.uuid5(uuid.NAMESPACE_URL, f"agora-env/recsys-seed/{i}")) for i in range(n - len(picked))]
 
 
 def recsys_seed_rounds(listings, run_id, users=RECSYS_SEED_USERS):
@@ -449,8 +450,8 @@ def seed_recsys(st):
     except (urllib.error.URLError, OSError) as e:
         print(f"agora-env: recsys seed failed after {accepted} events: {e}", file=sys.stderr)
         return None
-    kind = "published" if listings == real[:len(listings)] else "synthetic"
-    print(f"recsys seed: {accepted}/{total} consented interaction events from {RECSYS_SEED_USERS} visitors on {len(listings)} {kind} listings")
+    pub = min(len(real), len(listings))
+    print(f"recsys seed: {accepted}/{total} consented interaction events from {RECSYS_SEED_USERS} visitors on {len(listings)} listings ({pub} published, {len(listings) - pub} synthetic)")
     return run_id if accepted == total else None
 
 
@@ -651,7 +652,11 @@ def cmd_e2e(a):
     if not py:
         sys.exit("agora-env: no platform-e2e venv found (set AGORA_E2E_PYTHON)")
     env = {**os.environ, **e2e_exports(st)}
-    sys.exit(subprocess.run([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", *args], cwd=wt / "platform-e2e", env=env).returncode)
+    sys.exit(subprocess.run([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", *e2e_paths(args)], cwd=wt / "platform-e2e", env=env).returncode)
+
+
+def e2e_paths(args):
+    return [x.removeprefix("platform-e2e/") for x in args]
 
 
 def cmd_dc(a):
