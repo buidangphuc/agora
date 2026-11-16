@@ -90,6 +90,7 @@ The binary embeds the migrations: `server migrate up` (reads `DATABASE_URL`) app
 | `MOCK_DATA` | empty | Mock-data adapters; the service has none, so any value fails boot (refused in strict ENV) |
 | `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | none | Required. MinIO bucket holding KYC documents |
 | `STORAGE_REGION`, `STORAGE_USE_SSL` | `us-east-1`, `false` | Storage region and TLS |
+| `STORAGE_PUBLIC_ENDPOINT` | empty (= `STORAGE_ENDPOINT`) | Host the presigned upload and download URLs are signed for, reachable from the browser |
 | `KAFKA_BROKERS` | none | Kafka brokers (go-sdk `Kafka` group) |
 | `KAFKA_IDENTITY_TOPIC` | `identity.events` | UserErased source topic |
 | `KAFKA_IDENTITY_DLQ_TOPIC` | `identity.events.team-verification.dlq` | Dead-letter topic |

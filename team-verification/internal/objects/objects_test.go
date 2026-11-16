@@ -151,6 +151,33 @@ func TestPresignPutSignsContentTypeAndLength(t *testing.T) {
 	}
 }
 
+func TestPresignedURLsUseThePublicEndpoint(t *testing.T) {
+	const sc = "scenario Seller receives an upload URL: presigned URLs are reachable from the browser"
+	cfg := storageCfg("minio:9000")
+	cfg.PublicEndpoint = "http://localhost:39000"
+	m, err := objects.NewMinio(cfg)
+	if err != nil {
+		t.Fatalf("NewMinio: %v", err)
+	}
+	put, err := m.PresignPut(context.Background(), "kyc/u-1/abc", "image/jpeg", 10, 15*time.Minute)
+	if err != nil {
+		t.Fatalf("%s: PresignPut: %v", sc, err)
+	}
+	get, err := m.PresignGet(context.Background(), "kyc/u-1/abc", 5*time.Minute)
+	if err != nil {
+		t.Fatalf("%s: PresignGet: %v", sc, err)
+	}
+	for _, raw := range []string{put, get} {
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if u.Scheme != "http" || u.Host != "localhost:39000" {
+			t.Errorf("%s: URL %q not on the public endpoint", sc, raw)
+		}
+	}
+}
+
 func TestPresignGetExpiresInFiveMinutes(t *testing.T) {
 	const sc = "scenario Admin opens a document: presigned GET lasts 5 minutes"
 	m, err := objects.NewMinio(storageCfg("localhost:9000"))

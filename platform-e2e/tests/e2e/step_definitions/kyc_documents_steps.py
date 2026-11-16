@@ -531,6 +531,7 @@ def anon_badges_n(world: World, n: int) -> None:
 @when("the retention sweeper has run")
 def sweeper_has_run(world: World) -> None:
     keys = _x(world)["sweep_keys"]
+    kyc.trigger_sweep()
     kyc.poll(
         lambda: not any(kyc.object_exists(k) for k in keys),
         kyc.sweep_wait_s(),

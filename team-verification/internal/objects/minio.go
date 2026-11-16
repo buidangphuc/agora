@@ -20,11 +20,13 @@ import (
 )
 
 type Minio struct {
-	cfg    config.Storage
-	host   string
-	scheme string
-	http   *http.Client
-	now    func() time.Time
+	cfg          config.Storage
+	host         string
+	scheme       string
+	publicHost   string
+	publicScheme string
+	http         *http.Client
+	now          func() time.Time
 }
 
 func NewMinio(cfg config.Storage) (*Minio, error) {
@@ -38,27 +40,44 @@ func NewMinio(cfg config.Storage) (*Minio, error) {
 	if cfg.UseSSL {
 		scheme = "https"
 	}
-	host := strings.TrimRight(cfg.Endpoint, "/")
-	if strings.Contains(host, "://") {
-		u, err := url.Parse(host)
-		if err != nil {
-			return nil, fmt.Errorf("storage endpoint: %w", err)
-		}
-		host = u.Host
-		scheme = u.Scheme
+	host, scheme, err := splitEndpoint(cfg.Endpoint, scheme)
+	if err != nil {
+		return nil, fmt.Errorf("storage endpoint: %w", err)
 	}
-	return &Minio{cfg: cfg, host: host, scheme: scheme, http: &http.Client{Timeout: 30 * time.Second}, now: time.Now}, nil
+	publicHost, publicScheme := host, scheme
+	if strings.TrimSpace(cfg.PublicEndpoint) != "" {
+		publicHost, publicScheme, err = splitEndpoint(cfg.PublicEndpoint, scheme)
+		if err != nil {
+			return nil, fmt.Errorf("storage public endpoint: %w", err)
+		}
+	}
+	return &Minio{
+		cfg: cfg, host: host, scheme: scheme, publicHost: publicHost, publicScheme: publicScheme,
+		http: &http.Client{Timeout: 30 * time.Second}, now: time.Now,
+	}, nil
+}
+
+func splitEndpoint(endpoint, scheme string) (string, string, error) {
+	host := strings.TrimRight(strings.TrimSpace(endpoint), "/")
+	if !strings.Contains(host, "://") {
+		return host, scheme, nil
+	}
+	u, err := url.Parse(host)
+	if err != nil {
+		return "", "", err
+	}
+	return u.Host, u.Scheme, nil
 }
 
 func (m *Minio) PresignPut(_ context.Context, key, contentType string, size int64, ttl time.Duration) (string, error) {
-	return m.presign(http.MethodPut, "/"+m.cfg.Bucket+"/"+escapeKey(key), nil, map[string]string{
+	return m.presign(m.publicScheme, m.publicHost, http.MethodPut, "/"+m.cfg.Bucket+"/"+escapeKey(key), nil, map[string]string{
 		"content-length": strconv.FormatInt(size, 10),
 		"content-type":   contentType,
 	}, ttl), nil
 }
 
 func (m *Minio) PresignGet(_ context.Context, key string, ttl time.Duration) (string, error) {
-	return m.presign(http.MethodGet, "/"+m.cfg.Bucket+"/"+escapeKey(key), nil, nil, ttl), nil
+	return m.presign(m.publicScheme, m.publicHost, http.MethodGet, "/"+m.cfg.Bucket+"/"+escapeKey(key), nil, nil, ttl), nil
 }
 
 func (m *Minio) Stat(ctx context.Context, key string) (Info, error) {
@@ -130,14 +149,14 @@ func (m *Minio) DeletePrefix(ctx context.Context, prefix string) error {
 }
 
 func (m *Minio) do(ctx context.Context, method, path string, q url.Values) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, m.presign(method, path, q, nil, time.Minute), nil)
+	req, err := http.NewRequestWithContext(ctx, method, m.presign(m.scheme, m.host, method, path, q, nil, time.Minute), nil)
 	if err != nil {
 		return nil, err
 	}
 	return m.http.Do(req)
 }
 
-func (m *Minio) presign(method, path string, extra url.Values, headers map[string]string, ttl time.Duration) string {
+func (m *Minio) presign(scheme, host, method, path string, extra url.Values, headers map[string]string, ttl time.Duration) string {
 	now := m.now().UTC()
 	date := now.Format("20060102")
 	amzDate := now.Format("20060102T150405Z")
@@ -162,7 +181,7 @@ func (m *Minio) presign(method, path string, extra url.Values, headers map[strin
 
 	var ch strings.Builder
 	for _, n := range names {
-		v := m.host
+		v := host
 		if n != "host" {
 			v = headers[n]
 		}
@@ -178,7 +197,7 @@ func (m *Minio) presign(method, path string, extra url.Values, headers map[strin
 	k = hmacSHA256(k, []byte("aws4_request"))
 	sig := hex.EncodeToString(hmacSHA256(k, []byte(toSign)))
 
-	return fmt.Sprintf("%s://%s%s?%s&X-Amz-Signature=%s", m.scheme, m.host, path, canonicalQuery, sig)
+	return fmt.Sprintf("%s://%s%s?%s&X-Amz-Signature=%s", scheme, host, path, canonicalQuery, sig)
 }
 
 func escapeKey(key string) string {

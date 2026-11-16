@@ -594,6 +594,7 @@ services:
       - STORAGE_SECRET_KEY=minioadmin
       - STORAGE_REGION=us-east-1
       - STORAGE_USE_SSL=false
+      - STORAGE_PUBLIC_ENDPOINT=http://localhost:9000
       - GRPC_PORT=50064
       - ENV=local
       - GRPC_REFLECTION_ENABLED=true

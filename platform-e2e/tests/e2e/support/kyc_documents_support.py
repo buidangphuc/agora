@@ -189,6 +189,18 @@ def poll(predicate, timeout_s: float, what: str, interval_s: float = 2.0):
         time.sleep(interval_s)
 
 
+def verification_container() -> str:
+    return os.getenv("VERIFICATION_CONTAINER", "team-verification-svc")
+
+
+def trigger_sweep() -> None:
+    from tests.e2e.support import apr_support as apr
+    from tests.e2e.support import pear_edge_support as pe
+
+    apr.dc("restart", "team-verification")
+    pe.wait_healthy(verification_container(), 120)
+
+
 def sweep_wait_s() -> float:
     return float(os.getenv("KYC_SWEEP_WAIT_S", "150"))
 

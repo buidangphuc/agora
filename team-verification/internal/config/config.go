@@ -52,6 +52,8 @@ type Storage struct {
 	SecretKey string `env:"STORAGE_SECRET_KEY"`
 	Region    string `env:"STORAGE_REGION" default:"us-east-1"`
 	UseSSL    bool   `env:"STORAGE_USE_SSL" default:"false"`
+
+	PublicEndpoint string `env:"STORAGE_PUBLIC_ENDPOINT"`
 }
 
 func (s Storage) ResolveFor(rt sdkconfig.Runtime) error {
