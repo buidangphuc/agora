@@ -351,7 +351,19 @@ def current_user(world: World) -> None:
 
 @given("a user registered at the identity current terms version is signed in")
 def identity_current_user(world: World) -> None:
-    user = ue.register_user("buyer", "legal_newer")
+    username = fake.unique_username("legal_newer")
+    password = get_settings().seed_password
+    body = {
+        "username": username,
+        "password": password,
+        "role": "buyer",
+        "termsVersion": world.state.extra["new_terms"],
+        "privacyVersion": legal.CURRENT_PRIVACY,
+    }
+    resp = ue.call(ue.REGISTER, body)
+    assert resp.status_code == 200, f"Register at the identity current version: {resp.text}"
+    user = {"username": username, "password": password, "role": "buyer"}
+    user.update(ue.login(user))
     rows = {r["purpose"]: r for r in _all_records(user["token"])}
     assert (
         rows[TERMS]["version"] != legal.CURRENT_TERMS

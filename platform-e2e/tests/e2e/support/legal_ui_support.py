@@ -93,7 +93,7 @@ def strip_multipart_fields(body: bytes, names: tuple[str, ...]) -> bytes:
     parts = body.split(first)
     kept = []
     for part in parts:
-        if any(f'name="{n}"'.encode() in part for n in names):
+        if any(re.search(rf'name="(?:_?\d+_)?{re.escape(n)}"'.encode(), part) for n in names):
             continue
         kept.append(part)
     return first.join(kept)

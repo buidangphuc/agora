@@ -87,7 +87,10 @@ export function LegalReacceptance() {
           <button
             type="button"
             className="rounded border px-3 py-1.5"
-            onClick={() => void logoutAction()}
+            onClick={() => {
+              setNeeds(false);
+              void logoutAction();
+            }}
           >
             Đăng xuất
           </button>

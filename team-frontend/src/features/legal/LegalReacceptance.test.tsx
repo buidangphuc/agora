@@ -138,5 +138,8 @@ describe("LegalReacceptance", () => {
     await user.click(await screen.findByRole("button", { name: "Đăng xuất" }));
     expect(m.logoutAction).toHaveBeenCalledTimes(1);
     expect(m.acceptCurrentLegal).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Đăng xuất" }),
+    ).not.toBeInTheDocument();
   });
 });
