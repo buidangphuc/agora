@@ -73,7 +73,7 @@ func (f *PrivacyForwarder) RequestAccountDeletion(
 		return nil, err
 	}
 	var out *identityv1.RequestAccountDeletionResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+	err := f.edge.callWrite(f.edge.outgoingWithSID(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.RequestAccountDeletion(c, req.Msg)
 		return e

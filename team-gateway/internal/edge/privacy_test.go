@@ -32,7 +32,24 @@ type privacySpy struct {
 	otherCalls  atomic.Int32
 	mu          sync.Mutex
 	md          metadata.MD
+	rpcMD       map[string]metadata.MD
 	recordReq   *identityv1.RecordConsentRequest
+}
+
+func (s *privacySpy) keep(ctx context.Context, name string) {
+	md, _ := metadata.FromOutgoingContext(ctx)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.rpcMD == nil {
+		s.rpcMD = map[string]metadata.MD{}
+	}
+	s.rpcMD[name] = md
+}
+
+func (s *privacySpy) mdOf(name string) metadata.MD {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.rpcMD[name]
 }
 
 func (s *privacySpy) RecordConsent(ctx context.Context, in *identityv1.RecordConsentRequest, _ ...grpc.CallOption) (*identityv1.RecordConsentResponse, error) {
@@ -49,18 +66,21 @@ func (s *privacySpy) ListMyConsents(_ context.Context, _ *identityv1.ListMyConse
 	return &identityv1.ListMyConsentsResponse{}, nil
 }
 
-func (s *privacySpy) RequestAccountDeletion(context.Context, *identityv1.RequestAccountDeletionRequest, ...grpc.CallOption) (*identityv1.RequestAccountDeletionResponse, error) {
+func (s *privacySpy) RequestAccountDeletion(ctx context.Context, _ *identityv1.RequestAccountDeletionRequest, _ ...grpc.CallOption) (*identityv1.RequestAccountDeletionResponse, error) {
 	s.otherCalls.Add(1)
+	s.keep(ctx, "RequestAccountDeletion")
 	return &identityv1.RequestAccountDeletionResponse{}, nil
 }
 
-func (s *privacySpy) CancelAccountDeletion(context.Context, *identityv1.CancelAccountDeletionRequest, ...grpc.CallOption) (*identityv1.CancelAccountDeletionResponse, error) {
+func (s *privacySpy) CancelAccountDeletion(ctx context.Context, _ *identityv1.CancelAccountDeletionRequest, _ ...grpc.CallOption) (*identityv1.CancelAccountDeletionResponse, error) {
 	s.otherCalls.Add(1)
+	s.keep(ctx, "CancelAccountDeletion")
 	return &identityv1.CancelAccountDeletionResponse{}, nil
 }
 
-func (s *privacySpy) GetAccountDeletionStatus(context.Context, *identityv1.GetAccountDeletionStatusRequest, ...grpc.CallOption) (*identityv1.GetAccountDeletionStatusResponse, error) {
+func (s *privacySpy) GetAccountDeletionStatus(ctx context.Context, _ *identityv1.GetAccountDeletionStatusRequest, _ ...grpc.CallOption) (*identityv1.GetAccountDeletionStatusResponse, error) {
 	s.otherCalls.Add(1)
+	s.keep(ctx, "GetAccountDeletionStatus")
 	return &identityv1.GetAccountDeletionStatusResponse{}, nil
 }
 
@@ -103,9 +123,15 @@ func newPrivacyFixture(t *testing.T) *privacyFixture {
 
 func (f *privacyFixture) userBearer(t *testing.T) string {
 	t.Helper()
+	return f.userBearerWithSID(t, "")
+}
+
+func (f *privacyFixture) userBearerWithSID(t *testing.T, sid string) string {
+	t.Helper()
 	claims := &token.Claims{
-		Type:   "user",
-		Scopes: []string{"order.read"},
+		Type:      "user",
+		Scopes:    []string{"order.read"},
+		SessionID: sid,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   "user-1",
 			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-time.Minute)),

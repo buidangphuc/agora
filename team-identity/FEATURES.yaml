@@ -3651,6 +3651,20 @@ features:
     tags: [auth, handoff, unit]
     status: not-testable
     notes: "VERIFIED BY team-gateway internal/edge TestOutgoingForwardsSidOnlyToAllowlist (outgoing gRPC metadata is not observable through the gateway). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.session-id-is-forwarded-to-requestaccountdeletion
+    title: "Session id is forwarded to RequestAccountDeletion"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-account-deletion (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session id is forwarded to RequestAccountDeletion"
+    tags: [auth, privacy, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge TestIdentityAccountDeletionRequestForwardsSessionID (outgoing gRPC metadata is not observable through the gateway); the end-to-end effect is covered by the identity-account-deletion scenario that keeps the caller's session."
   - id: handoff.session-id-is-never-forwarded-elsewhere
     title: "Session id is never forwarded elsewhere"
     persona: buyer

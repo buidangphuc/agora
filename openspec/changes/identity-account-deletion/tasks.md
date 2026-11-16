@@ -10,6 +10,7 @@
 - [x] 1.8 Log hygiene on deletion paths with sloglint keys (Logs scenario)
 - [x] 1.9 team-gateway: route policy and forwarder for the three RPCs, 501 for obligation RPCs (Gateway scenarios)
 - [x] 1.10 Gates via `scripts/asdlc/gate_digest.py` with `GO_SDK_REQUIRE_DOCKER=1`; README and FEATURES.yaml note left to the e2e-author
+- [x] 1.11 team-gateway forwards `x-principal-sid` on `RequestAccountDeletion` only, so identity keeps the caller's session (sso-handoff delta: Session id is forwarded to RequestAccountDeletion)
 
 ## 2. E2E track (platform-e2e)
 
