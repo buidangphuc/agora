@@ -31,6 +31,7 @@ Feature: Recommendation responses name their experiment arm and serving path (re
   Scenario: Flipt unreachable serves the default ranker as unassigned
     Given a buyer is logged in
     And the experiment flag is enabled with a 50/50 split
+    And the serving generation's popular list holds a published listing with stock 5 in search
     When Flipt is stopped and a buyer requests homepage recommendations through the gateway
     Then the call succeeds, the ranker segment is fixed_weights or gbdt, and the arm segment is "recs-home-feed-ranker:unassigned"
 

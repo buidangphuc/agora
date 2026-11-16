@@ -90,6 +90,24 @@ def era_flag_absent(world: World) -> None:
     assert ff.get_flag() is None
 
 
+@given("the serving generation's popular list holds a published listing with stock 5 in search")
+def era_popular_in_stock(world: World) -> None:
+    _ensure_generation(world)
+    popular = rss.in_stock_listing_ids(world, 1, "era-flipt")
+    serving = rss.keys(world, rss.SERVING_DB)
+    prefix = rss.serving_prefix(serving)
+    serving.remove(f"{prefix}:user:{rss.buyer_id(world)}")
+    serving.put(
+        f"{prefix}:popular",
+        json.dumps([{"listing_id": lid, "score": 100.0, "visible": True} for lid in popular]),
+    )
+    rss.await_recommend(
+        world,
+        lambda r: rss.ids(r)[:1] == popular,
+        "Recommend does not serve the published in-stock popular listing",
+    )
+
+
 # ── Assignment ───────────────────────────────────────────────────────────
 @when("one anonymous visitor requests homepage recommendations 5 times through the gateway")
 def era_five_calls(world: World) -> None:
