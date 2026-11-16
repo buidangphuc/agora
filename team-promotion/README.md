@@ -251,7 +251,6 @@ Database tests run against Docker Postgres and never skip; a skip is a gate fail
 - **No event on redemption or release.** `VoucherChanged` fires only on create, not when `used` changes.
 - **No event on admin changes.** `DeactivateVoucher`, `UpdateVoucher`, `CancelCampaign` and `UpdateCampaign` write audit events but no `VoucherChanged`/`FlashSaleChanged` outbox row (`internal/voucher/voucher.go:150`, `internal/flashsale/flashsale_cancel.go:21`).
 - The `flash-sale-enabled` kill-switch only gates reads; it does not block `CreateCampaign`.
-- **`ListPlans` does not fill `Plan.term_days`.** The store reads `term_days` (`internal/store/subscription.go:199`) but `planToProto` drops it (`internal/rpc/common.go:226`), so clients see 0 instead of 30 (promotion-plan-billing requirement "Plan catalog prices are integer VND per 30-day term").
 
 ## Links
 
