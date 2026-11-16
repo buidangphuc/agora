@@ -11,7 +11,7 @@ from trust-legal-contract. All gateway calls go through server actions and `make
   `src/features/legal/` using `node:fs` at build time, rendered as headings and paragraphs (text nodes). No markdown dependency is added (initiative: no
   new dependency in this slice). The bodies are the placeholder line until the legal owner supplies text.
 - **Versions.** Front-matter `version` of `dieu-khoan-su-dung` and `chinh-sach-bao-mat` must equal `NEXT_PUBLIC_LEGAL_TERMS_VERSION` and
-  `NEXT_PUBLIC_PRIVACY_POLICY_VERSION` (a unit test enforces equality so the page the user reads is the version recorded). Defaults: `2026-11-13` for
+  `NEXT_PUBLIC_PRIVACY_POLICY_VERSION` (a unit test enforces equality so the page the user reads is the version recorded). Defaults: `2026-11` for
   both, which must equal the first compose entry of identity `LEGAL_TERMS_VERSIONS` / `PRIVACY_POLICY_VERSIONS`. The Dockerfile gets both as build args
   (the seller app's equivalent is documented as not a build arg; this slice does it properly for the buyer app).
 - **Footer operator block.** `src/features/legal/operator.ts` exports four placeholder fields, each "[DO BỘ PHẬN PHÁP CHẾ CUNG CẤP]". The footer renders

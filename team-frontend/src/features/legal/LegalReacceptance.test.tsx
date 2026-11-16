@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
-  process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION = "2026-11-13";
+  process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION = "2026-11";
   process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION = "2026-11-14";
 });
 
@@ -30,7 +30,7 @@ vi.mock("@/features/auth/actions", () => ({
 import { LegalReacceptance } from "./LegalReacceptance";
 
 const KEY = "agora_legal_ok";
-const VALUE = "2026-11-13|2026-11-14";
+const VALUE = "2026-11|2026-11-14";
 
 beforeEach(() => {
   vi.clearAllMocks();

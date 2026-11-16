@@ -11,8 +11,8 @@ export type LegalAcceptance =
 
 function versions() {
   return {
-    terms: process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ?? "2026-11-13",
-    privacy: process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION ?? "2026-11-13",
+    terms: process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ?? "2026-11",
+    privacy: process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION ?? "2026-11",
   };
 }
 

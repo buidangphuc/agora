@@ -16,7 +16,7 @@ import {
 
 vi.hoisted(() => {
   process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION = "T".repeat(32);
-  process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION = "2026-11-13";
+  process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION = "2026-11";
 });
 
 vi.mock("@/lib/gateway/client", () => ({ makeClients: vi.fn() }));
@@ -283,7 +283,7 @@ describe("registerAction legal acceptance", () => {
     expect(register.mock.calls[0][0]).toMatchObject({
       username: "alice",
       termsVersion: "T".repeat(32),
-      privacyVersion: "2026-11-13",
+      privacyVersion: "2026-11",
     });
     expect(redirect).toHaveBeenCalledWith("/");
   });

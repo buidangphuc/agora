@@ -19,8 +19,8 @@ const LEGAL_PATHS = [
 ];
 
 function currentValue() {
-  return `${process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ?? "2026-11-13"}|${
-    process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION ?? "2026-11-13"
+  return `${process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ?? "2026-11"}|${
+    process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION ?? "2026-11"
   }`;
 }
 

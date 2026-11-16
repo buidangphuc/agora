@@ -173,9 +173,9 @@ export async function registerAction(
       password,
       role,
       referralCode,
-      termsVersion: process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ?? "2026-11-13",
+      termsVersion: process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ?? "2026-11",
       privacyVersion:
-        process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION ?? "2026-11-13",
+        process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION ?? "2026-11",
     });
     token = res.result?.token ?? "";
     refreshToken = res.result?.refreshToken ?? "";

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
-  process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION = "2026-11-13";
+  process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION = "2026-11";
   process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION = "2026-11-14";
 });
 
@@ -22,7 +22,7 @@ vi.mock("@/lib/gateway/session", () => ({
 
 import { acceptCurrentLegal, getLegalAcceptance } from "./actions";
 
-const T = "2026-11-13";
+const T = "2026-11";
 const P = "2026-11-14";
 
 function row(purpose: string, version: string, granted = true) {
