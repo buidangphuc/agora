@@ -301,8 +301,9 @@ def then_exists(world: World, label: str) -> None:
 @then(parsers.parse('the listing "{label}" of seller "{name}" still exists'))
 def then_exists_owner(world: World, label: str, name: str) -> None:
     ev.wait_group_caught_up(se.ERASURE_GROUP)
-    resp = se.get_listing(_lid(world, label), _seller(world, name)["token"])
-    assert resp.status_code == 200, f"listing of {name} gone: {resp.status_code} {resp.text}"
+    lid = _lid(world, label)
+    rows = se.psql(f"SELECT count(*) FROM listings WHERE id::text = {se.lit(lid)}")
+    assert rows == "1", f"listing {label} of {name} was deleted"
 
 
 @then(parsers.parse('the erasure consumer completes the events of "{name}" without a DLQ record'))
