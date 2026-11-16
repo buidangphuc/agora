@@ -65,7 +65,7 @@ make test        # uv run --extra dev pytest
 docker build --target test .
 ```
 
-CI: `platform-forecast` job in `.github/workflows/services-ci.yml`. No lint tooling is configured.
+CI: no job in `.github/workflows/services-ci.yml` yet (it ships with the `chore/asdlc-tooling` change); run `make test` locally. No lint tooling is configured.
 
 ## 7. Spec and verification
 
