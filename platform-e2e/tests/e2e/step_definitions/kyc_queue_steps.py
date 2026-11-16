@@ -9,14 +9,14 @@ from __future__ import annotations
 import re
 import time
 from datetime import timedelta
-from urllib.parse import unquote
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from src.api.services.verification_service import VerificationService
 from src.constants import timeouts
-from src.pages.admin_kyc_queue_page import AdminKycQueuePage
+from src.pages.admin_kyc_queue_page import EMPTY_TEXT, AdminKycQueuePage
 from tests.e2e.flows.auth_flow import session_cookies, sign_in_admin_app
 from tests.e2e.support import audit_support as aud
 from tests.e2e.support import kyc_documents_support as kyc
@@ -106,6 +106,8 @@ def _sign_in(world: World, token: str) -> None:
 
 
 def _list_all(token: str, status: str) -> list[dict]:
+    if not status.startswith("VERIFICATION_STATUS_"):
+        status = f"VERIFICATION_STATUS_{status}"
     svc = VerificationService(token=token)
     out: list[dict] = []
     cursor: str | None = None
@@ -312,8 +314,9 @@ def audit_up(world: World) -> None:
 @then("the browser is sent to login with a return URL for the KYC tab")
 def sent_to_login(world: World) -> None:
     world.page.wait_for_url(re.compile(r"/login"), timeout=timeouts.NAVIGATION)
-    decoded = unquote(world.page.url)
-    assert "/admin/cases" in decoded and "tab=kyc" in decoded, world.page.url
+    query = parse_qs(urlsplit(world.page.url).query)
+    target = (query.get("returnUrl") or query.get("next") or [""])[0]
+    assert urlsplit(target).path == "/admin/cases", world.page.url
 
 
 @then("the KYC table is not shown")
@@ -414,7 +417,15 @@ def empty_shown(world: World, text: str) -> None:
 
 @then(parsers.parse('the row of seller "{name}" shows "{a}" and "{b}"'))
 def row_shows(world: World, name: str, a: str, b: str) -> None:
+    page = _page(world)
     row = _row(world, name)
+    page.table.or_(page.page.get_by_text(EMPTY_TEXT)).first.wait_for(timeout=timeouts.NAVIGATION)
+    for _ in range(50):
+        if row.count() or not page.next_link.count():
+            break
+        href = page.next_link.first.get_attribute("href") or ""
+        page.page.goto(urljoin(page.page.url, href), wait_until="domcontentloaded")
+        page.table.first.wait_for(timeout=timeouts.NAVIGATION)
     expect(row).to_have_count(1, timeout=timeouts.NAVIGATION)
     expect(row).to_contain_text(a)
     expect(row).to_contain_text(b)
