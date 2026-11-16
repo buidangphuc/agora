@@ -122,8 +122,3 @@ Feature: Legal versions at registration and the consent ledger
   Scenario: Anonymous edge call is refused
     When an anonymous caller calls RecordConsent
     Then the response is UNAUTHENTICATED
-
-  Scenario: Later-slice RPCs are not exposed yet
-    Given a signed-in buyer who registered with the current versions
-    When the buyer calls PrivacyService ExportMyData through the gateway
-    Then the response is UNIMPLEMENTED

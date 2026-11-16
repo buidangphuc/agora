@@ -119,8 +119,7 @@ insertion order, newest first), paged by `PageRequest` with default size 20 and 
 ### Requirement: The consent ledger is append-only and reachable at the edge
 
 No RPC SHALL update or delete a consent row. team-gateway SHALL forward `PrivacyService.RecordConsent` and
-`ListMyConsents` to team-identity for signed-in users, SHALL answer the not-yet-implemented PrivacyService RPCs with
-`UNIMPLEMENTED`, and SHALL reject anonymous calls to either implemented RPC with `UNAUTHENTICATED`.
+`ListMyConsents` to team-identity for signed-in users and SHALL reject anonymous calls to either RPC with `UNAUTHENTICATED`.
 
 #### Scenario: Consent is reachable through the gateway
 - **WHEN** a signed-in user calls `PrivacyService/RecordConsent` then `ListMyConsents` through the gateway
@@ -131,8 +130,3 @@ No RPC SHALL update or delete a consent row. team-gateway SHALL forward `Privacy
 - **WHEN** a caller without a bearer token calls `PrivacyService/RecordConsent` through the gateway
 - **THEN** the response is `UNAUTHENTICATED` and team-identity receives 0 calls
 - **VERIFIED BY**: platform-e2e/tests/e2e/features/identity/legal_consent.feature::Anonymous edge call is refused
-
-#### Scenario: Later-slice RPCs are not exposed yet
-- **WHEN** a signed-in user calls `PrivacyService/ExportMyData` through the gateway before its slice is built
-- **THEN** the response is `UNIMPLEMENTED`
-- **VERIFIED BY**: platform-e2e/tests/e2e/features/identity/legal_consent.feature::Later-slice RPCs are not exposed yet

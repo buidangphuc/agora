@@ -5490,22 +5490,6 @@ features:
     status: automated
     covered_by: "identity/legal_consent.feature::Anonymous edge call is refused"
 
-  - id: identity.legal-consent-later-slice-rpcs-are-not-exposed-yet
-    title: "Later-slice RPCs are not exposed yet"
-    persona: buyer
-    priority: P1
-    summary: "Later-slice RPCs are not exposed yet (change identity-legal-consent)"
-    entry_route: /
-    services: [team-identity, team-gateway]
-    preconditions:
-      login: guest
-    api:
-      exercised: [identity.v1.PrivacyService.RecordConsent, identity.v1.PrivacyService.ListMyConsents]
-    acceptance:
-      - "See spec scenario: Later-slice RPCs are not exposed yet"
-    tags: [auth, buyer]
-    status: planned
-
   # identity-account-deletion
   - id: identity.account-deletion-buyer-with-no-obligations-schedules-deletion
     title: "Buyer with no obligations schedules deletion"

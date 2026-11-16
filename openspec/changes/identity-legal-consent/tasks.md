@@ -9,7 +9,7 @@ Depends on slice trust-legal-contract (generated stubs for `terms_version`, `pri
 - [x] 1.5 `Register`: validate versions, insert two rows inside `CreateRegistered` transaction (scenarios: Register with the current versions stores two consent records, Register without versions is rejected, Register with a stale version is rejected)
 - [x] 1.6 `internal/rpc/privacy.go`: `PrivacyHandler` with `RecordConsent`, `ListMyConsents`; other four RPCs `UNIMPLEMENTED`; validation rules; user id from principal; no raw ids/payloads in logs (scenarios: Banner choice stores one row per changed purpose, Re-accepting a new Terms version appends a row, Invalid records are rejected without partial writes, Stale or withdrawn legal acceptance is rejected, Client time and user id are ignored, Page size is clamped and bad cursors are rejected, A user with no records gets an empty list)
 - [x] 1.7 Authz: register PrivacyService in `internal/app/app.go`; user-principal-only rule in `internal/authz/scopes.go`; extend `coverage_test.go` (scenarios: Anonymous and service principals cannot record consent, Anonymous caller cannot list)
-- [ ] 1.8 team-gateway: `PrivacyForwarder` in `internal/edge/auth.go` for the two RPCs, others unimplemented; wire in the gateway app; unit test with a fake client (scenarios: Anonymous edge call is refused, Later-slice RPCs are not exposed yet)
+- [ ] 1.8 team-gateway: `PrivacyForwarder` in `internal/edge/auth.go` for the two RPCs; wire in the gateway app; unit test with a fake client (scenario: Anonymous edge call is refused)
 - [x] 1.9 Gates through `scripts/asdlc/gate_digest.py` for team-identity and team-gateway
 
 ## 2. E2E track (platform-e2e; FEATURES.yaml by e2e-author)

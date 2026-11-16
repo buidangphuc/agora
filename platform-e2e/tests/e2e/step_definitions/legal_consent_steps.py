@@ -601,13 +601,3 @@ def gateway_both_ok(world: World) -> None:
 @then("the response is UNAUTHENTICATED")
 def response_unauthenticated(world: World) -> None:
     assert ue.code_of(_x(world)["resp"]) == "unauthenticated", _x(world)["resp"].text
-
-
-@when("the buyer calls PrivacyService ExportMyData through the gateway")
-def gateway_export(world: World) -> None:
-    _x(world)["resp"] = ue.call(ep.PRIVACY_EXPORT_MY_DATA, {}, _user(world)["token"])
-
-
-@then("the response is UNIMPLEMENTED")
-def response_unimplemented(world: World) -> None:
-    assert ue.code_of(_x(world)["resp"]) == "unimplemented", _x(world)["resp"].text
