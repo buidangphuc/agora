@@ -420,14 +420,16 @@ def stitched_rows_rekeyed(aue_world):
     rows = tii.warehouse_rows(
         f"SELECT principal_id, session_id, anonymous_id FROM tracking_events WHERE event_id IN ({marks})",
         ids,
-        until=lambda r: len(r) == 70 and all(aue.PSEUDONYM.match(v or "") for row in r for v in row),
+        until=lambda r: len(r) == 70 and all(aue.PSEUDONYM.match(row[2] or "") for row in r),
     )
-    pseudonyms = {v for row in rows for v in row}
     assert len(rows) == 70, f"{len(rows)} of 70 rows remain"
+    user_rows = [row for row in rows if row[0]]
+    assert len(user_rows) == 50, f"{len(user_rows)} of 50 signed-in rows keep a principal"
+    pseudonyms = {row[2] for row in rows} | {v for row in user_rows for v in row}
     assert len(pseudonyms) == 1 and aue.PSEUDONYM.match(next(iter(pseudonyms))), pseudonyms
     leftovers = tii.warehouse_query(
         f"SELECT COUNT(*) FROM tracking_events WHERE event_id IN ({marks}) "
-        "AND (ga_client_id IS NOT NULL OR properties IS NOT NULL)",
+        "AND (ga_client_id IS NOT NULL OR (COALESCE(principal_id, '') <> '' AND properties IS NOT NULL))",
         ids,
     )[0][0]
     assert leftovers == 0, f"{leftovers} rows keep ga_client_id or properties"
