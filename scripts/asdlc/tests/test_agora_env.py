@@ -586,3 +586,54 @@ def test_plan_resolves_slice_owners_against_src(monkeypatch, tmp_path):
 def test_e2e_paths_accept_repo_relative_test_paths():
     got = ae.e2e_paths(["platform-e2e/tests/e2e/x.py::t", "tests/e2e/y.py", "-k", "z"])
     assert got == ["tests/e2e/x.py::t", "tests/e2e/y.py", "-k", "z"]
+
+
+def _slices(tmp_path, slices, docs=None):
+    p = tmp_path / "slices.yaml"
+    p.write_text(yaml.dump({"slices": slices}))
+    for cid, text in (docs or {}).items():
+        d = tmp_path / "openspec" / "changes" / cid / "specs" / "x"
+        d.mkdir(parents=True)
+        (d / "spec.md").write_text(text)
+    return p
+
+
+def test_slice_extras_add_recsys_for_a_recsys_owned_slice(tmp_path):
+    p = _slices(tmp_path, [{"id": "a", "owner": "platform-recsys"}])
+    assert ae.slice_extras(p, tmp_path) == {"platform-recsys", "mlflow"}
+
+
+def test_slice_extras_add_recsys_when_a_slice_e2e_touches_rgp(tmp_path):
+    doc = "- **VERIFIED BY**: `platform-e2e/tests/e2e/step_definitions/test_rgp_generation_publish.py`\n"
+    p = _slices(tmp_path, [{"id": "b", "owner": "team-ai"}], {"b": doc})
+    assert ae.slice_extras(p, tmp_path) == {"platform-recsys", "mlflow"}
+
+
+def test_slice_extras_add_recsys_for_a_recsys_slice_id(tmp_path):
+    p = _slices(tmp_path, [{"id": "recsys-cart-cross-sell", "owner": "team-ai"}])
+    assert ae.slice_extras(p, tmp_path) == {"platform-recsys", "mlflow"}
+
+
+def test_slice_extras_add_nothing_for_unrelated_slices(tmp_path):
+    doc = "- **VERIFIED BY**: `platform-e2e/tests/e2e/features/order/checkout.feature`\n"
+    p = _slices(tmp_path, [{"id": "c", "owner": "team-order"}], {"c": doc})
+    assert ae.slice_extras(p, tmp_path) == set()
+
+
+def test_plan_runs_recsys_services_for_recsys_e2e_slices_and_keeps_with(monkeypatch, tmp_path):
+    services = {
+        **SERVICES,
+        "minio": {"image": "minio/minio"},
+        "minio-init": {"image": "minio/mc", "depends_on": {"minio": {}}},
+        "mlflow": {"image": "mlflow", "depends_on": {"minio": {}}},
+        "platform-recsys": {"image": "platform-recsys:local", "build": {"context": f"{tmp_path}/platform-recsys"},
+                            "environment": {"MLFLOW_TRACKING_URI": "http://mlflow:5050"}},
+    }
+    monkeypatch.setattr(ae, "config", lambda src, overlays: services)
+    monkeypatch.setattr(ae, "branch_changed_files", lambda src: [])
+    doc = "`platform-e2e/tests/e2e/step_definitions/test_rgp_generation_publish.py`\n"
+    p = _slices(tmp_path, [{"id": "b", "owner": "team-sharing"}], {"b": doc})
+    (tmp_path / "team-sharing").mkdir()
+    _, _, owners, run_set = ae.cmd_plan(_plan_args(src=str(tmp_path), slices=str(p), with_=["team-order"]))
+    assert "platform-recsys" not in owners
+    assert {"platform-recsys", "mlflow", "minio", "minio-init", "team-order"} <= set(run_set)

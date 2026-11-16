@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -39,6 +40,10 @@ CODE_DEFAULTS = {
     "team-domain": {"STORAGE_ENDPOINT": "localhost:9000", "STORAGE_PUBLIC_BASE_URL": "http://localhost:9000/listing-images"},
 }
 RPK_BROKERS = "127.0.0.1:9092"
+RECSYS_SERVICES = ["platform-recsys", "mlflow"]
+OWNER_EXTRAS = {"platform-recsys": RECSYS_SERVICES}
+E2E_EXTRAS = {"*rgp*": RECSYS_SERVICES, "*recsys*": RECSYS_SERVICES, "*recommend*": RECSYS_SERVICES}
+E2E_REF = re.compile(r"platform-e2e/tests/e2e/[\w./-]+")
 
 
 class Tagged:
@@ -187,6 +192,24 @@ def closure(services, start, with_optional=False):
 def owners_from_slices(path):
     doc = yaml.safe_load(Path(path).read_text())
     return sorted({s["owner"] for s in doc.get("slices", []) if s.get("owner") and s["owner"] != "platform-core"})
+
+
+def slice_e2e_refs(src, sid):
+    if not sid:
+        return set()
+    dirs = [Path(src) / "openspec" / "changes" / sid, *(Path(src) / "openspec" / "changes" / "archive").glob(f"*-{sid}")]
+    return {m for d in dirs for f in d.rglob("*.md") for m in E2E_REF.findall(f.read_text())}
+
+
+def slice_extras(path, src):
+    extra = set()
+    for s in yaml.safe_load(Path(path).read_text()).get("slices", []):
+        extra.update(OWNER_EXTRAS.get(s.get("owner"), []))
+        keys = {s.get("id", ""), *s.get("e2e", []), *slice_e2e_refs(src, s.get("id", ""))}
+        for pat, svcs in E2E_EXTRAS.items():
+            if any(fnmatch.fnmatch(k, pat) for k in keys):
+                extra.update(svcs)
+    return extra
 
 
 def merge_overlays(prev, extra):
@@ -515,6 +538,8 @@ def cmd_plan(a, overlays=None):
         sys.exit(f"agora-env: give --slices or --services (no service differs from {BASE_REF})")
     owners = one_per_image(services, set(resolve_builders(services, names, src)) | changed, src)
     start = set(ENTRY) | set(owners) | set(a.with_ or [])
+    if a.slices:
+        start |= slice_extras(a.slices, src)
     for o in owners:
         start.update(image_users(services, o))
     run_set = sorted(closure(services, start, a.with_optional))
