@@ -80,7 +80,7 @@ def _record(user: dict, purpose: str, granted: bool) -> None:
         de.RECORD_CONSENT,
         {
             "records": [
-                {"purpose": purpose, "granted": granted, "version": "1", "source": "e2e_privacy"}
+                {"purpose": purpose, "granted": granted, "version": "1", "source": "banner"}
             ]
         },
         user["token"],
