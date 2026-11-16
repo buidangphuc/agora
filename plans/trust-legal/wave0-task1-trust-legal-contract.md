@@ -33,8 +33,7 @@ Implement OpenSpec change `trust-legal-contract` test-first per its tasks.md; co
 - team-frontend*/vendor/fe-platform-api-client.tgz
 - fe-platform/packages/api-client/src/generated/**
 - fe-platform/.changeset/**
-- widened (P1):
-  - platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go — pinned Q7 compat test directly broken by the new RegisterRequest terms_version/privacy_version fields and OrderService.GetUserObligations RPC
+- platform-core/packages/proto/platform/referral/v1/q7_contract_compat_test.go (widened at build, P1: pinned Q7 compat test directly broken by the new RegisterRequest terms_version/privacy_version fields and OrderService.GetUserObligations RPC)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go platform-core/packages/proto -- ./platform/identity/v1/... .`

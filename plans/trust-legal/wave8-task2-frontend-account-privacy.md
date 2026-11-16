@@ -23,9 +23,8 @@ Implement OpenSpec change `frontend-account-privacy` test-first per its tasks.md
 - platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature
 - platform-e2e/tests/e2e/step_definitions/test_account_privacy_ui.py
 - platform-e2e/tests/e2e/step_definitions/account_privacy_steps.py
-- widened (P1):
-  - platform-e2e/pyproject.toml — pytest marker registration (account_privacy_ui)
-  - platform-e2e/src/pages/privacy_page.py — e2e page object of this change
+- platform-e2e/pyproject.toml (widened at build, P1: pytest marker registration (account_privacy_ui))
+- platform-e2e/src/pages/privacy_page.py (widened at build, P1: e2e page object of this change)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend` (`npm ci && npm run proto` first)

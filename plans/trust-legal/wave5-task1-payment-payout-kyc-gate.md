@@ -29,15 +29,14 @@ Implement OpenSpec change `payment-payout-kyc-gate` test-first per its tasks.md;
 - platform-e2e/tests/e2e/step_definitions/pear_authz_payout_steps.py
 - platform-e2e/tests/e2e/step_definitions/plp_steps.py
 - platform-e2e/tests/e2e/step_definitions/seller_wallet_access_steps.py
-- widened (P1):
-  - openspec/changes/payment-payout-kyc-gate/specs/payout-kyc-gate/spec.md — the slice's own OpenSpec folder; VERIFIED BY citations only (TBD replaced with real test names), no requirement or scenario wording change
-  - openspec/changes/payment-payout-kyc-gate/tasks.md — the slice's own OpenSpec folder; e2e task ticks 2.1-2.5
-  - platform-e2e/README.md — doc updated by docs-sync (seed now KYC-verifies sellers via ReviewKyc)
-  - platform-e2e/tests/e2e/flows/kyc_flow.py — e2e flow of this change (verify_seller; packet named it verify_seller_flow.py)
-  - platform-e2e/tests/e2e/flows/__init__.py — e2e flow export of verify_seller for this change
-  - platform-e2e/tests/e2e/flows/wallet_flow.py — e2e flow directly broken by the gate; payout helper must verify the seller first
-  - platform-e2e/tests/e2e/support/plp_support.py — e2e support directly broken by the gate; payout helpers must verify the seller first
-  - platform-e2e/tests/e2e/step_definitions/commerce_erasure_steps.py — existing e2e payout step directly broken by the gate; seller verified before payouts
+- openspec/changes/payment-payout-kyc-gate/specs/payout-kyc-gate/spec.md (widened at build, P1: the slice's own OpenSpec folder; VERIFIED BY citations only (TBD replaced with real test names), no requirement or scenario wording change)
+- openspec/changes/payment-payout-kyc-gate/tasks.md (widened at build, P1: the slice's own OpenSpec folder; e2e task ticks 2.1-2.5)
+- platform-e2e/README.md (widened at build, P1: doc updated by docs-sync (seed now KYC-verifies sellers via ReviewKyc))
+- platform-e2e/tests/e2e/flows/kyc_flow.py (widened at build, P1: e2e flow of this change (verify_seller; packet named it verify_seller_flow.py))
+- platform-e2e/tests/e2e/flows/__init__.py (widened at build, P1: e2e flow export of verify_seller for this change)
+- platform-e2e/tests/e2e/flows/wallet_flow.py (widened at build, P1: e2e flow directly broken by the gate; payout helper must verify the seller first)
+- platform-e2e/tests/e2e/support/plp_support.py (widened at build, P1: e2e support directly broken by the gate; payout helpers must verify the seller first)
+- platform-e2e/tests/e2e/step_definitions/commerce_erasure_steps.py (widened at build, P1: existing e2e payout step directly broken by the gate; seller verified before payouts)
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-payment --vet`
