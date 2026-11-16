@@ -329,16 +329,20 @@ def test_plan_without_changes_or_names_exits(monkeypatch):
         ae.cmd_plan(_plan_args())
 
 
-def _up_env(monkeypatch, tmp_path, prev, services=SERVICES):
+def _up_env(monkeypatch, tmp_path, prev, services=SERVICES, seed_ok=True):
     monkeypatch.setattr(ae, "STATE_ROOT", tmp_path)
     if prev is not None:
         (tmp_path / "feat").mkdir()
         (tmp_path / "feat" / "state.json").write_text(json.dumps(prev))
-    seen = {"config": []}
+    seen = {"config": [], "seeded": 0}
 
     def fake_config(src, overlays):
         seen["config"].append(list(overlays))
         return services
+
+    def fake_seed(st):
+        seen["seeded"] += 1
+        return seed_ok
 
     monkeypatch.setattr(ae, "config", fake_config)
     monkeypatch.setattr(ae, "branch_changed_files", lambda src: ["team-sharing/main.go"])
@@ -348,6 +352,7 @@ def _up_env(monkeypatch, tmp_path, prev, services=SERVICES):
     monkeypatch.setattr(ae, "check_images", lambda *a: None)
     monkeypatch.setattr(ae, "build", lambda st, svcs, owners: [])
     monkeypatch.setattr(ae, "drop_unused", lambda ids: None)
+    monkeypatch.setattr(ae, "seed_recsys", fake_seed)
     return seen
 
 
@@ -366,3 +371,47 @@ def test_up_keeps_recorded_overlays_and_adds_new_ones(monkeypatch, tmp_path):
     assert st["overlays"] == [*ae.FEATURE_OVERLAYS, extra, "platform-e2e/compose/recs.override.yaml"]
     assert seen["config"] == [st["overlays"]]
     assert st["owners"] == ["team-sharing"]
+
+
+def test_up_seeds_recsys_once_when_recsys_is_in_the_env(monkeypatch, tmp_path):
+    services = {**SERVICES, "platform-recsys": {"image": "agora-platform-recsys:local", "build": {"context": "/r/platform-recsys"},
+                                                 "depends_on": {"redis": {}}},
+                "redis": {"image": "redis:7"}}
+    seen = _up_env(monkeypatch, tmp_path, None, services)
+    ae.cmd_up(_up_args(services=["platform-recsys"]))
+    assert seen["seeded"] == 1
+    assert json.loads((tmp_path / "feat" / "state.json").read_text())["recsys_seeded"] is True
+    ae.cmd_up(_up_args(services=["platform-recsys"]))
+    assert seen["seeded"] == 1
+
+
+def test_up_without_recsys_does_not_seed(monkeypatch, tmp_path):
+    seen = _up_env(monkeypatch, tmp_path, None)
+    ae.cmd_up(_up_args())
+    assert seen["seeded"] == 0
+
+
+def test_recsys_seed_uses_published_listings_when_enough_else_stable_synthetic_ids():
+    n = ae.RECSYS_SEED_CLUSTERS * ae.RECSYS_SEED_ITEMS
+    real = [f"l{i}" for i in range(n + 5)]
+    assert ae.recsys_seed_listings(real) == real[:n]
+    few = ae.recsys_seed_listings(real[:3])
+    assert len(few) == n and len(set(few)) == n and few == ae.recsys_seed_listings([])
+    assert not set(few) & set(real)
+
+
+def test_recsys_seed_beacons_give_each_cluster_its_own_items():
+    listings = ae.recsys_seed_listings([])
+    beacons = ae.recsys_seed_beacons(listings, "r1")
+    by_user = {}
+    for b in beacons:
+        assert b["type"] in {"view", "click", "add_to_cart"} and b["anonymousId"].startswith("envseed-r1-")
+        by_user.setdefault(b["anonymousId"], set()).add(b["listingId"])
+    assert len(by_user) == ae.RECSYS_SEED_USERS
+    assert all(len(v) == ae.RECSYS_SEED_PER_USER for v in by_user.values())
+    clusters = {}
+    for anon, items in by_user.items():
+        clusters.setdefault(int(anon.rsplit("-", 1)[1]) % ae.RECSYS_SEED_CLUSTERS, set()).update(items)
+    sets = list(clusters.values())
+    assert all(not (a & b) for i, a in enumerate(sets) for b in sets[i + 1:])
+    assert len({frozenset(v) for v in by_user.values()}) > ae.RECSYS_SEED_CLUSTERS

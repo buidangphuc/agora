@@ -9,6 +9,9 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
+import urllib.request
+import uuid
 from pathlib import Path
 
 import yaml
@@ -364,6 +367,73 @@ def check_images(services, run_set, owners, env):
         sys.exit(f"agora-env: main images missing for env {env}: {', '.join(sorted(set(missing)))} (run `promote` or add them as owners)")
 
 
+RECSYS_SEED_CLUSTERS = 6
+RECSYS_SEED_ITEMS = 8
+RECSYS_SEED_USERS = 60
+RECSYS_SEED_PER_USER = 6
+PUBLISHED_LISTINGS = "select id from listings where status = 'published' order by created_at, id limit {n}"
+
+
+def recsys_seed_listings(real, n=RECSYS_SEED_CLUSTERS * RECSYS_SEED_ITEMS):
+    if len(real) >= n:
+        return list(real[:n])
+    return [str(uuid.uuid5(uuid.NAMESPACE_URL, f"agora-env/recsys-seed/{i}")) for i in range(n)]
+
+
+def recsys_seed_beacons(listings, run_id, users=RECSYS_SEED_USERS):
+    clusters = [listings[i::RECSYS_SEED_CLUSTERS] for i in range(RECSYS_SEED_CLUSTERS)]
+    beacons = []
+    for u in range(users):
+        c = clusters[u % RECSYS_SEED_CLUSTERS]
+        shift = (u // RECSYS_SEED_CLUSTERS) % len(c)
+        anon = f"envseed-{run_id}-{u}"
+        for j, lid in enumerate((c[shift:] + c[:shift])[:RECSYS_SEED_PER_USER]):
+            kinds = ["view"] + (["click"] if j < 3 else []) + (["add_to_cart"] if j == 0 else [])
+            beacons += [{"type": k, "listingId": lid, "sessionId": f"{anon}-s", "anonymousId": anon,
+                         "path": f"/listing/{lid}"} for k in kinds]
+    return beacons
+
+
+def post_track(url, beacons):
+    req = urllib.request.Request(f"{url}/api/track", data=json.dumps(beacons).encode(), method="POST", headers={
+        "Content-Type": "application/json", "Cookie": f"agora_consent=v=1&a=1&m=0&p=1&ts={int(time.time())}"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read() or b"{}").get("accepted", 0)
+
+
+def wait_http(url, timeout=120):
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            with urllib.request.urlopen(url, timeout=5):
+                return True
+        except (urllib.error.URLError, OSError):
+            time.sleep(2)
+    return False
+
+
+def seed_recsys(st):
+    url = f"http://127.0.0.1:{st['ports'].get('8080', 8080)}"
+    if not wait_http(f"{url}/healthz"):
+        print(f"agora-env: recsys seed skipped: gateway {url} not healthy", file=sys.stderr)
+        return False
+    res = compose(st, "exec", "-T", "postgres", "psql", "-U", "listing_svc", "-d", "listing_db", "-tAc",
+                  PUBLISHED_LISTINGS.format(n=RECSYS_SEED_CLUSTERS * RECSYS_SEED_ITEMS), check=False, capture=True)
+    real = [x.strip() for x in res.stdout.splitlines() if x.strip()] if res.returncode == 0 else []
+    listings = recsys_seed_listings(real)
+    beacons = recsys_seed_beacons(listings, uuid.uuid4().hex[:8])
+    accepted = 0
+    try:
+        for i in range(0, len(beacons), 60):
+            accepted += post_track(url, beacons[i:i + 60])
+    except (urllib.error.URLError, OSError) as e:
+        print(f"agora-env: recsys seed failed after {accepted} events: {e}", file=sys.stderr)
+        return False
+    kind = "published" if listings == real[:len(listings)] else "synthetic"
+    print(f"recsys seed: {accepted}/{len(beacons)} consented interaction events from {RECSYS_SEED_USERS} visitors on {len(listings)} {kind} listings")
+    return accepted == len(beacons)
+
+
 def write_dc_wrapper(st):
     d = state_dir(st["env"])
     d.mkdir(parents=True, exist_ok=True)
@@ -413,6 +483,8 @@ def cmd_up(a):
     st = {"env": env, "project": env, "src": str(src), "branch": a.branch or branch, "slot": slot,
           "owners": sorted(set(prev.get("owners", [])) | set(owners)), "services": sorted(set(prev.get("services", [])) | set(run_set)),
           "overlays": overlays, "ports": {str(k): v for k, v in pm.items()}}
+    if prev.get("recsys_seeded"):
+        st["recsys_seeded"] = prev["recsys_seeded"]
     if not prev:
         busy = listening_ports() & set(pm.values())
         if busy:
@@ -428,6 +500,9 @@ def cmd_up(a):
     if "team-gateway" in st["services"]:
         compose(st, "restart", "team-gateway", capture=True)
     drop_unused(old)
+    if "platform-recsys" in st["services"] and not st.get("recsys_seeded") and seed_recsys(st):
+        st["recsys_seeded"] = True
+        save_state(st)
     print(f"env {env} up: project {env}, gateway http://localhost:{pm.get(8080)}, frontend http://localhost:{pm.get(3000)}")
 
 
