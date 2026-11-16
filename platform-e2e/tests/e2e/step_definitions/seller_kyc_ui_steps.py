@@ -8,7 +8,7 @@ container stops (team-verification, the document storage), restored by world cle
 from __future__ import annotations
 
 import re
-from urllib.parse import unquote
+from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
@@ -327,7 +327,9 @@ def not_shown(world: World, text: str) -> None:
 @then(parsers.parse('the browser is sent to the login page with the return path "{path}"'))
 def sent_to_login(world: World, path: str) -> None:
     world.page.wait_for_url(re.compile(r"/login"), timeout=timeouts.NAVIGATION)
-    assert f"next={path}" in unquote(world.page.url), world.page.url
+    query = parse_qs(urlsplit(world.page.url).query)
+    target = (query.get("returnUrl") or query.get("next") or [""])[0]
+    assert urlsplit(target).path == path, world.page.url
 
 
 @then("the seller access-denied view is shown and the verification page content is not")

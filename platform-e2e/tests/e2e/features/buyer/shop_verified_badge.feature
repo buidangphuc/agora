@@ -14,7 +14,7 @@ Feature: KYC lives only in the seller app and the shop page shows a public verif
   @needsBuyer
   Scenario: Buyer navigation has no verification link
     Given a buyer is logged in
-    When the buyer opens the account pages "/account", "/account/security" and "/account/addresses"
+    When the buyer opens the account pages "/account/orders", "/account/security" and "/account/addresses"
     Then every page has 0 links to "/account/verification" in the account nav and the top bar
 
   @needsSeller

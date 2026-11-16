@@ -57,7 +57,7 @@ export default async function SellerWalletPage(props: {
   const [balance, entries, verification] = await Promise.allSettled([
     getWalletBalance(me.id, { throwOnError: true }),
     listLedgerEntries(me.id, { throwOnError: true }),
-    getVerificationStatus("me"),
+    getVerificationStatus(me.id),
   ]);
   const unverified =
     verification.status === "fulfilled" &&
