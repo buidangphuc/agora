@@ -51,7 +51,7 @@ Feature: Legal versions at registration and the consent ledger
   @destructive @legal_versions_override
   Scenario: Re-accepting a new Terms version appends a row
     Given a buyer registered at the previous terms version
-    And team-identity runs with LEGAL_TERMS_VERSIONS "2026-11,2026-05"
+    And team-identity runs with LEGAL_TERMS_VERSIONS "2026-12,2026-11"
     When the buyer records TERMS at the new current version from the account page
     Then the newest TERMS record has the new version and the earlier TERMS record is still listed
 

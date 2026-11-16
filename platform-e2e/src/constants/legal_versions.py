@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import os
 
-CURRENT_TERMS = os.getenv("E2E_LEGAL_TERMS_VERSION", "2026-11-13")
-CURRENT_PRIVACY = os.getenv("E2E_PRIVACY_POLICY_VERSION", "2026-11-13")
-NEW_TERMS = os.getenv("E2E_LEGAL_TERMS_NEW_VERSION", "2026-11")
+CURRENT_TERMS = os.getenv("E2E_LEGAL_TERMS_VERSION", "2026-11")
+CURRENT_PRIVACY = os.getenv("E2E_PRIVACY_POLICY_VERSION", "2026-11")
+NEW_TERMS = os.getenv("E2E_LEGAL_TERMS_NEW_VERSION", "2026-12")
 
 
 def versions() -> dict[str, str]:

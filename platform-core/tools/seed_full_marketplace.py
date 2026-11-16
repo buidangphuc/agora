@@ -1178,8 +1178,8 @@ class MarketplaceSeeder:
                 "username": username,
                 "password": DEFAULT_PASSWORD,
                 "role": role,
-                "termsVersion": os.getenv("LEGAL_TERMS_VERSION", "2026-11-13"),
-                "privacyVersion": os.getenv("PRIVACY_POLICY_VERSION", "2026-11-13"),
+                "termsVersion": os.getenv("LEGAL_TERMS_VERSION", "2026-11"),
+                "privacyVersion": os.getenv("PRIVACY_POLICY_VERSION", "2026-11"),
             },
         )
         # 2. Login

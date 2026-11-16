@@ -228,8 +228,8 @@ services:
       - JWT_KID=dev-2026
       - JWKS_HTTP_PORT=50063
       - SELLER_TERMS_VERSIONS=2026-11-02
-      - LEGAL_TERMS_VERSIONS=2026-11-13
-      - PRIVACY_POLICY_VERSIONS=2026-11-13
+      - LEGAL_TERMS_VERSIONS=2026-11
+      - PRIVACY_POLICY_VERSIONS=2026-11
       - GRPC_PORT=50053
       - ENV=local
       # SessionRevoked outbox relayer (ADR-0003 addendum): RevokeSession writes the

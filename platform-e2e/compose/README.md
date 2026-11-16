@@ -12,7 +12,7 @@ the overlays you need to its `-f` list.
 | `order-inventory.override.yaml` | order / inventory features | 20 s reservation TTL, 2 s sweep |
 | `session-retention.override.yaml` | `auth/session_retention.feature` (`@retention_override`) | team-identity `SESSION_RETENTION=5s`, `LOGIN_HISTORY_RETENTION=5s`, `SESSION_SWEEP_INTERVAL=2s`; the `@retention_default` control runs without it |
 | `account-deletion.override.yaml` | `identity/account_deletion_erasure.feature` (`@deletion_sweep_override`) | team-identity `ACCOUNT_DELETION_CANCEL_WINDOW=20s`, `ACCOUNT_ERASURE_SWEEP_INTERVAL=2s`; the `@deletion_default` scenarios (48 h) need the stack without it |
-| `legal-versions.override.yaml` | `identity/legal_consent.feature` stack-level scenarios | team-identity `LEGAL_TERMS_VERSIONS=2026-11,2026-05`, `PRIVACY_POLICY_VERSIONS=2026-11-13`; applied by the scenario itself (restart of team-identity), restored in teardown (`tests/e2e/step_definitions/legal_consent_steps.py:29`) |
+| `legal-versions.override.yaml` | `identity/legal_consent.feature` stack-level scenarios | team-identity `LEGAL_TERMS_VERSIONS` from `E2E_LEGAL_TERMS_VERSIONS` (default `2026-12,2026-11`, set by the scenario step), `PRIVACY_POLICY_VERSIONS=2026-11`; applied by the scenario itself (restart of team-identity), restored in teardown (`tests/e2e/step_definitions/legal_consent_steps.py:29`) |
 | `payment-ledger.override.yaml` | payment ledger features | short ledger windows |
 | `search-tombstones.override.yaml` | search read-model features | 30 s tombstone TTL |
 | `llm-fake.override.yaml` | `ai/llm_*.feature` | adds the `llm-fake` provider, switches team-ai to `CHAT_BACKEND=llm_router` against it |

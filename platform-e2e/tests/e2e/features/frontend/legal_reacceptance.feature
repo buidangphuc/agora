@@ -18,7 +18,7 @@ Feature: Users with stale acceptance are asked to accept again (change frontend-
 
   @destructive @legal_versions_override
   Scenario: A newer Terms version triggers the prompt
-    Given team-identity runs with LEGAL_TERMS_VERSIONS "2026-11,2026-05"
+    Given team-identity runs with LEGAL_TERMS_VERSIONS "2026-12,2026-11"
     And a user registered at the identity current terms version is signed in
     When the user loads the home page
     Then the re-acceptance dialog with "Đồng ý" and "Đăng xuất" is visible

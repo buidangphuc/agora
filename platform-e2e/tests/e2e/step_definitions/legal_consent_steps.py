@@ -287,7 +287,11 @@ def identity_with_versions(world: World, value: str) -> None:
         pe.wait_healthy(_identity_container(), 120)
 
     world.add_cleanup(restore)
-    apr.dc("-f", str(OVERLAY), "up", "-d", "--no-deps", "team-identity")
+    os.environ["E2E_LEGAL_TERMS_VERSIONS"] = value
+    try:
+        apr.dc("-f", str(OVERLAY), "up", "-d", "--no-deps", "team-identity")
+    finally:
+        os.environ.pop("E2E_LEGAL_TERMS_VERSIONS", None)
     pe.wait_healthy(_identity_container(), 120)
     env = pe.container_env(_identity_container())
     assert env.get("LEGAL_TERMS_VERSIONS") == value, "team-identity did not pick up the overlay"

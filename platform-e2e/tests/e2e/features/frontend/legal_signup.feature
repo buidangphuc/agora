@@ -26,7 +26,7 @@ Feature: Sign-up requires accepting the Terms and the Privacy Policy (change fro
 
   @destructive @legal_versions_override
   Scenario: A stale version is reported to the user
-    Given team-identity runs with LEGAL_TERMS_VERSIONS "2026-11,2026-05"
+    Given team-identity runs with LEGAL_TERMS_VERSIONS "2026-12,2026-11"
     And the "register" page is open
     When the visitor submits the register form with both boxes checked
     Then the form shows "Điều khoản đã được cập nhật. Vui lòng tải lại trang và đồng ý lại."

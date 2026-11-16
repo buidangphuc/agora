@@ -9,8 +9,8 @@ set -euo pipefail
 GW="${GATEWAY_URL:-http://localhost:8080}"
 PER_SHOP="${PER_SHOP:-15}"
 PASSWORD="pass123"
-TERMS_VERSION="${LEGAL_TERMS_VERSION:-2026-11-13}"
-PRIVACY_VERSION="${PRIVACY_POLICY_VERSION:-2026-11-13}"
+TERMS_VERSION="${LEGAL_TERMS_VERSION:-2026-11}"
+PRIVACY_VERSION="${PRIVACY_POLICY_VERSION:-2026-11}"
 SHOPS=("shop_thanhly" "shop_dienmay" "shop_thoitrang")
 
 # Product name pools by loose category.
