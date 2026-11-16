@@ -675,10 +675,10 @@ def poison_team_ai(aue_world):
 
 
 def _ai_keys(w, uid: str) -> list[str]:
-    quota = aue.team_ai_env("QUOTA_REDIS_PREFIX", "ai:quota")
-    rate = aue.team_ai_env("RATE_LIMIT_REDIS_PREFIX", "ai:ratelimit")
+    quota = aue.team_ai_env("QUOTA_REDIS_PREFIX", "quota")
+    rate = aue.team_ai_env("RATE_LIMIT_REDIS_PREFIX", "rate-limit")
     sessions = [f"chat:session:{quote(uid, safe='')}:{i}" for i in (1, 2, 3)]
-    return sessions + [f"{quota}:user:{uid}:e2e", f"{rate}:principal:user:{uid}"]
+    return sessions + [f"{quota}:c:user:{uid}:e2e:1", f"{rate}:principal:user:{uid}:1"]
 
 
 @given(parsers.parse('a team-ai user "{name}" with three chat sessions, a quota counter and a rate-limit counter'))

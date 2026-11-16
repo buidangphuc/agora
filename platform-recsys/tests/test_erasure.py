@@ -51,11 +51,14 @@ GARBAGE = b"\x0a\x05ab"
 
 
 class Msg:
-    def __init__(self, value: bytes, error=None):
-        self._value, self._error = value, error
+    def __init__(self, value: bytes, error=None, key: bytes | None = None):
+        self._value, self._error, self._key = value, error, key
 
     def value(self):
         return self._value
+
+    def key(self):
+        return self._key
 
     def error(self):
         return self._error
@@ -88,9 +91,11 @@ class Producer:
     def __init__(self, log: Log):
         self.log = log
         self.sent: list[tuple[str, bytes | None, bytes | None]] = []
+        self.headers: list[list[tuple[str, bytes]]] = []
 
     def produce(self, topic, value=None, key=None, *args, **kwargs):
         self.sent.append((topic, value, key))
+        self.headers.append(kwargs.get("headers") or [])
         self.log.events.append(("produce", topic))
 
     def flush(self, timeout=None):
@@ -311,6 +316,13 @@ def test_aue22_poison_records_go_to_dlq_then_commit_and_delete_nothing():
     assert log.events.index(("produce", DLQ)) < first_commit
     assert log.events.count(("produce", DLQ)) == 2
     assert source.commits >= 1
+
+
+def test_aue22_poison_records_keep_their_key_and_carry_an_error_header():
+    consumer, _, producer, *_ = build([Msg(GARBAGE, key=b"poison-key")])
+    consumer.run()
+    assert [(t, v, k) for t, v, k in producer.sent] == [(DLQ, GARBAGE, b"poison-key")]
+    assert any(h == "dlq-error" and v for h, v in producer.headers[0])
 
 
 def test_aue23_logs_carry_no_raw_id_and_report_counts(caplog):

@@ -133,7 +133,7 @@ def publish_status_changed(user_id: str) -> str:
 
 
 def has_error_header(record: dict) -> bool:
-    return any(k == "error" and v for k, v in record["headers"])
+    return any(k in ("error", "dlq-error") and v for k, v in record["headers"])
 
 
 # ── Parquet exports ──────────────────────────────────────────────────────

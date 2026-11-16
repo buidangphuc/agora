@@ -109,23 +109,28 @@ class ErasureConsumer:
             self.qdrant.delete(collection_name=name, points_selector=selector)
         return len(targets)
 
-    def _poison(self, value: bytes, reason: str) -> None:
-        self.producer.produce(self.settings.erasure_dlq_topic, value=value)
+    def _poison(self, value: bytes, reason: str, key: bytes | None = None) -> None:
+        self.producer.produce(
+            self.settings.erasure_dlq_topic,
+            value=value,
+            key=key,
+            headers=[("dlq-error", reason.encode("utf-8"))],
+        )
         self.producer.flush()
         self.stats.poison += 1
         log.warning("poison record parked on %s: %s", self.settings.erasure_dlq_topic, reason)
 
-    def handle(self, value: bytes) -> None:
+    def handle(self, value: bytes, key: bytes | None = None) -> None:
         try:
             type_, uid = _decode(value)
         except (DecodeError, UnicodeDecodeError) as exc:
-            self._poison(value, f"undecodable: {exc}")
+            self._poison(value, f"undecodable: {exc}", key)
             return
         if type_ != USER_ERASED_TYPE:
             self.stats.skipped += 1
             return
         if not uid:
-            self._poison(value, "UserErased without a user id")
+            self._poison(value, "UserErased without a user id", key)
             return
         keys = self._delete_redis(uid)
         collections = self._delete_qdrant(uid)
@@ -149,7 +154,7 @@ class ErasureConsumer:
                     log.warning("kafka error: %s", msg.error())
                     continue
                 last_message = now
-                self.handle(msg.value())
+                self.handle(msg.value(), msg.key())
                 self.source.commit(asynchronous=False)
         finally:
             self.source.close()
