@@ -2477,8 +2477,8 @@ features:
       - "When a signed-in buyer without scope `listing.write` opens `/seller/marketing`"
       - "Then the seller onboarding screen is shown instead of the hub and no promotion RPC is called"
     tags: [seller, promo]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "seller/seller_marketing_hub.feature::Buyer account is denied the hub"
 
   - id: seller-marketing-hub.anonymous-visitor-is-redirected-to-login
     title: "Marketing hub: Anonymous visitor is redirected to login"
