@@ -126,8 +126,6 @@ func (r *erasureRig) assertUnmasked(orderID string) {
 }
 
 func TestEraseUser(t *testing.T) {
-	ctx := context.Background()
-
 	t.Run("ORD-1 buyer contact data is masked and accounting data is kept", func(t *testing.T) {
 		r := newErasureRig(t)
 		for i := 1; i <= 3; i++ {
@@ -138,7 +136,7 @@ func TestEraseUser(t *testing.T) {
 		r.addCart("c-2", "u-1", "l-2")
 		kept := r.keptSnapshot()
 
-		if err := r.repo.EraseUser(ctx, "u-1"); err != nil {
+		if err := r.repo.EraseUser(t.Context(), "u-1"); err != nil {
 			t.Fatalf("EraseUser: %v", err)
 		}
 
@@ -164,7 +162,7 @@ func TestEraseUser(t *testing.T) {
 		r.addCart("c-w", "w-1", "l-1")
 		before := r.userSnapshot("w-1")
 
-		if err := r.repo.EraseUser(ctx, "u-1"); err != nil {
+		if err := r.repo.EraseUser(t.Context(), "u-1"); err != nil {
 			t.Fatalf("EraseUser: %v", err)
 		}
 
@@ -182,7 +180,7 @@ func TestEraseUser(t *testing.T) {
 		r.addCart("c-w", "w-1", "l-1")
 		before := r.fullSnapshot()
 
-		if err := r.repo.EraseUser(ctx, "nobody"); err != nil {
+		if err := r.repo.EraseUser(t.Context(), "nobody"); err != nil {
 			t.Fatalf("EraseUser: %v", err)
 		}
 		if after := r.fullSnapshot(); after != before {
@@ -196,7 +194,7 @@ func TestEraseUser(t *testing.T) {
 		r.addReturn("ret-b", "o-b", "b-1", "u-1", store.ReturnStatusApproved)
 		before := r.fullSnapshot()
 
-		if err := r.repo.EraseUser(ctx, "u-1"); err != nil {
+		if err := r.repo.EraseUser(t.Context(), "u-1"); err != nil {
 			t.Fatalf("EraseUser: %v", err)
 		}
 
@@ -215,14 +213,12 @@ func TestEraseUserIdempotent(t *testing.T) {
 	r.addOrder("o-1", "u-1", "s-1", store.OrderStatusPaid, 1000)
 	r.addReturn("ret-1", "o-1", "u-1", "s-1", store.ReturnStatusPending)
 	r.addCart("c-1", "u-1", "l-1")
-	ctx := context.Background()
-
-	if err := r.repo.EraseUser(ctx, "u-1"); err != nil {
+	if err := r.repo.EraseUser(t.Context(), "u-1"); err != nil {
 		t.Fatalf("first EraseUser: %v", err)
 	}
 	first := r.fullSnapshot()
 	for i := 0; i < 2; i++ {
-		if err := r.repo.EraseUser(ctx, "u-1"); err != nil {
+		if err := r.repo.EraseUser(t.Context(), "u-1"); err != nil {
 			t.Fatalf("repeat EraseUser %d: %v", i, err)
 		}
 	}
@@ -233,7 +229,6 @@ func TestEraseUserIdempotent(t *testing.T) {
 
 func TestEraseUserRollsBack(t *testing.T) {
 	r := newErasureRig(t)
-	ctx := context.Background()
 	r.addOrder("o-1", "u-1", "s-1", store.OrderStatusPaid, 1000)
 	r.addReturn("ret-1", "o-1", "u-1", "s-1", store.ReturnStatusPending)
 	r.addCart("c-1", "u-1", "l-1")
@@ -241,7 +236,7 @@ func TestEraseUserRollsBack(t *testing.T) {
 	r.exec(`CREATE FUNCTION fail_cart_erase() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected commit failure'; END $$`)
 	r.exec(`CREATE CONSTRAINT TRIGGER fail_cart_erase AFTER DELETE ON cart_items DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION fail_cart_erase()`)
 
-	if err := r.repo.EraseUser(ctx, "u-1"); err == nil {
+	if err := r.repo.EraseUser(t.Context(), "u-1"); err == nil {
 		t.Fatal("ORD-7 EraseUser succeeded despite the injected failure")
 	}
 	r.assertUnmasked("o-1")
@@ -253,7 +248,7 @@ func TestEraseUserRollsBack(t *testing.T) {
 	}
 
 	r.exec(`DROP TRIGGER fail_cart_erase ON cart_items`)
-	if err := r.repo.EraseUser(ctx, "u-1"); err != nil {
+	if err := r.repo.EraseUser(t.Context(), "u-1"); err != nil {
 		t.Fatalf("ORD-7 retry after recovery: %v", err)
 	}
 	r.assertMasked("o-1")
@@ -263,8 +258,6 @@ func TestEraseUserRollsBack(t *testing.T) {
 }
 
 func TestUserObligationsCounts(t *testing.T) {
-	ctx := context.Background()
-
 	t.Run("OBL-1 open orders and returns are counted", func(t *testing.T) {
 		r := newErasureRig(t)
 		r.addOrder("o-1", "u-1", "s-1", store.OrderStatusPending, 1)
@@ -272,7 +265,7 @@ func TestUserObligationsCounts(t *testing.T) {
 		r.addOrder("o-3", "u-1", "s-1", store.OrderStatusShipped, 1)
 		r.addOrder("o-4", "b-1", "u-1", store.OrderStatusPaid, 1)
 		r.addReturn("ret-1", "o-1", "u-1", "s-1", store.ReturnStatusPending)
-		got, err := r.repo.UserObligations(ctx, "u-1")
+		got, err := r.repo.UserObligations(t.Context(), "u-1")
 		if err != nil {
 			t.Fatalf("UserObligations: %v", err)
 		}
@@ -289,7 +282,7 @@ func TestUserObligationsCounts(t *testing.T) {
 		r.addOrder("o-4", "b-1", "u-1", store.OrderStatusCancelled, 1)
 		r.addReturn("ret-1", "o-1", "u-1", "s-1", store.ReturnStatusRejected)
 		r.addReturn("ret-2", "o-2", "u-1", "s-1", store.ReturnStatusRefunded)
-		got, err := r.repo.UserObligations(ctx, "u-1")
+		got, err := r.repo.UserObligations(t.Context(), "u-1")
 		if err != nil {
 			t.Fatalf("UserObligations: %v", err)
 		}
@@ -300,7 +293,7 @@ func TestUserObligationsCounts(t *testing.T) {
 
 	t.Run("OBL-3 a user with no data reads zeros", func(t *testing.T) {
 		r := newErasureRig(t)
-		got, err := r.repo.UserObligations(ctx, "nobody")
+		got, err := r.repo.UserObligations(t.Context(), "nobody")
 		if err != nil {
 			t.Fatalf("UserObligations: %v", err)
 		}
@@ -314,7 +307,7 @@ func TestUserObligationsCounts(t *testing.T) {
 		r.addOrder("o-1", "u-1", "v-1", store.OrderStatusCompleted, 1)
 		r.addReturn("ret-1", "o-1", "u-1", "v-1", store.ReturnStatusApproved)
 		for _, id := range []string{"u-1", "v-1"} {
-			got, err := r.repo.UserObligations(ctx, id)
+			got, err := r.repo.UserObligations(t.Context(), id)
 			if err != nil {
 				t.Fatalf("UserObligations(%s): %v", id, err)
 			}
@@ -330,7 +323,7 @@ func TestUserObligationsCounts(t *testing.T) {
 		for i := 1; i <= 4; i++ {
 			r.addOrder(fmt.Sprintf("o-w%d", i), "w-1", "s-1", store.OrderStatusPending, 1)
 		}
-		got, err := r.repo.UserObligations(ctx, "u-1")
+		got, err := r.repo.UserObligations(t.Context(), "u-1")
 		if err != nil {
 			t.Fatalf("UserObligations: %v", err)
 		}

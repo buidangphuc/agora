@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	userErasedType         = "platform.identity.v1.UserErased"
-	userRegisteredType     = "platform.identity.v1.UserRegistered"
-	userStatusChangedType_ = "platform.identity.v1.UserStatusChanged"
-	maskText               = "Đã xóa"
+	userErasedType            = "platform.identity.v1.UserErased"
+	userRegisteredType        = "platform.identity.v1.UserRegistered"
+	identityStatusChangedType = "platform.identity.v1.UserStatusChanged"
+	maskText                  = "Đã xóa"
 )
 
 func erasureEnvelope(t *testing.T, eventID, typ string, payload proto.Message) consume.Record {
@@ -153,8 +153,9 @@ func TestErasureConsumerIgnoresOtherEvents(t *testing.T) {
 	h := events.NewErasureConsumer(r.orders, quietLogger())
 
 	reg := erasureEnvelope(t, "e-1", userRegisteredType, &identityv1.UserRegistered{UserId: "u-1"})
-	sc := erasureEnvelope(t, "e-2", userStatusChangedType_, &identityv1.UserStatusChanged{
-		UserId: "u-1", Status: identityv1.UserStatus_USER_STATUS_BANNED, ChangedAt: timestamppb.Now()})
+	sc := erasureEnvelope(t, "e-2", identityStatusChangedType, &identityv1.UserStatusChanged{
+		UserId: "u-1", Status: identityv1.UserStatus_USER_STATUS_BANNED, ChangedAt: timestamppb.Now(),
+	})
 	for _, rec := range []consume.Record{reg, sc} {
 		if err := h.Handle(context.Background(), rec); err != nil {
 			t.Fatalf("ORD-8 Handle: %v", err)

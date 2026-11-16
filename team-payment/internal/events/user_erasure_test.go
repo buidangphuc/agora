@@ -207,7 +207,8 @@ func TestErasureConsumerIgnoresOtherEvents(t *testing.T) {
 	for _, rec := range []consume.Record{
 		envelope(t, "e-1", userRegisteredType, &identityv1.UserRegistered{UserId: "S"}),
 		envelope(t, "e-2", statusChangedType, &identityv1.UserStatusChanged{
-			UserId: "S", Status: identityv1.UserStatus_USER_STATUS_BANNED, ChangedAt: timestamppb.Now()}),
+			UserId: "S", Status: identityv1.UserStatus_USER_STATUS_BANNED, ChangedAt: timestamppb.Now(),
+		}),
 	} {
 		if err := h.Handle(context.Background(), rec); err != nil {
 			t.Fatalf("PER-7 Handle: %v", err)

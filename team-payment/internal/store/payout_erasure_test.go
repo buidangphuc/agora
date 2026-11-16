@@ -45,21 +45,19 @@ func masked(t *testing.T, pool *pgxpool.Pool, seller string) int {
 }
 
 func TestEraseSellerPayouts(t *testing.T) {
-	ctx := context.Background()
-
 	t.Run("PER-1 bank details are masked and money records are kept", func(t *testing.T) {
 		pool := migratedPool(t)
 		seedSeller(t, pool, "S")
-		before, err := store.NewPostgresWalletRepository(pool).ListPayoutRequestsBySellerID(ctx, "S")
+		before, err := store.NewPostgresWalletRepository(pool).ListPayoutRequestsBySellerID(t.Context(), "S")
 		if err != nil || len(before) != 3 {
 			t.Fatalf("seed list = %d, %v", len(before), err)
 		}
-		ledgerBefore, _ := store.NewPostgresLedgerRepository(pool).Balance(ctx, "S")
+		ledgerBefore, _ := store.NewPostgresLedgerRepository(pool).Balance(t.Context(), "S")
 
-		if err := store.NewPostgresWalletRepository(pool).EraseSellerPayouts(ctx, "S"); err != nil {
+		if err := store.NewPostgresWalletRepository(pool).EraseSellerPayouts(t.Context(), "S"); err != nil {
 			t.Fatalf("PER-1 EraseSellerPayouts: %v", err)
 		}
-		after, err := store.NewPostgresWalletRepository(pool).ListPayoutRequestsBySellerID(ctx, "S")
+		after, err := store.NewPostgresWalletRepository(pool).ListPayoutRequestsBySellerID(t.Context(), "S")
 		if err != nil || len(after) != 3 {
 			t.Fatalf("PER-1 list after = %d, %v", len(after), err)
 		}
@@ -76,7 +74,7 @@ func TestEraseSellerPayouts(t *testing.T) {
 				t.Errorf("PER-1 %s money fields changed: %+v -> %+v", a.ID, b, a)
 			}
 		}
-		if got, _ := store.NewPostgresLedgerRepository(pool).Balance(ctx, "S"); got != ledgerBefore {
+		if got, _ := store.NewPostgresLedgerRepository(pool).Balance(t.Context(), "S"); got != ledgerBefore {
 			t.Errorf("PER-1 ledger sum %d -> %d", ledgerBefore, got)
 		}
 	})
@@ -85,14 +83,14 @@ func TestEraseSellerPayouts(t *testing.T) {
 		pool := migratedPool(t)
 		seedSeller(t, pool, "S")
 		seedSeller(t, pool, "T")
-		if err := store.NewPostgresWalletRepository(pool).EraseSellerPayouts(ctx, "S"); err != nil {
+		if err := store.NewPostgresWalletRepository(pool).EraseSellerPayouts(t.Context(), "S"); err != nil {
 			t.Fatal(err)
 		}
 		if masked(t, pool, "S") != 3 || masked(t, pool, "T") != 0 {
 			t.Fatalf("PER-2 masked S=%d T=%d, want 3/0", masked(t, pool, "S"), masked(t, pool, "T"))
 		}
 		var n int
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM payout_requests WHERE seller_id='T' AND account_number='0123456789' AND account_name='NGUYEN VAN A'`).Scan(&n); err != nil || n != 3 {
+		if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM payout_requests WHERE seller_id='T' AND account_number='0123456789' AND account_name='NGUYEN VAN A'`).Scan(&n); err != nil || n != 3 {
 			t.Fatalf("PER-2 T rows intact = %d, %v", n, err)
 		}
 	})
@@ -101,12 +99,12 @@ func TestEraseSellerPayouts(t *testing.T) {
 		pool := migratedPool(t)
 		seedSeller(t, pool, "S")
 		w := store.NewPostgresWalletRepository(pool)
-		if err := w.EraseSellerPayouts(ctx, "S"); err != nil {
+		if err := w.EraseSellerPayouts(t.Context(), "S"); err != nil {
 			t.Fatal(err)
 		}
 		first := snapshotMoney(t, pool)
 		for i := 0; i < 2; i++ {
-			if err := w.EraseSellerPayouts(ctx, "S"); err != nil {
+			if err := w.EraseSellerPayouts(t.Context(), "S"); err != nil {
 				t.Fatalf("PER-3 repeat %d: %v", i, err)
 			}
 		}
@@ -118,11 +116,11 @@ func TestEraseSellerPayouts(t *testing.T) {
 	t.Run("PER-4 a user without payouts is a no-op", func(t *testing.T) {
 		pool := migratedPool(t)
 		seedSeller(t, pool, "S")
-		if _, err := store.NewPostgresPaymentRepository(pool).CreateTransaction(ctx, store.PaymentTransaction{OrderID: "o-1", BuyerID: "B", Amount: 1000}); err != nil {
+		if _, err := store.NewPostgresPaymentRepository(pool).CreateTransaction(t.Context(), store.PaymentTransaction{OrderID: "o-1", BuyerID: "B", Amount: 1000}); err != nil {
 			t.Fatal(err)
 		}
 		before := snapshotMoney(t, pool)
-		if err := store.NewPostgresWalletRepository(pool).EraseSellerPayouts(ctx, "B"); err != nil {
+		if err := store.NewPostgresWalletRepository(pool).EraseSellerPayouts(t.Context(), "B"); err != nil {
 			t.Fatalf("PER-4 EraseSellerPayouts: %v", err)
 		}
 		if after := snapshotMoney(t, pool); after != before {
