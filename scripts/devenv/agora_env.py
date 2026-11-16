@@ -40,6 +40,7 @@ CODE_DEFAULTS = {
     "team-domain": {"STORAGE_ENDPOINT": "localhost:9000", "STORAGE_PUBLIC_BASE_URL": "http://localhost:9000/listing-images"},
 }
 RPK_BROKERS = "127.0.0.1:9092"
+UP_RETRY_WAIT = 10
 RECSYS_SERVICES = ["platform-recsys", "mlflow"]
 OWNER_EXTRAS = {"platform-recsys": RECSYS_SERVICES}
 E2E_EXTRAS = {"*rgp*": RECSYS_SERVICES, "*recsys*": RECSYS_SERVICES, "*recommend*": RECSYS_SERVICES}
@@ -101,6 +102,14 @@ def compose_files(st):
 
 def compose(st, *args, check=True, capture=False):
     return run(["docker", "compose", "-p", st["project"], *compose_files(st), *args], cwd=st["src"], check=check, capture=capture)
+
+
+def compose_up(st, services, retry_wait=UP_RETRY_WAIT):
+    if compose(st, "up", "-d", "--no-build", *services, check=False).returncode == 0:
+        return
+    print(f"agora-env: compose up failed, retrying once in {retry_wait}s", file=sys.stderr)
+    time.sleep(retry_wait)
+    compose(st, "up", "-d", "--no-build", *services)
 
 
 def config(src, overlays):
@@ -581,7 +590,7 @@ def cmd_up(a):
     write_dc_wrapper(st)
     check_images(services, st["services"], st["owners"], env)
     old = [] if a.no_build else build(st, services, owners)
-    compose(st, "up", "-d", "--no-build", *st["services"])
+    compose_up(st, st["services"])
     if "team-gateway" in st["services"]:
         compose(st, "restart", "team-gateway", capture=True)
     drop_unused(old)

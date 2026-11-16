@@ -637,3 +637,25 @@ def test_plan_runs_recsys_services_for_recsys_e2e_slices_and_keeps_with(monkeypa
     _, _, owners, run_set = ae.cmd_plan(_plan_args(src=str(tmp_path), slices=str(p), with_=["team-order"]))
     assert "platform-recsys" not in owners
     assert {"platform-recsys", "mlflow", "minio", "minio-init", "team-order"} <= set(run_set)
+
+
+def test_compose_up_retries_once_after_a_failed_first_up(monkeypatch):
+    codes = iter([1, 0])
+    calls = []
+
+    def fake_compose(st, *a, check=True, **kw):
+        calls.append((a, check))
+        return types.SimpleNamespace(returncode=next(codes), stdout="")
+
+    monkeypatch.setattr(ae, "compose", fake_compose)
+    monkeypatch.setattr(ae.time, "sleep", lambda s: None)
+    ae.compose_up({"env": "feat"}, ["postgres", "team-sharing-migrate"])
+    assert calls == [(("up", "-d", "--no-build", "postgres", "team-sharing-migrate"), False),
+                     (("up", "-d", "--no-build", "postgres", "team-sharing-migrate"), True)]
+
+
+def test_compose_up_does_not_retry_a_successful_up(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ae, "compose", lambda st, *a, **kw: calls.append(a) or types.SimpleNamespace(returncode=0, stdout=""))
+    ae.compose_up({"env": "feat"}, ["postgres"])
+    assert len(calls) == 1
