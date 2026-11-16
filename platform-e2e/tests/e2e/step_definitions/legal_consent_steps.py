@@ -289,9 +289,9 @@ def identity_with_versions(world: World, value: str) -> None:
     world.add_cleanup(restore)
     apr.dc("-f", str(OVERLAY), "up", "-d", "--no-deps", "team-identity")
     pe.wait_healthy(_identity_container(), 120)
-    env = pe.docker("exec", _identity_container(), "env").stdout
-    assert f"LEGAL_TERMS_VERSIONS={value}" in env, "team-identity did not pick up the overlay"
-    _x(world)["new_terms"] = value.split(",")[0]
+    env = pe.container_env(_identity_container())
+    assert env.get("LEGAL_TERMS_VERSIONS") == value, "team-identity did not pick up the overlay"
+    _x(world)["new_terms"], _x(world)["old_terms"] = value.split(",")[:2]
 
 
 @given("a buyer registered at the previous terms version")
@@ -316,7 +316,7 @@ def terms_history(world: World) -> None:
 
 @then("registering with the old terms version fails INVALID_ARGUMENT")
 def old_terms_rejected(world: World) -> None:
-    reg = _register(world, legal.CURRENT_TERMS, "CURRENT_PRIVACY")
+    reg = _register(world, _x(world)["old_terms"], "CURRENT_PRIVACY")
     _assert_invalid(reg["resp"], "Register at the non-first terms version")
 
 
@@ -529,7 +529,8 @@ def isolation(world: World) -> None:
     rows_b = _all_records(b["token"])
     assert len(rows_a) == _x(world)["baseline"], rows_a
     assert len(rows_b) == 3, rows_b
-    assert not any(r["source"] == "banner" for r in rows_a), rows_a
+    assert not any(r["purpose"] == MARKETING for r in rows_a), rows_a
+    assert any(r["purpose"] == MARKETING and r["source"] == "banner" for r in rows_b), rows_b
 
 
 @when("the buyer lists consents with page size 500")

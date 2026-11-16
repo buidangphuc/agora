@@ -15,6 +15,6 @@ Depends on slice trust-legal-contract (generated stubs for `terms_version`, `pri
 ## 2. E2E track (platform-e2e; FEATURES.yaml by e2e-author)
 
 - [ ] 2.1 Feature file `identity/legal_consent.feature` covering every scenario in `specs/identity-consent/spec.md`; replace each `VERIFIED BY: TBD` with its path and scenario title
-- [ ] 2.2 Update every existing `Register` call (platform-e2e helpers, `platform-core/tools/seed-marketplace.sh`, compose seed) to send both current versions (scenario: Register with the current versions stores two consent records)
+- [x] 2.2 Update every existing `Register` call (platform-e2e helpers, `platform-core/tools/seed-marketplace.sh`, compose seed) to send both current versions (scenario: Register with the current versions stores two consent records)
 - [ ] 2.3 Step for a changed Terms version using a stack started with `LEGAL_TERMS_VERSIONS=<new>,<old>` (scenarios: Re-accepting a new Terms version appends a row, First entry is the current version)
 - [ ] 2.4 `team-identity/FEATURES.yaml` entries: `identity.register_consent`, `identity.consent_ledger` (e2e-author)

@@ -1174,7 +1174,13 @@ class MarketplaceSeeder:
         # 1. Register
         self.client.post(
             "/platform.identity.v1.AuthService/Register",
-            {"username": username, "password": DEFAULT_PASSWORD, "role": role},
+            {
+                "username": username,
+                "password": DEFAULT_PASSWORD,
+                "role": role,
+                "termsVersion": os.getenv("LEGAL_TERMS_VERSION", "2026-11-13"),
+                "privacyVersion": os.getenv("PRIVACY_POLICY_VERSION", "2026-11-13"),
+            },
         )
         # 2. Login
         code, res = self.client.post(

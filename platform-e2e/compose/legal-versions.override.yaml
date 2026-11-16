@@ -1,9 +1,8 @@
 # Changed legal versions for the identity-legal-consent e2e scenarios.
 #   docker compose -f docker-compose.yaml -f platform-e2e/compose/legal-versions.override.yaml up -d --no-deps team-identity
-# Terms version 2026-11 becomes current, 2026-05 (the default stack's current version) stays listed as old.
 # Keys by service name only (no container_name), so it works under any project.
 services:
   team-identity:
     environment:
       LEGAL_TERMS_VERSIONS: 2026-11,2026-05
-      PRIVACY_POLICY_VERSIONS: 2026-05
+      PRIVACY_POLICY_VERSIONS: 2026-11-13

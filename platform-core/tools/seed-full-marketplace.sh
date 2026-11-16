@@ -29,7 +29,7 @@ register_and_login() {
 
   curl -s -X POST "$GW/platform.identity.v1.AuthService/Register" \
     -H 'Content-Type: application/json' \
-    -d "{\"username\":\"$username\",\"password\":\"$DEFAULT_PASSWORD\",\"role\":\"$role\"}" >/dev/null || true
+    -d "{\"username\":\"$username\",\"password\":\"$DEFAULT_PASSWORD\",\"role\":\"$role\",\"termsVersion\":\"${LEGAL_TERMS_VERSION:-2026-11-13}\",\"privacyVersion\":\"${PRIVACY_POLICY_VERSION:-2026-11-13}\"}" >/dev/null || true
 
   local token
   token=$(curl -s -X POST "$GW/platform.identity.v1.AuthService/Login" \
