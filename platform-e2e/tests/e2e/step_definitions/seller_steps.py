@@ -34,7 +34,7 @@ def seller_creates_listing(world: World) -> None:
     page: SellerNewListingPage = world.navigate_to(PageName.SELLER_NEW_LISTING)  # type: ignore[assignment]
     expect(page.title_input).to_be_visible(timeout=timeouts.DEFAULT)
     page.fill_and_submit(
-        Listing(title=title, category_id="cat-laptop", price=fake.price_vnd(), stock=50)
+        Listing(title=title, category_id="cat-electronics", price=fake.price_vnd(), stock=50)
     )
 
 

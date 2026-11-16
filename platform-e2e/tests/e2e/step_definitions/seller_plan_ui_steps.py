@@ -154,7 +154,7 @@ def submit_new_listing(world: World) -> None:
     expect(page.title_input).to_be_visible(timeout=timeouts.NAVIGATION)
     page.wait_until_interactive(page.submit_button)
     page.title_input.fill(title)
-    page.category_select.select_option("cat-laptop")
+    page.category_select.select_option("cat-electronics")
     page.price_input.fill("1000000")
     page.stock_input.fill("5")
     page.submit_button.click()
