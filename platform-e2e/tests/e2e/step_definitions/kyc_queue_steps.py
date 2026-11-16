@@ -412,7 +412,9 @@ def rows_count(world: World, n: int) -> None:
 
 @then(parsers.parse('the empty message "{text}" is shown'))
 def empty_shown(world: World, text: str) -> None:
-    expect(world.page.get_by_text(text)).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(world.page.locator("p").filter(has_text=text).first).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
 
 
 @then(parsers.parse('the row of seller "{name}" shows "{a}" and "{b}"'))
