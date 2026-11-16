@@ -25,6 +25,7 @@ MAIN_TAG = "local"
 MAIN_OVERLAYS = ["platform-e2e/compose/order-inventory.override.yaml", "platform-e2e/compose/rag-off.override.yaml"]
 FEATURE_OVERLAYS = list(MAIN_OVERLAYS)
 ENTRY = ["team-gateway"]
+TEST_RUNNERS = {"platform-e2e"}
 BASE_REF = "origin/main"
 MAIN_INFRA = ["postgres", "redpanda", "redis"]
 NOT_DEPS = {"TRUSTED_PROXIES", "CORS_ORIGINS", "JAEGER_UI_URL"}
@@ -232,7 +233,7 @@ def merge_overlays(prev, extra):
 def changed_builders(services, src, files):
     owners = set()
     for n, s in services.items():
-        d = build_dir(src, s) if s.get("build") else None
+        d = build_dir(src, s) if s.get("build") and n not in TEST_RUNNERS else None
         if d and any(f.startswith(d + "/") for f in files):
             owners.add(n)
     if any(f.startswith("platform-core/packages/proto/") for f in files):
@@ -545,13 +546,13 @@ def cmd_plan(a, overlays=None):
     changed = changed_builders(services, src, branch_changed_files(src))
     if not names and not changed:
         sys.exit(f"agora-env: give --slices or --services (no service differs from {BASE_REF})")
-    owners = one_per_image(services, set(resolve_builders(services, names, src)) | changed, src)
+    owners = one_per_image(services, (set(resolve_builders(services, names, src)) | changed) - TEST_RUNNERS, src)
     start = set(ENTRY) | set(owners) | set(a.with_ or [])
     if a.slices:
         start |= slice_extras(a.slices, src)
     for o in owners:
         start.update(image_users(services, o))
-    run_set = sorted(closure(services, start, a.with_optional))
+    run_set = sorted(closure(services, start - TEST_RUNNERS, a.with_optional) - TEST_RUNNERS)
     return src, services, owners, run_set
 
 

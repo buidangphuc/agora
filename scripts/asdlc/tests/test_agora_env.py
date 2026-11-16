@@ -292,6 +292,25 @@ def test_changed_builders_maps_files_to_build_dirs():
     assert ae.changed_builders(SERVICES, "/r", ["openspec/x.md"]) == set()
 
 
+def test_changed_builders_never_picks_the_in_stack_e2e_runner():
+    services = {**SERVICES, "platform-e2e": {"image": "platform-e2e:local", "build": {"context": "/r/platform-e2e"},
+                                             "container_name": "platform-e2e-runner"}}
+    files = ["platform-e2e/tests/e2e/step_definitions/x_steps.py", "team-sharing/main.go"]
+    assert ae.changed_builders(services, "/r", files) == {"team-sharing"}
+
+
+def test_plan_never_runs_the_in_stack_e2e_runner(monkeypatch):
+    services = {**SERVICES, "platform-e2e": {"image": "platform-e2e:local", "build": {"context": "/r/platform-e2e"},
+                                             "container_name": "platform-e2e-runner",
+                                             "environment": {"GATEWAY_URL": "http://team-gateway-svc:8080"}}}
+    monkeypatch.setattr(ae, "config", lambda src, overlays: services)
+    monkeypatch.setattr(ae, "branch_changed_files", lambda src: ["platform-e2e/tests/e2e/x.py"])
+    _, _, owners, run_set = ae.cmd_plan(_plan_args(services=["platform-e2e", "team-sharing"]))
+    assert "platform-e2e" not in owners
+    assert "platform-e2e" not in run_set
+    assert "team-sharing" in run_set
+
+
 def test_changed_builders_rebuilds_proto_consumers_on_contract_change(tmp_path):
     (tmp_path / "team-order").mkdir()
     (tmp_path / "team-order" / "buf.gen.yaml").write_text("version: v2\n")
