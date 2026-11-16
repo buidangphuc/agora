@@ -45,6 +45,12 @@ Hot-file pairs that must not run in parallel (from 00-spec):
 ## Cross-change check
 OK (exit 0), 0 violations (initial run had 2; fixed by renaming the duplicate scenario titles in buyer-sponsored-slots and seller-ads-ui).
 
+## Known exceptions
+Recorded per user decision 9 (2026-11-16); the validate_plan.py fixes land in the tooling PR (chore/asdlc-tooling).
+- validate_plan wave 1 conflict: `platform-e2e/pyproject.toml` was widened into both listing-plan-cap and promotion-ads-serving. The promotion-ads-serving edit is one pytest marker line (`ads`), recorded as a shared append owned by listing-plan-cap (ed4e25aba). Accepted; the tooling PR makes validate_plan tolerate marker-only pyproject edits.
+- validate_plan --audit does not parse `path — reason` entries under "widened (P1)", so a re-audit still flags the widened files of every slice. Accepted; parsing fixed in the tooling PR.
+- red_first e2e-order red: the first impl commit b2a9742b (monetization-contract T3, vendored proto copies and fe-platform api-client stubs) is counted before the first e2e commit d7d6b7b6. Not a red of this branch; fixed by chore/asdlc-tooling (decision 10 widens is_contract to team-*/proto/platform/** and the generated api-client).
+
 ## Open issues / NEEDS_HUMAN
 Escalated slices: none (all passed in 1 round; promotion-ads-campaign-mgmt in 2).
 Risk routing expected at build: payment (ledger, fees), proto (contract), auth (new RPC scopes, service-only ChargeSellerFee, anonymous RecordAdClick).
