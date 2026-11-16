@@ -4455,8 +4455,9 @@ features:
       - "When a `UserErased` for user U is produced to `identity.events` while U has rows in `tracking_events`, `order_facts` and `engagement_facts`"
       - "Then within 60 s no row in any team-analytics table contains U's id in any column and the consumer group offset has advanced past the record"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-1 A UserErased event purges the user"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue1_a_usererased_event_purges_the_user)."
 
   - id: analytics.aue-2-another-identity-event-type-is-skipped
     title: "AUE-2 Another identity event type is skipped"
@@ -4469,8 +4470,9 @@ features:
       - "When a `UserStatusChanged` envelope is produced to `identity.events`"
       - "Then no table changes, the DLQ topic receives no record and the offset advances"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-2 Another identity event type is skipped"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue2_another_identity_event_type_is_skipped)."
 
   - id: analytics.aue-3-poison-record-goes-to-the-dlq
     title: "AUE-3 Poison record goes to the DLQ"
@@ -4483,8 +4485,9 @@ features:
       - "When a record with bytes that are not a valid `EventEnvelope`, and a `UserErased` with an empty `user_id`, are produced"
       - "Then each is published to `identity.events.analytics.dlq` with an `error` header, no table changes, and the offset advances past both"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-3 Poison record goes to the DLQ"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue3_poison_record_goes_to_the_dlq)."
 
   - id: analytics.aue-4-a-failed-purge-is-retried-and-commits-nothing
     title: "AUE-4 A failed purge is retried and commits nothing"
@@ -4511,8 +4514,9 @@ features:
       - "When the same `UserErased` for U is delivered a second time after a successful purge"
       - "Then no row changes, the tombstone count for U stays 1, no DLQ record is written and the offset advances"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-5 Redelivery is a no-op"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue5_redelivery_is_a_noop)."
 
   - id: analytics.aue-6-re-key-keeps-aggregates-and-removes-identifiers
     title: "AUE-6 Re-key keeps aggregates and removes identifiers"
@@ -4525,8 +4529,9 @@ features:
       - "When U (50 rows, two anonymous ids A1 and A2, each also used by 10 pre-login anonymous rows) is erased"
       - "Then `tracking_events` still has the same total row count, zero rows contain U's id, A1 or A2 in any column, all 70 rows carry the same single `erased:` pseudonym, and `GetSellerFunnel` counts for the affected listings are unchanged"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-6 Re-key keeps aggregates and removes identifiers"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue6_rekey_keeps_aggregates_and_removes_identifiers)."
 
   - id: analytics.aue-7-rows-of-other-users-are-untouched
     title: "AUE-7 Rows of other users are untouched"
@@ -4539,8 +4544,9 @@ features:
       - "When user U is erased and user V has 20 tracking rows"
       - "Then V's 20 rows are byte-identical before and after, including `principal_id`"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-7 Rows of other users are untouched"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue7_rows_of_other_users_are_untouched)."
 
   - id: analytics.aue-8-boundary-of-a-user-with-no-rows
     title: "AUE-8 Boundary of a user with no rows"
@@ -4553,8 +4559,9 @@ features:
       - "When a `UserErased` arrives for a user with zero rows in every table"
       - "Then the consumer commits the offset, writes one tombstone, changes no other row and writes no DLQ record"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-8 Boundary of a user with no rows"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue8_boundary_of_a_user_with_no_rows)."
 
   - id: analytics.aue-9-orders-are-kept-with-a-pseudonymous-buyer
     title: "AUE-9 Orders are kept with a pseudonymous buyer"
@@ -4567,8 +4574,9 @@ features:
       - "When buyer U with 3 PAID `order_facts` lines is erased"
       - "Then the 3 lines remain with identical `order_id`, `quantity`, `unit_price` and `occurred_at`, `buyer_id` is the pseudonym, and `GetPlatformOrderSummary` GMV over the same window is unchanged"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-9 Orders are kept with a pseudonymous buyer"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue9_orders_are_kept_with_a_pseudonymous_buyer)."
 
   - id: analytics.aue-10-favourites-and-follows-are-deleted
     title: "AUE-10 Favourites and follows are deleted"
@@ -4581,8 +4589,9 @@ features:
       - "When U with 4 favourite facts and 2 follow facts is erased"
       - "Then `engagement_facts` has no row with `user_id` = U for those facts, `favorites_current` and `follows_current` have no row for U, and V's facts are unchanged"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-10 Favourites and follows are deleted"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue10_favourites_and_follows_are_deleted)."
 
   - id: analytics.aue-11-an-erased-seller-is-re-keyed-everywhere
     title: "AUE-11 An erased seller is re-keyed everywhere"
@@ -4609,8 +4618,9 @@ features:
       - "When a tracking event for U is in the writer's in-memory batch when U's purge commits, and the batch flushes afterwards"
       - "Then the stored row carries U's pseudonym, and no table contains U's id"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-12 A buffered event flushed after the purge is re-keyed"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue12_a_buffered_event_flushed_after_the_purge_is_rekeyed)."
 
   - id: analytics.aue-13-the-tombstone-holds-no-clear-id
     title: "AUE-13 The tombstone holds no clear id"
@@ -4623,8 +4633,9 @@ features:
       - "When an operator reads every column of `erased_users` after U's erasure"
       - "Then none equals U's id and `user_hmac` is 64 hex characters that differ when `ERASURE_TOMBSTONE_SECRET` differs"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-13 The tombstone holds no clear id"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue13_the_tombstone_holds_no_clear_id)."
 
   - id: analytics.aue-14-exported-files-are-clean-after-one-cycle
     title: "AUE-14 Exported files are clean after one cycle"
@@ -4637,8 +4648,9 @@ features:
       - "When one export cycle completes after U's purge"
       - "Then a scan of the seven Parquet files for U's id, A1 and A2 finds zero matches"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-14 Exported files are clean after one cycle"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue14_exported_files_are_clean_after_one_cycle)."
 
   - id: analytics.aue-15-logs-carry-no-raw-id
     title: "AUE-15 Logs carry no raw id"
@@ -4694,7 +4706,7 @@ features:
       - "Then `TestEnvExampleInSync` passes"
     tags: [user-erasure, unit]
     status: not-testable
-    notes: "analytics-user-erasure: VERIFIED BY team-analytics/internal/config/env_example_test.go TestEnvExampleInSync. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+    notes: "analytics-user-erasure: VERIFIED BY team-analytics/internal/config/config_test.go TestErasureEnvExampleListsTheFourKeys. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
 
   - id: analytics.aue-35-a-failed-order-or-engagement-re-key-rolls-back-as-a-whole
     title: "AUE-35 A failed order or engagement re-key rolls back as a whole"
@@ -4708,7 +4720,7 @@ features:
       - "Then the transaction is rolled back, U's `order_facts` rows keep the original `buyer_id`, no tombstone exists and the record is retried without a DLQ record"
     tags: [user-erasure, unit]
     status: not-testable
-    notes: "analytics-user-erasure: VERIFIED BY team-analytics/internal/warehouse/duckdb/erase_test.go TestPurgeRollsBackWhenEngagementRekeyFails. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+    notes: "analytics-user-erasure: VERIFIED BY team-analytics/internal/warehouse/duckdb/erase_test.go TestErasureRollsBackWhenEngagementRekeyFails. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
 
   - id: analytics.aue-36-a-forged-event-for-another-user-does-not-touch-unrelated-rows
     title: "AUE-36 A forged event for another user does not touch unrelated rows"
@@ -4721,8 +4733,9 @@ features:
       - "When a `UserErased` names a user id that is a strict prefix or suffix of V's id"
       - "Then no row of V changes, because matching is by exact equality on the whole column value"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-36 A forged event for another user does not touch unrelated rows"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue36_a_forged_event_for_another_user_does_not_touch_unrelated_rows)."
 
   - id: analytics.aue-37-a-late-event-for-a-non-erased-user-is-stored-as-is
     title: "AUE-37 A late event for a non-erased user is stored as is"
@@ -4735,8 +4748,9 @@ features:
       - "When a tracking event for V, whose HMAC is not in `erased_users`, is written"
       - "Then the row keeps V's id and the tombstone table is unchanged"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-37 A late event for a non-erased user is stored as is"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue37_a_late_event_for_a_nonerased_user_is_stored_as_is)."
 
   - id: analytics.aue-38-tombstone-lookup-failure-rejects-the-batch
     title: "AUE-38 Tombstone lookup failure rejects the batch"
@@ -4750,7 +4764,7 @@ features:
       - "Then the batch is rolled back with no rows written, offsets are not committed and the batch is retried"
     tags: [user-erasure, unit]
     status: not-testable
-    notes: "analytics-user-erasure: VERIFIED BY team-analytics/internal/warehouse/duckdb/erase_test.go TestWriterTombstoneLookupFailureRollsBackBatch. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+    notes: "analytics-user-erasure: VERIFIED BY team-analytics/internal/warehouse/duckdb/erase_test.go TestErasureWriterTombstoneLookupFailureRollsBackBatch. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
 
   - id: analytics.aue-39-a-failed-export-keeps-the-previous-clean-file-and-never-exposes-a-partial-one
     title: "AUE-39 A failed export keeps the previous clean file and never exposes a partial one"
@@ -4778,7 +4792,7 @@ features:
       - "Then that row is not changed, because only rows of type `user` are re-keyed, and the purge still commits"
     tags: [user-erasure, unit]
     status: not-testable
-    notes: "analytics-user-erasure: VERIFIED BY team-analytics/internal/warehouse/duckdb/erase_test.go TestPurgeLeavesServicePrincipalRows. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+    notes: "analytics-user-erasure: VERIFIED BY team-analytics/internal/warehouse/duckdb/erase_test.go TestErasureLeavesServicePrincipalRows. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
 
   - id: analytics.user-erasure
     title: A UserErased event purges the user from the warehouse

@@ -10,7 +10,7 @@ page as return URL. A failed read SHALL show an inline error with a retry for th
 - **WHEN** a signed-in buyer clicks "Quyền riêng tư" in the account menu
 - **THEN** the browser lands on `/account/privacy`, the heading "Quyền riêng tư" shows and the menu entry has `aria-current="page"`
 - **VERIFIED BY**: `team-frontend/src/features/account/AccountShell.test.tsx` `lists the privacy entry and marks it current`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `Buyer opens the privacy page from the account menu`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV1 Signed-in user reaches the page from the account menu`
 
 #### Scenario: PV2 Guest is sent to login
 - **WHEN** a guest opens `/account/privacy`
@@ -40,13 +40,13 @@ PRIVACY_POLICY or SELLER_TERMS records.
 - **WHEN** a user with 25 consent records opens `/account/privacy`
 - **THEN** the history shows 20 rows ordered newest first, the first row is the newest record and a pagination link to page 2 shows 5 more rows
 - **VERIFIED BY**: `team-frontend/src/app/(shop)/account/privacy/page.test.tsx` `lists consents newest first, 20 per page`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `Consent history is listed newest first`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV4 History is listed newest first and paged`
 
 #### Scenario: PV5 Saving a change records one row per changed purpose
 - **WHEN** a user with analytics granted switches analytics off and marketing on and saves
 - **THEN** `RecordConsent` is called once with exactly 2 records (analytics granted false, marketing granted true, source `account`), then the cookie holds `a=0&m=1`, a toast "Đã lưu lựa chọn của bạn." shows and the history gains 2 rows
 - **VERIFIED BY**: `team-frontend/src/features/privacy/actions.test.ts` `records only the changed purposes with source account`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `Changing consent stores records and sets the cookie`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV5 Saving a change records one row per changed purpose`
 
 #### Scenario: PV6 Saving without a change makes no call
 - **WHEN** a user opens the page and clicks save without toggling anything
@@ -84,7 +84,7 @@ in-app views of orders, reviews and chats.
 - **WHEN** a signed-in user clicks "Tải dữ liệu của tôi"
 - **THEN** the browser receives one file named `agora-du-lieu-<date>.json` whose JSON has `account.user_id` equal to the user's id
 - **VERIFIED BY**: `team-frontend/src/features/privacy/actions.test.ts` `export returns filename and content from the response`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `User downloads their data`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV11 Export downloads one JSON file`
 
 #### Scenario: PV12 Export failure is shown and retryable
 - **WHEN** `ExportMyData` fails `Unavailable`
@@ -123,13 +123,13 @@ password SHALL NOT be stored, logged or returned to the page.
 - **WHEN** a buyer with no open obligations enters the correct password in the deletion modal and confirms
 - **THEN** the page shows the pending panel with an erase time 48 h (within 5 s) after the request and the "Hủy yêu cầu xóa" button
 - **VERIFIED BY**: `team-frontend/src/features/privacy/actions.test.ts` `request deletion sends only the password`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `Buyer schedules account deletion`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV16 Confirming with the password schedules deletion`
 
 #### Scenario: PV17 Wrong password schedules nothing
 - **WHEN** the gateway answers `PermissionDenied` to `RequestAccountDeletion`
 - **THEN** the modal stays open with "Mật khẩu không đúng.", the password field is cleared and the status read still shows nothing pending
 - **VERIFIED BY**: `team-frontend/src/features/privacy/DeleteAccountModal.test.tsx` `wrong password keeps the modal open and clears the field`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `Wrong password does not schedule deletion`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV17 Wrong password schedules nothing`
 
 #### Scenario: PV18 Empty password is blocked locally
 - **WHEN** the user clicks confirm with an empty password
@@ -140,7 +140,7 @@ password SHALL NOT be stored, logged or returned to the page.
 - **WHEN** the gateway answers `FailedPrecondition` with a message naming open orders
 - **THEN** the modal shows "Chưa thể xóa tài khoản: " followed by that message, no pending panel appears and the account stays usable
 - **VERIFIED BY**: `team-frontend/src/features/privacy/actions.test.ts` `maps FailedPrecondition to prefix plus category`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `Open order blocks deletion with a reason`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV19 An open obligation shows the reason`
 
 #### Scenario: PV20 Obligation service outage fails closed
 - **WHEN** the gateway answers `Unavailable` to `RequestAccountDeletion`
@@ -151,7 +151,7 @@ password SHALL NOT be stored, logged or returned to the page.
 - **WHEN** a user whose deletion is pending clicks "Hủy yêu cầu xóa" and confirms
 - **THEN** `CancelAccountDeletion` is called once, the panel returns to the "Xóa tài khoản" offer and the toast "Đã hủy yêu cầu xóa tài khoản." shows
 - **VERIFIED BY**: `team-frontend/src/features/privacy/DeletionCard.test.tsx` `cancel returns to the delete offer`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `Pending deletion is cancelled`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV21 Pending deletion can be cancelled`
 
 #### Scenario: PV22 Cancel with nothing pending is explained
 - **WHEN** `CancelAccountDeletion` fails `FailedPrecondition` because the window already ended or was cancelled elsewhere
@@ -187,7 +187,7 @@ to the fixed Vietnamese texts of the design; the raw gateway message SHALL be sh
 - **WHEN** an action runs and the gateway answers `Unauthenticated`
 - **THEN** the action returns "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." and shows no technical text
 - **VERIFIED BY**: `team-frontend/src/features/privacy/actions.test.ts` `maps Unauthenticated on every action`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `Expired session on a privacy action asks to sign in`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_privacy_ui.feature` `PV26 A call without a session is refused`
 
 #### Scenario: PV27 No request carries a user id
 - **WHEN** any privacy action calls the gateway

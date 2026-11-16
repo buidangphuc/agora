@@ -28,7 +28,7 @@ with a text label for each of `NOT_SUBMITTED`, `PENDING`, `VERIFIED` and `REJECT
 #### Scenario: An unknown reject reason code falls back to a generic text
 - **WHEN** the status response carries a `reject_reason_code` the UI has no text for
 - **THEN** the page shows the generic text "Hồ sơ chưa đạt yêu cầu, vui lòng gửi lại" and never renders the raw code
-- **VERIFIED BY**: `team-frontend-seller/src/lib/verification/status.test.ts` `falls back to the generic text for an unknown reject reason code`
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/verification/status.test.ts` `falls back to the generic text for an unknown reject reason code`
 
 #### Scenario: Status read failure is shown as an error, not as not-submitted
 - **WHEN** `GetVerificationStatus` fails with `UNAVAILABLE`
@@ -89,7 +89,7 @@ explicit consent checkbox, and SHALL upload each file by `CreateKycUploadUrl` fo
 #### Scenario: The server refuses a doc_ref
 - **WHEN** `SubmitKyc` fails with `INVALID_ARGUMENT` or `PERMISSION_DENIED` because a doc_ref was not issued to the caller
 - **THEN** the form shows "Hồ sơ không hợp lệ, vui lòng tải lại tệp" and the status stays unchanged
-- **VERIFIED BY**: `team-frontend-seller/src/features/verification/actions.test.ts` `maps INVALID_ARGUMENT and PERMISSION_DENIED from SubmitKyc to the invalid documents message`
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/verification/actions.test.ts` `maps INVALID_ARGUMENT and PERMISSION_DENIED from SubmitKyc to the invalid documents message`
 
 #### Scenario: Submit cannot be sent twice
 - **WHEN** a seller double-clicks the submit button
@@ -168,4 +168,4 @@ other verification state.
 #### Scenario: The badge call asks for the shop seller only
 - **WHEN** the shop page is rendered
 - **THEN** exactly 1 `GetPublicBadges` call is made with 1 user id equal to the shop's seller id
-- **VERIFIED BY**: `team-frontend/src/app/shop/[id]/page.test.tsx` `asks GetPublicBadges for the shop seller only`
+- **VERIFIED BY**: `team-frontend/src/app/(shop)/shop/[id]/page.test.tsx` `[The badge call asks for the shop seller only] asks GetPublicBadges for the shop seller only`

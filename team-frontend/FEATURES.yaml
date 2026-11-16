@@ -12623,7 +12623,8 @@ features:
     acceptance:
       - "An anonymous visitor opens /dieu-khoan-su-dung; the response is 200 with a Vietnamese h1, a Phiên bản version and the legal placeholder body"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_pages.feature::A legal page renders title, version and placeholder"
 
   - id: legal.pages.all-seven-slugs-resolve
     title: "All seven slugs resolve"
@@ -12637,7 +12638,8 @@ features:
     acceptance:
       - "Each of the seven legal slugs returns 200 and the sitemap lists exactly those 7 legal URLs"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_pages.feature::All seven slugs resolve"
 
   - id: legal.pages.unknown-slug-not-found
     title: "An unknown legal slug is not found"
@@ -12651,7 +12653,8 @@ features:
     acceptance:
       - "A visitor opens /chinh-sach-khong-ton-tai; the response is 404 and the not-found page renders"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_pages.feature::An unknown legal slug is not found"
 
   - id: legal.pages.need-no-login
     title: "Legal pages need no login"
@@ -12665,7 +12668,8 @@ features:
     acceptance:
       - "A visitor without a session cookie opens /chinh-sach-bao-mat; 200 with no redirect to /login"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_pages.feature::Legal pages need no login"
 
   - id: legal.footer.exposes-legal-links
     title: "Footer exposes the legal links"
@@ -12679,7 +12683,8 @@ features:
     acceptance:
       - "The footer links the seven legal slugs and the RMA link targets /chinh-sach-doi-tra"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_pages.feature::Footer exposes the legal links"
 
   - id: legal.footer.operator-placeholders
     title: "Footer shows the operator placeholders"
@@ -12693,7 +12698,8 @@ features:
     acceptance:
       - "The footer shows four labelled operator fields each with the operator placeholder"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_pages.feature::Footer shows the operator placeholders"
 
   - id: legal.footer.never-links-missing-pages
     title: "Footer never links legal pages that are missing"
@@ -12707,7 +12713,8 @@ features:
     acceptance:
       - "Every footer legal link resolves to a page and the RMA entry does not point to /account/orders"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_pages.feature::Footer never links legal pages that are missing"
 
   - id: legal.signup.both-boxes-record-two-consents
     title: "Registering with both boxes checked records two consents"
@@ -12721,7 +12728,8 @@ features:
     acceptance:
       - "Submitting the register form with both boxes checked creates the account and ListMyConsents returns TERMS and PRIVACY_POLICY at the current versions with source register"
     tags: [auth, buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_signup.feature::Registering with both boxes checked records two consents"
 
   - id: legal.signup.unchecked-box-blocks-submission
     title: "Unchecked box blocks submission"
@@ -12735,7 +12743,8 @@ features:
     acceptance:
       - "With the Terms box unchecked a field error is shown, no Register call reaches the gateway and no account is created"
     tags: [auth, buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_signup.feature::Unchecked box blocks submission"
 
   - id: legal.signup.forged-post-refused
     title: "A forged post without acceptance fields is refused"
@@ -12749,7 +12758,8 @@ features:
     acceptance:
       - "A register post without the acceptance fields returns a field error, 0 Register calls reach the gateway and no account is created"
     tags: [auth, buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_signup.feature::A forged post without acceptance fields is refused"
 
   - id: legal.signup.stale-version-reported
     title: "A stale version is reported to the user"
@@ -12763,7 +12773,8 @@ features:
     acceptance:
       - "When identity requires a newer terms version the form shows the Vietnamese update message and no account is created"
     tags: [auth, buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_signup.feature::A stale version is reported to the user"
 
   - id: legal.reacceptance.legacy-user-prompted-and-accepts
     title: "A legacy user is prompted and accepts"
@@ -12777,7 +12788,8 @@ features:
     acceptance:
       - "A signed-in user with no TERMS or PRIVACY_POLICY row sees the dialog, clicks Đồng ý, RecordConsent is called once and the dialog does not return on reload"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::A legacy user is prompted and accepts"
 
   - id: legal.reacceptance.newer-terms-triggers-prompt
     title: "A newer Terms version triggers the prompt"
@@ -12791,7 +12803,8 @@ features:
     acceptance:
       - "A user whose latest TERMS version differs from the current one sees the dialog on non-legal pages while legal pages stay readable"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::A newer Terms version triggers the prompt"
 
   - id: legal.reacceptance.up-to-date-not-prompted
     title: "Up-to-date users are not prompted"
@@ -12805,7 +12818,8 @@ features:
     acceptance:
       - "An up-to-date user loading 3 pages sees no dialog and ListMyConsents is called at most once"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::Up-to-date users are not prompted"
 
   - id: legal.reacceptance.anonymous-never-prompted
     title: "Anonymous visitors are never prompted"
@@ -12819,7 +12833,8 @@ features:
     acceptance:
       - "An anonymous visitor sees no dialog and the gateway receives 0 PrivacyService calls"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::Anonymous visitors are never prompted"
 
   - id: legal.reacceptance.lookup-failure-does-not-block
     title: "Consent lookup failure does not block browsing"
@@ -12833,7 +12848,8 @@ features:
     acceptance:
       - "When ListMyConsents fails the page renders normally with no dialog and no error"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::Consent lookup failure does not block browsing"
 
   - id: legal.reacceptance.declining-signs-out
     title: "Declining signs the user out"
@@ -12861,7 +12877,8 @@ features:
     acceptance:
       - "The banner title is Tùy chọn cookie, the groups are Phân tích, Tiếp thị, Cá nhân hóa and no English label remains"
     tags: [buyer, consent]
-    status: planned
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::Banner text is Vietnamese"
 
   - id: consent.banner-ledger.signed-in-save-changed-only
     title: "Signed-in save records only changed purposes"
@@ -12875,7 +12892,8 @@ features:
     acceptance:
       - "Turning on Cá nhân hóa and saving updates the cookie, calls RecordConsent once with 1 record and lists it as the newest row"
     tags: [buyer, consent]
-    status: planned
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::Signed-in save records only changed purposes"
 
   - id: consent.banner-ledger.first-choice-records-all-three
     title: "First choice records all three purposes"
@@ -12889,7 +12907,8 @@ features:
     acceptance:
       - "Từ chối tất cả without a prior cookie calls RecordConsent once with 3 denied records"
     tags: [buyer, consent]
-    status: planned
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::First choice records all three purposes"
 
   - id: consent.banner-ledger.anonymous-cookie-only
     title: "Anonymous choice is cookie only"
@@ -12903,7 +12922,8 @@ features:
     acceptance:
       - "Chấp nhận tất cả sets the cookie and the gateway receives 0 PrivacyService calls"
     tags: [buyer, consent]
-    status: planned
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::Anonymous choice is cookie only"
 
   - id: consent.banner-ledger.write-failure-keeps-cookie
     title: "Ledger write failure keeps the cookie choice"
@@ -12917,7 +12937,8 @@ features:
     acceptance:
       - "When RecordConsent fails the cookie still holds the choice, the banner closes and no error shows"
     tags: [buyer, consent]
-    status: planned
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::Ledger write failure keeps the cookie choice"
 
   - id: legal.pages.unit-versions-equal-configured
     title: "Terms and privacy page versions equal the configured versions"
@@ -12932,7 +12953,7 @@ features:
       - "The unit suite compares the dieu-khoan-su-dung and chinh-sach-bao-mat front-matter versions with the configured NEXT_PUBLIC versions (unit-verified)"
     tags: [buyer, legal, unit]
     status: not-testable
-    notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/legal/content.test.ts \"Terms and privacy page versions equal the configured versions\". Not producible end to end: reads content files and build-time env, not observable through the running app."
+    notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/legal/content.test.ts \"[Terms and privacy page versions equal the configured versions] terms\", \"[Terms and privacy page versions equal the configured versions] privacy\". Not producible end to end: reads content files and build-time env, not observable through the running app."
 
   - id: legal.signup.unit-boundary-version-length
     title: "Boundary version length"
@@ -12947,10 +12968,10 @@ features:
       - "The register request carries each configured version unchanged and at most 32 characters (unit-verified)"
     tags: [auth, buyer, legal, unit]
     status: not-testable
-    notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/auth/actions.test.ts \"Boundary version length\". Not producible end to end: asserts the outgoing server-action request argument, not observable end to end."
+    notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/auth/actions.test.ts \"[Boundary version length] each version string is sent unchanged and is at most 32 characters\". Not producible end to end: asserts the outgoing server-action request argument, not observable end to end."
 
   - id: privacy.ui.signed-in-user-reaches-the-page-from-the-account-m
-    title: "Buyer opens the privacy page from the account menu"
+    title: "PV1 Signed-in user reaches the page from the account menu"
     persona: buyer
     priority: P1
     summary: "Buyer opens the privacy page from the account menu (PV1)"
@@ -12962,10 +12983,11 @@ features:
       - "When a signed-in buyer clicks \"Quyền riêng tư\" in the account menu"
       - "Then the browser lands on `/account/privacy`, the heading \"Quyền riêng tư\" shows and the menu entry has `aria-current=\"page\"`"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV1 Signed-in user reaches the page from the account menu"
 
   - id: privacy.ui.guest-is-sent-to-login
-    title: "Guest is sent to login"
+    title: "PV2 Guest is sent to login"
     persona: guest
     priority: P1
     summary: "Guest is sent to login (PV2)"
@@ -12977,7 +12999,8 @@ features:
       - "When a guest opens `/account/privacy`"
       - "Then the response redirects to `/login` with the return URL `/account/privacy` and 0 gateway calls are made"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV2 Guest is sent to login"
 
   - id: privacy.ui.unit-pv3-one-failing-read-does-not-blank-the-page
     title: "PV3 One failing read does not blank the page"
@@ -13012,7 +13035,7 @@ features:
     notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"redirects a guest to login\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
 
   - id: privacy.ui.history-is-listed-newest-first-and-paged
-    title: "Consent history is listed newest first"
+    title: "PV4 History is listed newest first and paged"
     persona: buyer
     priority: P1
     summary: "Consent history is listed newest first (PV4)"
@@ -13024,10 +13047,11 @@ features:
       - "When a user with 25 consent records opens `/account/privacy`"
       - "Then the history shows 20 rows ordered newest first, the first row is the newest record and a pagination link to page 2 shows 5 more rows"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV4 History is listed newest first and paged"
 
   - id: privacy.ui.saving-a-change-records-one-row-per-changed-purpos
-    title: "Changing consent stores records and sets the cookie"
+    title: "PV5 Saving a change records one row per changed purpose"
     persona: buyer
     priority: P1
     summary: "Changing consent stores records and sets the cookie (PV5)"
@@ -13039,7 +13063,8 @@ features:
       - "When a user with analytics granted switches analytics off and marketing on and saves"
       - "Then `RecordConsent` is called once with exactly 2 records (analytics granted false, marketing granted true, source `account`), then the cookie holds `a=0&m=1`, a toast \"Đã lưu lựa chọn của bạn.\" shows and the history gains 2 rows"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV5 Saving a change records one row per changed purpose"
 
   - id: privacy.ui.unit-pv6-saving-without-a-change-makes-no-call
     title: "PV6 Saving without a change makes no call"
@@ -13122,7 +13147,7 @@ features:
     notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on consent save\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
 
   - id: privacy.ui.export-downloads-one-json-file
-    title: "User downloads their data"
+    title: "PV11 Export downloads one JSON file"
     persona: buyer
     priority: P1
     summary: "User downloads their data (PV11)"
@@ -13134,7 +13159,8 @@ features:
       - "When a signed-in user clicks \"Tải dữ liệu của tôi\""
       - "Then the browser receives one file named `agora-du-lieu-<date>.json` whose JSON has `account.user_id` equal to the user's id"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV11 Export downloads one JSON file"
 
   - id: privacy.ui.unit-pv12-export-failure-is-shown-and-retryable
     title: "PV12 Export failure is shown and retryable"
@@ -13217,7 +13243,7 @@ features:
     notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on every action\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
 
   - id: privacy.ui.confirming-with-the-password-schedules-deletion
-    title: "Buyer schedules account deletion"
+    title: "PV16 Confirming with the password schedules deletion"
     persona: buyer
     priority: P1
     summary: "Buyer schedules account deletion (PV16)"
@@ -13229,10 +13255,11 @@ features:
       - "When a buyer with no open obligations enters the correct password in the deletion modal and confirms"
       - "Then the page shows the pending panel with an erase time 48 h (within 5 s) after the request and the \"Hủy yêu cầu xóa\" button"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV16 Confirming with the password schedules deletion"
 
   - id: privacy.ui.wrong-password-schedules-nothing
-    title: "Wrong password does not schedule deletion"
+    title: "PV17 Wrong password schedules nothing"
     persona: buyer
     priority: P1
     summary: "Wrong password does not schedule deletion (PV17)"
@@ -13244,7 +13271,8 @@ features:
       - "When the gateway answers `PermissionDenied` to `RequestAccountDeletion`"
       - "Then the modal stays open with \"Mật khẩu không đúng.\", the password field is cleared and the status read still shows nothing pending"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV17 Wrong password schedules nothing"
 
   - id: privacy.ui.unit-pv18-empty-password-is-blocked-locally
     title: "PV18 Empty password is blocked locally"
@@ -13263,7 +13291,7 @@ features:
     notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/DeleteAccountModal.test.tsx \"confirm is disabled for an empty password\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
 
   - id: privacy.ui.an-open-obligation-shows-the-reason
-    title: "Open order blocks deletion with a reason"
+    title: "PV19 An open obligation shows the reason"
     persona: buyer
     priority: P1
     summary: "Open order blocks deletion with a reason (PV19)"
@@ -13275,7 +13303,8 @@ features:
       - "When the gateway answers `FailedPrecondition` with a message naming open orders"
       - "Then the modal shows \"Chưa thể xóa tài khoản: \" followed by that message, no pending panel appears and the account stays usable"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV19 An open obligation shows the reason"
 
   - id: privacy.ui.unit-pv20-obligation-service-outage-fails-closed
     title: "PV20 Obligation service outage fails closed"
@@ -13294,7 +13323,7 @@ features:
     notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unavailable on request deletion\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
 
   - id: privacy.ui.pending-deletion-can-be-cancelled
-    title: "Pending deletion is cancelled"
+    title: "PV21 Pending deletion can be cancelled"
     persona: buyer
     priority: P1
     summary: "Pending deletion is cancelled (PV21)"
@@ -13306,7 +13335,8 @@ features:
       - "When a user whose deletion is pending clicks \"Hủy yêu cầu xóa\" and confirms"
       - "Then `CancelAccountDeletion` is called once, the panel returns to the \"Xóa tài khoản\" offer and the toast \"Đã hủy yêu cầu xóa tài khoản.\" shows"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV21 Pending deletion can be cancelled"
 
   - id: privacy.ui.unit-pv22-cancel-with-nothing-pending-is-explained
     title: "PV22 Cancel with nothing pending is explained"
@@ -13389,7 +13419,7 @@ features:
     notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on every action\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
 
   - id: privacy.ui.a-call-without-a-session-is-refused
-    title: "Expired session on a privacy action asks to sign in"
+    title: "PV26 A call without a session is refused"
     persona: buyer
     priority: P1
     summary: "Expired session on a privacy action asks to sign in (PV26)"
@@ -13401,7 +13431,8 @@ features:
       - "When an action runs and the gateway answers `Unauthenticated`"
       - "Then the action returns \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and shows no technical text"
     tags: [buyer, privacy]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV26 A call without a session is refused"
 
   - id: privacy.ui.unit-pv27-no-request-carries-a-user-id
     title: "PV27 No request carries a user id"
@@ -13448,7 +13479,8 @@ features:
       - "When a signed-in buyer requests `/account/verification` on the buyer app"
       - "Then the response is 404"
     tags: [seller-kyc-ui]
-    status: planned
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::The buyer route is gone"
 
   - id: seller-kyc-ui.buyer-navigation-has-no-verification-link
     title: "Buyer navigation has no verification link"
@@ -13463,7 +13495,8 @@ features:
       - "When a signed-in buyer opens any `/account/*` page"
       - "Then the account nav and the top bar contain 0 links to `/account/verification`"
     tags: [seller-kyc-ui]
-    status: planned
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::Buyer navigation has no verification link"
 
   - id: seller-kyc-ui.verified-seller-s-shop-shows-the-badge
     title: "Verified seller's shop shows the badge"
@@ -13478,7 +13511,8 @@ features:
       - "When anyone, including an anonymous visitor, opens the shop page of a `VERIFIED` seller"
       - "Then the page contains exactly 1 \"Đã xác minh\" badge"
     tags: [seller-kyc-ui]
-    status: planned
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::Verified seller's shop shows the badge"
 
   - id: seller-kyc-ui.non-verified-shops-show-no-badge-and-no-status
     title: "Non-verified shops show no badge and no status"
@@ -13493,7 +13527,8 @@ features:
       - "When anyone opens the shop page of a seller who is `PENDING`, `REJECTED` or `NOT_SUBMITTED`"
       - "Then the page contains 0 badges and none of the words \"Đang chờ duyệt\", \"Bị từ chối\" or \"Chưa gửi hồ sơ\""
     tags: [seller-kyc-ui]
-    status: planned
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::Non-verified shops show no badge and no status"
 
   - id: seller-kyc-ui.badge-lookup-failure-does-not-break-the-page
     title: "Badge lookup failure does not break the page"
@@ -13508,7 +13543,8 @@ features:
       - "When `GetPublicBadges` fails or times out"
       - "Then the shop page still renders with HTTP 200 and 0 badges"
     tags: [seller-kyc-ui]
-    status: planned
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::Badge lookup failure does not break the page"
 
   - id: seller-kyc-ui.the-badge-call-asks-for-the-shop-seller-only
     title: "The badge call asks for the shop seller only"
@@ -13524,4 +13560,4 @@ features:
       - "Then exactly 1 `GetPublicBadges` call is made with 1 user id equal to the shop's seller id"
     tags: [seller-kyc-ui, unit]
     status: not-testable
-    notes: "seller-kyc-ui: unit-verified, not producible end to end (the server-side gateway call is not observable from the browser). VERIFIED BY `team-frontend/src/app/shop/[id]/page.test.tsx` `asks GetPublicBadges for the shop seller only`."
+    notes: "seller-kyc-ui: unit-verified, not producible end to end (the server-side gateway call is not observable from the browser). VERIFIED BY `team-frontend/src/app/(shop)/shop/[id]/page.test.tsx` `[The badge call asks for the shop seller only] asks GetPublicBadges for the shop seller only`."

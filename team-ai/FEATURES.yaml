@@ -2625,8 +2625,9 @@ features:
       - "When a `UserErased` for U arrives while Redis holds three chat sessions, a quota counter and a rate-limit counter of U"
       - "Then within 60 s none of those keys exists and the same keys of user V are present"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-28 Chat sessions, quota and rate-limit keys are removed"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue28_chat_sessions_quota_and_ratelimit_keys_are_removed)."
 
   - id: ai.aue-29-a-prefix-sharing-id-is-not-matched
     title: "AUE-29 A prefix-sharing id is not matched"
@@ -2639,8 +2640,9 @@ features:
       - "When U's id is `abc` and another user has id `abcd` with a chat session"
       - "Then the session of `abcd` is present after U's erasure"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-29 A prefix-sharing id is not matched"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue29_a_prefixsharing_id_is_not_matched)."
 
   - id: ai.aue-30-redis-failure-retries-without-commit
     title: "AUE-30 Redis failure retries without commit"
@@ -2654,7 +2656,7 @@ features:
       - "Then the offset is not committed and the event is retried by the supervised consumer until it succeeds"
     tags: [user-erasure, unit]
     status: not-testable
-    notes: "analytics-user-erasure: VERIFIED BY team-ai/tests/test_erasure_addon.py test_redis_failure_retries_without_commit. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+    notes: "analytics-user-erasure: VERIFIED BY team-ai/tests/unit/modules/erasure/test_erasure_consumer.py test_aue_30_redis_failure_retries_without_commit. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
 
   - id: ai.aue-31-poison-record-goes-to-the-dlq
     title: "AUE-31 Poison record goes to the DLQ"
@@ -2667,8 +2669,9 @@ features:
       - "When an undecodable record and a `UserErased` with an empty `user_id` are consumed"
       - "Then both are published to `identity.events.team-ai.dlq`, no key is deleted and the offsets advance"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-31 Poison record goes to the DLQ"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue31_poison_record_goes_to_the_dlq)."
 
   - id: ai.aue-32-no-raw-id-in-logs
     title: "AUE-32 No raw id in logs"
@@ -2682,4 +2685,4 @@ features:
       - "Then the log output contains zero occurrences of U's id"
     tags: [user-erasure, unit]
     status: not-testable
-    notes: "analytics-user-erasure: VERIFIED BY team-ai/tests/test_erasure_addon.py test_erasure_logs_carry_no_raw_id. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+    notes: "analytics-user-erasure: VERIFIED BY team-ai/tests/unit/modules/erasure/test_erasure_consumer.py test_aue_32_erasure_logs_carry_no_raw_id. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."

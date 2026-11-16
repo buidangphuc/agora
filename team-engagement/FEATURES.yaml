@@ -5096,8 +5096,9 @@ features:
       - "When a `UserErased` event for a user with a 4-star review \"Giao nhanh\" is consumed"
       - "Then the review is still returned by `ListReviews` with rating 4 and comment \"Giao nhanh\" and author name \"Người dùng đã xóa\""
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::A review keeps rating and text under an anonymised author"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_a_review_keeps_rating_and_text_under_an_anonymised_author)."
 
   - id: engagement.cue-a-question-and-its-answers-keep-their-text-under-an-anonymised-author
     title: "A question and its answers keep their text under an anonymised author"
@@ -5110,8 +5111,9 @@ features:
       - "When a `UserErased` event for a user who asked one question and answered another is consumed"
       - "Then both texts are still listed on the product page and neither row carries the erased user id"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::A question and its answers keep their text under an anonymised author"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_a_question_and_its_answers_keep_their_text_under_an_anonymised_author)."
 
   - id: engagement.cue-the-listing-rating-is-unchanged
     title: "The listing rating is unchanged"
@@ -5124,8 +5126,9 @@ features:
       - "When a `UserErased` event for the author of one of three reviews of a listing is consumed"
       - "Then the listing's review count stays 3 and its average rating is the same as before"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::The listing rating is unchanged"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_the_listing_rating_is_unchanged)."
 
   - id: engagement.cue-the-moderation-reason-of-an-erased-author-is-cleared
     title: "The moderation reason of an erased author is cleared"
@@ -5138,8 +5141,9 @@ features:
       - "When a `UserErased` event is consumed for the author of a review an admin had hidden with a reason"
       - "Then the review's `hide_reason` is empty, `hidden_at` is still set and the review is still hidden from buyers"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::The moderation reason of an erased author is cleared"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_the_moderation_reason_of_an_erased_author_is_cleared)."
 
   - id: engagement.cue-an-erased-moderator-no-longer-appears-as-hidden-by
     title: "An erased moderator no longer appears as hidden_by"
@@ -5152,8 +5156,9 @@ features:
       - "When a `UserErased` event is consumed for an admin who hid two reviews written by other users"
       - "Then `hidden_by` is empty on both reviews, `hide_reason` of those reviews is unchanged and both are still hidden"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::An erased moderator no longer appears as hidden_by"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_an_erased_moderator_no_longer_appears_as_hidden_by)."
 
   - id: engagement.cue-other-users-content-is-untouched
     title: "Other users' content is untouched"
@@ -5166,8 +5171,9 @@ features:
       - "When a `UserErased` event for user A is consumed and user B has a review, a question and a favourite"
       - "Then every row of user B is byte-identical to its state before the event"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::Other users' content is untouched"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_other_users_content_is_untouched)."
 
   - id: engagement.cue-erasure-is-reachable-only-through-the-identity-topic
     title: "Erasure is reachable only through the identity topic"
@@ -5180,8 +5186,9 @@ features:
       - "When a `UserErased` record is produced to a topic other than `identity.events`, or a user principal calls any team-engagement RPC naming another user"
       - "Then no data of the named user is erased or changed"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::Erasure is reachable only through the identity topic"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_erasure_is_reachable_only_through_the_identity_topic)."
 
   - id: engagement.cue-favourites-follows-and-reports-filed-by-the-user-are-deleted
     title: "Favourites, follows and reports filed by the user are deleted"
@@ -5194,8 +5201,9 @@ features:
       - "When a `UserErased` event is consumed for a user with 2 favourites, 1 follow, 1 report filed and 1 helpful vote"
       - "Then zero rows keyed by that user remain in `favorites`, `follows`, `reports` (as `reporter_id`) and `review_helpful_votes`"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::Favourites, follows and reports filed by the user are deleted"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_favourites_follows_and_reports_filed_by_the_user_are_deleted)."
 
   - id: engagement.cue-an-erased-seller-loses-their-followers
     title: "An erased seller loses their followers"
@@ -5208,8 +5216,9 @@ features:
       - "When a `UserErased` event is consumed for a seller followed by 3 buyers"
       - "Then zero `follows` rows with that `seller_id` remain and each follower's other follows are unchanged"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::An erased seller loses their followers"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_an_erased_seller_loses_their_followers)."
 
   - id: engagement.cue-collections-history-check-ins-and-loyalty-are-deleted
     title: "Collections, history, check-ins and loyalty are deleted"
@@ -5222,8 +5231,9 @@ features:
       - "When a `UserErased` event is consumed for a user with a collection of 2 items, 5 viewed listings, 3 check-ins and a loyalty account"
       - "Then zero rows keyed by that user remain in `collections`, `collection_items`, `view_history`, `checkins` and `loyalty_accounts`"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::Collections, history, check-ins and loyalty are deleted"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_collections_history_checkins_and_loyalty_are_deleted)."
 
   - id: engagement.cue-reports-about-the-erased-user-s-content-stay-open
     title: "Reports about the erased user's content stay open"
@@ -5236,8 +5246,9 @@ features:
       - "When a `UserErased` event is consumed for the author of a listing review that another user reported"
       - "Then that report row still exists with its status unchanged"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::Reports about the erased user's content stay open"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_reports_about_the_erased_users_content_stay_open)."
 
   - id: engagement.cue-an-event-without-a-user-id-deletes-nothing
     title: "An event without a user id deletes nothing"
@@ -5264,8 +5275,9 @@ features:
       - "When the same `UserErased` event is delivered twice"
       - "Then the second delivery returns no error and the table contents equal the state after the first delivery"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::A replayed event changes nothing"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_a_replayed_event_changes_nothing)."
 
   - id: engagement.cue-a-malformed-event-goes-to-the-dlq
     title: "A malformed event goes to the DLQ"
@@ -5278,8 +5290,9 @@ features:
       - "When a record on `identity.events` is not a valid `EventEnvelope`, or a `UserErased` payload has an empty `user_id`"
       - "Then the record is published to `identity.events.engagement.dlq` without retry and no row changes"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::A malformed event goes to the DLQ"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_a_malformed_event_goes_to_the_dlq)."
 
   - id: engagement.cue-a-store-failure-rolls-back-and-is-retried
     title: "A store failure rolls back and is retried"
@@ -5320,8 +5333,9 @@ features:
       - "When a `UserErased` event is published to `identity.events` for a user holding 1000 rows across the tables"
       - "Then every row is erased or anonymised within 1 h and the store transaction takes at most 5 s"
     tags: [user-erasure, engagement]
-    status: planned
-    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "engagement/user_erasure.feature::Erasure completes within one hour"
+    notes: "content-user-erasure: e2e in engagement/user_erasure.feature (green: test_engagement_user_erasure.py::test_erasure_completes_within_one_hour)."
 
   - id: engagement.cue-the-erased-id-is-not-logged
     title: "The erased id is not logged"

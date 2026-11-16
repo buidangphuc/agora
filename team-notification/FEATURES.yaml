@@ -1530,8 +1530,9 @@ features:
       - "When a `UserErased` event is consumed for a user with 4 notifications, 2 alert subscriptions and a preferences row"
       - "Then zero rows for that user remain in `notifications`, `alert_subscriptions` and `notification_prefs`"
     tags: [user-erasure, notification]
-    status: planned
-    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "notification/user_erasure.feature::The user's notification data is deleted"
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (green: test_notification_user_erasure.py::test_the_users_notification_data_is_deleted)."
 
   - id: notification.cue-other-users-notifications-are-untouched
     title: "Other users' notifications are untouched"
@@ -1544,8 +1545,9 @@ features:
       - "When a `UserErased` event for user A is consumed and user B has notifications and alert subscriptions"
       - "Then every row of user B is unchanged and user B still lists their notifications"
     tags: [user-erasure, notification]
-    status: planned
-    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "notification/user_erasure.feature::Other users' notifications are untouched"
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (green: test_notification_user_erasure.py::test_other_users_notifications_are_untouched)."
 
   - id: notification.cue-a-user-with-no-notification-data-is-a-no-op
     title: "A user with no notification data is a no-op"
@@ -1562,7 +1564,7 @@ features:
     notes: "VERIFIED BY team-notification/internal/store/erase_pg_test.go TestEraseUnknownUserIsNoOp. Not producible black box: needs a database fault, a unit-level handler or log capture."
 
   - id: notification.cue-erasure-is-reachable-only-through-the-identity-topic
-    title: "Erasure is reachable only through the identity topic"
+    title: "Notification: Erasure is reachable only through the identity topic"
     persona: buyer
     priority: P1
     summary: "Scenario of change content-user-erasure (notification-user-erasure): Erasure is reachable only through the identity topic"
@@ -1572,11 +1574,12 @@ features:
       - "When a `UserErased` record is produced to a topic other than `identity.events`, or a user principal calls any team-notification RPC naming another user"
       - "Then no notification of the named user is deleted"
     tags: [user-erasure, notification]
-    status: planned
-    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "notification/user_erasure.feature::Erasure is reachable only through the identity topic"
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (green: test_notification_user_erasure.py::test_erasure_is_reachable_only_through_the_identity_topic)."
 
   - id: notification.cue-a-replayed-event-changes-nothing
-    title: "A replayed event changes nothing"
+    title: "Notification: A replayed event changes nothing"
     persona: buyer
     priority: P1
     summary: "Scenario of change content-user-erasure (notification-user-erasure): A replayed event changes nothing"
@@ -1586,11 +1589,12 @@ features:
       - "When the same `UserErased` event is delivered twice"
       - "Then the second delivery returns no error and no row of the user exists"
     tags: [user-erasure, notification]
-    status: planned
-    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "notification/user_erasure.feature::A replayed event changes nothing"
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (green: test_notification_user_erasure.py::test_a_replayed_event_changes_nothing)."
 
   - id: notification.cue-a-malformed-event-goes-to-the-dlq
-    title: "A malformed event goes to the DLQ"
+    title: "Notification: A malformed event goes to the DLQ"
     persona: buyer
     priority: P1
     summary: "Scenario of change content-user-erasure (notification-user-erasure): A malformed event goes to the DLQ"
@@ -1600,11 +1604,12 @@ features:
       - "When a record on `identity.events` is not a valid `EventEnvelope`, or a `UserErased` payload has an empty `user_id`"
       - "Then the record is published to `identity.events.notification.dlq` without retry and no row changes"
     tags: [user-erasure, notification]
-    status: planned
-    notes: "content-user-erasure: e2e in notification/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "notification/user_erasure.feature::A malformed event goes to the DLQ"
+    notes: "content-user-erasure: e2e in notification/user_erasure.feature (green: test_notification_user_erasure.py::test_a_malformed_event_goes_to_the_dlq)."
 
   - id: notification.cue-a-store-failure-rolls-back-and-is-retried
-    title: "A store failure rolls back and is retried"
+    title: "Notification: A store failure rolls back and is retried"
     persona: buyer
     priority: P1
     summary: "Scenario of change content-user-erasure (notification-user-erasure): A store failure rolls back and is retried"
@@ -1618,7 +1623,7 @@ features:
     notes: "VERIFIED BY team-notification/internal/store/erase_pg_test.go TestEraseRollsBackOnFailure. Not producible black box: needs a database fault, a unit-level handler or log capture."
 
   - id: notification.cue-other-identity-events-are-ignored
-    title: "Other identity events are ignored"
+    title: "Notification: Other identity events are ignored"
     persona: buyer
     priority: P1
     summary: "Scenario of change content-user-erasure (notification-user-erasure): Other identity events are ignored"
@@ -1632,7 +1637,7 @@ features:
     notes: "VERIFIED BY team-notification/internal/events/identity_test.go TestIdentityIgnoresOtherEventTypes. Not producible black box: needs a database fault, a unit-level handler or log capture."
 
   - id: notification.cue-the-erased-id-is-not-logged
-    title: "The erased id is not logged"
+    title: "Notification: The erased id is not logged"
     persona: buyer
     priority: P1
     summary: "Scenario of change content-user-erasure (notification-user-erasure): The erased id is not logged"

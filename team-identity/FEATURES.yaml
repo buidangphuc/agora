@@ -5150,7 +5150,8 @@ features:
     acceptance:
       - "See spec scenario: Register with the current versions stores two consent records"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Register with the current versions stores two consent records"
 
   - id: identity.legal-consent-register-without-versions-is-rejected
     title: "Register without versions is rejected"
@@ -5166,7 +5167,8 @@ features:
     acceptance:
       - "See spec scenario: Register without versions is rejected"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Register without versions is rejected"
 
   - id: identity.legal-consent-register-with-a-stale-version-is-rejected
     title: "Register with a stale version is rejected"
@@ -5182,7 +5184,8 @@ features:
     acceptance:
       - "See spec scenario: Register with a stale version is rejected"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Register with a stale version is rejected"
 
   - id: identity.legal-consent-consent-insert-failure-rolls-back-the-account
     title: "Consent insert failure rolls back the account"
@@ -5198,7 +5201,8 @@ features:
     acceptance:
       - "See spec scenario: Consent insert failure rolls back the account"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Consent insert failure rolls back the account"
 
   - id: identity.legal-consent-registration-needs-no-prior-authentication
     title: "Registration needs no prior authentication"
@@ -5214,7 +5218,8 @@ features:
     acceptance:
       - "See spec scenario: Registration needs no prior authentication"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Registration needs no prior authentication"
 
   - id: identity.legal-consent-boot-fails-without-a-configured-version
     title: "Boot fails without a configured version"
@@ -5230,7 +5235,8 @@ features:
     acceptance:
       - "See spec scenario: Boot fails without a configured version"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Boot fails without a configured version"
 
   - id: identity.legal-consent-first-entry-is-the-current-version
     title: "First entry is the current version"
@@ -5246,7 +5252,8 @@ features:
     acceptance:
       - "See spec scenario: First entry is the current version"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::First entry is the current version"
 
   - id: identity.legal-consent-banner-choice-stores-one-row-per-changed-purpose
     title: "Banner choice stores one row per changed purpose"
@@ -5262,7 +5269,8 @@ features:
     acceptance:
       - "See spec scenario: Banner choice stores one row per changed purpose"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Banner choice stores one row per changed purpose"
 
   - id: identity.legal-consent-re-accepting-a-new-terms-version-appends-a-row
     title: "Re-accepting a new Terms version appends a row"
@@ -5278,7 +5286,8 @@ features:
     acceptance:
       - "See spec scenario: Re-accepting a new Terms version appends a row"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Re-accepting a new Terms version appends a row"
 
   - id: identity.legal-consent-invalid-records-are-rejected-without-partial-writes
     title: "Invalid records are rejected without partial writes"
@@ -5294,7 +5303,8 @@ features:
     acceptance:
       - "See spec scenario: Invalid records are rejected without partial writes"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Invalid records are rejected without partial writes"
 
   - id: identity.legal-consent-stale-or-withdrawn-legal-acceptance-is-rejected
     title: "Stale or withdrawn legal acceptance is rejected"
@@ -5310,7 +5320,8 @@ features:
     acceptance:
       - "See spec scenario: Stale or withdrawn legal acceptance is rejected"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Stale or withdrawn legal acceptance is rejected"
 
   - id: identity.legal-consent-client-time-and-user-id-are-ignored
     title: "Client time and user id are ignored"
@@ -5326,7 +5337,8 @@ features:
     acceptance:
       - "See spec scenario: Client time and user id are ignored"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Client time and user id are ignored"
 
   - id: identity.legal-consent-anonymous-and-service-principals-cannot-record-consent
     title: "Anonymous and service principals cannot record consent"
@@ -5342,7 +5354,8 @@ features:
     acceptance:
       - "See spec scenario: Anonymous and service principals cannot record consent"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Anonymous and service principals cannot record consent"
 
   - id: identity.consent_ledger
     title: "History is newest first and paged"
@@ -5358,7 +5371,8 @@ features:
     acceptance:
       - "See spec scenario: History is newest first and paged"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::History is newest first and paged"
 
   - id: identity.legal-consent-a-user-never-sees-another-user-s-records
     title: "A user never sees another user's records"
@@ -5374,7 +5388,8 @@ features:
     acceptance:
       - "See spec scenario: A user never sees another user's records"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::A user never sees another user's records"
 
   - id: identity.legal-consent-page-size-is-clamped-and-bad-cursors-are-rejected
     title: "Page size is clamped and bad cursors are rejected"
@@ -5390,7 +5405,8 @@ features:
     acceptance:
       - "See spec scenario: Page size is clamped and bad cursors are rejected"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Page size is clamped and bad cursors are rejected"
 
   - id: identity.legal-consent-anonymous-caller-cannot-list
     title: "Anonymous caller cannot list"
@@ -5406,7 +5422,8 @@ features:
     acceptance:
       - "See spec scenario: Anonymous caller cannot list"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Anonymous caller cannot list"
 
   - id: identity.legal-consent-a-user-with-no-records-gets-an-empty-list
     title: "A user with no records gets an empty list"
@@ -5422,7 +5439,8 @@ features:
     acceptance:
       - "See spec scenario: A user with no records gets an empty list"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::A user with no records gets an empty list"
 
   - id: identity.legal-consent-consent-is-reachable-through-the-gateway
     title: "Consent is reachable through the gateway"
@@ -5438,7 +5456,8 @@ features:
     acceptance:
       - "See spec scenario: Consent is reachable through the gateway"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Consent is reachable through the gateway"
 
   - id: identity.legal-consent-anonymous-edge-call-is-refused
     title: "Anonymous edge call is refused"
@@ -5454,7 +5473,8 @@ features:
     acceptance:
       - "See spec scenario: Anonymous edge call is refused"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/legal_consent.feature::Anonymous edge call is refused"
 
   - id: identity.legal-consent-later-slice-rpcs-are-not-exposed-yet
     title: "Later-slice RPCs are not exposed yet"
@@ -5487,7 +5507,8 @@ features:
     acceptance:
       - "See spec scenario: Buyer with no obligations schedules deletion"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Buyer with no obligations schedules deletion"
 
   - id: identity.account-deletion-wrong-password-schedules-nothing
     title: "Wrong password schedules nothing"
@@ -5503,7 +5524,8 @@ features:
     acceptance:
       - "See spec scenario: Wrong password schedules nothing"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Wrong password schedules nothing"
 
   - id: identity.account-deletion-empty-password-is-rejected
     title: "Empty password is rejected"
@@ -5519,10 +5541,11 @@ features:
     acceptance:
       - "See spec scenario: Empty password is rejected"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Empty password is rejected"
 
   - id: identity.account-deletion-anonymous-caller-is-unauthenticated
-    title: "Anonymous caller is unauthenticated"
+    title: "Account deletion: Anonymous caller is unauthenticated"
     persona: buyer
     priority: P1
     summary: "Anonymous caller is unauthenticated (change identity-account-deletion)"
@@ -5535,7 +5558,8 @@ features:
     acceptance:
       - "See spec scenario: Anonymous caller is unauthenticated"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Anonymous caller is unauthenticated"
 
   - id: identity.account-deletion-service-principal-is-denied
     title: "Service principal is denied"
@@ -5551,7 +5575,8 @@ features:
     acceptance:
       - "See spec scenario: Service principal is denied"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Service principal is denied"
 
   - id: identity.account-deletion-repeated-request-keeps-the-first-deadline
     title: "Repeated request keeps the first deadline"
@@ -5567,7 +5592,8 @@ features:
     acceptance:
       - "See spec scenario: Repeated request keeps the first deadline"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Repeated request keeps the first deadline"
 
   - id: identity.account-deletion-open-order-blocks-deletion
     title: "Open order blocks deletion"
@@ -5583,7 +5609,8 @@ features:
     acceptance:
       - "See spec scenario: Open order blocks deletion"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_obligations.feature::Open order blocks deletion"
 
   - id: identity.account-deletion-non-zero-wallet-balance-blocks-deletion
     title: "Non-zero wallet balance blocks deletion"
@@ -5599,7 +5626,8 @@ features:
     acceptance:
       - "See spec scenario: Non-zero wallet balance blocks deletion"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_obligations.feature::Non-zero wallet balance blocks deletion"
 
   - id: identity.account-deletion-pending-payout-blocks-deletion
     title: "Pending payout blocks deletion"
@@ -5630,7 +5658,8 @@ features:
     acceptance:
       - "See spec scenario: Obligations are checked for the caller only"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_obligations.feature::Obligations are checked for the caller only"
 
   - id: identity.account-deletion-zero-obligations-on-every-counter-allows-deletion
     title: "Zero obligations on every counter allows deletion"
@@ -5646,7 +5675,8 @@ features:
     acceptance:
       - "See spec scenario: Zero obligations on every counter allows deletion"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_obligations.feature::Zero obligations on every counter allows deletion"
 
   - id: identity.account-deletion-payment-service-unreachable-fails-closed
     title: "Payment service unreachable fails closed"
@@ -5708,7 +5738,8 @@ features:
     acceptance:
       - "See spec scenario: Failed scheduling revokes nothing"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_sessions.feature::Failed scheduling revokes nothing"
 
   - id: identity.account-deletion-cancel-within-the-window
     title: "Cancel within the window"
@@ -5724,7 +5755,8 @@ features:
     acceptance:
       - "See spec scenario: Cancel within the window"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Cancel within the window"
 
   - id: identity.account-deletion-cancel-with-nothing-pending-is-rejected
     title: "Cancel with nothing pending is rejected"
@@ -5740,7 +5772,8 @@ features:
     acceptance:
       - "See spec scenario: Cancel with nothing pending is rejected"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Cancel with nothing pending is rejected"
 
   - id: identity.account-deletion-anonymous-cancel-is-unauthenticated
     title: "Anonymous cancel is unauthenticated"
@@ -5756,7 +5789,8 @@ features:
     acceptance:
       - "See spec scenario: Anonymous cancel is unauthenticated"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Anonymous cancel is unauthenticated"
 
   - id: identity.account-deletion-a-user-cannot-cancel-another-user-s-deletion
     title: "A user cannot cancel another user's deletion"
@@ -5772,7 +5806,8 @@ features:
     acceptance:
       - "See spec scenario: A user cannot cancel another user's deletion"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::A user cannot cancel another user's deletion"
 
   - id: identity.account-deletion-status-with-nothing-pending
     title: "Status with nothing pending"
@@ -5788,7 +5823,8 @@ features:
     acceptance:
       - "See spec scenario: Status with nothing pending"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Status with nothing pending"
 
   - id: identity.account-deletion-status-with-pending-deletion
     title: "Status with pending deletion"
@@ -5804,7 +5840,8 @@ features:
     acceptance:
       - "See spec scenario: Status with pending deletion"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Status with pending deletion"
 
   - id: identity.account-deletion-anonymous-status-is-unauthenticated
     title: "Anonymous status is unauthenticated"
@@ -5820,7 +5857,8 @@ features:
     acceptance:
       - "See spec scenario: Anonymous status is unauthenticated"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Anonymous status is unauthenticated"
 
   - id: identity.account-deletion-due-account-is-erased
     title: "Due account is erased"
@@ -5836,7 +5874,8 @@ features:
     acceptance:
       - "See spec scenario: Due account is erased"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Due account is erased"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
 
   - id: identity.account-deletion-usererased-is-written-in-the-same-transaction
@@ -5853,7 +5892,8 @@ features:
     acceptance:
       - "See spec scenario: UserErased is written in the same transaction"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::UserErased is written in the same transaction"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml). The rollback clause (nothing remains when the transaction rolls back) is unit-verified, not part of this scenario."
 
   - id: identity.account-deletion-consent-and-seller-terms-proof-survive-erasure
@@ -5870,7 +5910,8 @@ features:
     acceptance:
       - "See spec scenario: Consent and seller-terms proof survive erasure"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Consent and seller-terms proof survive erasure"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
 
   - id: identity.account-deletion-account-not-yet-due-is-untouched
@@ -5887,7 +5928,8 @@ features:
     acceptance:
       - "See spec scenario: Account not yet due is untouched"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Account not yet due is untouched"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
 
   - id: identity.account-deletion-cancelled-account-is-untouched
@@ -5904,7 +5946,8 @@ features:
     acceptance:
       - "See spec scenario: Cancelled account is untouched"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Cancelled account is untouched"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
 
   - id: identity.account-deletion-sweep-is-idempotent
@@ -5921,7 +5964,8 @@ features:
     acceptance:
       - "See spec scenario: Sweep is idempotent"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Sweep is idempotent"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
 
   - id: identity.account-deletion-erasure-completes-within-72-h-of-the-request
@@ -5938,7 +5982,8 @@ features:
     acceptance:
       - "See spec scenario: Erasure completes within 72 h of the request"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Erasure completes within 72 h of the request"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
 
   - id: identity.account-deletion-one-failing-account-does-not-stop-the-batch
@@ -5970,7 +6015,8 @@ features:
     acceptance:
       - "See spec scenario: Login to an erased account fails"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Login to an erased account fails"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
 
   - id: identity.account-deletion-former-username-is-not-reusable-by-lookup
@@ -5987,7 +6033,8 @@ features:
     acceptance:
       - "See spec scenario: Former username is not reusable by lookup"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Former username is not reusable by lookup"
     notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
 
   - id: identity.account-deletion-pending-deletion-does-not-block-sign-in
@@ -6004,7 +6051,8 @@ features:
     acceptance:
       - "See spec scenario: Pending deletion does not block sign-in"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Pending deletion does not block sign-in"
 
   - id: identity.account-deletion-signed-in-user-reaches-the-rpc
     title: "Signed-in user reaches the RPC"
@@ -6020,7 +6068,8 @@ features:
     acceptance:
       - "See spec scenario: Signed-in user reaches the RPC"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_gateway.feature::Signed-in user reaches the RPC"
 
   - id: identity.account-deletion-anonymous-request-is-rejected-at-the-edge
     title: "Anonymous request is rejected at the edge"
@@ -6036,7 +6085,8 @@ features:
     acceptance:
       - "See spec scenario: Anonymous request is rejected at the edge"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_gateway.feature::Anonymous request is rejected at the edge"
 
   - id: identity.account-deletion-internal-obligation-rpcs-are-not-exposed
     title: "Internal obligation RPCs are not exposed"
@@ -6052,7 +6102,8 @@ features:
     acceptance:
       - "See spec scenario: Internal obligation RPCs are not exposed"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_gateway.feature::Internal obligation RPCs are not exposed"
 
   - id: identity.account-deletion-erasure-logs-counts-only
     title: "Erasure logs counts only"
@@ -6099,7 +6150,8 @@ features:
     acceptance:
       - "E1: Export lists every identity-held record of the caller"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/data_export.feature::Export lists every identity-held record of the caller"
 
   - id: identity.data-export-export-never-contains-credentials
     title: "E2 Export never contains credentials"
@@ -6115,7 +6167,8 @@ features:
     acceptance:
       - "E2: Export never contains credentials"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/data_export.feature::Export never contains credentials"
 
   - id: identity.data-export-consents-are-listed-newest-first-with-deletion-state
     title: "E3 Consents are listed newest first with deletion state"
@@ -6131,7 +6184,8 @@ features:
     acceptance:
       - "E3: Consents are listed newest first with deletion state"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/data_export.feature::Consents are listed newest first with deletion state"
 
   - id: identity.data-export-a-user-with-no-addresses-and-no-deletion-gets-empty-collections
     title: "E4 A user with no addresses and no deletion gets empty collections"
@@ -6162,7 +6216,8 @@ features:
     acceptance:
       - "E5: Anonymous caller is refused"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/data_export.feature::Anonymous caller is refused"
 
   - id: identity.data-export-service-principal-is-refused
     title: "E6 Service principal is refused"
@@ -6193,7 +6248,8 @@ features:
     acceptance:
       - "E7: One user never sees another user's data"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/data_export.feature::One user never sees another user's data"
 
   - id: identity.data-export-a-user-with-a-pending-deletion-can-still-export
     title: "E8 A user with a pending deletion can still export"
@@ -6224,7 +6280,8 @@ features:
     acceptance:
       - "E9: Login history over the cap is truncated and flagged"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/data_export.feature::Login history over the cap is truncated and flagged"
 
   - id: identity.data-export-exactly-1000-login-events-are-not-truncated
     title: "E10 Exactly 1000 login events are not truncated"
@@ -6300,7 +6357,8 @@ features:
     acceptance:
       - "E14: The edge response is not cacheable"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/data_export.feature::The edge response is not cacheable"
 
   - id: identity.data-export-logs-carry-no-personal-data
     title: "E15 Logs carry no personal data"

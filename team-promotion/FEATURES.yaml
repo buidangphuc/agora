@@ -5710,8 +5710,9 @@ features:
       - "When a `UserErased` event for U is consumed"
       - "Then the voucher has `active` false and a `deactivated_at`, U's state row is gone, and the 2 reservations keep their buyer id, `status` and `discount_amount`"
     tags: [promotion, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in promotion/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "promotion/user_erasure.feature::PRO-1 Owned vouchers are deactivated and state is deleted"
+    notes: "commerce-user-erasure: e2e in promotion/user_erasure.feature (green: test_promotion_user_erasure.py::test_pro1_owned_vouchers_are_deactivated_and_state_is_deleted)."
 
   - id: promotion.pro-2-other-users-vouchers-and-state-are-untouched
     title: "PRO-2 Other users' vouchers and state are untouched"
@@ -5812,8 +5813,9 @@ features:
       - "When any caller reserves that voucher code at checkout"
       - "Then the reservation is refused as an inactive voucher and no quota is consumed"
     tags: [promotion, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in promotion/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "promotion/user_erasure.feature::PRO-8 A deactivated voucher cannot be redeemed"
+    notes: "commerce-user-erasure: e2e in promotion/user_erasure.feature (green: test_promotion_user_erasure.py::test_pro8_a_deactivated_voucher_cannot_be_redeemed)."
 
   - id: promotion.pro-9-a-voucher-owner-cannot-trigger-erasure-through-the-api
     title: "PRO-9 A voucher owner cannot trigger erasure through the API"

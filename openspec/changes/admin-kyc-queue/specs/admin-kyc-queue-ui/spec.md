@@ -20,12 +20,12 @@ The tab strip on every `/admin/cases` tab SHALL include "Xác minh người bán
 #### Scenario: KYC queue: Gateway refusal is shown as the same 403
 - **WHEN** the principal carries the `admin` scope but the gateway answers `PermissionDenied` to `ListKycSubmissions`
 - **THEN** the page renders the 403 result with the sub-text "Gateway từ chối quyền admin cho phiên đăng nhập này." and no table
-- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/page.test.tsx `kyc tab: gateway PermissionDenied renders the 403 result`
+- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/page.test.tsx `kyc tab: gateway PermissionDenied renders the 403 result (KYC queue: Gateway refusal is shown as the same 403)`
 
 #### Scenario: KYC queue: Expired session is sent to login
 - **WHEN** the gateway answers `Unauthenticated` to `ListKycSubmissions` for an admin principal
 - **THEN** the page redirects to `/login`
-- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/page.test.tsx `kyc tab: Unauthenticated redirects to login`
+- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/page.test.tsx `kyc tab: Unauthenticated redirects to login (KYC queue: Expired session is sent to login)`
 
 #### Scenario: KYC queue: Tab appears next to the existing tabs
 - **WHEN** an admin opens `/admin/cases?tab=reports`
@@ -53,7 +53,7 @@ text and reason code. A "Trang sau" link carrying the next cursor SHALL appear o
 #### Scenario: KYC queue: Unknown status or oversized cursor falls back
 - **WHEN** an admin opens `/admin/cases?tab=kyc&status=bogus&cursor=` followed by 300 characters
 - **THEN** the page does not error, calls `ListKycSubmissions` with status `PENDING` and a cursor of exactly 256 characters
-- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/casesParams.test.ts `kyc status falls back to PENDING and cursor is capped at 256`
+- **VERIFIED BY**: team-frontend-admin/src/features/admin/casesParams.test.ts `kyc status falls back to PENDING and cursor is capped at 256 (KYC queue: Unknown status or oversized cursor falls back)`
 
 #### Scenario: KYC queue: Empty queue
 - **WHEN** no submission is `PENDING` and an admin opens the tab
@@ -68,7 +68,7 @@ text and reason code. A "Trang sau" link carrying the next cursor SHALL appear o
 #### Scenario: KYC queue: List failure shows a retry message
 - **WHEN** `ListKycSubmissions` fails with `UNAVAILABLE` or times out after 5 seconds
 - **THEN** the tab strip stays visible and the page shows the alert "Không tải được danh sách hồ sơ xác minh. Vui lòng thử lại sau." with no upstream address or stack text
-- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/page.test.tsx `kyc tab: list failure shows the retry alert`
+- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/page.test.tsx `kyc tab: list failure shows the retry alert (KYC queue: List failure shows a retry message)`
 
 ### Requirement: Documents are opened only through the audited RPC
 
@@ -105,12 +105,12 @@ or store the URL, and SHALL NOT retry the call automatically. Buttons SHALL exis
 #### Scenario: KYC queue: A non-admin cannot obtain a document link
 - **WHEN** a session without the `admin` scope invokes the view-document server action
 - **THEN** the action returns the message "Bạn không có quyền thực hiện thao tác này." and `GetKycDocumentUrl` is called 0 times
-- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/kycActions.test.ts `viewKycDocumentAction refuses a non-admin`
+- **VERIFIED BY**: team-frontend-admin/src/features/admin/kycActions.test.ts `KYC queue: A non-admin cannot obtain a document link - viewKycDocumentAction refuses a non-admin`
 
 #### Scenario: KYC queue: Unknown submission or index is refused
 - **WHEN** the gateway answers `NOT_FOUND` or `INVALID_ARGUMENT` to `GetKycDocumentUrl`
 - **THEN** the row shows "Không tìm thấy tài liệu này." and no link
-- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/kycActions.test.ts `viewKycDocumentAction maps not_found and invalid to the not found message`
+- **VERIFIED BY**: team-frontend-admin/src/features/admin/kycActions.test.ts `KYC queue: Unknown submission or index is refused - viewKycDocumentAction maps not_found and invalid to the not found message (%s)`
 
 ### Requirement: Admins approve or reject pending submissions
 
@@ -139,7 +139,7 @@ row SHALL leave the `PENDING` list.
 #### Scenario: KYC queue: Forged decision or reason is refused by the action
 - **WHEN** the review server action is invoked with decision `ban` or with reason code `Bad Reason!`
 - **THEN** the action returns "Dữ liệu không hợp lệ; hồ sơ không thay đổi." and `ReviewKyc` is called 0 times
-- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/kycActions.test.ts `reviewKycAction refuses a forged decision or reason code`
+- **VERIFIED BY**: team-frontend-admin/src/features/admin/kycActions.test.ts `KYC queue: Forged decision or reason is refused by the action - reviewKycAction refuses a forged decision or reason code (%s)`
 
 #### Scenario: KYC queue: Reviewing your own submission is refused
 - **WHEN** an admin who is also the submitting user clicks "Duyệt" on their own submission and the service answers `PERMISSION_DENIED`
@@ -149,7 +149,7 @@ row SHALL leave the `PENDING` list.
 #### Scenario: KYC queue: A non-admin cannot review
 - **WHEN** a session without the `admin` scope invokes the review server action
 - **THEN** the action returns "Bạn không có quyền thực hiện thao tác này." and `ReviewKyc` is called 0 times
-- **VERIFIED BY**: team-frontend-admin/src/app/admin/cases/kycActions.test.ts `reviewKycAction refuses a non-admin`
+- **VERIFIED BY**: team-frontend-admin/src/features/admin/kycActions.test.ts `KYC queue: A non-admin cannot review - reviewKycAction refuses a non-admin`
 
 #### Scenario: KYC queue: Second decision on the same submission fails
 - **WHEN** two admins both click "Duyệt" on the same submission and the second `ReviewKyc` answers `FAILED_PRECONDITION`

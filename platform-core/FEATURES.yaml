@@ -9773,8 +9773,9 @@ features:
       - "When a `UserErased` for a seeded user is produced, then one Parquet export cycle and one `materialize` run complete"
       - "Then the warehouse, Parquet files, Redis (recs, nearline, featurestore, chat session) and Qdrant contain zero occurrences of the user id and the three DLQ topics have zero records"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-33 End to end across the stores"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue33_end_to_end_across_the_stores)."
 
   - id: core.aue-34-a-missing-dlq-topic-stops-the-consumer
     title: "AUE-34 A missing DLQ topic stops the consumer"
@@ -9787,5 +9788,6 @@ features:
       - "When a consumer starts and its DLQ topic is absent"
       - "Then the topic-init job has created it before the consumer service becomes healthy, otherwise the service exits non-zero rather than running without a DLQ"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-34 A missing DLQ topic stops the consumer"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue34_a_missing_dlq_topic_stops_the_consumer)."

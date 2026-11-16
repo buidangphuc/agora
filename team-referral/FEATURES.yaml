@@ -1361,8 +1361,9 @@ features:
     - "When a `UserErased` event for U is consumed"
     - "Then U's code, account and first-order rows are gone, and the 2 attributions and the 3 reward rows (ids, amounts, status) are unchanged"
   tags: [order, user-erasure]
-  status: planned
-  notes: "commerce-user-erasure: e2e in referral/user_erasure.feature (red before implementation)."
+  status: automated
+  covered_by: "referral/user_erasure.feature::REF-1 Code, account and first-order rows are deleted and the ledger is kept"
+  notes: "commerce-user-erasure: e2e in referral/user_erasure.feature (green: test_referral_user_erasure.py::test_ref1_code_account_and_firstorder_rows_are_deleted_and_the_ledger_is_kept)."
 
 - id: referral.ref-2-a-deleted-code-no-longer-resolves
   title: "REF-2 A deleted code no longer resolves"
@@ -1376,8 +1377,9 @@ features:
     - "When a new user registers with code `ABC123` after U's erasure is consumed"
     - "Then the referral is not attributed to U and no `referrals` row is added for that code"
   tags: [order, user-erasure]
-  status: planned
-  notes: "commerce-user-erasure: e2e in referral/user_erasure.feature (red before implementation)."
+  status: automated
+  covered_by: "referral/user_erasure.feature::REF-2 A deleted code no longer resolves"
+  notes: "commerce-user-erasure: e2e in referral/user_erasure.feature (green: test_referral_user_erasure.py::test_ref2_a_deleted_code_no_longer_resolves)."
 
 - id: referral.ref-3-another-user-s-referral-data-is-untouched
   title: "REF-3 Another user's referral data is untouched"

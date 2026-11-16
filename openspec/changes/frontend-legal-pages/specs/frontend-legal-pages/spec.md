@@ -30,7 +30,7 @@ statically rendered, SHALL make no gateway call, and SHALL be listed in the site
 #### Scenario: Terms and privacy page versions equal the configured versions
 - **WHEN** the unit suite reads `content/legal/dieu-khoan-su-dung.md` and `chinh-sach-bao-mat.md`
 - **THEN** their `version` values equal `NEXT_PUBLIC_LEGAL_TERMS_VERSION` and `NEXT_PUBLIC_PRIVACY_POLICY_VERSION` and each is 1 to 32 characters, else the test fails
-- **VERIFIED BY**: team-frontend/src/features/legal/content.test.ts "Terms and privacy page versions equal the configured versions"
+- **VERIFIED BY**: `team-frontend/src/features/legal/content.test.ts` `[Terms and privacy page versions equal the configured versions] terms`, `[Terms and privacy page versions equal the configured versions] privacy`
 
 ### Requirement: The footer links the legal pages and carries the operator block
 
@@ -82,7 +82,7 @@ of Industry and Trade registration notice, each "[DO BỘ PHẬN PHÁP CHẾ CUN
 #### Scenario: Boundary version length
 - **WHEN** the unit suite builds the register request with the configured versions
 - **THEN** each version string is sent unchanged and is at most 32 characters
-- **VERIFIED BY**: team-frontend/src/features/auth/actions.test.ts "Boundary version length"
+- **VERIFIED BY**: `team-frontend/src/features/auth/actions.test.ts` `[Boundary version length] each version string is sent unchanged and is at most 32 characters`
 
 ### Requirement: Users with stale acceptance are asked to accept again
 

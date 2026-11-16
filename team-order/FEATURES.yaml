@@ -7403,8 +7403,9 @@ features:
       - "When a SERVICE principal with scope `order.internal.read` calls `GetUserObligations` for U"
       - "Then the response is `open_buyer_orders` 3, `open_seller_orders` 1, `open_returns` 1"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_obligations.feature::OBL-1 Open orders and returns are counted"
+    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (green: test_user_obligations.py::test_obl1_open_orders_and_returns_are_counted)."
 
   - id: order.obl-2-closed-orders-and-returns-are-not-counted
     title: "OBL-2 Closed orders and returns are not counted"
@@ -7418,8 +7419,9 @@ features:
       - "When the service calls `GetUserObligations` for U"
       - "Then the response is `open_buyer_orders` 0, `open_seller_orders` 0, `open_returns` 0"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_obligations.feature::OBL-2 Closed orders and returns are not counted"
+    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (green: test_user_obligations.py::test_obl2_closed_orders_and_returns_are_not_counted)."
 
   - id: order.obl-3-a-user-with-no-data-reads-zeros
     title: "OBL-3 A user with no data reads zeros"
@@ -7432,8 +7434,9 @@ features:
       - "When the service calls `GetUserObligations` for a user id that appears in no order or return"
       - "Then the response is OK with all three counts 0"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_obligations.feature::OBL-3 A user with no data reads zeros"
+    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (green: test_user_obligations.py::test_obl3_a_user_with_no_data_reads_zeros)."
 
   - id: order.obl-4-a-return-counts-for-both-parties
     title: "OBL-4 A return counts for both parties"
@@ -7490,8 +7493,9 @@ features:
       - "When a signed-in USER principal calls `GetUserObligations` for its own id"
       - "Then the call fails with `PERMISSION_DENIED`"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_obligations.feature::OBL-7 A user principal is refused"
+    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (green: test_user_obligations.py::test_obl7_a_user_principal_is_refused)."
 
   - id: order.obl-8-a-service-principal-without-the-scope-is-refused
     title: "OBL-8 A service principal without the scope is refused"
@@ -7504,8 +7508,9 @@ features:
       - "When a SERVICE principal holding only `order.read` calls `GetUserObligations`"
       - "Then the call fails with `PERMISSION_DENIED`"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_obligations.feature::OBL-8 A service principal without the scope is refused"
+    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (green: test_user_obligations.py::test_obl8_a_service_principal_without_the_scope_is_refused)."
 
   - id: order.obl-9-an-anonymous-caller-is-refused
     title: "OBL-9 An anonymous caller is refused"
@@ -7518,8 +7523,9 @@ features:
       - "When a call without a principal reaches `GetUserObligations`"
       - "Then the call fails with `UNAUTHENTICATED`"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_obligations.feature::OBL-9 An anonymous caller is refused"
+    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (green: test_user_obligations.py::test_obl9_an_anonymous_caller_is_refused)."
 
   - id: order.obl-10-the-gateway-does-not-route-the-rpc
     title: "OBL-10 The gateway does not route the RPC"
@@ -7532,8 +7538,9 @@ features:
       - "When a browser client calls `OrderService/GetUserObligations` through the gateway, with or without a token"
       - "Then the gateway answers HTTP 501 and team-order receives no request"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_obligations.feature::OBL-10 The gateway does not route the RPC"
+    notes: "commerce-user-erasure: e2e in order/user_obligations.feature (green: test_user_obligations.py::test_obl10_the_gateway_does_not_route_the_rpc)."
 
   - id: order.obl-11-a-store-failure-never-reads-as-zero-obligations
     title: "OBL-11 A store failure never reads as zero obligations"
@@ -7562,8 +7569,9 @@ features:
       - "When a `UserErased` event for U is consumed"
       - "Then all 3 orders read recipient name, phone, street, ward, district and city \"Đã xóa\", the return reason reads \"Đã xóa\", U has 0 cart items, and order ids, `buyer_id`, `seller_id`, `total_amount`, items and shipments are byte-identical to before"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_erasure.feature::ORD-1 Buyer contact data is masked and accounting data is kept"
+    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (green: test_order_user_erasure.py::test_ord1_buyer_contact_data_is_masked_and_accounting_data_is_kept)."
 
   - id: order.ord-2-another-user-s-data-is-untouched
     title: "ORD-2 Another user's data is untouched"
@@ -7577,8 +7585,9 @@ features:
       - "When a `UserErased` event for U is consumed"
       - "Then W's orders, returns and cart items are unchanged"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_erasure.feature::ORD-2 Another user's data is untouched"
+    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (green: test_order_user_erasure.py::test_ord2_another_users_data_is_untouched)."
 
   - id: order.ord-3-a-redelivered-event-changes-nothing
     title: "ORD-3 A redelivered event changes nothing"
@@ -7592,8 +7601,9 @@ features:
       - "When the same event, and then a second event with a new event id for U, are consumed"
       - "Then both complete without error, no row differs from after the first handling, and the DLQ stays empty"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_erasure.feature::ORD-3 A redelivered event changes nothing"
+    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (green: test_order_user_erasure.py::test_ord3_a_redelivered_event_changes_nothing)."
 
   - id: order.ord-4-a-user-with-no-data-is-a-no-op
     title: "ORD-4 A user with no data is a no-op"
@@ -7635,8 +7645,9 @@ features:
       - "When a `UserErased` event with an empty `user_id`, or an envelope that does not decode, is consumed"
       - "Then no row changes and the record is written to `identity.events.order.dlq`"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_erasure.feature::ORD-6 A malformed event is parked, not applied"
+    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (green: test_order_user_erasure.py::test_ord6_a_malformed_event_is_parked_not_applied)."
 
   - id: order.ord-7-a-store-error-is-retried-and-leaves-no-partial-erasure
     title: "ORD-7 A store error is retried and leaves no partial erasure"
@@ -7679,5 +7690,6 @@ features:
       - "When S reads that order through `GetOrder`"
       - "Then the order returns with recipient name \"Đã xóa\", its original total and items, and the call succeeds"
     tags: [order, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "order/user_erasure.feature::ORD-9 The masked order stays readable by its parties"
+    notes: "commerce-user-erasure: e2e in order/user_erasure.feature (green: test_order_user_erasure.py::test_ord9_the_masked_order_stays_readable_by_its_parties)."

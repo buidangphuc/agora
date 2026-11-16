@@ -3277,8 +3277,9 @@ features:
       - "When a SERVICE principal with scope `payment.internal.read` calls `GetPayoutObligations` for S"
       - "Then the response is `available_balance` 200000, `held_balance` 200000 and `pending_payouts` 2"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-1 Balance, hold and pending payouts are reported"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay1_balance_hold_and_pending_payouts_are_reported)."
 
   - id: payment.pay-2-a-buyer-with-no-wallet-reads-zeros
     title: "PAY-2 A buyer with no wallet reads zeros"
@@ -3291,8 +3292,9 @@ features:
       - "When the service calls `GetPayoutObligations` for a user with no ledger entries and no payout requests"
       - "Then the response is OK with `available_balance` 0, `held_balance` 0, `pending_payouts` 0"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-2 A buyer with no wallet reads zeros"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay2_a_buyer_with_no_wallet_reads_zeros)."
 
   - id: payment.pay-3-completed-and-rejected-payouts-are-not-pending
     title: "PAY-3 Completed and rejected payouts are not pending"
@@ -3364,8 +3366,9 @@ features:
       - "When a signed-in USER principal, including a seller reading its own wallet, calls `GetPayoutObligations`"
       - "Then the call fails with `PERMISSION_DENIED`"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-7 A user principal is refused"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay7_a_user_principal_is_refused)."
 
   - id: payment.pay-8-a-service-principal-without-the-scope-is-refused
     title: "PAY-8 A service principal without the scope is refused"
@@ -3378,8 +3381,9 @@ features:
       - "When a SERVICE principal holding only `order.read` calls `GetPayoutObligations`"
       - "Then the call fails with `PERMISSION_DENIED`"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-8 A service principal without the scope is refused"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay8_a_service_principal_without_the_scope_is_refused)."
 
   - id: payment.pay-9-an-anonymous-caller-is-refused
     title: "PAY-9 An anonymous caller is refused"
@@ -3392,8 +3396,9 @@ features:
       - "When a call without a principal reaches `GetPayoutObligations`"
       - "Then the call fails with `UNAUTHENTICATED`"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-9 An anonymous caller is refused"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay9_an_anonymous_caller_is_refused)."
 
   - id: payment.pay-10-the-gateway-does-not-route-the-rpc
     title: "PAY-10 The gateway does not route the RPC"
@@ -3406,8 +3411,9 @@ features:
       - "When a browser client calls `PaymentService/GetPayoutObligations` through the gateway"
       - "Then the gateway answers HTTP 501 and team-payment receives no request"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-10 The gateway does not route the RPC"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay10_the_gateway_does_not_route_the_rpc)."
 
   - id: payment.pay-11-a-store-failure-never-reads-as-zero-money
     title: "PAY-11 A store failure never reads as zero money"
@@ -3436,8 +3442,9 @@ features:
       - "When a `UserErased` event for S is consumed"
       - "Then the 3 payout requests read `account_number` and `account_name` \"Đã xóa\", and their ids, `bank_code`, `amount`, `status`, `ledger_entry_id` and S's ledger sum of 400000 are unchanged"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/user_erasure.feature::PER-1 Bank details are masked and money records are kept"
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (green: test_payment_user_erasure.py::test_per1_bank_details_are_masked_and_money_records_are_kept)."
 
   - id: payment.per-2-another-seller-s-payouts-are-untouched
     title: "PER-2 Another seller's payouts are untouched"
@@ -3451,8 +3458,9 @@ features:
       - "When a `UserErased` event for S is consumed"
       - "Then T's `account_number` and `account_name` are unchanged"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/user_erasure.feature::PER-2 Another seller's payouts are untouched"
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (green: test_payment_user_erasure.py::test_per2_another_sellers_payouts_are_untouched)."
 
   - id: payment.per-3-a-redelivered-event-changes-nothing
     title: "PER-3 A redelivered event changes nothing"
@@ -3466,8 +3474,9 @@ features:
       - "When the same event, and then a second event with a new event id for S, are consumed"
       - "Then both complete without error, no row differs from after the first handling, and the DLQ stays empty"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/user_erasure.feature::PER-3 A redelivered event changes nothing"
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (green: test_payment_user_erasure.py::test_per3_a_redelivered_event_changes_nothing)."
 
   - id: payment.per-4-a-user-without-payouts-is-a-no-op
     title: "PER-4 A user without payouts is a no-op"
@@ -3538,8 +3547,9 @@ features:
       - "When an admin lists S's payout history"
       - "Then each entry shows `account_number` and `account_name` \"Đã xóa\" with its original amount and status"
     tags: [payment, user-erasure]
-    status: planned
-    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "payment/user_erasure.feature::PER-8 Payout history shows the mask"
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (green: test_payment_user_erasure.py::test_per8_payout_history_shows_the_mask)."
 
   - id: payment.payout-requires-kyc
     title: Payouts require a VERIFIED seller
@@ -3578,9 +3588,9 @@ features:
       - "When the seller calls RequestPayout"
       - "Then the call succeeds and ListPayoutHistory returns the new payout with the requested amount"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verified seller requests a bank payout (red before implementation); @destructive; needs compose/payment-ledger.override.yaml."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Verified seller requests a bank payout"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verified seller requests a bank payout (green: test_payout_kyc_gate.py::test_verified_seller_requests_a_bank_payout); @destructive; needs compose/payment-ledger.override.yaml."
 
   - id: payment.payout-kyc.verified-wallet
     title: "Verified seller requests a wallet payout"
@@ -3598,9 +3608,9 @@ features:
       - "When the seller calls RequestWalletPayout"
       - "Then the call succeeds and ListLedgerEntries shows one pending payout entry of minus the requested amount"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verified seller requests a wallet payout (red before implementation); @destructive; needs compose/payment-ledger.override.yaml."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Verified seller requests a wallet payout"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verified seller requests a wallet payout (green: test_payout_kyc_gate.py::test_verified_seller_requests_a_wallet_payout); @destructive; needs compose/payment-ledger.override.yaml."
 
   - id: payment.payout-kyc.never-submitted
     title: "Seller who never submitted is refused"
@@ -3618,9 +3628,9 @@ features:
       - "When the seller calls RequestPayout"
       - "Then the call fails FAILED_PRECONDITION with message \"seller verification required\", ListPayoutHistory returns 0 payouts and the wallet balance is unchanged"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller who never submitted is refused (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seller who never submitted is refused"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller who never submitted is refused (green: test_payout_kyc_gate.py::test_seller_who_never_submitted_is_refused)."
 
   - id: payment.payout-kyc.pending
     title: "Seller with a pending submission is refused"
@@ -3638,9 +3648,9 @@ features:
       - "When the seller calls RequestWalletPayout"
       - "Then the call fails FAILED_PRECONDITION and ListLedgerEntries contains 0 new entries"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller with a pending submission is refused (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seller with a pending submission is refused"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller with a pending submission is refused (green: test_payout_kyc_gate.py::test_seller_with_a_pending_submission_is_refused)."
 
   - id: payment.payout-kyc.rejected
     title: "Seller with a rejected submission is refused"
@@ -3658,9 +3668,9 @@ features:
       - "When the seller calls RequestPayout"
       - "Then the call fails FAILED_PRECONDITION and the wallet balance is unchanged"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller with a rejected submission is refused (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seller with a rejected submission is refused"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller with a rejected submission is refused (green: test_payout_kyc_gate.py::test_seller_with_a_rejected_submission_is_refused)."
 
   - id: payment.payout-kyc.loses-verification
     title: "Seller who loses verification is refused on the next call"
@@ -3678,9 +3688,9 @@ features:
       - "When the seller calls RequestPayout again"
       - "Then the second call fails FAILED_PRECONDITION and ListPayoutHistory still returns exactly 1 payout"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller who loses verification is refused on the next call (red before implementation); @destructive; needs compose/payment-ledger.override.yaml."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seller who loses verification is refused on the next call"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller who loses verification is refused on the next call (green: test_payout_kyc_gate.py::test_seller_who_loses_verification_is_refused_on_the_next_call); @destructive; needs compose/payment-ledger.override.yaml."
 
   - id: payment.payout-kyc.verification-unreachable
     title: "Verification service unreachable"
@@ -3698,9 +3708,9 @@ features:
       - "When the seller calls RequestPayout"
       - "Then the call fails UNAVAILABLE within 3 seconds and ListPayoutHistory returns 0 new payouts"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verification service unreachable (red before implementation); @destructive; stops team-verification."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Verification service unreachable"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verification service unreachable (green: test_payout_kyc_gate.py::test_verification_service_unreachable); @destructive; stops team-verification."
 
   - id: payment.payout-kyc.gate-recovers
     title: "Gate recovers after the outage"
@@ -3718,9 +3728,9 @@ features:
       - "When the VERIFIED seller repeats the payout"
       - "Then the call succeeds with no restart of team-payment"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Gate recovers after the outage (red before implementation); @destructive; stops team-verification; needs compose/payment-ledger.override.yaml."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Gate recovers after the outage"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Gate recovers after the outage (green: test_payout_kyc_gate.py::test_gate_recovers_after_the_outage); @destructive; stops team-verification; needs compose/payment-ledger.override.yaml."
 
   - id: payment.payout-kyc.invalid-amount-before-gate
     title: "Invalid amount is rejected before the gate"
@@ -3738,9 +3748,9 @@ features:
       - "When the seller calls RequestPayout with amount 0"
       - "Then the call fails INVALID_ARGUMENT (not FAILED_PRECONDITION: validation runs before the gate)"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Invalid amount is rejected before the gate (red before implementation); the zero-status-calls count is unit-verified in the handler tests."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Invalid amount is rejected before the gate"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Invalid amount is rejected before the gate (green: test_payout_kyc_gate.py::test_invalid_amount_is_rejected_before_the_gate); the zero-status-calls count is unit-verified in the handler tests."
 
   - id: payment.payout-kyc.other-wallet-before-gate
     title: "Another seller's wallet is denied before the gate"
@@ -3758,9 +3768,9 @@ features:
       - "When the buyer calls RequestPayout with the seller's seller_id"
       - "Then the call fails PERMISSION_DENIED"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Another seller's wallet is denied before the gate (red before implementation); the zero-status-calls count is unit-verified in the handler tests."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Another seller's wallet is denied before the gate"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Another seller's wallet is denied before the gate (green: test_payout_kyc_gate.py::test_another_sellers_wallet_is_denied_before_the_gate); the zero-status-calls count is unit-verified in the handler tests."
 
   - id: payment.payout-kyc.no-write-scope-before-gate
     title: "Missing listing write scope is denied before the gate"
@@ -3778,9 +3788,9 @@ features:
       - "When it calls RequestWalletPayout"
       - "Then the call fails PERMISSION_DENIED"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Missing listing write scope is denied before the gate (red before implementation); the zero-status-calls count is unit-verified in the handler tests."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Missing listing write scope is denied before the gate"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Missing listing write scope is denied before the gate (green: test_payout_kyc_gate.py::test_missing_listing_write_scope_is_denied_before_the_gate); the zero-status-calls count is unit-verified in the handler tests."
 
   - id: payment.payout-kyc.status-from-principal
     title: "Status comes from the principal not the request"
@@ -3798,9 +3808,9 @@ features:
       - "When the unverified seller calls RequestPayout with seller_id set to the verified seller's id"
       - "Then the call fails PERMISSION_DENIED and no payout exists for either seller"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Status comes from the principal not the request (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Status comes from the principal not the request"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Status comes from the principal not the request (green: test_payout_kyc_gate.py::test_status_comes_from_the_principal_not_the_request)."
 
   - id: payment.payout-kyc.boot-needs-verification-addr
     title: "Boot fails without the verification address"
@@ -3818,9 +3828,9 @@ features:
       - "When configuration loads"
       - "Then the process exits non-zero and its log names UPSTREAM_VERIFICATION_ADDR"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Boot fails without the verification address (red before implementation); also unit-verified in team-payment/internal/config/config_test.go."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Boot fails without the verification address"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Boot fails without the verification address (green: test_payout_kyc_gate.py::test_boot_fails_without_the_verification_address); also unit-verified in team-payment/internal/config/config_test.go."
 
   - id: payment.payout-kyc.seeded-seller-pays-out
     title: "Seeded demo seller can pay out"
@@ -3838,9 +3848,9 @@ features:
       - "When a seeded shop seller requests a payout"
       - "Then GetVerificationStatus returns VERIFIED and the call is not refused for seller verification"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seeded demo seller can pay out (red before implementation); depends on seed-marketplace.sh verifying sellers (task 1.9); payout success depends on the seeded balance."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seeded demo seller can pay out"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seeded demo seller can pay out (green: test_payout_kyc_gate.py::test_seeded_demo_seller_can_pay_out); depends on seed-marketplace.sh verifying sellers (task 1.9); payout success depends on the seeded balance."
 
   - id: payment.payout-kyc.fresh-seller-blocked
     title: "Freshly registered seller is blocked at rollout"
@@ -3858,9 +3868,9 @@ features:
       - "When the seller calls RequestWalletPayout"
       - "Then the call fails FAILED_PRECONDITION and GetVerificationStatus returns NOT_SUBMITTED"
     tags: [payment, seller, kyc]
-    status: planned
-    covered_by: null
-    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Freshly registered seller is blocked at rollout (red before implementation)."
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Freshly registered seller is blocked at rollout"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Freshly registered seller is blocked at rollout (green: test_payout_kyc_gate.py::test_freshly_registered_seller_is_blocked_at_rollout)."
 
   - id: payment.payout-kyc.verification-deadline
     title: "Verification call exceeds the deadline"

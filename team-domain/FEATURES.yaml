@@ -3086,8 +3086,9 @@ features:
     acceptance:
       - "Erased seller's listings in every status are deleted"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Erased seller's listings in every status are deleted"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_erased_sellers_listings_in_every_status_are_deleted)."
 
   - id: domain.dse-deleted-listings-leave-the-store
     title: "Deleted listings leave the store"
@@ -3099,8 +3100,9 @@ features:
     acceptance:
       - "Deleted listings leave the store"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Deleted listings leave the store"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_deleted_listings_leave_the_store)."
 
   - id: domain.dse-delete-events-match-the-existing-delete-path
     title: "Delete events match the existing delete path"
@@ -3112,8 +3114,9 @@ features:
     acceptance:
       - "Delete events match the existing delete path"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Delete events match the existing delete path"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_delete_events_match_the_existing_delete_path)."
 
   - id: domain.dse-other-sellers-listings-are-not-touched
     title: "Other sellers' listings are not touched"
@@ -3125,8 +3128,9 @@ features:
     acceptance:
       - "Other sellers' listings are not touched"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Other sellers' listings are not touched"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_other_sellers_listings_are_not_touched)."
 
   - id: domain.dse-erasure-has-no-rpc-entry-point-and-owner-checks-stay
     title: "Erasure has no RPC entry point and owner checks stay"
@@ -3138,8 +3142,9 @@ features:
     acceptance:
       - "Erasure has no RPC entry point and owner checks stay"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Erasure has no RPC entry point and owner checks stay"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_erasure_has_no_rpc_entry_point_and_owner_checks_stay)."
 
   - id: domain.dse-roles-in-the-event-do-not-widen-the-delete
     title: "Roles in the event do not widen the delete"
@@ -3151,8 +3156,9 @@ features:
     acceptance:
       - "Roles in the event do not widen the delete"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Roles in the event do not widen the delete"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_roles_in_the_event_do_not_widen_the_delete)."
 
   - id: domain.dse-batch-boundary-of-500-listings
     title: "Batch boundary of 500 listings"
@@ -3164,8 +3170,9 @@ features:
     acceptance:
       - "Batch boundary of 500 listings"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Batch boundary of 500 listings"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_batch_boundary_of_500_listings)."
 
   - id: domain.dse-storefront-and-bundles-are-deleted
     title: "Storefront and bundles are deleted"
@@ -3177,8 +3184,9 @@ features:
     acceptance:
       - "Storefront and bundles are deleted"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Storefront and bundles are deleted"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_storefront_and_bundles_are_deleted)."
 
   - id: domain.dse-failed-shop-data-delete-rolls-back-the-listings-too
     title: "Failed shop-data delete rolls back the listings too"
@@ -3203,8 +3211,9 @@ features:
     acceptance:
       - "Another seller's storefront and bundles survive"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Another seller's storefront and bundles survive"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_another_sellers_storefront_and_bundles_survive)."
 
   - id: domain.dse-redelivered-event-is-a-no-op
     title: "Redelivered event is a no-op"
@@ -3216,8 +3225,9 @@ features:
     acceptance:
       - "Redelivered event is a no-op"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Redelivered event is a no-op"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_redelivered_event_is_a_noop)."
 
   - id: domain.dse-second-event-for-the-same-user-is-a-no-op
     title: "Second event for the same user is a no-op"
@@ -3229,8 +3239,9 @@ features:
     acceptance:
       - "Second event for the same user is a no-op"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Second event for the same user is a no-op"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_second_event_for_the_same_user_is_a_noop)."
 
   - id: domain.dse-store-failure-rolls-back-and-retries
     title: "Store failure rolls back and retries"
@@ -3255,8 +3266,9 @@ features:
     acceptance:
       - "Erasure of a user with no listings"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Erasure of a user with no listings"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_erasure_of_a_user_with_no_listings)."
 
   - id: domain.dse-malformed-event-goes-to-the-dlq
     title: "Malformed event goes to the DLQ"
@@ -3268,8 +3280,9 @@ features:
     acceptance:
       - "Malformed event goes to the DLQ"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Malformed event goes to the DLQ"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_malformed_event_goes_to_the_dlq)."
 
   - id: domain.dse-other-event-types-are-ignored
     title: "Seller erasure: Other event types are ignored"
@@ -3294,8 +3307,9 @@ features:
     acceptance:
       - "A poison erasure event does not block seller hold"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::A poison erasure event does not block seller hold"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_a_poison_erasure_event_does_not_block_seller_hold)."
 
   - id: domain.dse-logs-carry-no-raw-identifiers
     title: "Logs carry no raw identifiers"
@@ -3307,5 +3321,20 @@ features:
     acceptance:
       - "Logs carry no raw identifiers"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Logs carry no raw identifiers"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_logs_carry_no_raw_identifiers)."
+
+  - id: domain.dse.other-event-types-are-ignored
+    title: "Seller erasure: Other event types are ignored"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change domain-seller-erasure: Other event types are ignored"
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Other event types are ignored"
+    tags: [domain-seller-erasure]
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Other event types are ignored"
+    notes: "domain-seller-erasure: e2e test_seller_erasure.py::test_other_event_types_are_ignored"
