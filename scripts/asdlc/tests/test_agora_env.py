@@ -524,6 +524,19 @@ def test_main_env_exports_mainx_containers_and_default_ports(monkeypatch, tmp_pa
     assert e["VERIFICATION_CONTAINER"] == "team-verification-svc"
 
 
+def test_closure_starts_the_service_publishing_a_localhost_port_named_by_env_or_code_defaults():
+    services = {
+        **SERVICES,
+        "minio": {"image": "minio/minio", "ports": [{"published": "9000", "target": 9000}]},
+        "minio-init": {"image": "minio/mc", "depends_on": {"minio": {}}},
+        "team-domain": {"image": "team-domain:local", "container_name": "team-domain-svc", "environment": {"ENV": "local"}},
+        "team-frontend": {"image": "team-frontend:local", "environment": {"NEXT_PUBLIC_GATEWAY_URL": "http://localhost:8080"}},
+    }
+    assert {"minio", "minio-init"} <= ae.closure(services, {"team-domain"})
+    assert "team-gateway" in ae.closure(services, {"team-frontend"})
+    assert "minio" not in ae.closure(services, {"team-gateway"})
+
+
 def test_override_points_team_domain_code_default_storage_at_env_minio():
     services = {
         "minio": {"image": "minio/minio", "ports": [{"published": "9000", "target": 9000}]},

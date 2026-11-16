@@ -143,10 +143,16 @@ def hosts(services):
     return h
 
 
-def deps_of(name, svc, hostmap, with_optional):
+def publishers(services):
+    return {int(str(p["published"]).split("-")[0]): name
+            for name, s in services.items() for p in (s.get("ports") or []) if p.get("published")}
+
+
+def deps_of(name, svc, hostmap, with_optional, published=None):
     found = set((svc.get("depends_on") or {}).keys())
     names = sorted(hostmap, key=len, reverse=True)
-    for k, v in (svc.get("environment") or {}).items():
+    env = {**CODE_DEFAULTS.get(name, {}), **(svc.get("environment") or {})}
+    for k, v in env.items():
         if k in NOT_DEPS or v is None:
             continue
         if name == "team-gateway" and GATEWAY_FANOUT.match(k):
@@ -154,6 +160,9 @@ def deps_of(name, svc, hostmap, with_optional):
         for h in names:
             if re.search(rf"(?<![\w.-]){re.escape(h)}(?=[:/,]|$)", str(v)):
                 found.add(hostmap[h])
+        for port in re.findall(r"(?<![\w.-])(?:localhost|127\.0\.0\.1):(\d+)", str(v)):
+            if int(port) in (published or {}):
+                found.add(published[int(port)])
     if not with_optional:
         found -= OPTIONAL_HOSTS
     found.discard(name)
@@ -162,13 +171,14 @@ def deps_of(name, svc, hostmap, with_optional):
 
 def closure(services, start, with_optional=False):
     hostmap = hosts(services)
+    published = publishers(services)
     seen, todo = set(), list(start)
     while todo:
         n = todo.pop()
         if n in seen or n not in services:
             continue
         seen.add(n)
-        todo.extend(deps_of(n, services[n], hostmap, with_optional) - seen)
+        todo.extend(deps_of(n, services[n], hostmap, with_optional, published) - seen)
         if f"{n}-init" in services:
             todo.append(f"{n}-init")
     return seen
