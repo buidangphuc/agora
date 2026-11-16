@@ -495,7 +495,8 @@ def signed_out(world: World) -> None:
 
 @then("the legacy user has no TERMS or PRIVACY_POLICY consent row")
 def legacy_no_rows(world: World) -> None:
-    rows = [r for r in _all_records(_x(world)["user"]["token"]) if r["purpose"] in {TERMS, PRIVACY}]
+    token = ue.login(_x(world)["user"])["token"]
+    rows = [r for r in _all_records(token) if r["purpose"] in {TERMS, PRIVACY}]
     assert rows == [], rows
 
 
