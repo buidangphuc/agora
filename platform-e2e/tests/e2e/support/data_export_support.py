@@ -61,7 +61,12 @@ def add_addresses(user: dict, n: int) -> list[str]:
 
 def record_consents(user: dict, purposes: list[str]) -> None:
     records = [
-        {"purpose": p, "granted": True, "version": legal.CURRENT_TERMS, "source": "e2e_export"}
+        {
+            "purpose": p,
+            "granted": True,
+            "version": legal.CURRENT_PRIVACY if "PRIVACY_POLICY" in p else legal.CURRENT_TERMS,
+            "source": "account",
+        }
         for p in purposes
     ]
     resp = ue.call(RECORD_CONSENT, {"records": records}, user["token"])
