@@ -5,8 +5,9 @@
 #   temp worktree of base) and must FAIL (compile error counts), then at HEAD and must PASS.
 # e2e (platform-e2e/**): first commit touching e2e files must precede the first commit touching
 #   implementation files (non-test, outside platform-e2e) of the same range. Contract commits, whose
-#   implementation files are all under platform-core/packages/proto/**, carry no e2e by design and
-#   are skipped when finding that first implementation commit.
+#   implementation files are all under platform-core/packages/proto/**, <repo>/proto/platform/** or
+#   fe-platform/packages/api-client/src/generated/**, carry no e2e by design and are skipped when
+#   finding that first implementation commit.
 # exit 1: a test is green at base (written after code / not testing new behaviour) or red at head,
 #         or e2e written after implementation.
 # --only KINDS: run only these test kinds (comma list of go|python|ts); other kinds are reported SKIP.
