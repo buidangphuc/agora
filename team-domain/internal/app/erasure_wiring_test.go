@@ -1,7 +1,6 @@
 package app_test
 
 import (
-	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -9,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
