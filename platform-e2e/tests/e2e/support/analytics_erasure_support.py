@@ -39,6 +39,9 @@ from tests.e2e.support import tii_support as tii
 ANALYTICS_GROUP = os.getenv("ANALYTICS_ERASURE_GROUP", "team-analytics.user-erasure")
 RECSYS_GROUP = os.getenv("RECSYS_ERASURE_GROUP", "platform-recsys.erasure")
 TEAM_AI_GROUP = os.getenv("TEAM_AI_ERASURE_GROUP", "team-ai.user-erasure")
+ORDER_SINK_GROUP = os.getenv("ANALYTICS_SINK_GROUP", "team-analytics")
+LISTING_SINK_GROUP = os.getenv("ANALYTICS_LISTING_SINK_GROUP", "team-analytics-listing-attrs")
+SINK_GROUPS = (ORDER_SINK_GROUP, LISTING_SINK_GROUP)
 ANALYTICS_DLQ = "identity.events.analytics.dlq"
 RECSYS_DLQ = "identity.events.recsys.dlq"
 TEAM_AI_DLQ = "identity.events.team-ai.dlq"
@@ -334,11 +337,18 @@ def table_sizes() -> dict[str, int]:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def wait_sinks_caught_up(timeout: float = WITHIN_S) -> None:
+    for group in SINK_GROUPS:
+        stack.wait_group_caught_up(group, timeout=timeout)
+
+
 def stable_table_sizes(settle_s: float = 6.0, timeout: float = 60.0) -> dict[str, int]:
     """Table sizes that did not change over `settle_s` (the sink has nothing in flight)."""
     deadline = time.monotonic() + timeout
+    wait_sinks_caught_up()
     prev = table_sizes()
     while time.monotonic() < deadline:
+        wait_sinks_caught_up()
         time.sleep(settle_s)
         cur = table_sizes()
         if cur == prev:
