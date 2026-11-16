@@ -27,6 +27,7 @@ from tests.e2e.support import tii_support as tii
 ANALYTICS_SVC = "/platform.analytics.v1.AnalyticsQueryService"
 ENG = "/platform.engagement.v1.EngagementService"
 TRACK_BATCH = 25
+LISTING_DELETED = "LISTING_STATUS_DELETED"
 LISTING_FACTS = ("favorite_added", "favorite_removed", "seller_followed", "seller_unfollowed")
 
 
@@ -267,6 +268,23 @@ def record_orders(aue_world, name):
     assert len(lines) == 3, lines
     _d(aue_world)["order_lines"] = lines
     _d(aue_world)["summary"] = _gmv(sorted({line[0] for line in lines}))
+
+
+@given(
+    parsers.parse('"{name}" has deleted "L1", "L2" and "L3" and the warehouse shows them as deleted')
+)
+def seller_deleted_listings(aue_world, name):
+    seller = aue_world.actors[name]
+    ids = [_listing(aue_world, ln) for ln in ("L1", "L2", "L3")]
+    for lid in ids:
+        s.ok(s.post(aue_world, seller, s.LISTING, "DeleteListing", {"id": lid}))
+    marks = ", ".join("?" for _ in ids)
+    rows = tii.warehouse_rows(
+        f"SELECT listing_id, status FROM listing_sellers WHERE listing_id IN ({marks})",
+        ids,
+        until=lambda r: len(r) == len(ids) and all(x[1] == LISTING_DELETED for x in r),
+    )
+    assert len(rows) == len(ids) and all(x[1] == LISTING_DELETED for x in rows), rows
 
 
 @given(parsers.parse('the listing_sellers rows of "{name}" are recorded'))

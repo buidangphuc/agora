@@ -55,7 +55,7 @@ For every `tracking_events` row with `principal_type = 'user'` and `principal_id
 
 ### Requirement: Order, engagement and listing rows are pseudonymised or deleted
 
-The purge SHALL re-key `order_facts.buyer_id`, `order_facts.seller_id`, `engagement_facts.seller_id` and `listing_sellers.seller_id` equal to the user to the same pseudonym, SHALL re-key `engagement_facts.user_id` of `review_created` facts to the pseudonym, and SHALL delete `engagement_facts` rows of the user with fact `favorite_added`, `favorite_removed`, `seller_followed` or `seller_unfollowed`. `order_id`, quantities, prices and timestamps SHALL be unchanged, and `listing_sellers` rows SHALL be kept with `status` unchanged.
+The purge SHALL re-key `order_facts.buyer_id`, `order_facts.seller_id`, `engagement_facts.seller_id` and `listing_sellers.seller_id` equal to the user to the same pseudonym, SHALL re-key `engagement_facts.user_id` of `review_created` facts to the pseudonym, and SHALL delete `engagement_facts` rows of the user with fact `favorite_added`, `favorite_removed`, `seller_followed` or `seller_unfollowed`. The purge SHALL scrub personal identifiers only: `order_id`, quantities, prices and timestamps SHALL be unchanged, `listing_sellers` rows SHALL be kept, and the purge SHALL NOT change any `status` value.
 
 #### Scenario: AUE-9 Orders are kept with a pseudonymous buyer
 - **WHEN** buyer U with 3 PAID `order_facts` lines is erased
@@ -68,8 +68,8 @@ The purge SHALL re-key `order_facts.buyer_id`, `order_facts.seller_id`, `engagem
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/user_erasure.feature` `AUE-10 Favourites and follows are deleted`
 
 #### Scenario: AUE-11 An erased seller is re-keyed everywhere
-- **WHEN** seller U whose `roles` include `seller` is erased
-- **THEN** no row in `order_facts`, `engagement_facts` or `listing_sellers` has `seller_id` = U, the listings' `listing_id` and `status` values are unchanged, and `GetSellerFunnel` for U returns zero counts
+- **WHEN** seller U whose `roles` include `seller`, and whose listings are recorded in `listing_sellers` just before the erasure, is erased
+- **THEN** no row in `order_facts`, `engagement_facts` or `listing_sellers` has `seller_id` = U, each recorded listing has the same `listing_id` and the same `status` after the erasure as before it (a listing that is `LISTING_STATUS_DELETED` before stays `LISTING_STATUS_DELETED`), and `GetSellerFunnel` for U returns zero counts
 - **VERIFIED BY**: `platform-e2e/tests/e2e/features/analytics/user_erasure.feature` `AUE-11 An erased seller is re-keyed everywhere`
 
 #### Scenario: AUE-35 A failed order or engagement re-key rolls back as a whole

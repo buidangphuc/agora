@@ -108,6 +108,7 @@ Feature: A UserErased event purges the user from the analytics warehouse
     And "B" has a paid order of "L1", "L2" and "L3" in the warehouse
     And "B" follows the seller "U" in the warehouse
     And a visitor has viewed "L1" and the seller funnel of "U" shows at least 1 view
+    And "U" has deleted "L1", "L2" and "L3" and the warehouse shows them as deleted
     And the listing_sellers rows of "U" are recorded
     When a UserErased event for the seller "U" is produced
     Then within 60 seconds no warehouse table contains the id of "U"
