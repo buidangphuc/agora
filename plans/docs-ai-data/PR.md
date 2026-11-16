@@ -65,10 +65,13 @@ platform-e2e/         56 e2e files: features, steps, recsys/forecast fixtures
 
 - **Before:** e2e suite written red first per slice (`test(e2e): <slice> red` commits); FEATURES entries `planned`.
   **After:** 70 FEATURES entries flipped to `automated` after their scenarios passed on env `docs-ai-data`; renamed modules re-ran green (2 + 33 passed, b881d721f).
-- **rgp module re-run after the converge decisions (env docs-ai-data):** 7/8. All 7 scenarios pass; 1 error at teardown:
-  `platform-e2e/tests/e2e/step_definitions/test_rgp_generation_publish.py::test_serving_follows_a_promotion_within_seconds[chromium]`
-  (`rgp_restore_serving` left no serving generation: the tooling recsys seed data shape is rejected by the structural gate, or skipped for having no holdout). Fixed by decision 8 (agora_env.py seeds recsys data) in the tooling PR.
-- **Local CI (base 06c44c17, head of this branch):**
+- **rgp module, fresh env `docs-ai-data` with the tooling PR's `agora_env.py` (2026-11-16):** `up --with platform-recsys,mlflow`, recsys seed only from `up` (1440/1440 events, export confirmed).
+  `test_rgp_generation_publish.py`: **7 passed, 0 failed, 0 errors**; teardown `restore_real_generation` clean. Decision 8 (recsys seed shape) is proven. Before the tooling fixes the same module had 7 failed + 1 error (mlflow `NoSuchBucket`: `minio-init` was not started).
+- **era module (only `FLIPT_CONTAINER` user), same env:** `test_era_experiment_arms.py` **8 passed, 1 failed**:
+  `platform-e2e/tests/e2e/step_definitions/test_era_experiment_arms.py::test_flipt_unreachable_serves_the_default_ranker_as_unassigned[chromium]`.
+  The arm is `unassigned` as expected (Flipt stop works), but the ranker is `similarity` with no items: on a fresh env no published listing exists when `up` seeds, so the serving generation holds only synthetic ids, `in_stock_only` drops all of them and team-ai falls back to `_popular_result`. Data dependency, not a code defect; fix choice is under Needs human.
+- **Tooling commits moved out of this branch (2026-11-16):** 529796f42 (red_first BSR remote-plugin drop) reverted in 33079bafc; the `agora_env.py` `FLIPT_CONTAINER` hunk of c44c42977 reverted in 06ab26afa; the `services-ci.yml` platform-forecast job of 5849c3d81 reverted in c879164f6. All three now live in `chore/asdlc-tooling`. Feature code from c44c42977 and 5849c3d81 stays here.
+- **Local CI (base 06c44c17, head c879164f6, re-run 2026-11-16 after the reverts; later commits are docs only):**
 
 | check | result | evidence |
 |---|---|---|
@@ -77,9 +80,9 @@ platform-e2e/         56 e2e files: features, steps, recsys/forecast fixtures
 | ci_local repo | pass | repo_doctor, validate_plan (known exceptions below), asdlc_config, check_gates |
 | ci_local proto | pass | buf lint + buf breaking vs base |
 | ci_local tests-asdlc | pass | pytest scripts/asdlc/tests, guard and red_first shell tests |
-| ci_local tdd red_first (go, ts) | pass | every Go and TS test red at base and green at head, or exempt with a trailer |
-| ci_local tdd red_first (python) | tooling red | runs team-ai / platform-forecast tests with the platform-e2e venv, which lacks their deps; same suites green with their own venvs (rows below). Fixed by the tooling PR (decision 16) |
-| ci_local tdd red_first e2e order | fixed by chore/asdlc-tooling | first impl commit 2f9e3f1e (vendored proto copies) precedes the first e2e commit; is_contract widening is decision 10 |
+| ci_local tdd red_first (go, ts) | pass | 38 OK + 2 EXEMPT (trailers), every Go and TS test red at base and green at head |
+| ci_local tdd red_first (python) | tooling red, green once chore/asdlc-tooling merges | 33 team-ai / platform-forecast files "red at head": run with the platform-e2e venv, which lacks their deps; same suites green with their own venvs (rows below). Fixed by the tooling PR (decision 16) |
+| ci_local tdd red_first e2e order | tooling red, green once chore/asdlc-tooling merges | first impl commit 2f9e3f1e (vendored proto copies) precedes the first e2e commit 62c45323; is_contract widening is decision 10 |
 | ci_local security | not run | gitleaks / trivy not installed locally |
 | team-ai ruff format, ruff check, check_env_example | pass | 322 files formatted, all checks passed, .env.example in sync |
 | team-ai pytest + coverage | pass | 1292 passed, coverage 96.69% (gate 80%) |
@@ -108,9 +111,16 @@ Additive proto fields and RPCs (buf breaking passes), new optional env vars with
 - team-ai now depends on team-search and team-domain at boot (compose `depends_on`) and needs a service principal with `listing.read` and `search:read` in every environment.
 - Assistant reply streaming route `POST /api/assistant/stream` is removed from team-frontend.
 - The three apps re-vendor `fe-platform-api-client.tgz`; a stale tarball breaks their build.
-- Hot files shared with the seller-centre / trust-legal / tooling PRs: `docker-compose.services.yaml`, `scripts/asdlc/red_first.sh` (529796f42, BSR plugin drop), `scripts/devenv/agora_env.py` (FLIPT_CONTAINER export), `.github/workflows/services-ci.yml`. Expect merge conflicts with the tooling PR.
+- Hot file shared with the seller-centre / trust-legal PRs: `docker-compose.services.yaml`.
+- `scripts/asdlc/red_first.sh`, `scripts/devenv/agora_env.py` and `.github/workflows/services-ci.yml` are back to `origin/main` on this branch; their changes ship in the tooling PR.
+
+**Merge order:** `chore/asdlc-tooling` first, then this PR. Until the tooling PR lands: the services-ci platform-forecast job does not exist (`openspec/changes/forecast-nightly-job` task 1.8 and spec text still name it), `flipt_flow.py` falls back to container `agora-flipt-1` without the `FLIPT_CONTAINER` export, red_first can hit unauthenticated BSR rate limits, and the two tdd rows above stay red.
 
 ## Needs human
+
+### E2E decisions
+- `test_flipt_unreachable_serves_the_default_ranker_as_unassigned` on a fresh env: (a) the scenario ensures an in-stock published listing is in the serving generation, (b) `agora_env up` creates published, stocked listings before seeding, or (c) accept a dependency on a mature stack such as mainx.
+- rgp e2e needs `up --with platform-recsys,mlflow`; the docs-ai-data slices do not pull these in. Decide whether slices.yaml or the tooling adds them.
 
 ### Deploy order
 1. platform-core contract (proto) and fe-platform api-client release.
@@ -140,7 +150,7 @@ Additive proto fields and RPCs (buf breaking passes), new optional env vars with
 - 7baa0907c platform-forecast test_forecast_pipeline.py — regression guard
 
 ### LOCK re-approvals
-- Batch re-approval 2026-11-16 (decision 5) covers all 10 slices; digests verified at this head. Two scenario titles were renamed (ai-copilot-grounding, admin-insights-panels) to match one FEATURES manifest.
+- Batch re-approval 2026-11-16 (decision 5) covers all 10 slices; digests verified at this head (the tooling reverts and docs sync touch no `openspec/` file). "Known exceptions" (decision 9) is already recorded; no JVM stubs are part of this initiative. Two scenario titles were renamed (ai-copilot-grounding, admin-insights-panels) to match one FEATURES manifest.
 
 ### Accepted exceptions (plans/docs-ai-data/LOCK.md "Known exceptions")
 - validate_plan wave 4/5/6 widened conflicts (decision 9): the `widened (P1)` bullet was parsed as a write-set entry; widened paths do not overlap within a wave. Parser fix in the tooling PR.
