@@ -5,4 +5,4 @@ services:
   team-identity:
     environment:
       LEGAL_TERMS_VERSIONS: 2026-11,2026-05
-      PRIVACY_POLICY_VERSIONS: 2026-11-13
+      PRIVACY_POLICY_VERSIONS: "2026-11-13"
