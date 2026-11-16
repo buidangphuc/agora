@@ -426,12 +426,13 @@ def e2e_exports(st):
     }
     if st["env"] != MAIN:
         e["FSM_REDIS_PORT"] = str(port(6379))
+        e["AUE_REDIS_PORT"] = str(port(6379))
     c = lambda n: container(st, services, n)
-    for k in ("POSTGRES", "PLP_POSTGRES", "OIC_INV_POSTGRES", "AUDIT_POSTGRES"):
+    for k in ("POSTGRES", "PLP_POSTGRES", "OIC_INV_POSTGRES", "AUDIT_POSTGRES", "KYC_POSTGRES"):
         e[f"{k}_CONTAINER"] = c("postgres")
     for k in ("REDPANDA", "PLP_REDPANDA"):
         e[f"{k}_CONTAINER"] = c("redpanda")
-    e.update({"REDIS_CONTAINER": c("redis"), "JAEGER_CONTAINER": c("jaeger"), "MS_ROUTER_CONTAINER": c("modelserve-router"),
+    e.update({"KYC_MINIO_CONTAINER": c("minio"), "REDIS_CONTAINER": c("redis"), "JAEGER_CONTAINER": c("jaeger"), "MS_ROUTER_CONTAINER": c("modelserve-router"),
               "MLFLOW_CONTAINER": c("mlflow"), "GA4_RELAY_CONTAINER": c("ga4-relay"), "TEAM_ANALYTICS_CONTAINER": c("team-analytics")})
     for short in ("gateway", "identity", "domain", "payment", "frontend", "audit", "ai", "notification", "search", "verification"):
         e[f"{short.upper()}_CONTAINER"] = c(f"team-{short}")

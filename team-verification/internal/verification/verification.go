@@ -328,6 +328,9 @@ func (s *VerificationService) DocumentKey(ctx context.Context, submissionID stri
 	if index < 0 || int(index) >= len(docs) {
 		return nil, "", ErrInvalidIndex
 	}
+	if docs[index].DeletedAt != nil {
+		return nil, "", store.ErrNotFound
+	}
 	return sub, docs[index].ObjectKey, nil
 }
 
