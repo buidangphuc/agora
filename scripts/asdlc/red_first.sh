@@ -22,7 +22,7 @@
 #   to local protoc-gen-* binaries found on PATH (plus <module>/node_modules/.bin), so runs do not hit
 #   BSR rate limits. A buf generate failure fails that module's tests as "buf generate failed", never
 #   as "red at head".
-# env: REDFIRST_PYTHON (default platform-e2e/.venv/bin/python, else python3), REDFIRST_TMP (scratch dir)
+# env: REDFIRST_PYTHON (python for modules without a usable <module>/.venv or <repo>/.venv; default python3), REDFIRST_TMP (scratch dir)
 set -uo pipefail
 
 BASE="" HEAD_REF="HEAD" DRY=0 ONLY="" ALLOW_EMPTY=0 ALLOW_DIRTY="${REDFIRST_ALLOW_DIRTY:-0}"
@@ -49,8 +49,14 @@ fi
 [ -n "$BASE" ] || { echo "cannot determine base (pass --base)" >&2; exit 2; }
 BASE=$(git rev-parse "$BASE"); HEADSHA=$(git rev-parse "$HEAD_REF")
 
-PY="${REDFIRST_PYTHON:-}"
-[ -z "$PY" ] && { [ -x "$ROOT/platform-e2e/.venv/bin/python" ] && PY="$ROOT/platform-e2e/.venv/bin/python" || PY=python3; }
+PY_DEFAULT="${REDFIRST_PYTHON:-python3}"
+py_for() {
+  local mod="$1" v
+  for v in "$ROOT/$mod/.venv/bin/python" "$ROOT/${mod%%/*}/.venv/bin/python"; do
+    if [ -x "$v" ] && "$v" -c 'import pytest' >/dev/null 2>&1; then echo "$v"; return; fi
+  done
+  echo "$PY_DEFAULT"
+}
 
 # ---- classify changed files ----
 is_go_test()  { [[ "$1" == *_test.go ]]; }
@@ -209,6 +215,7 @@ run_test() { # run_test <worktree> <kind> <relfile> -> exit status of the test c
       (cd "$wt/$mod" && GO_SDK_REQUIRE_DOCKER=1 go test -count=1 "./$rel/" -run "^($names)\$" >"$SCRATCH/out.log" 2>&1) ;;
     py)
       mod=$(nearest_up "$wt" "$f" pyproject.toml) || mod=$(dirname "$f")
+      local PY; PY=$(py_for "$mod")
       # Services whose gRPC stubs are generated, not committed (team-ai): build them once per worktree.
       if [ -f "$wt/$mod/scripts/gen_proto.py" ] && [ ! -e "$wt/$mod/.redfirst-proto" ]; then
         (cd "$wt/$mod" && "$PY" -m scripts.gen_proto >"$SCRATCH/proto.log" 2>&1) && touch "$wt/$mod/.redfirst-proto"

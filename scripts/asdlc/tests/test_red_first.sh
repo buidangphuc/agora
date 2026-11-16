@@ -229,5 +229,36 @@ OUT=$("$RF" 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 1 ] && echo "$OUT" | grep -q "not after first e2e" && ok "(p) non-generated client still impl" || bad "(p) expected exit 1 got $RC"
 
+REAL=""
+for c in "${REDFIRST_PYTHON:-}" "$HERE/../../../platform-e2e/.venv/bin/python" python3; do
+  [ -n "$c" ] && "$c" -c 'import pytest' >/dev/null 2>&1 && { REAL=$(command -v "$c"); break; }
+done
+if [ -z "$REAL" ]; then
+  echo "SKIP (q)(r): no python with pytest"
+else
+  new_repo "$T/q"
+  mkdir -p svc/tests
+  printf '.venv/\n' > .gitignore
+  printf '[project]\nname = "svc"\nversion = "0"\n' > svc/pyproject.toml
+  printf 'def add(a, b):\n    return a + b\n' > svc/calc.py
+  commit "py base"
+  printf 'from calc import mul\n\n\ndef test_mul():\n    assert mul(2, 3) == 6\n' > svc/tests/test_calc.py; commit "py test first"
+  printf 'def add(a, b):\n    return a + b\n\n\ndef mul(a, b):\n    return a * b\n' > svc/calc.py; commit "py impl"
+  mkdir -p svc/.venv/bin
+  printf '#!/bin/sh\necho "$*" >> "%s"\nexec "%s" "$@"\n' "$T/q-venv.log" "$REAL" > svc/.venv/bin/python
+  printf '#!/bin/sh\necho "$*" >> "%s"\nexec "%s" "$@"\n' "$T/q-default.log" "$REAL" > "$T/default-python"
+  chmod +x svc/.venv/bin/python "$T/default-python"
+  : > "$T/q-venv.log"; : > "$T/q-default.log"
+  OUT=$(REDFIRST_PYTHON="$T/default-python" "$RF" 2>&1); RC=$?
+  echo "$OUT" | sed 's/^/    /'
+  [ $RC -eq 0 ] && grep -q -- "-m pytest" "$T/q-venv.log" && ! grep -q -- "-m pytest" "$T/q-default.log" &&
+    ok "(q) module .venv python runs its tests" || bad "(q) expected module venv python, got $RC"
+  rm -rf svc/.venv; : > "$T/q-default.log"
+  OUT=$(REDFIRST_PYTHON="$T/default-python" "$RF" 2>&1); RC=$?
+  echo "$OUT" | sed 's/^/    /'
+  [ $RC -eq 0 ] && grep -q -- "-m pytest" "$T/q-default.log" &&
+    ok "(r) no module .venv falls back to REDFIRST_PYTHON" || bad "(r) expected REDFIRST_PYTHON, got $RC"
+fi
+
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS
