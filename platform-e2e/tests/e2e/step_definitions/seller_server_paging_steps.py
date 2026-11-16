@@ -7,6 +7,8 @@ container through the docker CLI and the container is started again in teardown.
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 import re
 import subprocess
@@ -28,12 +30,17 @@ from src.models import User
 from src.pages import SellerPagingPage
 from tests.e2e.flows import login_via_api
 from tests.e2e.flows.stack_flow import stop_container
+from tests.e2e.support import oic_inv_stack as stack
 from tests.e2e.support import oic_order_support as s
+from tests.e2e.support import pear_edge_support as pe
 from tests.e2e.support.world import World
 
 DESKTOP = {"width": 1280, "height": 720}
 SEED_WORKERS = 8
 SHIPPED_LABEL = "Đang giao hàng"
+LIST_SELLER_ORDERS = s.ORDER + "/ListSellerOrders"
+PROBE_ROUTE = "/platform.listing.v1.ListingService/ListCategories"
+LOG_WAIT_S = 15.0
 BASES = ["Áo thun", "Phụ kiện", "Giày", "Túi", "Mũ"]
 
 
@@ -150,6 +157,84 @@ def _seed_bulk_orders(w: s.OicWorld, count: int) -> None:
     assert seller
 
 
+def _seed_sql_orders(w: s.OicWorld, count: int) -> None:
+    seller = _seller(w)
+    buyer = _buyer(w, 0)
+    tag = _d(w)["tag"]
+    sql = (
+        "WITH o AS (INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, items_subtotal,"
+        " created_at, updated_at) SELECT gen_random_uuid()::text, "
+        f"{_lit(buyer.user_id)}, {_lit(seller.user_id)}, 1, 100000, 100000,"
+        " now() - g * interval '1 second', now() - g * interval '1 second'"
+        f" FROM generate_series(1, {int(count)}) AS g RETURNING id)"
+        " INSERT INTO order_items (id, order_id, listing_id, title, quantity, unit_price)"
+        f" SELECT gen_random_uuid()::text, o.id, {_lit('ssp-bulk-' + tag)},"
+        f" {_lit('Hàng đơn ' + tag)}, 1, 100000 FROM o"
+    )
+    proc = stack.docker(
+        "exec", stack.postgres_container(), "psql", "-U", "postgres", "-d", "order_db",
+        "-v", "ON_ERROR_STOP=1", "-Atq", "-c", sql,
+        check=False,
+    )  # fmt: skip
+    assert proc.returncode == 0, proc.stderr[-400:]
+    _d(w)["orders"].extend({"id": "", "status": s.PENDING, "title": "sql"} for _ in range(count))
+
+
+def _lit(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _gateway_lines(since: int) -> list[dict[str, Any]]:
+    proc = pe.docker("logs", "--since", str(since), pe.gateway_container(), check=False)
+    lines = []
+    for raw in (proc.stdout + proc.stderr).splitlines():
+        if '"edge.request"' not in raw:
+            continue
+        try:
+            line = json.loads(raw)
+        except ValueError:
+            continue
+        if line.get("msg") == "edge.request":
+            lines.append(line)
+    return lines
+
+
+def _seller_fingerprint(w: s.OicWorld) -> str:
+    request_id = uuid.uuid4().hex
+    since = int(time.time()) - 1
+    resp = pe.post_json(
+        PROBE_ROUTE,
+        {},
+        token=_seller(w).token,
+        headers={"X-Request-Id": request_id},
+    )
+    assert resp.status_code == 200, resp.text[:300]
+    deadline = time.monotonic() + LOG_WAIT_S
+    while True:
+        for line in _gateway_lines(since):
+            if line.get("request_id") == request_id and line.get("principal_fp"):
+                return line["principal_fp"]
+        assert time.monotonic() < deadline, "no edge.request line for the seller probe"
+        time.sleep(0.5)
+
+
+def _list_calls(w: s.OicWorld) -> list[dict[str, Any]]:
+    fp = _d(w)["fp"]
+    return [
+        line
+        for line in _gateway_lines(_d(w)["log_since"])
+        if line.get("method") == LIST_SELLER_ORDERS and line.get("principal_fp") == fp
+    ]
+
+
+def _cursor_id(href: str) -> str:
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(href).query)
+    raw = (query.get("cursor") or [""])[0]
+    assert raw, href
+    payload = base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
+    return json.loads(payload)["id"]
+
+
 def _create_listing_stock(w: s.OicWorld, title: str, stock: int) -> str:
     body = _listing_body(title, "LISTING_STATUS_PUBLISHED", stock)
     resp = s.post(w, _seller(w), s.LISTING, "CreateListing", body)
@@ -234,6 +319,14 @@ def seller_with_orders(world: World, ssp: s.OicWorld, p: int, pa: int, sh: int, 
 @given(parsers.parse("a logged-in seller owns {n:d} PENDING orders"))
 def seller_with_pending(world: World, ssp: s.OicWorld, n: int) -> None:
     _seed_orders(ssp, [s.PENDING] * n)
+    _login(world, ssp)
+
+
+@given(parsers.parse("a logged-in seller owns {n:d} PENDING orders seeded in the order database"))
+def seller_with_sql_orders(world: World, ssp: s.OicWorld, n: int) -> None:
+    _seed_sql_orders(ssp, n)
+    _d(ssp)["fp"] = _seller_fingerprint(ssp)
+    _d(ssp)["log_since"] = int(time.time()) - 1
     _login(world, ssp)
 
 
@@ -404,6 +497,21 @@ def badge_is(world: World, label: str, n: int) -> None:
 def badge_equals(world: World, ssp: s.OicWorld, label: str, status: str) -> None:
     n = _count_of(ssp, getattr(s, status))
     expect(_page(world).tab(label)).to_contain_text(str(n), timeout=timeouts.NAVIGATION)
+
+
+@then(parsers.parse("the seller app issued exactly one ListSellerOrders call with page_size {n:d}"))
+def one_list_call(world: World, ssp: s.OicWorld, n: int) -> None:
+    page = _page(world)
+    expect(page.order_links).to_have_count(n, timeout=timeouts.NAVIGATION)
+    ids = _ids_on_page(world)
+    expect(page.next_link).to_be_visible(timeout=timeouts.NAVIGATION)
+    assert _cursor_id(page.next_link.get_attribute("href") or "") == ids[-1]
+    deadline = time.monotonic() + LOG_WAIT_S
+    while not _list_calls(ssp) and time.monotonic() < deadline:
+        time.sleep(0.5)
+    time.sleep(2)
+    calls = _list_calls(ssp)
+    assert len(calls) == 1, [c.get("request_id") for c in calls]
 
 
 @then(parsers.parse('every order row shows the status "{label}"'))

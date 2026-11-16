@@ -6,10 +6,11 @@ Feature: The seller app reads one bounded page at a time
   (seller-server-paging-ui, initiative seller-centre)
 
   Scenario: First page of a large shop
-    Given a logged-in seller owns 12 PENDING, 8 PAID, 15 SHIPPED and 10 COMPLETED orders
+    Given a logged-in seller owns 5000 PENDING orders seeded in the order database
     When the seller opens the orders page
     Then the orders table shows 20 rows
-    And the "Tất cả" badge shows 45
+    And the "Tất cả" badge shows 5000
+    And the seller app issued exactly one ListSellerOrders call with page_size 20
 
   @slow
   Scenario: First page of a large shop renders within one second
