@@ -10,7 +10,7 @@
   ports; the featurestore job is the real image (`fsm_job_flow`).
 
 Environment (defaults match the local stack):
-    ANALYTICS_ERASURE_GROUP   team-analytics.erasure   (ERASURE_CONSUMER_GROUP of team-analytics)
+    ANALYTICS_ERASURE_GROUP   team-analytics.user-erasure   (ERASURE_CONSUMER_GROUP of team-analytics)
     RECSYS_ERASURE_GROUP      platform-recsys.erasure
     TEAM_AI_ERASURE_GROUP     team-ai.user-erasure
     AUE_REDIS_HOST/PORT/DB    localhost / 6379 / 0   (recs serving + team-ai keys)
@@ -36,7 +36,7 @@ from tests.e2e.support import erasure_events_support as ev
 from tests.e2e.support import plp_stack as stack
 from tests.e2e.support import tii_support as tii
 
-ANALYTICS_GROUP = os.getenv("ANALYTICS_ERASURE_GROUP", "team-analytics.erasure")
+ANALYTICS_GROUP = os.getenv("ANALYTICS_ERASURE_GROUP", "team-analytics.user-erasure")
 RECSYS_GROUP = os.getenv("RECSYS_ERASURE_GROUP", "platform-recsys.erasure")
 TEAM_AI_GROUP = os.getenv("TEAM_AI_ERASURE_GROUP", "team-ai.user-erasure")
 ANALYTICS_DLQ = "identity.events.analytics.dlq"
