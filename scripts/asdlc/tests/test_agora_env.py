@@ -342,7 +342,7 @@ def _up_env(monkeypatch, tmp_path, prev, services=SERVICES, seed_ok=True):
 
     def fake_seed(st):
         seen["seeded"] += 1
-        return seed_ok
+        return "run1" if seed_ok else None
 
     monkeypatch.setattr(ae, "config", fake_config)
     monkeypatch.setattr(ae, "branch_changed_files", lambda src: ["team-sharing/main.go"])
@@ -358,7 +358,7 @@ def _up_env(monkeypatch, tmp_path, prev, services=SERVICES, seed_ok=True):
 
 def _up_args(**kw):
     base = {"env": "feat", "src": "/r", "services": None, "slices": None, "with_": None, "with_optional": False,
-            "branch": None, "overlay": None, "no_build": False}
+            "branch": None, "overlay": None, "no_build": False, "seed_wait": 0}
     return types.SimpleNamespace(**{**base, **kw})
 
 
@@ -380,7 +380,7 @@ def test_up_seeds_recsys_once_when_recsys_is_in_the_env(monkeypatch, tmp_path):
     seen = _up_env(monkeypatch, tmp_path, None, services)
     ae.cmd_up(_up_args(services=["platform-recsys"]))
     assert seen["seeded"] == 1
-    assert json.loads((tmp_path / "feat" / "state.json").read_text())["recsys_seeded"] is True
+    assert json.loads((tmp_path / "feat" / "state.json").read_text())["recsys_seeded"] == "run1"
     ae.cmd_up(_up_args(services=["platform-recsys"]))
     assert seen["seeded"] == 1
 
@@ -415,3 +415,144 @@ def test_recsys_seed_beacons_give_each_cluster_its_own_items():
     sets = list(clusters.values())
     assert all(not (a & b) for i, a in enumerate(sets) for b in sets[i + 1:])
     assert len({frozenset(v) for v in by_user.values()}) > ae.RECSYS_SEED_CLUSTERS
+
+
+def test_recsys_seed_lists_far_more_items_than_top_n_so_lists_can_differ():
+    assert ae.RECSYS_SEED_CLUSTERS * ae.RECSYS_SEED_ITEMS >= 4 * 50
+    beacons = ae.recsys_seed_beacons(ae.recsys_seed_listings([]), "r1")
+    assert len({b["listingId"] for b in beacons}) == ae.RECSYS_SEED_CLUSTERS * ae.RECSYS_SEED_ITEMS
+
+
+def test_recsys_seed_rounds_give_each_visitor_one_new_item_per_round():
+    rounds = ae.recsys_seed_rounds(ae.recsys_seed_listings([]), "r1")
+    assert len(rounds) == ae.RECSYS_SEED_PER_USER
+    first_round = {}
+    for n, r in enumerate(rounds):
+        per_user = {}
+        for b in r:
+            per_user.setdefault(b["anonymousId"], set()).add(b["listingId"])
+        assert len(per_user) == ae.RECSYS_SEED_USERS and all(len(v) == 1 for v in per_user.values())
+        for anon, items in per_user.items():
+            (lid,) = items
+            assert (anon, lid) not in first_round
+            first_round[(anon, lid)] = n
+
+
+def test_seed_recsys_pauses_between_rounds_so_server_timestamps_order_items(monkeypatch):
+    posts, sleeps = [], []
+    monkeypatch.setattr(ae, "wait_http", lambda url, timeout=120: True)
+    monkeypatch.setattr(ae, "compose", lambda st, *a, **kw: types.SimpleNamespace(returncode=1, stdout=""))
+    monkeypatch.setattr(ae, "post_track", lambda url, b: posts.append((len(sleeps), b)) or len(b))
+    monkeypatch.setattr(ae.time, "sleep", lambda s: sleeps.append(s))
+    run_id = ae.seed_recsys({"ports": {"8080": 38080}})
+    assert run_id and len(sleeps) == ae.RECSYS_SEED_PER_USER - 1 and min(sleeps) >= 1
+    assert all(len(b) <= 100 for _, b in posts)
+    seen_at = {}
+    for gap, batch in posts:
+        for b in batch:
+            seen_at.setdefault(b["anonymousId"], {}).setdefault(b["listingId"], gap)
+    assert all(sorted(v.values()) == list(range(ae.RECSYS_SEED_PER_USER)) for v in seen_at.values())
+
+
+def test_up_waits_for_the_export_after_seeding(monkeypatch, tmp_path):
+    services = {**SERVICES, "platform-recsys": {"image": "agora-platform-recsys:local", "build": {"context": "/r/platform-recsys"}}}
+    _up_env(monkeypatch, tmp_path, None, services)
+    waited = []
+    monkeypatch.setattr(ae, "wait_recsys_export", lambda st, svcs, run_id, timeout: waited.append((run_id, timeout)) or True)
+    ae.cmd_up(_up_args(services=["platform-recsys"], seed_wait=420))
+    assert waited == [("run1", 420)]
+
+
+def test_wait_recsys_export_polls_until_every_seeded_visitor_is_exported(monkeypatch):
+    counts = iter([None, 3, ae.RECSYS_SEED_USERS])
+    monkeypatch.setattr(ae, "seeded_in_export", lambda st, svcs, run_id: next(counts))
+    monkeypatch.setattr(ae.time, "sleep", lambda s: None)
+    assert ae.wait_recsys_export({"env": "feat", "project": "feat"}, {}, "r1", timeout=60, poll=0) is True
+
+
+def test_wait_recsys_export_gives_up_after_the_timeout(monkeypatch):
+    monkeypatch.setattr(ae, "seeded_in_export", lambda st, svcs, run_id: 0)
+    assert ae.wait_recsys_export({"env": "feat", "project": "feat"}, {}, "r1", timeout=0, poll=0) is False
+
+
+EXPORT_SERVICES = {
+    **SERVICES,
+    "minio": {"image": "minio/minio", "ports": [{"published": "9000", "target": 9000}]},
+    "flipt": {"image": "flipt/flipt"},
+    "team-verification": {"image": "team-verification:local", "container_name": "team-verification-svc"},
+    "team-frontend-seller": {"image": "team-frontend-seller:local", "container_name": "team-frontend-seller-svc"},
+}
+
+
+def test_feature_env_exports_env_minio_redis_and_containers(monkeypatch, tmp_path):
+    monkeypatch.setattr(ae, "config", lambda src, overlays: EXPORT_SERVICES)
+    monkeypatch.setattr(ae, "state_dir", lambda e: tmp_path / e)
+    ports = {"9000": 39000, "6379": 36379, "50059": 50159, "9200": 39200, "18100": 48100, "18110": 48110}
+    e = ae.e2e_exports({"env": "q7", "project": "q7", "src": str(tmp_path), "ports": ports, "owners": []})
+    assert e["KYC_S3_ENDPOINT"] == "http://localhost:39000"
+    assert e["AUE_REDIS_PORT"] == "36379"
+    assert e["GA4_RELAY_GRPC_ADDR"] == "localhost:50159"
+    assert e["SEARCH_BOOT_OPENSEARCH_URL"] == "http://host.docker.internal:39200"
+    assert e["MODELSERVE_URL"] == "http://localhost:48100" and e["TEI_FAKE_URL"] == "http://localhost:48110"
+    for k in ("KYC_POSTGRES_CONTAINER", "BCO_POSTGRES_CONTAINER", "BDL_POSTGRES_CONTAINER"):
+        assert e[k] == "q7-postgres-1"
+    assert e["KYC_MINIO_CONTAINER"] == "q7-minio-1"
+    assert e["FLIPT_CONTAINER"] == "q7-flipt-1"
+    assert e["VERIFICATION_CONTAINER"] == "q7-team-verification-svc"
+    assert e["SELLER_CONTAINER"] == "q7-team-frontend-seller-svc"
+    assert e["ORDER_CONTAINER"] == "q7-team-order-svc"
+
+
+def test_main_env_exports_mainx_containers_and_default_ports(monkeypatch, tmp_path):
+    monkeypatch.setattr(ae, "config", lambda src, overlays: EXPORT_SERVICES)
+    monkeypatch.setattr(ae, "state_dir", lambda e: tmp_path / e)
+    e = ae.e2e_exports({"env": ae.MAIN, "project": ae.MAIN_PROJECT, "src": str(tmp_path), "ports": {}, "owners": []})
+    assert e["KYC_S3_ENDPOINT"] == "http://localhost:9000" and e["AUE_REDIS_PORT"] == "6379"
+    assert e["KYC_MINIO_CONTAINER"] == "mainx-minio-1"
+    assert e["VERIFICATION_CONTAINER"] == "team-verification-svc"
+
+
+def test_override_points_team_domain_code_default_storage_at_env_minio():
+    services = {
+        "minio": {"image": "minio/minio", "ports": [{"published": "9000", "target": 9000}]},
+        "team-domain": {"image": "team-domain:local", "container_name": "team-domain-svc", "environment": {"ENV": "local"}},
+    }
+    ov = ae.make_override("q7", services, [], ae.port_map(services, 0))["services"]
+    assert ov["team-domain"]["environment"] == {
+        "STORAGE_ENDPOINT": "localhost:39000", "STORAGE_PUBLIC_BASE_URL": "http://localhost:39000/listing-images"}
+    declared = {**services, "team-domain": {**services["team-domain"], "environment": {"STORAGE_ENDPOINT": "minio:9000"}}}
+    ov2 = ae.make_override("q7", declared, [], ae.port_map(declared, 0))["services"]
+    assert ov2["team-domain"]["environment"] == {"STORAGE_PUBLIC_BASE_URL": "http://localhost:39000/listing-images"}
+
+
+def test_override_points_rpk_at_the_internal_listener():
+    ov = ae.make_override("q7", SERVICES, [], ae.port_map(SERVICES, 0))["services"]
+    assert ov["redpanda"]["environment"]["RPK_BROKERS"] == "127.0.0.1:9092"
+
+
+def test_env_images_include_names_with_digits(monkeypatch):
+    listing = "platform-e2e:q7\nteam-identity:q7\nteam-identity:local\nredis:q7\nplatform-recsys-nearline:q7\n"
+    monkeypatch.setattr(ae, "out", lambda cmd, cwd=None: listing)
+    assert ae.env_images("q7") == ["platform-e2e:q7", "platform-recsys-nearline:q7", "team-identity:q7"]
+
+
+def test_with_is_repeatable_and_accepts_commas():
+    a = ae.parser().parse_args(["plan", "--with", "a,b", "--with", "c"])
+    assert a.with_ == ["a", "b", "c"]
+    assert ae.parser().parse_args(["up", "x", "--with", "redis"]).with_ == ["redis"]
+    assert ae.parser().parse_args(["plan"]).with_ is None
+
+
+def test_resolve_builders_reads_build_dirs_from_the_src_tree():
+    services = {"forecast-job": {"image": "platform-forecast:local", "build": {"context": "/w/platform-forecast"}}}
+    assert ae.resolve_builders(services, ["platform-forecast"], "/w") == ["forecast-job"]
+    with pytest.raises(SystemExit):
+        ae.resolve_builders(services, ["platform-forecast"], "/elsewhere")
+
+
+def test_plan_resolves_slice_owners_against_src(monkeypatch, tmp_path):
+    services = {**SERVICES, "forecast-job": {"image": "platform-forecast:local", "build": {"context": "/w/platform-forecast"}}}
+    monkeypatch.setattr(ae, "config", lambda src, overlays: services)
+    monkeypatch.setattr(ae, "branch_changed_files", lambda src: [])
+    _, _, owners, _ = ae.cmd_plan(_plan_args(src="/w", services=["platform-forecast"]))
+    assert owners == ["forecast-job"]
