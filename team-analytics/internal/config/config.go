@@ -64,8 +64,6 @@ type Engagement struct {
 	ConsumerGroup string `env:"ENGAGEMENT_CONSUMER_GROUP" default:"team-analytics.engagement"`
 }
 
-const localErasureTombstoneSecret = "local-dev-erasure-tombstone-secret"
-
 // Erasure configures the identity.events consumer that purges erased users.
 type Erasure struct {
 	EventsTopic     string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events" keepempty:"true"`
@@ -81,7 +79,7 @@ func (e *Erasure) ResolveFor(rt sdkconfig.Runtime) error {
 		return nil
 	}
 	if _, set := os.LookupEnv("ERASURE_TOMBSTONE_SECRET"); !set && !rt.IsStrict() {
-		e.TombstoneSecret = localErasureTombstoneSecret
+		e.TombstoneSecret = "local-dev-erasure-tombstone-secret"
 		return nil
 	}
 	if rt.IsStrict() {

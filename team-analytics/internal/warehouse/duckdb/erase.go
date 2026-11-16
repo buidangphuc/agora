@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 )
@@ -30,6 +29,11 @@ func (w *Writer) userHMAC(userID string) string {
 	return hex.EncodeToString(m.Sum(nil))
 }
 
+const (
+	selectTombstoneSQL = "SELECT pseudonym FROM " + warehouse.ErasedUsersTableName + " WHERE user_hmac = ?"
+	insertTombstoneSQL = "INSERT INTO " + warehouse.ErasedUsersTableName + " (user_hmac, pseudonym, erased_at) VALUES (?, ?, ?)"
+)
+
 func newPseudonym() (string, error) {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -40,33 +44,16 @@ func newPseudonym() (string, error) {
 
 func (w *Writer) tombstones(ctx context.Context, tx *sql.Tx, ids []string) (map[string]string, error) {
 	out := map[string]string{}
-	if len(ids) == 0 {
-		return out, nil
-	}
-	byHMAC := make(map[string]string, len(ids))
-	args := make([]any, 0, len(ids))
-	marks := make([]string, 0, len(ids))
 	for _, id := range ids {
-		h := w.userHMAC(id)
-		byHMAC[h] = id
-		args = append(args, h)
-		marks = append(marks, "?")
-	}
-	rows, err := tx.QueryContext(ctx,
-		"SELECT user_hmac, pseudonym FROM "+warehouse.ErasedUsersTableName+" WHERE user_hmac IN ("+strings.Join(marks, ",")+")", args...)
-	if err != nil {
-		return nil, fmt.Errorf("lookup tombstones: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var h, p string
-		if err := rows.Scan(&h, &p); err != nil {
-			return nil, fmt.Errorf("scan tombstone: %w", err)
+		var p string
+		err := tx.QueryRowContext(ctx, selectTombstoneSQL, w.userHMAC(id)).Scan(&p)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
 		}
-		out[byHMAC[h]] = p
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("lookup tombstones: %w", err)
+		if err != nil {
+			return nil, fmt.Errorf("lookup tombstones: %w", err)
+		}
+		out[id] = p
 	}
 	return out, nil
 }
@@ -167,7 +154,7 @@ WHERE user_id = ? OR seller_id = ?`, userID, pseudo, userID, pseudo, userID, use
 	}
 
 	if !known {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO `+warehouse.ErasedUsersTableName+` (user_hmac, pseudonym, erased_at) VALUES (?, ?, ?)`,
+		if _, err := tx.ExecContext(ctx, insertTombstoneSQL,
 			w.userHMAC(userID), pseudo, w.now().UTC()); err != nil {
 			return nil, fmt.Errorf("insert tombstone: %w", err)
 		}
