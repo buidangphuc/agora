@@ -3294,8 +3294,9 @@ features:
     acceptance:
       - "Other event types are ignored"
     tags: [user-erasure, seller]
-    status: planned
-    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "domain/seller_erasure.feature::Other event types are ignored"
+    notes: "domain-seller-erasure: e2e in domain/seller_erasure.feature (green: test_seller_erasure.py::test_other_event_types_are_ignored)."
 
   - id: domain.dse-a-poison-erasure-event-does-not-block-seller-hold
     title: "A poison erasure event does not block seller hold"

@@ -12863,7 +12863,8 @@ features:
     acceptance:
       - "Clicking Đăng xuất clears the session, lands the user on / as anonymous and writes no consent row"
     tags: [buyer, legal]
-    status: planned
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::Declining signs the user out"
 
   - id: consent.banner-ledger.text-is-vietnamese
     title: "Banner text is Vietnamese"

@@ -5720,7 +5720,8 @@ features:
     acceptance:
       - "See spec scenario: Other sessions are revoked, current stays"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "identity/account_deletion_sessions.feature::Other sessions are revoked, current stays"
 
   - id: identity.account-deletion-failed-scheduling-revokes-nothing
     title: "Failed scheduling revokes nothing"

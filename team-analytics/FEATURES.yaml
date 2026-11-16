@@ -4604,8 +4604,9 @@ features:
       - "When seller U whose `roles` include `seller`, and whose listings are recorded in `listing_sellers` just before the erasure, is erased"
       - "Then no row in `order_facts`, `engagement_facts` or `listing_sellers` has `seller_id` = U, each recorded listing has the same `listing_id` and the same `status` after the erasure as before it (a listing that is `LISTING_STATUS_DELETED` before stays `LISTING_STATUS_DELETED`), and `GetSellerFunnel` for U returns zero counts"
     tags: [user-erasure, analytics]
-    status: planned
-    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (red before implementation)."
+    status: automated
+    covered_by: "analytics/user_erasure.feature::AUE-11 An erased seller is re-keyed everywhere"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure.feature (green: test_analytics_user_erasure.py::test_aue11_an_erased_seller_is_rekeyed_everywhere)."
 
   - id: analytics.aue-12-a-buffered-event-flushed-after-the-purge-is-re-keyed
     title: "AUE-12 A buffered event flushed after the purge is re-keyed"

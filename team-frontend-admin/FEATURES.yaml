@@ -3359,7 +3359,8 @@ features:
       - "When a signed-in buyer or seller without the `admin` scope opens `/admin/cases?tab=kyc`"
       - "Then the admin layout renders status 403 titled \"Không có quyền\" and `ListKycSubmissions` is called 0 times"
     tags: [admin, kyc_queue]
-    status: planned
+    status: automated
+    covered_by: "admin/kyc_queue.feature::KYC queue: Non-admin sees the 403 result"
 
   - id: admin.kyc-queue-unit-gateway-refusal-is-shown-as-the-same-403
     title: "KYC queue: Gateway refusal is shown as the same 403"
