@@ -42,7 +42,7 @@ with a text label for each of `NOT_SUBMITTED`, `PENDING`, `VERIFIED` and `REJECT
 
 #### Scenario: A buyer without seller scope cannot use the page
 - **WHEN** a signed-in user without the `listing.write` scope opens `/seller/verification`
-- **THEN** the seller access-denied view renders and 0 verification calls are made
+- **THEN** the seller onboarding screen ("Đồng ý và trở thành Người Bán") renders instead of the page and 0 verification calls are made
 - **VERIFIED BY**: platform-e2e/tests/e2e/features/seller/kyc_upload.feature::A buyer without seller scope cannot use the page
 
 ### Requirement: Seller uploads ID documents through presigned URLs

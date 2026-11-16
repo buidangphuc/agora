@@ -334,10 +334,12 @@ def sent_to_login(world: World, path: str) -> None:
     assert urlsplit(target).path == path, world.page.url
 
 
-@then("the seller access-denied view is shown and the verification page content is not")
-def access_denied(world: World) -> None:
+@then("the seller onboarding screen is shown and the verification page content is not")
+def onboarding_instead(world: World) -> None:
     page = _page(world)
-    expect(page.page.get_by_text("Không có quyền").first).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(page.page.get_by_role("button", name="Đồng ý và trở thành Người Bán")).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
     expect(page.file_inputs).to_have_count(0)
     expect(page.submit_button).to_have_count(0)
 

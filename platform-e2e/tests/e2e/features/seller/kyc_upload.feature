@@ -54,7 +54,7 @@ Feature: Seller verification page and ID document upload
   Scenario: A buyer without seller scope cannot use the page
     Given a signed-in buyer without seller scope is on the seller app
     When the seller opens the verification page
-    Then the seller access-denied view is shown and the verification page content is not
+    Then the seller onboarding screen is shown and the verification page content is not
 
   # ── Upload ─────────────────────────────────────────────────────────────
   @needsSeller

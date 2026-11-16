@@ -2277,7 +2277,7 @@ features:
       login: seller
     acceptance:
       - "When a signed-in user without the `listing.write` scope opens `/seller/verification`"
-      - "Then the seller access-denied view renders and 0 verification calls are made"
+      - "Then the seller onboarding screen renders instead of the page and 0 verification calls are made"
     tags: [seller-kyc-ui]
     status: planned
 
