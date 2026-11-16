@@ -28,7 +28,7 @@ class PrivacyPage(AccountShellPage):
     def history_rows(self) -> Locator:
         return self.page.locator(
             '[data-testid="consent-history"] [data-testid="consent-history-row"], '
-            'section[aria-label*="Lịch sử"] tbody tr, section[aria-label*="Lịch sử"] li'
+            'section[aria-label*="Lịch sử"] tbody tr, [aria-label*="Lịch sử"] > li'
         )
 
     @property

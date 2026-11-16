@@ -16,7 +16,7 @@ export function ConsentHistory({ records }: { records: ConsentEntry[] }) {
     );
   }
   return (
-    <ul className="flex flex-col gap-2 text-sm">
+    <ul aria-label="Lịch sử đồng ý" className="flex flex-col gap-2 text-sm">
       {records.map((r, i) => (
         <li key={`${r.purpose}-${i}`} className="flex flex-wrap gap-2">
           <span>{LABELS[r.purpose] ?? r.purpose}</span>
