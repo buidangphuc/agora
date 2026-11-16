@@ -25,6 +25,37 @@ decide (spec) = ENGINE_DOWN for every slice: scripts/asdlc/decide.py needs `--un
 Digest = `find openspec/changes/<slice> -type f | sort | xargs shasum -a 256 | shasum -a 256 | cut -c1-12`, taken 2026-11-13.
 Digest `old → new` (2026-11-15, chore(seller-centre): converge FEATURES and spec citations): only VERIFIED BY citation lines in spec.md and tasks.md checkboxes changed; scenario wording unchanged.
 
+## Re-approval 2026-11-16
+batch re-approval after converge (decision 5)
+approved-by: Bùi Đăng Phúc
+date: 2026-11-16
+
+Every slice digest moved from its 2026-11-13 lock value during build and converge. The new digest is the last value in the `digest` column above and was recomputed on 2026-11-16.
+
+| slice | old (2026-11-13 lock, then build re-digests) | new (2026-11-16) | reason |
+|---|---|---|---|
+| seller-centre-contract | 8b8008504400 | c4dff7b1698c | VERIFIED BY citations in spec.md and ticked tasks; no requirement or scenario wording change |
+| domain-storefront-customisation | b790361fd8dd | 2d041a834e1b | VERIFIED BY citations in spec.md and ticked tasks; no requirement or scenario wording change |
+| domain-my-listings-filter | 3ecb6779f75a | e638fda9a09e | ticked tasks only |
+| domain-bundle-integrity | cf9bc98fe270 | 34d6e8a42a2d | ticked tasks only |
+| seller-shop-customisation-ui | b5a0802622cc | a3ac6fcd3f7a | VERIFIED BY citations in spec.md and ticked tasks; no requirement or scenario wording change |
+| shop-page-featured-theme | 670decbcf356 | 41aa0b0be502 | VERIFIED BY citations in spec.md and ticked tasks; no requirement or scenario wording change |
+| promotion-seller-self-service | 6f7920975566 → 88b5553a6c87 | 7ee9f55ff568 | VERIFIED BY citations in spec.md and ticked tasks; no requirement or scenario wording change |
+| seller-marketing-hub | e997b9518e3e → f847db14ecee → 43bc90e0d578 | f63dadbb97fd | VERIFIED BY citations, ticked tasks, and the buyer-without-listing.write scenario/proposal now follow the archived seller onboarding gate (user decision 2026-11-15, 08809f85f) |
+| seller-getting-started | fa2485d9f803 | a9c904c7f308 | ticked tasks only |
+| order-bundle-checkout | 0c3095790822 | 39953b03466d | VERIFIED BY citations in spec.md and ticked tasks; no requirement or scenario wording change |
+| shop-bundle-purchase-ui | b4e35900d5a9 → ada306a5c726 | 3eedf4b93f73 | VERIFIED BY citations in spec.md and ticked tasks; no requirement or scenario wording change |
+| order-seller-list-paging | 664ebea0e750 → 307b8332526a | f5a8f26deb30 | VERIFIED BY citations, ticked tasks, and migration renumbered 0025 to 0026 in proposal and spec (user decision 2026-11-15) |
+| seller-server-paging-ui | 4301e73500fb → a791d8a98a72 | e8ee9103c1e4 | VERIFIED BY citation for the listing.write denial scenario and ticked tasks; no requirement or scenario wording change |
+| seller-bulk-ship | 34c482424858 | 7a6993e5a823 | ticked tasks only |
+
+## Known exceptions
+Accepted by Bùi Đăng Phúc on 2026-11-16 (decision 9). In the converge run, `scripts/validate_plan.py plans/seller-centre` reported these same-wave conflicts. Each one was the literal token `widened` from the old `widened (P1)` sub-heading in the packets, which validate_plan read as a path. Neither slice wrote a file the other slice owns. Since f0d7b6ea4 flattened those entries into the write-sets, `validate_plan.py plans/seller-centre` passes.
+- wave 1: domain-my-listings-filter vs promotion-seller-self-service, and order-seller-list-paging vs promotion-seller-self-service
+- wave 2: domain-storefront-customisation vs seller-server-paging-ui
+- wave 4: order-bundle-checkout vs seller-marketing-hub
+- wave 5: seller-getting-started vs shop-bundle-purchase-ui
+
 ## Build order (cross_change_check)
 1. seller-centre-contract (sequential, contract first)
 2. domain-bundle-integrity
