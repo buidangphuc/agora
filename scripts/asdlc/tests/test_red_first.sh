@@ -204,5 +204,30 @@ OUT=$("$RF" 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 1 ] && echo "$OUT" | grep -q "not after first e2e" && ok "(n) mixed contract+impl commit still caught" || bad "(n) expected exit 1 got $RC"
 
+new_repo "$T/o"
+cp "$FX/calc_new_test.go" calc_test.go; commit "test first"
+mkdir -p team-calc/proto/platform/calc/v1 fe-platform/packages/api-client/src/generated/platform/calc/v1
+printf 'syntax = "proto3";\npackage platform.calc.v1;\n' > team-calc/proto/platform/calc/v1/calc.proto
+printf 'export const x = 1;\n' > fe-platform/packages/api-client/src/generated/platform/calc/v1/calc_pb.ts
+commit "vendored contract"
+mkdir -p platform-e2e/features; cp "$FX/mul.feature" platform-e2e/features/mul.feature; commit "e2e"
+cp "$FX/calc_impl.go" calc.go; commit "impl"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 0 ] && echo "$OUT" | grep -q "first-impl=#4" &&
+  ok "(o) vendored proto + generated api-client exempt" || bad "(o) expected exit 0 with first-impl=#4, got $RC"
+
+new_repo "$T/p"
+cp "$FX/calc_new_test.go" calc_test.go; commit "test first"
+mkdir -p fe-platform/packages/api-client/src team-calc/internal/proto/platform
+printf 'export const y = 2;\n' > fe-platform/packages/api-client/src/client.ts
+printf 'syntax = "proto3";\n' > team-calc/internal/proto/platform/x.proto
+commit "hand-written client"
+mkdir -p platform-e2e/features; cp "$FX/mul.feature" platform-e2e/features/mul.feature; commit "e2e"
+cp "$FX/calc_impl.go" calc.go; commit "impl"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 1 ] && echo "$OUT" | grep -q "not after first e2e" && ok "(p) non-generated client still impl" || bad "(p) expected exit 1 got $RC"
+
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS

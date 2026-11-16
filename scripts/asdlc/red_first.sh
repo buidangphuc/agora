@@ -262,7 +262,10 @@ if [ ${#E2E[@]} -gt 0 ]; then
   if [ ${#IMPL[@]} -eq 0 ]; then
     RESULTS+=("e2e(${#E2E[@]} files)|first-e2e=$(idx "$first_e2e")|first-impl=none|OK (no implementation files in range)")
   else
-    is_contract() { [[ "$1" == platform-core/packages/proto/* ]]; }
+    is_contract() {
+      [[ "$1" == platform-core/packages/proto/* ]] || [[ "$1" =~ ^[^/]+/proto/platform/ ]] ||
+        [[ "$1" == fe-platform/packages/api-client/src/generated/* ]]
+    }
     first_impl=""
     for c in $(git log --reverse --format=%H "$BASE..$HEADSHA" -- "${IMPL[@]}"); do
       while IFS= read -r f; do
