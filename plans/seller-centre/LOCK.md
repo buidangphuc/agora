@@ -6,7 +6,7 @@ spec: plans/seller-centre/00-spec.md (Locked 2026-11-13)
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| seller-centre-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN | 8b8008504400 → c4dff7b1698c | [x] |
+| seller-centre-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN | 8b8008504400 → c4dff7b1698c → 5cab20d26502 | [x] |
 | domain-storefront-customisation | team-domain | [] | 1 | pass | pass | pass | ENGINE_DOWN | b790361fd8dd → 2d041a834e1b | [x] |
 | domain-my-listings-filter | team-domain | [seller-centre-contract] | 1 | pass | pass | pass | ENGINE_DOWN | 3ecb6779f75a → e638fda9a09e | [x] |
 | domain-bundle-integrity | team-domain | [] | 1 | pass | pass | pass | ENGINE_DOWN | cf9bc98fe270 → 34d6e8a42a2d | [x] |
@@ -48,6 +48,13 @@ Every slice digest moved from its 2026-11-13 lock value during build and converg
 | order-seller-list-paging | 664ebea0e750 → 307b8332526a | f5a8f26deb30 | VERIFIED BY citations, ticked tasks, and migration renumbered 0025 to 0026 in proposal and spec (user decision 2026-11-15) |
 | seller-server-paging-ui | 4301e73500fb → a791d8a98a72 | e8ee9103c1e4 | VERIFIED BY citation for the listing.write denial scenario and ticked tasks; no requirement or scenario wording change |
 | seller-bulk-ship | 34c482424858 | 7a6993e5a823 | ticked tasks only |
+
+## Re-digest 2026-11-16 (decision 13)
+decision 13 tick, approved 2026-11-16 by Bùi Đăng Phúc.
+
+| slice | old | new | reason |
+|---|---|---|---|
+| seller-centre-contract | c4dff7b1698c | 5cab20d26502 | task 3.2 ticked after JVM stubs were generated locally (protoc 28.3, protoc-gen-grpc-kotlin 1.4.1; grpc-java 1.68.1 stubs not generated because its osx-aarch_64 binary is x86_64 and Rosetta is absent); no requirement or scenario wording change |
 
 ## Known exceptions
 Accepted by Bùi Đăng Phúc on 2026-11-16 (decision 9). In the converge run, `scripts/validate_plan.py plans/seller-centre` reported these same-wave conflicts. Each one was the literal token `widened` from the old `widened (P1)` sub-heading in the packets, which validate_plan read as a path. Neither slice wrote a file the other slice owns. Since f0d7b6ea4 flattened those entries into the write-sets, `validate_plan.py plans/seller-centre` passes.
