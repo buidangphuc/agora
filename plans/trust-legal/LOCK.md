@@ -1,28 +1,58 @@
 # LOCK — trust-legal
 status: approved
 approved-by: Bùi Đăng Phúc
-date: 2026-11-13
+date: 2026-11-16
+batch re-approval after converge (decision 5)
 spec: plans/trust-legal/00-spec.md (Locked 2026-11-13)
 
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
 | trust-legal-contract | platform-core | [] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 425fcffef071 → a8cb5141f6ba | [x] |
-| identity-legal-consent | team-identity | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3e3f92c8141c → 5e41df3a2f56 | [x] |
+| identity-legal-consent | team-identity | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3e3f92c8141c → 5e41df3a2f56 → 5e94ca7816e5 | [x] |
 | commerce-user-erasure | team-order | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9abf97b39733 → 4ac87d0de1dd | [x] |
-| identity-account-deletion | team-identity | [identity-legal-consent, commerce-user-erasure] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | ffbbf2109eb7 → 8dba80941788 | [x] |
+| identity-account-deletion | team-identity | [identity-legal-consent, commerce-user-erasure] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | ffbbf2109eb7 → 8dba80941788 → 38242f6207ec | [x] |
 | identity-data-export | team-identity | [identity-account-deletion] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 8017c6e363c0 → a19ca32dc037 | [x] |
 | content-user-erasure | team-engagement | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 1951045e455b → 9034236b4e45 | [x] |
 | domain-seller-erasure | team-domain | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 699ad0004057 → b2732f2935f3 | [x] |
-| analytics-user-erasure | team-analytics | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c4fede24e7aa → 906f1def47d3 | [x] |
+| analytics-user-erasure | team-analytics | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c4fede24e7aa → 906f1def47d3 → fde3deda58a7 | [x] |
 | verification-kyc-documents | team-verification | [trust-legal-contract] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | ccf049b79966 → ec19ad0d36d5 | [x] |
 | payment-payout-kyc-gate | team-payment | [verification-kyc-documents] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 4d9b7a7e990e → 0b48905d091b | [x] |
-| frontend-legal-pages | team-frontend | [identity-legal-consent] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | e2e7ff15f69a → c8fd723556b5 | [x] |
+| frontend-legal-pages | team-frontend | [identity-legal-consent] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | e2e7ff15f69a → c8fd723556b5 → f31c79e8c5c0 | [x] |
 | frontend-account-privacy | team-frontend | [identity-data-export, frontend-legal-pages] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d996a770553e → e4c43f46a728 | [x] |
 | seller-kyc-ui | team-frontend-seller | [verification-kyc-documents, payment-payout-kyc-gate] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 05200a427729 → 9bc6f67c81aa → bb4ffe2894da | [x] |
-| admin-kyc-queue | team-frontend-admin | [verification-kyc-documents] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c220df009c60 → b3389f0076ca | [x] |
+| admin-kyc-queue | team-frontend-admin | [verification-kyc-documents] | 1 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c220df009c60 → b3389f0076ca → a38dd0ce9e7e | [x] |
 
 decide (spec): `scripts/asdlc/decide.py` produced no table for any slice (system python lacks `yaml`; with the e2e venv it needs `--units`/`--out` and a kev engine that was not running). Each spec-quality-reviewer's own ISO 29148/EARS checklist is the verdict.
+
+## Re-approval 2026-11-16 (decision 5)
+
+approved-by: Bùi Đăng Phúc, 2026-11-16 — batch re-approval after converge (decision 5). Locked digest (2026-11-13) → current digest, with the reason for the change.
+
+| slice | old → new | reason |
+|---|---|---|
+| trust-legal-contract | 425fcffef071 → a8cb5141f6ba | converge: FEATURES and VERIFIED BY citations (b8564e578) |
+| identity-legal-consent | 3e3f92c8141c → 5e41df3a2f56 → 5e94ca7816e5 | build citations/ticks; decision 3: "Later-slice RPCs are not exposed yet" scenario and its UNIMPLEMENTED clause removed |
+| commerce-user-erasure | 9abf97b39733 → 4ac87d0de1dd | e2e-author citations and converge citations (b8564e578) |
+| identity-account-deletion | ffbbf2109eb7 → 8dba80941788 → 38242f6207ec | build citations/ticks; decision 1: sso-handoff MODIFIED delta (gateway forwards x-principal-sid on RequestAccountDeletion), task 1.11 |
+| identity-data-export | 8017c6e363c0 → a19ca32dc037 | e2e-author citations and converge citations (b8564e578) |
+| content-user-erasure | 1951045e455b → 9034236b4e45 | build citations/ticks and converge citations (b8564e578) |
+| domain-seller-erasure | 699ad0004057 → b2732f2935f3 | e2e-author citations and converge citations (b8564e578) |
+| analytics-user-erasure | c4fede24e7aa → 906f1def47d3 → fde3deda58a7 | build citations/ticks; decision 4: AUE-11 reworded, erasure scrubs PII only and never changes status |
+| verification-kyc-documents | ccf049b79966 → ec19ad0d36d5 | e2e-author citations and converge citations (b8564e578) |
+| payment-payout-kyc-gate | 4d9b7a7e990e → 0b48905d091b | e2e-author citations and converge citations (b8564e578) |
+| frontend-legal-pages | e2e7ff15f69a → c8fd723556b5 → f31c79e8c5c0 | build citations/ticks; decision 6: design default legal version is 2026-11 |
+| frontend-account-privacy | d996a770553e → e4c43f46a728 | converge citations (b8564e578) |
+| seller-kyc-ui | 05200a427729 → 9bc6f67c81aa → bb4ffe2894da | build citations/ticks; buyer without listing.write sees seller onboarding (67a452790, decision 2026-11-16) |
+| admin-kyc-queue | c220df009c60 → b3389f0076ca → a38dd0ce9e7e | build citations/ticks; decision 2: non-admin 403 title is the admin layout's "Không có quyền" |
+
+Canonical legal terms/privacy version is `2026-11` (decision 6): identity compose, frontend fallback and build args, seeds and e2e constants; LOCK item A.14's `2026-11-13` default is superseded.
+
+## Known exceptions (decision 9)
+
+Accepted by Bùi Đăng Phúc on 2026-11-16; the validate_plan.py parsing fix is tracked in the tooling PR.
+- validate_plan wave 2: `platform-e2e/pyproject.toml` is in the write-sets of both identity-legal-consent and admin-kyc-queue (pytest marker registrations only: `legal_consent`, `legal_versions_override`, `kyc_queue`). Accepted: marker-only edits to the same list.
+- validate_plan wave 7 (content-user-erasure, seller-kyc-ui) and wave 8 (domain-seller-erasure, frontend-account-privacy): paths widened at build ("widened at build, P1" entries: own OpenSpec folders, e2e support files and page objects, `platform-e2e/pyproject.toml` marker registrations) are reported as write-set conflicts/violations. Accepted as recorded widenings.
 
 ## Build order (cross_change_check)
 cross_change_check order: trust-legal-contract -> analytics-user-erasure -> commerce-user-erasure -> content-user-erasure -> domain-seller-erasure -> identity-legal-consent -> frontend-legal-pages -> identity-account-deletion -> identity-data-export -> frontend-account-privacy -> verification-kyc-documents -> admin-kyc-queue -> payment-payout-kyc-gate -> seller-kyc-ui
