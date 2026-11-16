@@ -60,10 +60,10 @@ team-* proto copies   synced from platform-core
 
 - **Before:** the slices' e2e were red on main (feature-run red commits, e.g. `test(e2e): seller-bulk-ship red` fc38466db).
   **After:**
-  - Storefront customisation e2e: 8/8 passed (final). The first run of `test_storefront_customisation.py` failed 2 on the env port (`::test_banner_from_the_upload_bucket_is_saved[chromium]`, `::test_resending_current_values_keeps_all_fields[chromium]`); both passed after the storage port fix. Final failing node ids: none.
+  - Storefront customisation e2e on a fresh `seller-centre` feature env (2026-11-16, `agora_env.py up` with the slices and this worktree as src, HEADLESS, through gate_digest, no scratch overlay): `test_storefront_customisation.py` 5/5 passed. The first run had 3 passed and 2 failed (`::test_banner_from_the_upload_bucket_is_saved[chromium]`, `::test_resending_current_values_keeps_all_fields[chromium]`, ConnectError on the presigned banner PUT): the env had no minio because the tooling closure did not follow team-domain's `STORAGE_ENDPOINT` code default. The fix is tooling commit ed43f718c (tooling PR), not code on this branch. Final failing node ids: none. `agora_env.py down seller-centre` left no containers, volumes, networks or images.
   - Seller e2e (`test_seller.py`): 30/30 passed after the fix (first run 26/30: `::test_seller_creates_a_new_listing`, `::test_a_saved_listing_shows_a_success_toast_and_a_link_to_the_list`, `::test_eleventh_listing_on_free_shows_the_upgrade_cta`, `::test_boundary_the_tenth_listing_is_accepted`). Final failing node ids: none.
   - Onboarding re-run passed for seller-marketing-hub (64b2fcbaf).
-- Local CI on `origin/main..HEAD` (2026-11-16, `scripts/asdlc/ci_local.sh`, through gate_digest):
+- Local CI on `origin/main..HEAD` (2026-11-16, `BASE=06c44c17b scripts/asdlc/ci_local.sh specs features repo proto tests-asdlc tdd` through buildlock and gate_digest, re-run after 7ce81d4ba: all six pass; the per-repo rows are from the earlier finalize, because 7ce81d4ba touches only `tasks.md` and `LOCK.md`):
 
   | check | result |
   |---|---|
@@ -118,8 +118,9 @@ Deploy order:
 
   List them with `git log origin/main..HEAD --grep Red-First-Exempt`.
 - **LOCK re-approvals:** all 14 slice digests were batch re-approved on 2026-11-16 (decision 5, `plans/seller-centre/LOCK.md` "Re-approval 2026-11-16"). In seller-marketing-hub the buyer-without-`listing.write` scenario changed wording (08809f85f). In order-seller-list-paging the migration was renumbered 0025 to 0026.
+- **Merge order: tooling PR (`chore/asdlc-tooling`) first.** This branch reverted its red_first BSR-plugin edit (9e7370c30), which now lives in the tooling PR together with the validate_plan `widened` parser fix and the agora_env feature-env fixes (env-specific e2e exports, code-default storage port, minio closure ed43f718c). Without it, red_first re-runs on contract slices can hit the BSR rate limit, and the storefront e2e cannot run on a feature env other than mainx.
 - **Accepted exceptions** (`plans/seller-centre/LOCK.md` "Known exceptions", decision 9): validate_plan reported same-wave conflicts from the literal `widened` token in waves 1, 2, 4 and 5. No slice wrote another slice's files. validate_plan passes since f0d7b6ea4; the parser fix goes in the tooling PR.
-- **seller-centre-contract task 3.2** is still unticked. Go, Python and TS are generated in `platform-core/gen`. JVM cannot be generated locally because no protoc java/kotlin or grpc-java plugin is installed (decision 13).
+- **seller-centre-contract task 3.2** is ticked (7ce81d4ba, decision 13; LOCK re-digest c4dff7b1698c -> 5cab20d26502 in "Re-digest 2026-11-16"). `platform-core/gen/jvm` (gitignored) was generated locally with protoc 28.3 and protoc-gen-grpc-kotlin 1.4.1; Java, Kotlin and grpc-kotlin outputs expose the new RPCs and fields. grpc-java 1.68.1 stubs (`*Grpc.java`) were not generated: its osx-aarch_64 artifact is an x86_64 binary and Rosetta is not installed, so the grpc-kotlin output refers to missing `*Grpc` classes and the JVM output was not compiled. Decide whether the tick stands, or install Rosetta (`softwareupdate --install-rosetta`) and regenerate. protoc 28.3 has no published checksum; its local sha256 is `92ceefda6a7293ec014e6ecac82d64719357145cb6fc2865badadeb5e62c0431`.
 - **Renamed scenarios** (decision 14): before merge, re-run on each env the modules of the 7 renamed seller-centre scenarios.
 - **Open spec questions** carried from `plans/seller-centre/LOCK.md` "Open issues": bundle money semantics, the bundle + flash-sale price, seller-side bundle rendering (no owner), ListMyListings page size, theme palette design approval and the bulk-ship selection scope.
 
