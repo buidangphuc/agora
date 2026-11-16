@@ -79,11 +79,11 @@ func (s *AccountDeletionService) Request(ctx context.Context, userID, sessionID,
 	}
 	uo, err := s.obligations.UserObligations(ctx, userID)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("%w: order: %v", ErrObligationsUnavailable, err)
+		return time.Time{}, fmt.Errorf("%w: order: %s", ErrObligationsUnavailable, err.Error())
 	}
 	po, err := s.obligations.PayoutObligations(ctx, userID)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("%w: payment: %v", ErrObligationsUnavailable, err)
+		return time.Time{}, fmt.Errorf("%w: payment: %s", ErrObligationsUnavailable, err.Error())
 	}
 	var cats []string
 	if uo.OpenBuyerOrders > 0 || uo.OpenSellerOrders > 0 {

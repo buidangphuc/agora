@@ -181,7 +181,7 @@ func wantDelCode(t *testing.T, err error, want codes.Code) *status.Status {
 	return st
 }
 
-func request(h *rpc.PrivacyHandler, ctx context.Context, pw string) (*identityv1.RequestAccountDeletionResponse, error) {
+func request(ctx context.Context, h *rpc.PrivacyHandler, pw string) (*identityv1.RequestAccountDeletionResponse, error) {
 	return h.RequestAccountDeletion(ctx, &identityv1.RequestAccountDeletionRequest{Password: pw})
 }
 
@@ -189,7 +189,7 @@ func request(h *rpc.PrivacyHandler, ctx context.Context, pw string) (*identityv1
 func TestRequestAccountDeletionBuyerWithNoObligationsSchedules(t *testing.T) {
 	h, repo, _ := newDeletion(t, "u-1")
 	ctx := sessCtx("u-1", "sess-A")
-	resp, err := request(h, ctx, delPassword)
+	resp, err := request(ctx, h, delPassword)
 	if err != nil {
 		t.Fatalf("RequestAccountDeletion: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestRequestAccountDeletionBuyerWithNoObligationsSchedules(t *testing.T) {
 // Scenario: Wrong password schedules nothing
 func TestRequestAccountDeletionWrongPasswordSchedulesNothing(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-1")
-	_, err := request(h, sessCtx("u-1", "sess-A"), "nope-nope")
+	_, err := request(sessCtx("u-1", "sess-A"), h, "nope-nope")
 	wantDelCode(t, err, codes.PermissionDenied)
 	if repo.pending("u-1") || ob.calls() != 0 {
 		t.Fatalf("pending=%v obligation calls=%d, want nothing scheduled and no obligation RPC", repo.pending("u-1"), ob.calls())
@@ -219,7 +219,7 @@ func TestRequestAccountDeletionWrongPasswordSchedulesNothing(t *testing.T) {
 // Scenario: Empty password is rejected
 func TestRequestAccountDeletionEmptyPasswordRejected(t *testing.T) {
 	h, repo, _ := newDeletion(t, "u-1")
-	_, err := request(h, sessCtx("u-1", "sess-A"), "")
+	_, err := request(sessCtx("u-1", "sess-A"), h, "")
 	wantDelCode(t, err, codes.InvalidArgument)
 	if repo.pending("u-1") {
 		t.Fatal("deletion scheduled for empty password")
@@ -229,7 +229,7 @@ func TestRequestAccountDeletionEmptyPasswordRejected(t *testing.T) {
 // Scenario: Anonymous caller is unauthenticated
 func TestRequestAccountDeletionAnonymousUnauthenticated(t *testing.T) {
 	h, repo, _ := newDeletion(t, "u-1")
-	_, err := request(h, context.Background(), delPassword)
+	_, err := request(context.Background(), h, delPassword)
 	wantDelCode(t, err, codes.Unauthenticated)
 	if repo.pending("u-1") {
 		t.Fatal("row changed")
@@ -240,7 +240,7 @@ func TestRequestAccountDeletionAnonymousUnauthenticated(t *testing.T) {
 func TestRequestAccountDeletionServicePrincipalDenied(t *testing.T) {
 	h, repo, _ := newDeletion(t, "u-1")
 	ctx := auth.WithPrincipal(context.Background(), auth.Principal{ID: "u-1", Type: auth.TypeService})
-	_, err := request(h, ctx, delPassword)
+	_, err := request(ctx, h, delPassword)
 	wantDelCode(t, err, codes.PermissionDenied)
 	if repo.pending("u-1") {
 		t.Fatal("row changed")
@@ -258,12 +258,12 @@ func TestRequestAccountDeletionRepeatedKeepsFirstDeadline(t *testing.T) {
 	h, _ := newPrivacy(t, discardLogger())
 	h.WithAccountDeletion(svc)
 	ctx := sessCtx("u-1", "sess-A")
-	first, err := request(h, ctx, delPassword)
+	first, err := request(ctx, h, delPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
 	clock = delNow.Add(3 * time.Hour)
-	second, err := request(h, ctx, delPassword)
+	second, err := request(ctx, h, delPassword)
 	if err != nil {
 		t.Fatalf("second request: %v", err)
 	}
@@ -276,7 +276,7 @@ func TestRequestAccountDeletionRepeatedKeepsFirstDeadline(t *testing.T) {
 func TestRequestAccountDeletionOpenOrderBlocks(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-1")
 	ob.user["u-1"] = upstream.UserObligations{OpenBuyerOrders: 1}
-	_, err := request(h, sessCtx("u-1", "sess-A"), delPassword)
+	_, err := request(sessCtx("u-1", "sess-A"), h, delPassword)
 	st := wantDelCode(t, err, codes.FailedPrecondition)
 	if !strings.Contains(strings.ToLower(st.Message()), "open orders") || repo.pending("u-1") {
 		t.Fatalf("message %q pending=%v, want category open orders and nothing scheduled", st.Message(), repo.pending("u-1"))
@@ -287,7 +287,7 @@ func TestRequestAccountDeletionOpenOrderBlocks(t *testing.T) {
 func TestRequestAccountDeletionWalletBalanceBlocks(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-1")
 	ob.payout["u-1"] = upstream.PayoutObligations{AvailableBalance: 50000}
-	_, err := request(h, sessCtx("u-1", "sess-A"), delPassword)
+	_, err := request(sessCtx("u-1", "sess-A"), h, delPassword)
 	st := wantDelCode(t, err, codes.FailedPrecondition)
 	if !strings.Contains(strings.ToLower(st.Message()), "wallet balance") || regexp.MustCompile(`\d`).MatchString(st.Message()) || repo.pending("u-1") {
 		t.Fatalf("message %q pending=%v, want category wallet balance without any amount", st.Message(), repo.pending("u-1"))
@@ -298,7 +298,7 @@ func TestRequestAccountDeletionWalletBalanceBlocks(t *testing.T) {
 func TestRequestAccountDeletionPendingPayoutBlocks(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-1")
 	ob.payout["u-1"] = upstream.PayoutObligations{PendingPayouts: 1}
-	_, err := request(h, sessCtx("u-1", "sess-A"), delPassword)
+	_, err := request(sessCtx("u-1", "sess-A"), h, delPassword)
 	st := wantDelCode(t, err, codes.FailedPrecondition)
 	if !strings.Contains(strings.ToLower(st.Message()), "pending payouts") || repo.pending("u-1") {
 		t.Fatalf("message %q pending=%v, want category pending payouts", st.Message(), repo.pending("u-1"))
@@ -319,7 +319,7 @@ func TestRequestAccountDeletionEveryNonZeroCounterBlocks(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			h, repo, ob := newDeletion(t, "u-1")
 			ob.user["u-1"], ob.payout["u-1"] = c.u, c.p
-			_, err := request(h, sessCtx("u-1", "sess-A"), delPassword)
+			_, err := request(sessCtx("u-1", "sess-A"), h, delPassword)
 			wantDelCode(t, err, codes.FailedPrecondition)
 			if repo.pending("u-1") {
 				t.Fatal("scheduled despite blocker")
@@ -332,7 +332,7 @@ func TestRequestAccountDeletionEveryNonZeroCounterBlocks(t *testing.T) {
 func TestRequestAccountDeletionObligationsCheckedForCallerOnly(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-A", "u-B")
 	ob.user["u-B"] = upstream.UserObligations{OpenBuyerOrders: 1}
-	if _, err := request(h, sessCtx("u-A", "sess-A"), delPassword); err != nil {
+	if _, err := request(sessCtx("u-A", "sess-A"), h, delPassword); err != nil {
 		t.Fatalf("user A: %v", err)
 	}
 	for _, id := range append(append([]string{}, ob.userIDs...), ob.payIDs...) {
@@ -350,7 +350,7 @@ func TestRequestAccountDeletionZeroObligationsAllows(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-1")
 	ob.user["u-1"] = upstream.UserObligations{}
 	ob.payout["u-1"] = upstream.PayoutObligations{}
-	resp, err := request(h, sessCtx("u-1", "sess-A"), delPassword)
+	resp, err := request(sessCtx("u-1", "sess-A"), h, delPassword)
 	if err != nil || resp.GetEraseAfter() == nil || !repo.pending("u-1") {
 		t.Fatalf("resp=%v err=%v pending=%v", resp, err, repo.pending("u-1"))
 	}
@@ -360,7 +360,7 @@ func TestRequestAccountDeletionZeroObligationsAllows(t *testing.T) {
 func TestRequestAccountDeletionPaymentTimeoutFailsClosed(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-1")
 	ob.payErr = status.Error(codes.DeadlineExceeded, "deadline exceeded")
-	_, err := request(h, sessCtx("u-1", "sess-A"), delPassword)
+	_, err := request(sessCtx("u-1", "sess-A"), h, delPassword)
 	wantDelCode(t, err, codes.Unavailable)
 	if repo.pending("u-1") {
 		t.Fatal("scheduled while payment was unreachable")
@@ -372,7 +372,7 @@ func TestRequestAccountDeletionOrderErrorFailsClosed(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-1")
 	ob.userErr = errors.New("connection refused")
 	ob.payout["u-1"] = upstream.PayoutObligations{}
-	_, err := request(h, sessCtx("u-1", "sess-A"), delPassword)
+	_, err := request(sessCtx("u-1", "sess-A"), h, delPassword)
 	wantDelCode(t, err, codes.Unavailable)
 	if repo.pending("u-1") {
 		t.Fatal("scheduled while order was unreachable")
@@ -382,7 +382,7 @@ func TestRequestAccountDeletionOrderErrorFailsClosed(t *testing.T) {
 // Scenario: Other sessions are revoked, current stays
 func TestRequestAccountDeletionOtherSessionsRevokedCurrentStays(t *testing.T) {
 	h, repo, _ := newDeletion(t, "u-1")
-	if _, err := request(h, sessCtx("u-1", "sess-A"), delPassword); err != nil {
+	if _, err := request(sessCtx("u-1", "sess-A"), h, delPassword); err != nil {
 		t.Fatal(err)
 	}
 	if !repo.active("u-1", "sess-A") || repo.active("u-1", "sess-B") || repo.active("u-1", "sess-C") {
@@ -394,7 +394,7 @@ func TestRequestAccountDeletionOtherSessionsRevokedCurrentStays(t *testing.T) {
 func TestRequestAccountDeletionFailedSchedulingRevokesNothing(t *testing.T) {
 	h, repo, ob := newDeletion(t, "u-1")
 	ob.user["u-1"] = upstream.UserObligations{OpenBuyerOrders: 1}
-	_, err := request(h, sessCtx("u-1", "sess-A"), delPassword)
+	_, err := request(sessCtx("u-1", "sess-A"), h, delPassword)
 	wantDelCode(t, err, codes.FailedPrecondition)
 	for _, s := range []string{"sess-A", "sess-B", "sess-C"} {
 		if !repo.active("u-1", s) {
@@ -407,7 +407,7 @@ func TestRequestAccountDeletionFailedSchedulingRevokesNothing(t *testing.T) {
 func TestCancelAccountDeletionWithinWindow(t *testing.T) {
 	h, repo, _ := newDeletion(t, "u-1")
 	ctx := sessCtx("u-1", "sess-A")
-	if _, err := request(h, ctx, delPassword); err != nil {
+	if _, err := request(ctx, h, delPassword); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := h.CancelAccountDeletion(ctx, &identityv1.CancelAccountDeletionRequest{}); err != nil {
@@ -436,7 +436,7 @@ func TestCancelAccountDeletionAnonymousUnauthenticated(t *testing.T) {
 // Scenario: A user cannot cancel another user's deletion
 func TestCancelAccountDeletionCannotCancelAnotherUsers(t *testing.T) {
 	h, repo, _ := newDeletion(t, "u-A", "u-B")
-	if _, err := request(h, sessCtx("u-A", "sess-A"), delPassword); err != nil {
+	if _, err := request(sessCtx("u-A", "sess-A"), h, delPassword); err != nil {
 		t.Fatal(err)
 	}
 	_, err := h.CancelAccountDeletion(sessCtx("u-B", "sess-A"), &identityv1.CancelAccountDeletionRequest{})
@@ -460,7 +460,7 @@ func TestGetAccountDeletionStatusNothingPending(t *testing.T) {
 func TestGetAccountDeletionStatusPending(t *testing.T) {
 	h, _, _ := newDeletion(t, "u-1")
 	ctx := sessCtx("u-1", "sess-A")
-	if _, err := request(h, ctx, delPassword); err != nil {
+	if _, err := request(ctx, h, delPassword); err != nil {
 		t.Fatal(err)
 	}
 	st, err := h.GetAccountDeletionStatus(ctx, &identityv1.GetAccountDeletionStatusRequest{})
@@ -472,7 +472,7 @@ func TestGetAccountDeletionStatusPending(t *testing.T) {
 // Scenario: Status reflects the caller's own state (another user's pending deletion is invisible)
 func TestGetAccountDeletionStatusIsCallerOnly(t *testing.T) {
 	h, _, _ := newDeletion(t, "u-A", "u-B")
-	if _, err := request(h, sessCtx("u-A", "sess-A"), delPassword); err != nil {
+	if _, err := request(sessCtx("u-A", "sess-A"), h, delPassword); err != nil {
 		t.Fatal(err)
 	}
 	st, err := h.GetAccountDeletionStatus(sessCtx("u-B", "sess-A"), &identityv1.GetAccountDeletionStatusRequest{})

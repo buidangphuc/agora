@@ -90,6 +90,7 @@ type noObligations struct{}
 func (noObligations) UserObligations(context.Context, string) (upstream.UserObligations, error) {
 	return upstream.UserObligations{}, nil
 }
+
 func (noObligations) PayoutObligations(context.Context, string) (upstream.PayoutObligations, error) {
 	return upstream.PayoutObligations{}, nil
 }

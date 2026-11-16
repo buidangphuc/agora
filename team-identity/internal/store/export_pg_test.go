@@ -33,7 +33,7 @@ import (
 
 var exportEpoch = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
-func seedLoginEvents(t testing.TB, e interface{ exec(string, ...any) }, user string, n int, agentLen int) {
+func seedLoginEvents(_ testing.TB, e interface{ exec(string, ...any) }, user string, n int, agentLen int) {
 	e.exec(`INSERT INTO login_history (id, user_id, ip, user_agent, success, created_at)
 		SELECT $1 || '-lh-' || g, $1, '10.0.0.1', repeat('a', $3), true, $4::timestamptz + g * interval '1 second'
 		FROM generate_series(1, $2) g`, user, n, agentLen, exportEpoch)
@@ -162,7 +162,7 @@ func TestExportStoreE2NoCredentialsInExport(t *testing.T) {
 	var walk func(rt reflect.Type, path string)
 	seen := map[reflect.Type]bool{}
 	walk = func(rt reflect.Type, path string) {
-		for rt.Kind() == reflect.Slice || rt.Kind() == reflect.Ptr {
+		for rt.Kind() == reflect.Slice || rt.Kind() == reflect.Pointer {
 			rt = rt.Elem()
 		}
 		if rt.Kind() != reflect.Struct || rt == reflect.TypeOf(time.Time{}) || seen[rt] {
