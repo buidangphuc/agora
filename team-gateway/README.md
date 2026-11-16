@@ -50,7 +50,7 @@ authenticated principal (`UNAUTHENTICATED` for anonymous); `BecomeSeller` needs 
 (`UNAUTHENTICATED` for anonymous, `PERMISSION_DENIED` otherwise); `PeekHandoffCode` (read) and
 `RedeemHandoffCode` (write) are open, the code is the credential.
 
-Identity `PrivacyService` at the edge (`internal/edge/privacy.go`): every RPC (`RecordConsent`, `ListMyConsents`, `RequestAccountDeletion`, `CancelAccountDeletion`, `GetAccountDeletionStatus`, `ExportMyData`) needs a signed-in principal (`UNAUTHENTICATED` for anonymous) and is forwarded with the verified principal, without `x-principal-sid`.
+Identity `PrivacyService` at the edge (`internal/edge/privacy.go`): every RPC (`RecordConsent`, `ListMyConsents`, `RequestAccountDeletion`, `CancelAccountDeletion`, `GetAccountDeletionStatus`, `ExportMyData`) needs a signed-in principal (`UNAUTHENTICATED` for anonymous) and is forwarded with the verified principal; only `RequestAccountDeletion` also carries `x-principal-sid` (`outgoingWithSID`, `internal/edge/privacy.go:76`) so identity keeps the calling session.
 
 Verification extras at the edge (`internal/edge/verification.go`): `CreateKycUploadUrl` needs an
 authenticated principal (`UNAUTHENTICATED` for anonymous); `ListKycSubmissions`,
@@ -69,7 +69,7 @@ rate limit (`internal/edge/interceptors.go`).
 
 The gateway checks only the token against the procedure policy, not per-RPC scopes. **Scope gates live in the services**; the
 gateway forwards `x-principal-id`, `x-principal-type`, `x-principal-scopes`, `x-principal-sid` (the
-token's `sid`, when present, and only to `AuthService` `BecomeSeller`, `CreateHandoffCode`, `PeekHandoffCode` and `RedeemHandoffCode` via `outgoingWithSID`, `internal/edge/forward.go:205`) and `x-request-id`, built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
+token's `sid`, when present, and only to `AuthService` `BecomeSeller`, `CreateHandoffCode`, `PeekHandoffCode` and `RedeemHandoffCode`, and to `PrivacyService` `RequestAccountDeletion`, via `outgoingWithSID`, `internal/edge/forward.go:205`) and `x-request-id`, built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
 `x-client-ip` / `x-client-user-agent` (see `TRUSTED_PROXIES`). Inbound `x-client-*` headers are
 never copied through. The edge-level RPC gates are the `adminProcedures` map (`policy.go`): each
 listed procedure needs an authenticated principal with the `admin` scope (anonymous gets
@@ -279,7 +279,6 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
   `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
-- `PrivacyService.RequestAccountDeletion` is forwarded with `outgoing`, not `outgoingWithSID` (`internal/edge/privacy.go:76`), so team-identity gets no `x-principal-sid` and its "keep the calling session" revocation (`team-identity/internal/store/account_deletion.go:60`) revokes every session of the caller, the current one included, through the edge.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at
   this hop).
 
