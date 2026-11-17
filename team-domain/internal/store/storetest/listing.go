@@ -2,7 +2,9 @@ package storetest
 
 import (
 	"context"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,9 +62,24 @@ func (r *InMemoryListingRepository) List(_ context.Context, cursor string, pageS
 	}), nil
 }
 
-func (r *InMemoryListingRepository) ListByOwner(_ context.Context, ownerID, cursor string, pageSize int32) (store.Page, error) {
+func (r *InMemoryListingRepository) ListByOwner(_ context.Context, ownerID string, filter store.ListingFilter, cursor string, pageSize int32) (store.Page, error) {
+	if cursor != "" {
+		r.mu.RLock()
+		at, ok := r.byID[cursor]
+		r.mu.RUnlock()
+		if !ok || at.SellerID != ownerID {
+			return store.Page{}, store.ErrInvalidCursor
+		}
+	}
+	q := strings.ToLower(filter.Query)
 	return r.page(cursor, pageSize, func(l store.Listing) bool {
-		return l.SellerID == ownerID
+		if l.SellerID != ownerID {
+			return false
+		}
+		if len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, l.Status) {
+			return false
+		}
+		return q == "" || strings.Contains(strings.ToLower(l.Title), q)
 	}), nil
 }
 
@@ -348,4 +365,17 @@ func (c stockChanges) listings() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// GetByIDs returns the known listings among ids; unknown ids are omitted.
+func (r *InMemoryListingRepository) GetByIDs(_ context.Context, ids []string) (map[string]store.Listing, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[string]store.Listing, len(ids))
+	for _, id := range ids {
+		if l, ok := r.byID[id]; ok {
+			out[id] = l
+		}
+	}
+	return out, nil
 }

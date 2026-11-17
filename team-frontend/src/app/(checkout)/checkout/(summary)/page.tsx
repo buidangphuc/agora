@@ -208,6 +208,7 @@ export default async function CheckoutPage(props: {
             itemCount={items.length}
             subtotal={subtotal}
             discount={discount}
+            bundleDiscount={cart.bundleDiscountTotal}
             total={total}
             voucherCode={state.pv}
             shipping={shipping}

@@ -106,6 +106,10 @@ func advertisedPrice(resp *promotionv1.GetActiveFlashSaleResponse, variantID str
 // A regular price <= 0 means the listing price is unknown: there is nothing to
 // compare against, so the line proceeds at its cart price with no flash handling.
 func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items []store.CartItem) (map[string]flashLine, error) {
+	bundleDropped, berr := s.untagInvalidBundles(ctx, buyerID, items)
+	if berr != nil {
+		return nil, berr
+	}
 	listings := map[string]*listingv1.Listing{}
 	lookups := map[string]flashLookup{}
 	for _, it := range items {
@@ -114,9 +118,15 @@ func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items
 		}
 		resp, err := s.domainClient.GetListing(ctx, &listingv1.GetListingRequest{Id: it.ListingID})
 		if err != nil {
+			if bundleDropped {
+				return nil, ErrPriceChanged
+			}
 			return nil, fmt.Errorf("get listing %q from domain: %w", it.ListingID, err)
 		}
 		if resp.GetListing() == nil && s.orderFlash != nil {
+			if bundleDropped {
+				return nil, ErrPriceChanged
+			}
 			// Fail closed when flash pricing is wired: with no listing there is no
 			// price to verify the cart against. Without a flash client a nil listing
 			// is treated as an unknown price (see below), which keeps the legacy
@@ -162,7 +172,7 @@ func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items
 		}
 	}
 
-	if len(fixes) > 0 {
+	if len(fixes) > 0 || bundleDropped {
 		for id, price := range fixes {
 			if err := s.cartRepo.UpdateItemPrice(ctx, buyerID, id, price); err != nil {
 				s.logger.ErrorContext(ctx, "failed to re-price cart line",

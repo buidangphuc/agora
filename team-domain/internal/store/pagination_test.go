@@ -33,7 +33,7 @@ func TestPageSizeClamp(t *testing.T) {
 		if len(page.Items) != c.want {
 			t.Errorf("List size %d returned %d items, want %d", c.size, len(page.Items), c.want)
 		}
-		mine, err := repo.ListByOwner(ctx, "S1", "", c.size)
+		mine, err := repo.ListByOwner(ctx, "S1", store.ListingFilter{}, "", c.size)
 		if err != nil {
 			t.Fatalf("ListByOwner size %d: %v", c.size, err)
 		}

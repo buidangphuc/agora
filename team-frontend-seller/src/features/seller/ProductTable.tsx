@@ -91,20 +91,3 @@ export function ProductTable({ items }: { items: ViewListing[] }) {
     />
   );
 }
-
-/** Page-local text / status filter (the gateway only offers a cursor). */
-export function filterListings(
-  items: ViewListing[],
-  q: string,
-  status: string,
-): ViewListing[] {
-  const needle = q.trim().toLowerCase();
-  return items.filter((l) => {
-    if (status !== "all" && l.status !== status) return false;
-    if (!needle) return true;
-    return (
-      l.title.toLowerCase().includes(needle) ||
-      l.id.toLowerCase().startsWith(needle)
-    );
-  });
-}

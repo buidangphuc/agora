@@ -183,3 +183,45 @@ func (f *campaignFake) CreateIdempotent(ctx context.Context, actorID, key, paylo
 	f.mu.Unlock()
 	return out, true, nil
 }
+
+func (f *campaignFake) ListMyCampaigns(ctx context.Context, sellerID string, statuses []string, now time.Time, offset, limit int) ([]store.FlashSaleCampaign, error) {
+	all, err := f.ListCampaigns(ctx, statuses, now, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	var mine []store.FlashSaleCampaign
+	for _, c := range all {
+		if c.SellerID == sellerID {
+			mine = append(mine, c)
+		}
+	}
+	if offset > len(mine) {
+		offset = len(mine)
+	}
+	mine = mine[offset:]
+	if limit > 0 && len(mine) > limit {
+		mine = mine[:limit]
+	}
+	return mine, nil
+}
+
+func (f *campaignFake) CancelIfScheduledOwned(ctx context.Context, id, sellerID string, now time.Time) (time.Time, error) {
+	c, err := f.InMemoryFlashSaleRepository.GetByID(ctx, id)
+	if err != nil {
+		return time.Time{}, store.ErrNotOwner
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if sellerID == "" || c.SellerID != sellerID {
+		return time.Time{}, store.ErrNotOwner
+	}
+	if at, ok := f.cancelled[id]; ok {
+		return at, nil
+	}
+	c = f.apply(c)
+	if c.StartsAt.IsZero() || !c.StartsAt.After(now) {
+		return time.Time{}, store.ErrCampaignNotScheduled
+	}
+	f.cancelled[id] = now
+	return now, nil
+}

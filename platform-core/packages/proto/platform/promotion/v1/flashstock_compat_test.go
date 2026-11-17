@@ -311,7 +311,7 @@ func TestFlashStock_HoldRPCsExistOnFlashSaleService(t *testing.T) {
 		t.Fatal("FlashSaleService missing")
 	}
 	got := map[string][2]string{}
-	additive := map[string]bool{"ListCampaigns": true, "CancelCampaign": true, "UpdateCampaign": true}
+	additive := map[string]bool{"ListCampaigns": true, "CancelCampaign": true, "UpdateCampaign": true, "ListMyCampaigns": true, "CancelMyCampaign": true}
 	for _, m := range s.Method {
 		if additive[m.Name] {
 			continue
@@ -389,6 +389,7 @@ func TestFlashStock_ExistingMessagesAreUntouched(t *testing.T) {
 		if name == "FlashSaleCampaign" {
 			delete(g, "status")
 			delete(g, "cancelled_at")
+			delete(g, "seller_id")
 		}
 		if !reflect.DeepEqual(g, w) {
 			t.Errorf("%s fields = %v, want %v", name, g, w)

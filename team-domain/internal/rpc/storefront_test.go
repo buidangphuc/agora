@@ -20,7 +20,7 @@ import (
 // newStorefrontHandler builds a ListingHandler wired with an in-memory
 // storefront store (listing deps unused by the storefront RPCs).
 func newStorefrontHandler() *rpc.ListingHandler {
-	sfSvc := listing.NewStorefrontService(storetest.NewInMemoryStorefrontRepository())
+	sfSvc := listing.NewStorefrontService(storetest.NewInMemoryStorefrontRepository(), "http://localhost:9000/listing-images")
 	return rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
 		WithStorefront(sfSvc)
 }
@@ -44,7 +44,7 @@ func TestUpsertThenGetBySeller(t *testing.T) {
 		Storefront: &listingv1.Storefront{
 			SellerId:           "SPOOFED", // must be overridden by the principal
 			Slug:               "shop-a",
-			BannerUrl:          "https://cdn/banner-a.png",
+			BannerUrl:          "http://localhost:9000/listing-images/banner-a.png",
 			Tagline:            "Hàng chính hãng",
 			FeaturedListingIds: []string{"l1", "l2"},
 			Theme:              "festive",
@@ -265,7 +265,7 @@ func (c *countingRepo) GetBySellers(ctx context.Context, ids []string) ([]store.
 func TestBatchGetStorefronts(t *testing.T) {
 	repo := &countingRepo{InMemoryStorefrontRepository: storetest.NewInMemoryStorefrontRepository()}
 	h := rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
-		WithStorefront(listing.NewStorefrontService(repo))
+		WithStorefront(listing.NewStorefrontService(repo, "http://localhost:9000/listing-images"))
 	_ = upsertName(t, h, "seller_a", "shop-a", "Shop Alpha")
 	_ = upsertName(t, h, "seller_b", "shop-b", "Shop Beta")
 
@@ -333,4 +333,140 @@ func TestBatchGetStorefronts(t *testing.T) {
 			t.Fatalf("want Unauthenticated, got %v", err)
 		}
 	})
+}
+
+func buyerCtx(id string) context.Context {
+	return contextWithPrincipal(context.Background(), &commonv1.Principal{
+		Id:     id,
+		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
+		Scopes: []string{"listing.read"},
+	})
+}
+
+// TestUpsertStorefrontRequiresWriteScope: scenario "Principal without listing.write is denied".
+func TestUpsertStorefrontRequiresWriteScope(t *testing.T) {
+	h := newStorefrontHandler()
+	_, err := h.UpsertStorefront(buyerCtx("buyer_1"), &listingv1.UpsertStorefrontRequest{
+		Storefront: &listingv1.Storefront{Slug: "buyer-shop", Tagline: "hi", Theme: "dark"},
+	})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("want PermissionDenied, got %v", err)
+	}
+	if _, err := h.GetStorefront(sellerCtx("x"), &listingv1.GetStorefrontRequest{SellerId: "buyer_1"}); status.Code(err) != codes.NotFound {
+		t.Fatalf("no row must be written, got %v", err)
+	}
+}
+
+// TestUpsertStorefrontIgnoresBodySellerID: scenario "Body seller_id of another seller is ignored".
+func TestUpsertStorefrontIgnoresBodySellerID(t *testing.T) {
+	h := newStorefrontHandler()
+	if _, err := h.UpsertStorefront(sellerCtx("s2"), &listingv1.UpsertStorefrontRequest{
+		Storefront: &listingv1.Storefront{Slug: "shop-s2", Tagline: "s2 tagline", Theme: "dark"},
+	}); err != nil {
+		t.Fatalf("s2 upsert: %v", err)
+	}
+	if _, err := h.UpsertStorefront(sellerCtx("s1"), &listingv1.UpsertStorefrontRequest{
+		Storefront: &listingv1.Storefront{SellerId: "s2", Slug: "shop-s1", Tagline: "s1 tagline", Theme: "festive"},
+	}); err != nil {
+		t.Fatalf("s1 upsert: %v", err)
+	}
+	s1, err := h.GetStorefront(sellerCtx("x"), &listingv1.GetStorefrontRequest{SellerId: "s1"})
+	if err != nil {
+		t.Fatalf("get s1: %v", err)
+	}
+	if s1.GetStorefront().GetTagline() != "s1 tagline" || s1.GetStorefront().GetTheme() != "festive" || s1.GetStorefront().GetSlug() != "shop-s1" {
+		t.Errorf("s1 row wrong: %+v", s1.GetStorefront())
+	}
+	s2, err := h.GetStorefront(sellerCtx("x"), &listingv1.GetStorefrontRequest{SellerId: "s2"})
+	if err != nil {
+		t.Fatalf("get s2: %v", err)
+	}
+	if s2.GetStorefront().GetTagline() != "s2 tagline" || s2.GetStorefront().GetTheme() != "dark" || s2.GetStorefront().GetSlug() != "shop-s2" {
+		t.Errorf("s2 row changed: %+v", s2.GetStorefront())
+	}
+}
+
+// TestUpsertStorefrontResendKeepsFields: scenario "Resending current values keeps all fields".
+func TestUpsertStorefrontResendKeepsFields(t *testing.T) {
+	h := newStorefrontHandler()
+	ctx := sellerCtx("seller_a")
+	banner := "http://localhost:9000/listing-images/banner-a.png"
+	if _, err := h.UpsertStorefront(ctx, &listingv1.UpsertStorefrontRequest{
+		Storefront: &listingv1.Storefront{Slug: "shop-a", BannerUrl: banner, Tagline: "old", Theme: "festive"},
+	}); err != nil {
+		t.Fatalf("first upsert: %v", err)
+	}
+	if _, err := h.UpsertStorefront(ctx, &listingv1.UpsertStorefrontRequest{
+		Storefront: &listingv1.Storefront{Slug: "shop-a", BannerUrl: banner, Tagline: "new", Theme: "festive"},
+	}); err != nil {
+		t.Fatalf("second upsert: %v", err)
+	}
+	res, err := h.GetStorefront(ctx, &listingv1.GetStorefrontRequest{SellerId: "seller_a"})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	got := res.GetStorefront()
+	if got.GetTagline() != "new" || got.GetBannerUrl() != banner || got.GetTheme() != "festive" {
+		t.Errorf("fields not kept: %+v", got)
+	}
+}
+
+// TestUpsertStorefrontNewErrorsAreInvalidArgument: new validation errors reach
+// the client as INVALID_ARGUMENT through the handler, and nothing is stored.
+func TestUpsertStorefrontNewErrorsAreInvalidArgument(t *testing.T) {
+	cases := []struct {
+		name string
+		sf   *listingv1.Storefront
+	}{
+		{"tagline over 120", &listingv1.Storefront{Slug: "s", Tagline: strings.Repeat("a", 121)}},
+		{"tagline control char", &listingv1.Storefront{Slug: "s", Tagline: "a\x07b"}},
+		{"unknown theme", &listingv1.Storefront{Slug: "s", Theme: "neon"}},
+		{"external banner", &listingv1.Storefront{Slug: "s", BannerUrl: "https://evil.example/x.png"}},
+		{"seven featured", &listingv1.Storefront{Slug: "s", FeaturedListingIds: []string{"1", "2", "3", "4", "5", "6", "7"}}},
+		{"duplicate featured", &listingv1.Storefront{Slug: "s", FeaturedListingIds: []string{"a", "a"}}},
+		{"empty slug", &listingv1.Storefront{Slug: ""}},
+		{"81 rune display name", &listingv1.Storefront{Slug: "s", DisplayName: strings.Repeat("a", 81)}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newStorefrontHandler()
+			_, err := h.UpsertStorefront(sellerCtx("seller_a"), &listingv1.UpsertStorefrontRequest{Storefront: tc.sf})
+			if status.Code(err) != codes.InvalidArgument {
+				t.Fatalf("want InvalidArgument, got %v", err)
+			}
+			if _, err := h.GetStorefront(sellerCtx("seller_a"), &listingv1.GetStorefrontRequest{SellerId: "seller_a"}); status.Code(err) != codes.NotFound {
+				t.Fatalf("rejected write must store nothing, got %v", err)
+			}
+		})
+	}
+}
+
+// TestUpsertStorefrontRulesUnchangedOnSharedHandler: scenario "Existing display name and slug rules still apply";
+// one handler, so a rejected write must leave the previously stored row intact.
+func TestUpsertStorefrontRulesUnchangedOnSharedHandler(t *testing.T) {
+	h := newStorefrontHandler()
+	ctx := sellerCtx("seller_a")
+	if _, err := h.UpsertStorefront(ctx, &listingv1.UpsertStorefrontRequest{
+		Storefront: &listingv1.Storefront{Slug: "shop-a", DisplayName: strings.Repeat("ế", 80), Tagline: "keep", Theme: "dark"},
+	}); err != nil {
+		t.Fatalf("80-rune display name must be accepted: %v", err)
+	}
+	bad := []*listingv1.Storefront{
+		{Slug: "", DisplayName: "x", Tagline: "bad"},
+		{Slug: "other", DisplayName: strings.Repeat("a", 81), Tagline: "bad"},
+		{Slug: "other", Tagline: "bad", Theme: "neon"},
+	}
+	for i, sf := range bad {
+		if _, err := h.UpsertStorefront(ctx, &listingv1.UpsertStorefrontRequest{Storefront: sf}); status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("case %d: want InvalidArgument, got %v", i, err)
+		}
+	}
+	res, err := h.GetStorefront(ctx, &listingv1.GetStorefrontRequest{SellerId: "seller_a"})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	got := res.GetStorefront()
+	if got.GetSlug() != "shop-a" || got.GetTagline() != "keep" || got.GetTheme() != "dark" || len([]rune(got.GetDisplayName())) != 80 {
+		t.Errorf("rejected writes changed stored row: %+v", got)
+	}
 }

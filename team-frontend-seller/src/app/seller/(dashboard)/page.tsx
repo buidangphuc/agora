@@ -1,28 +1,36 @@
+import { Suspense } from "react";
+
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Alert } from "@/components/ui/Alert";
+import { GettingStartedCard } from "@/features/seller/GettingStartedCard";
 import { KpiRow } from "@/features/seller/KpiRow";
 import { LinkButton } from "@/features/seller/LinkButton";
 import { LISTING_STATUSES, ProductList } from "@/features/seller/ProductList";
 import { QuickActions } from "@/features/seller/QuickActions";
-import { RecentOrders } from "@/features/seller/RecentOrders";
+import { RECENT_ORDERS, RecentOrders } from "@/features/seller/RecentOrders";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
+import { GettingStartedSkeleton } from "@/features/seller/SellerSkeletons";
 import { deriveWorkplaceKpis } from "@/features/seller/kpi";
 import {
   type SearchParams,
   buildListHref,
   parseListParams,
 } from "@/features/seller/listParams";
-import {
-  LISTINGS_PAGE_SIZE,
-  getListingsPage,
-} from "@/features/seller/listingsPage";
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import { type ListingPage, listMyListings } from "@/lib/gateway/listings";
-import { type ViewOrder, listSellerOrders } from "@/lib/gateway/orders";
+import { LISTINGS_PAGE_SIZE } from "@/features/seller/listingsPage";
+import { ListingStatus } from "@/generated/platform/listing/v1/listing_pb.js";
+import { getStorefront, listMyListings } from "@/lib/gateway/listings";
+import { type ViewOrder, listSellerOrdersPage } from "@/lib/gateway/orders";
+import { listMyCampaigns, listMyShopVouchers } from "@/lib/gateway/promotion";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
+
+const STATUS_FILTERS: Record<string, ListingStatus[]> = {
+  published: [ListingStatus.PUBLISHED],
+  draft: [ListingStatus.DRAFT],
+  rejected: [ListingStatus.REJECTED],
+};
 
 function settled<T>(r: PromiseSettledResult<T>): T | null {
   return r.status === "fulfilled" ? r.value : null;
@@ -33,29 +41,37 @@ export default async function SellerPage(props: {
   searchParams?: Promise<SearchParams>;
 }) {
   const searchParams = await props.searchParams;
-  if (!getPrincipal()) redirectGuestToLogin("/seller", searchParams);
+  const principal = getPrincipal();
+  if (!principal) redirectGuestToLogin("/seller", searchParams);
   if (!hasScope("listing.write")) return null;
 
+  const sellerId = principal?.id ?? "";
   const params = parseListParams(searchParams, LISTING_STATUSES);
 
-  const pageRequest = getListingsPage(params.page);
-  // KPIs always describe the first page of products, whatever page is shown.
-  const kpiRequest: Promise<ListingPage> =
-    params.page === 1 ? pageRequest : listMyListings();
-  const [pageResult, kpiResult, ordersResult] = await Promise.allSettled([
-    pageRequest,
-    kpiRequest,
-    listSellerOrders(OrderStatus.UNSPECIFIED, { throwOnError: true }),
-  ]);
+  const statuses = STATUS_FILTERS[params.status] ?? [];
+  const [pageResult, totalResult, publishedResult, ordersResult] =
+    await Promise.allSettled([
+      listMyListings({
+        cursor: params.cursor,
+        pageSize: LISTINGS_PAGE_SIZE,
+        statuses,
+        query: params.q,
+      }),
+      listMyListings({ pageSize: 1 }),
+      listMyListings({ pageSize: 1, statuses: [ListingStatus.PUBLISHED] }),
+      listSellerOrdersPage({ pageSize: RECENT_ORDERS }),
+    ]);
 
   const listings = settled(pageResult);
-  const kpiListings = settled(kpiResult);
-  const orders: ViewOrder[] | null = settled(ordersResult);
+  const orderPage = settled(ordersResult);
+  const orders: ViewOrder[] | null = orderPage ? orderPage.orders : null;
 
-  const kpis = deriveWorkplaceKpis({ listings: kpiListings, orders });
-  const partial =
-    kpiListings !== null && kpiListings.total > kpiListings.items.length;
-  const here = buildListHref("/seller", params);
+  const kpis = deriveWorkplaceKpis({
+    listingsTotal: settled(totalResult)?.total ?? null,
+    publishedTotal: settled(publishedResult)?.total ?? null,
+    statusCounts: orderPage ? orderPage.statusCounts : null,
+  });
+  const here = buildListHref("/seller", { q: params.q, status: params.status });
 
   return (
     <>
@@ -69,6 +85,17 @@ export default async function SellerPage(props: {
         }
       />
 
+      <Suspense fallback={<GettingStartedSkeleton />}>
+        <GettingStartedCard
+          sources={{
+            storefront: () => getStorefront(sellerId, { throwOnError: true }),
+            listings: () => listMyListings({ pageSize: 1 }),
+            vouchers: () => listMyShopVouchers({ pageSize: 1 }),
+            campaigns: () => listMyCampaigns({ pageSize: 1 }),
+          }}
+        />
+      </Suspense>
+
       {kpis.length > 0 && (
         <section aria-label="Số liệu tổng quan" className="space-y-3">
           <KpiRow
@@ -80,12 +107,6 @@ export default async function SellerPage(props: {
               tone: k.tone,
             }))}
           />
-          {partial && (
-            <p className="text-xs text-text-secondary">
-              "Đang bán" và "Sắp hết hàng" tính trên {LISTINGS_PAGE_SIZE} sản
-              phẩm đầu tiên.
-            </p>
-          )}
         </section>
       )}
       {kpis.length === 0 && (

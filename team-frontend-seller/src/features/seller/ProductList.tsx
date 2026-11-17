@@ -8,11 +8,10 @@ import {
 import { Empty } from "@/components/ui/Empty";
 import type { ListingPage } from "@/lib/gateway/listings";
 import { LinkButton } from "./LinkButton";
-import { ProductTable, filterListings } from "./ProductTable";
+import { ProductTable } from "./ProductTable";
 import { SellerFilterBar } from "./SellerFilterBar";
 import { SellerPagination } from "./SellerPagination";
 import { type ListParams, buildListHref } from "./listParams";
-import { LISTINGS_PAGE_SIZE } from "./listingsPage";
 
 export const LISTING_STATUSES = ["published", "draft", "rejected"] as const;
 
@@ -31,12 +30,20 @@ export function ProductList({
   listings,
   params,
 }: { listings: ListingPage | null; params: ListParams }) {
-  const here = buildListHref("/seller", params);
-  const hrefFor = (page: number) =>
-    buildListHref("/seller", { ...params, page });
-  const filtered = listings
-    ? filterListings(listings.items, params.q, params.status)
-    : [];
+  const here = buildListHref("/seller", { q: params.q, status: params.status });
+  const firstHref = buildListHref("/seller", {
+    q: params.q,
+    status: params.status,
+  });
+  const nextHref =
+    listings && listings.nextCursor !== ""
+      ? buildListHref("/seller", {
+          ...params,
+          cursor: listings.nextCursor,
+          page: params.page + 1,
+        })
+      : null;
+  const rows = listings ? listings.items : [];
   const filtering = params.q !== "" || params.status !== "all";
 
   let body: React.ReactNode;
@@ -55,10 +62,10 @@ export function ProductList({
         />
       </div>
     );
-  } else if (filtered.length === 0) {
+  } else if (rows.length === 0) {
     body = (
       <div className="px-4 py-10 sm:px-6 sm:py-12">
-        {filtering && listings.total > 0 ? (
+        {filtering ? (
           <Empty
             description="Không có kết quả"
             action={
@@ -80,7 +87,7 @@ export function ProductList({
       </div>
     );
   } else {
-    body = <ProductTable items={filtered} />;
+    body = <ProductTable items={rows} />;
   }
 
   return (
@@ -103,17 +110,16 @@ export function ProductList({
           statusOptions={STATUS_OPTIONS}
           searchLabel="Tìm sản phẩm"
           placeholder="Tên sản phẩm hoặc mã"
-          hint="Tìm kiếm và bộ lọc chỉ áp dụng cho các sản phẩm trong trang này."
         />
       </div>
       {body}
       {listings && (
         <div className="empty:hidden border-t border-border-subtle px-4 py-4 sm:px-6">
           <SellerPagination
+            mode="cursor"
             current={params.page}
-            total={listings.total}
-            pageSize={LISTINGS_PAGE_SIZE}
-            hrefFor={hrefFor}
+            firstHref={firstHref}
+            nextHref={nextHref}
           />
         </div>
       )}
