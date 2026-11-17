@@ -71,7 +71,7 @@ func (r *InMemoryVoucherRepository) List(_ context.Context, sellerID string, lim
 	defer r.mu.RUnlock()
 	var all []store.Voucher
 	for _, v := range r.vouchers {
-		if v.SellerID == sellerID && v.OwnerUserID == "" {
+		if v.SellerID == sellerID && v.OwnerUserID == "" && (sellerID == "" || v.Scope != 2) {
 			all = append(all, v)
 		}
 	}

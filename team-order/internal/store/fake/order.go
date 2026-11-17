@@ -2,7 +2,9 @@ package fake
 
 import (
 	"context"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,7 +42,7 @@ func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order store.Ord
 	if order.Status == 0 {
 		order.Status = store.OrderStatusPending
 	}
-	order.CreatedAt = time.Now()
+	order.CreatedAt = time.Now().Round(0)
 	order.UpdatedAt = time.Now()
 	for i := range order.Items {
 		if order.Items[i].ID == "" {
@@ -87,17 +89,62 @@ func (r *InMemoryOrderRepository) HasCompletedOrder(_ context.Context, buyerID s
 	return false, nil
 }
 
-func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID string, statusFilter int32) ([]store.Order, error) {
+func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID string, f store.SellerOrdersFilter) (store.SellerOrdersResult, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	var res []store.Order
+	var res store.SellerOrdersResult
+	q := strings.ToLower(f.Query)
+	byStatus := map[store.OrderStatus]int64{}
+	var matched []store.Order
 	for _, o := range r.orders {
-		if o.SellerID == sellerID {
-			if statusFilter == 0 || int32(o.Status) == statusFilter {
-				res = append(res, o)
+		if o.SellerID != sellerID {
+			continue
+		}
+		if q != "" {
+			hit := strings.HasPrefix(strings.ToLower(o.ID), q)
+			for _, it := range o.Items {
+				if strings.Contains(strings.ToLower(it.Title), q) {
+					hit = true
+				}
+			}
+			if !hit {
+				continue
 			}
 		}
+		byStatus[o.Status]++
+		if len(f.Statuses) > 0 && !slices.Contains(f.Statuses, o.Status) {
+			continue
+		}
+		matched = append(matched, o)
 	}
+	for _, st := range []store.OrderStatus{store.OrderStatusPending, store.OrderStatusPaid, store.OrderStatusShipped, store.OrderStatusCompleted, store.OrderStatusCancelled} {
+		res.Counts = append(res.Counts, store.StatusCount{Status: st, Count: byStatus[st]})
+	}
+	res.Total = int64(len(matched))
+	sort.Slice(matched, func(i, j int) bool {
+		if !matched[i].CreatedAt.Equal(matched[j].CreatedAt) {
+			return matched[i].CreatedAt.After(matched[j].CreatedAt)
+		}
+		return matched[i].ID > matched[j].ID
+	})
+	if f.Paged {
+		if c := f.Cursor; c != nil {
+			var rest []store.Order
+			for _, o := range matched {
+				if o.CreatedAt.Before(c.CreatedAt) || (o.CreatedAt.Equal(c.CreatedAt) && o.ID < c.ID) {
+					rest = append(rest, o)
+				}
+			}
+			matched = rest
+		}
+		size := store.SellerPageSize(f.PageSize)
+		if len(matched) > size {
+			matched = matched[:size]
+			last := matched[size-1]
+			res.Next = &store.SellerOrdersCursor{CreatedAt: last.CreatedAt, ID: last.ID}
+		}
+	}
+	res.Orders = matched
 	return res, nil
 }
 

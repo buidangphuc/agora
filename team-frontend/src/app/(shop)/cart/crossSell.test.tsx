@@ -72,6 +72,8 @@ function item(n: number, listingId = `l-${n}`): ViewCartItem {
     imageUrl: "",
     sellerId: "s1",
     sellerDisplayName: "Shop",
+    bundleId: "",
+    bundleDiscount: 0,
   };
 }
 
@@ -81,6 +83,7 @@ function cartOf(items: ViewCartItem[]): ViewCart {
     items,
     subtotal: items.reduce((a, i) => a + i.unitPrice * i.quantity, 0),
     totalItems: items.length,
+    bundleDiscountTotal: 0,
   };
 }
 

@@ -152,3 +152,30 @@ describe("access log redacts handoff code in alternate encodings", () => {
     expect(hit.some((l) => l.includes("keep"))).toBe(true);
   });
 });
+
+describe("access log redacts seller search and cursor", () => {
+  it("[Search text stays out of the server logs] q and cursor on seller pages are redacted", async () => {
+    await middleware(
+      new NextRequest(
+        "http://app.test/seller/orders?status=shipped&q=0901234567&cursor=CUR123",
+      ),
+    );
+    const line = lines.find((l) => l.includes("/seller/orders"));
+    expect(line).toBeDefined();
+    expect(line).toContain("status=shipped");
+    expect(line).toContain("q=REDACTED");
+    expect(line).toContain("cursor=REDACTED");
+    const all = lines.join("\n");
+    expect(all).not.toContain("0901234567");
+    expect(all).not.toContain("CUR123");
+  });
+
+  it("[Search text stays out of the server logs] the dashboard query is redacted", async () => {
+    await middleware(
+      new NextRequest("http://app.test/seller?q=%C3%A1o%20thun"),
+    );
+    const line = lines.find((l) => l.includes("/seller"));
+    expect(line).toContain("q=REDACTED");
+    expect(lines.join("\n")).not.toContain("%C3%A1o");
+  });
+});

@@ -42,6 +42,8 @@ function line(
     imageUrl: "",
     sellerId,
     sellerDisplayName: shop,
+    bundleId: "",
+    bundleDiscount: 0,
   };
 }
 

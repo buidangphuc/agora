@@ -7,6 +7,8 @@ package rpc
 import (
 	"context"
 	"errors"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -144,6 +146,8 @@ func (h *ListingHandler) ListListings(
 	}, nil
 }
 
+const maxMyListingsQueryRunes = 100
+
 // ListMyListings returns the caller's own listings (the seller center).
 func (h *ListingHandler) ListMyListings(
 	ctx context.Context,
@@ -154,6 +158,25 @@ func (h *ListingHandler) ListMyListings(
 	}
 	ownerID, _ := principalOwner(ctx)
 
+	query := strings.TrimSpace(req.GetQuery())
+	if utf8.RuneCountInString(query) > maxMyListingsQueryRunes {
+		return nil, status.Error(codes.InvalidArgument, "query is too long")
+	}
+	var statuses []string
+	for _, st := range req.GetStatuses() {
+		if st == listingv1.ListingStatus_LISTING_STATUS_UNSPECIFIED {
+			return nil, status.Error(codes.InvalidArgument, "status must be specified")
+		}
+		name := domainStatus(st)
+		if st == listingv1.ListingStatus_LISTING_STATUS_DELETED {
+			name = "deleted"
+		}
+		if name == "" {
+			return nil, status.Error(codes.InvalidArgument, "unknown status")
+		}
+		statuses = append(statuses, name)
+	}
+
 	var cursor string
 	var pageSize int32
 	if p := req.GetPage(); p != nil {
@@ -161,7 +184,8 @@ func (h *ListingHandler) ListMyListings(
 		pageSize = p.GetPageSize()
 	}
 
-	page, err := h.svc.ListMine(ctx, ownerID, cursor, pageSize)
+	filter := store.ListingFilter{Statuses: statuses, Query: query}
+	page, err := h.svc.ListMine(ctx, ownerID, filter, cursor, pageSize)
 	if err != nil {
 		return nil, fail(ctx, err)
 	}

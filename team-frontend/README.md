@@ -136,7 +136,6 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 - `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
 - `FEATURES.yaml` has 7 `planned` features with no automated coverage yet.
 - `/seller*` and `/sell` moved to `team-frontend-seller` (`:3001`) and are a 404 here (`src/app/sellerRoutes.test.ts`).
-- `/vouchers` still renders `VoucherManager` (create a voucher) for a session with `listing.write`; it is seller work that has not moved to the seller app yet.
 - `/listing/[id]` still shows the admin review-moderation controls when the buyer session carries scope `admin`.
 - SSO covers the buyer and seller apps only (one-time hand-off code); the admin app is excluded by design, and logout still clears only this app's cookies.
 - `NEXT_PUBLIC_SITE_URL` is a Dockerfile build arg that only `scripts/devenv/agora_env.py` passes; a plain `docker compose build` leaves it empty, so that image bakes `http://localhost:3000` into `/robots.txt` and every canonical and sitemap URL (`src/lib/seo.ts:9`), and the runtime `environment` entry (`docker-compose.services.yaml:899`) has no effect on them.

@@ -422,6 +422,39 @@ export async function listSellerOrders(
   }
 }
 
+export interface SellerOrdersPage {
+  orders: ViewOrder[];
+  nextCursor: string;
+  total: number;
+  statusCounts: Partial<Record<OrderStatus, number>>;
+}
+
+/** One page of the seller's orders; errors are thrown to the caller. */
+export async function listSellerOrdersPage(
+  args: {
+    statuses?: OrderStatus[];
+    query?: string;
+    cursor?: string;
+    pageSize?: number;
+  } = {},
+): Promise<SellerOrdersPage> {
+  const res = await gateway().order.listSellerOrders({
+    statuses: args.statuses ?? [],
+    query: args.query ?? "",
+    page: { cursor: args.cursor ?? "", pageSize: args.pageSize ?? 20 },
+  });
+  const statusCounts: Partial<Record<OrderStatus, number>> = {};
+  for (const c of res.statusCounts ?? []) {
+    statusCounts[c.status] = Number(c.count);
+  }
+  return {
+    orders: res.orders.map(mapOrder),
+    nextCursor: res.page?.nextCursor ?? "",
+    total: Number(res.page?.total ?? 0),
+    statusCounts,
+  };
+}
+
 export async function updateOrderStatus(
   id: string,
   status: OrderStatus,

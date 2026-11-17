@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { type ActionResult, fail, ok } from "@/lib/action-result";
 import {
+  addBundleToCart,
   addToCart,
   clearCart,
   removeFromCart,
@@ -13,7 +14,9 @@ import {
 
 export type CartActionResult =
   | ActionResult<{ itemId: string }>
-  | AddToCartUnauthenticated;
+  | AddToCartUnauthenticated
+  | { ok: true; data?: undefined; bundleDropped: true }
+  | { ok: false; error: string; unavailable: true };
 
 /** addToCartAction only: the caller has no session and should go to login. */
 export type AddToCartUnauthenticated = {
@@ -52,15 +55,41 @@ export async function addToCartAction(
   }
 }
 
+export async function addBundleToCartAction(
+  bundleId: string,
+): Promise<CartActionResult> {
+  try {
+    await addBundleToCart(bundleId, 1);
+    revalidatePath("/cart");
+    revalidatePath("/checkout");
+    return ok();
+  } catch (err: unknown) {
+    if (err instanceof ConnectError) {
+      if (err.code === Code.Unauthenticated) {
+        return { ok: false, error: "Chưa đăng nhập", unauthenticated: true };
+      }
+      if (err.code === Code.FailedPrecondition) {
+        return {
+          ok: false,
+          error: "Combo hiện không khả dụng",
+          unavailable: true,
+        };
+      }
+    }
+    return fail("Thêm combo vào giỏ hàng thất bại.");
+  }
+}
+
 export async function updateCartItemAction(
   itemId: string,
   quantity: number,
+  bundleId = "",
 ): Promise<CartActionResult> {
   try {
     await updateCartItem(itemId, quantity);
     revalidatePath("/cart");
     revalidatePath("/checkout");
-    return ok();
+    return bundleId ? { ok: true, bundleDropped: true } : ok();
   } catch (err: unknown) {
     return fail(messageOf(err, "Cập nhật thất bại."));
   }
@@ -68,12 +97,13 @@ export async function updateCartItemAction(
 
 export async function removeFromCartAction(
   itemId: string,
+  bundleId = "",
 ): Promise<CartActionResult> {
   try {
     await removeFromCart(itemId);
     revalidatePath("/cart");
     revalidatePath("/checkout");
-    return ok();
+    return bundleId ? { ok: true, bundleDropped: true } : ok();
   } catch (err: unknown) {
     return fail(messageOf(err, "Xóa sản phẩm thất bại."));
   }

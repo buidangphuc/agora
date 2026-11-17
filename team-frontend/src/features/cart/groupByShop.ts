@@ -6,6 +6,16 @@ export interface ShopGroup {
   sellerDisplayName: string;
   items: ViewCartItem[];
   subtotal: number;
+  combos: ComboGroup[];
+}
+
+export interface ComboGroup {
+  bundleId: string;
+  items: ViewCartItem[];
+}
+
+export function isComboLine(item: ViewCartItem): boolean {
+  return item.bundleId !== "" && item.bundleDiscount > 0;
 }
 
 /**
@@ -22,6 +32,7 @@ export function groupByShop(items: readonly ViewCartItem[]): ShopGroup[] {
         sellerDisplayName: item.sellerDisplayName,
         items: [],
         subtotal: 0,
+        combos: [],
       };
       groups.set(item.sellerId, group);
     }
@@ -29,6 +40,14 @@ export function groupByShop(items: readonly ViewCartItem[]): ShopGroup[] {
       group.sellerDisplayName = item.sellerDisplayName;
     }
     group.items.push(item);
+    if (isComboLine(item)) {
+      let combo = group.combos.find((c) => c.bundleId === item.bundleId);
+      if (!combo) {
+        combo = { bundleId: item.bundleId, items: [] };
+        group.combos.push(combo);
+      }
+      combo.items.push(item);
+    }
     group.subtotal += item.unitPrice * item.quantity;
   }
   return [...groups.values()];

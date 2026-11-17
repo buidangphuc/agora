@@ -20,6 +20,8 @@ import {
   listBuyerOrders,
   listBuyerOrdersResult,
   listOrderReturns,
+  listSellerOrders,
+  listSellerOrdersPage,
   previewCheckout,
   updateOrderStatus,
 } from "./orders.js";
@@ -679,5 +681,110 @@ describe("orders gateway wrapper", () => {
     });
     const res = await listOrderReturns("o1");
     expect(res[0]?.canEscalate).toBe(false);
+  });
+});
+
+describe("listSellerOrdersPage", () => {
+  const pageRes = {
+    orders: [protoOrder],
+    page: { nextCursor: "c20", total: 45n },
+    statusCounts: [
+      { status: OrderStatus.PENDING, count: 10n },
+      { status: OrderStatus.PAID, count: 5n },
+      { status: OrderStatus.SHIPPED, count: 20n },
+      { status: OrderStatus.COMPLETED, count: 9n },
+      { status: OrderStatus.CANCELLED, count: 1n },
+    ],
+  };
+
+  it("First page of a large shop: sends page_size 20 with an empty cursor in one call", async () => {
+    const order = stubOrder({
+      listSellerOrders: vi.fn().mockResolvedValue(pageRes),
+    });
+    await listSellerOrdersPage({});
+    expect(order.listSellerOrders).toHaveBeenCalledTimes(1);
+    const req = order.listSellerOrders.mock.calls[0][0];
+    expect(req.page).toEqual({ cursor: "", pageSize: 20 });
+    expect(req.query ?? "").toBe("");
+    expect(req.statuses ?? []).toEqual([]);
+  });
+
+  it("Status tab filters on the server: statuses and query are sent as given", async () => {
+    const order = stubOrder({
+      listSellerOrders: vi.fn().mockResolvedValue(pageRes),
+    });
+    await listSellerOrdersPage({
+      statuses: [OrderStatus.PENDING, OrderStatus.PAID],
+      query: "ab12cd34",
+      cursor: "c9",
+    });
+    const req = order.listSellerOrders.mock.calls[0][0];
+    expect(req.statuses).toEqual([OrderStatus.PENDING, OrderStatus.PAID]);
+    expect(req.query).toBe("ab12cd34");
+    expect(req.page).toEqual({ cursor: "c9", pageSize: 20 });
+  });
+
+  it("Badges stay stable while searching: view model carries statusCounts, nextCursor and total as numbers", async () => {
+    stubOrder({ listSellerOrders: vi.fn().mockResolvedValue(pageRes) });
+    const res = await listSellerOrdersPage({});
+    expect(res.orders).toHaveLength(1);
+    expect(res.orders[0].id).toBe("o1");
+    expect(res.nextCursor).toBe("c20");
+    expect(res.total).toBe(45);
+    expect(res.statusCounts[OrderStatus.PENDING]).toBe(10);
+    expect(res.statusCounts[OrderStatus.PAID]).toBe(5);
+    expect(res.statusCounts[OrderStatus.SHIPPED]).toBe(20);
+    expect(res.statusCounts[OrderStatus.COMPLETED]).toBe(9);
+    expect(res.statusCounts[OrderStatus.CANCELLED]).toBe(1);
+  });
+
+  it("Last page has no next link: a response without page gives an empty nextCursor", async () => {
+    stubOrder({
+      listSellerOrders: vi.fn().mockResolvedValue({ orders: [protoOrder] }),
+    });
+    const res = await listSellerOrdersPage({});
+    expect(res.nextCursor).toBe("");
+  });
+
+  it("Orders page unknown cursor shows the retry state: a server error is thrown, not swallowed", async () => {
+    stubOrder({
+      listSellerOrders: vi
+        .fn()
+        .mockRejectedValue(
+          new ConnectError("bad cursor", Code.InvalidArgument),
+        ),
+    });
+    await expect(
+      listSellerOrdersPage({ cursor: "not-a-cursor" }),
+    ).rejects.toBeInstanceOf(ConnectError);
+  });
+
+  it("Search text stays out of the server logs: a failing search logs nothing with the query", async () => {
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map(
+      (m) => vi.spyOn(console, m).mockImplementation(() => {}),
+    );
+    stubOrder({
+      listSellerOrders: vi.fn().mockRejectedValue(new Error("down")),
+    });
+    await expect(
+      listSellerOrdersPage({ query: "SECRET-needle-42" }),
+    ).rejects.toThrow();
+    const out = spies
+      .flatMap((s) => s.mock.calls)
+      .flat()
+      .map(String)
+      .join(" ");
+    for (const s of spies) s.mockRestore();
+    expect(out).not.toContain("SECRET-needle-42");
+  });
+
+  it("First page of a large shop: listSellerOrders keeps its signature and sends no page", async () => {
+    const order = stubOrder({
+      listSellerOrders: vi.fn().mockResolvedValue({ orders: [protoOrder] }),
+    });
+    await listSellerOrders(OrderStatus.SHIPPED);
+    expect(order.listSellerOrders).toHaveBeenCalledWith({
+      statusFilter: OrderStatus.SHIPPED,
+    });
   });
 });

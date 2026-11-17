@@ -4,20 +4,30 @@ import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { ShopProfileForm } from "@/features/seller/ShopProfileForm";
 import { buyerAppUrl } from "@/lib/apps";
-import { getStorefront } from "@/lib/gateway/listings";
+import { getListing, getStorefront } from "@/lib/gateway/listings";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Hồ sơ gian hàng" };
 
-/** Form > Basic Form: the shop display name (UpsertStorefront.display_name). */
+/** Form > Basic Form: the shop name, banner, tagline, featured listings and theme (UpsertStorefront). */
 export default async function SellerShopPage() {
   const me = getPrincipal();
   if (!me) redirectGuestToLogin("/seller/shop");
   if (!hasScope("listing.write")) return null;
 
   const storefront = await getStorefront(me.id);
+
+  const featuredIds = storefront?.featuredListingIds ?? [];
+  const listings = await Promise.all(
+    featuredIds.map((id) => getListing(id).catch(() => null)),
+  );
+  const titles: Record<string, string> = {};
+  featuredIds.forEach((id, i) => {
+    const l = listings[i];
+    if (l) titles[id] = l.title;
+  });
 
   return (
     <>
@@ -32,7 +42,16 @@ export default async function SellerShopPage() {
           </span>
         }
       />
-      <ShopProfileForm initialName={storefront?.displayName ?? ""} />
+      <ShopProfileForm
+        initial={{
+          displayName: storefront?.displayName ?? "",
+          bannerUrl: storefront?.bannerUrl ?? "",
+          tagline: storefront?.tagline ?? "",
+          featuredListingIds: featuredIds,
+          theme: storefront?.theme || "default",
+        }}
+        titles={titles}
+      />
     </>
   );
 }

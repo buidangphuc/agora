@@ -1,5 +1,4 @@
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import type { ViewOrder } from "@/lib/gateway/orders";
 
 export const ORDER_TABS = ["pending", "shipped", "completed"] as const;
 export type OrderTab = (typeof ORDER_TABS)[number] | "all";
@@ -7,37 +6,28 @@ export type OrderTab = (typeof ORDER_TABS)[number] | "all";
 export const ORDERS_PAGE_SIZE = 20;
 
 const MATCH: Record<(typeof ORDER_TABS)[number], OrderStatus[]> = {
-  // Orders waiting on the seller: not yet handed to the carrier.
   pending: [OrderStatus.PENDING, OrderStatus.PAID],
   shipped: [OrderStatus.SHIPPED],
   completed: [OrderStatus.COMPLETED],
 };
 
-/** Orders in a status tab ("all" keeps everything). */
-export function inTab(orders: ViewOrder[], tab: string): ViewOrder[] {
-  const statuses = MATCH[tab as (typeof ORDER_TABS)[number]];
-  return statuses ? orders.filter((o) => statuses.includes(o.status)) : orders;
+export function tabStatuses(tab: string): OrderStatus[] {
+  return MATCH[tab as (typeof ORDER_TABS)[number]] ?? [];
 }
 
-/** Counts shown on the tabs, from the one full order list. */
-export function tabCounts(orders: ViewOrder[]): Record<OrderTab, number> {
+export function tabCountsFromStatusCounts(
+  counts: Partial<Record<OrderStatus, number>>,
+): Record<OrderTab, number> {
+  const n = (s: OrderStatus) => counts[s] ?? 0;
   return {
-    all: orders.length,
-    pending: inTab(orders, "pending").length,
-    shipped: inTab(orders, "shipped").length,
-    completed: inTab(orders, "completed").length,
+    all:
+      n(OrderStatus.PENDING) +
+      n(OrderStatus.PAID) +
+      n(OrderStatus.SHIPPED) +
+      n(OrderStatus.COMPLETED) +
+      n(OrderStatus.CANCELLED),
+    pending: n(OrderStatus.PENDING) + n(OrderStatus.PAID),
+    shipped: n(OrderStatus.SHIPPED),
+    completed: n(OrderStatus.COMPLETED),
   };
-}
-
-/** Text search over order id, recipient, phone and item titles. */
-export function searchOrders(orders: ViewOrder[], q: string): ViewOrder[] {
-  const needle = q.trim().toLowerCase();
-  if (!needle) return orders;
-  return orders.filter(
-    (o) =>
-      o.id.toLowerCase().startsWith(needle) ||
-      o.recipientName.toLowerCase().includes(needle) ||
-      o.phone.includes(needle) ||
-      o.items.some((it) => it.title.toLowerCase().includes(needle)),
-  );
 }

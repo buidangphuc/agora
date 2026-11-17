@@ -182,10 +182,17 @@ export async function listListings(
 
 /** Seller center: the caller's OWN listings. */
 export async function listMyListings(
-  opts: { cursor?: string; pageSize?: number } = {},
+  opts: {
+    cursor?: string;
+    pageSize?: number;
+    statuses?: ListingStatus[];
+    query?: string;
+  } = {},
 ): Promise<ListingPage> {
   const res = await gateway().listing.listMyListings({
     page: { cursor: opts.cursor ?? "", pageSize: opts.pageSize ?? 20 },
+    statuses: opts.statuses ?? [],
+    query: opts.query ?? "",
   });
   return {
     items: res.listings.map(mapListing),

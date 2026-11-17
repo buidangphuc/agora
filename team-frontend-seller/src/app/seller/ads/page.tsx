@@ -2,7 +2,6 @@ import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { AdCampaignForm } from "@/features/seller/AdCampaignForm";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
-import { getAllListings } from "@/features/seller/listingsPage";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
@@ -13,17 +12,13 @@ export default async function SellerAdsPage() {
   if (!getPrincipal()) redirectGuestToLogin("/seller/ads");
   if (!hasScope("listing.write")) return null;
 
-  const listings = await getAllListings().catch(() => []);
-
   return (
     <>
       <SellerPageHeader
         title="Quảng cáo sản phẩm"
         description="Tạo chiến dịch để sản phẩm xuất hiện ở vị trí được tài trợ."
       />
-      <AdCampaignForm
-        listings={listings.map((l) => ({ id: l.id, title: l.title }))}
-      />
+      <AdCampaignForm />
     </>
   );
 }

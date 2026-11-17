@@ -36,6 +36,8 @@ function item(
     imageUrl: "",
     sellerId,
     sellerDisplayName: `Shop ${sellerId}`,
+    bundleId: "",
+    bundleDiscount: 0,
   };
 }
 

@@ -134,8 +134,8 @@ func (r *fakeOrderRepo) ListBuyerOrders(_ context.Context, _ string, _ int32) ([
 	return nil, nil
 }
 
-func (r *fakeOrderRepo) ListSellerOrders(_ context.Context, _ string, _ int32) ([]store.Order, error) {
-	return nil, nil
+func (r *fakeOrderRepo) ListSellerOrders(_ context.Context, _ string, _ store.SellerOrdersFilter) (store.SellerOrdersResult, error) {
+	return store.SellerOrdersResult{}, nil
 }
 
 func (r *fakeOrderRepo) UpdateOrderStatusFrom(_ context.Context, id string, to store.OrderStatus, from []store.OrderStatus, trackingNumber string, _ ...store.StatusOption) (store.Order, error) {
