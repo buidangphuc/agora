@@ -99,7 +99,7 @@ and the voucher API has no erasure RPC.
 
 | Consumed topic | Type (`EventEnvelope.type`) | Group / DLQ | Effect |
 |---|---|---|---|
-| `identity.events` | `platform.identity.v1.UserErased` | `team-promotion.erasure` / `identity.events.promotion.dlq` | In one transaction: sets `active = false` and `deactivated_at` (first value kept) on every voucher whose `owner_user_id` is the user, and deletes the user's `new_user_voucher_state` row. Reservations, shop vouchers and other users' rows are untouched; redelivery and a user without data are no-ops; a malformed event (undecodable, bad payload, empty `user_id`) goes to the DLQ. |
+| `identity.events` | `platform.identity.v1.UserErased` | `team-promotion.erasure` / `identity.events.promotion.dlq` | In one transaction: sets `active = false` and `deactivated_at` (first value kept) on every voucher whose `owner_user_id` is the user, deletes the user's `new_user_voucher_state` row, ends the user's seller subscription (plan FREE, status `cancelled`, `auto_renew` false, no pending plan; no refund, so the renewal sweep never charges it again) and sets every ACTIVE, PAUSED or PAUSED_BUDGET ad campaign of the user to ENDED (counters kept, unspent budget dropped). Reservations, shop vouchers and other users' rows are untouched; redelivery and a user without data are no-ops; a malformed event (undecodable, bad payload, empty `user_id`) goes to the DLQ. |
 
 | Topic | Type (`EventEnvelope.type`) | Key | Emitted when |
 |---|---|---|---|

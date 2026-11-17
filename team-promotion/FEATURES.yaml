@@ -7878,3 +7878,155 @@ features:
     tags: [promotion, user-erasure, unit]
     status: not-testable
     notes: "VERIFIED BY team-promotion/internal/consumer TestErasureOnlyFromIdentityEvents. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: promotion.erasure-ends-an-auto-renewing-paid-plan-now
+    title: "Erasure ends an auto-renewing paid plan now"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: Erasure ends an auto-renewing paid plan now"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given seller U holds PRO ACTIVE with `auto_renew` true and a pending downgrade to FREE, and seller W holds PREMIUM ACTIVE with `auto_renew` true"
+      - "When a `UserErased` event for U is consumed"
+      - "Then U's row has plan `plan_free`, status `cancelled`, `auto_renew` false, no pending plan and the same `id` and `period_seq`, `GetActiveSubscriptionBySeller(U)` returns not found, and W's row is unchanged"
+    tags: [promotion, user-erasure, monetization, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserEndsPaidSubscription. Not producible black box: needs a database, injected store faults or time travel the public edge cannot reach."
+
+  - id: promotion.the-renewal-sweep-never-charges-an-erased-seller
+    title: "The renewal sweep never charges an erased seller"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: The renewal sweep never charges an erased seller"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given U's PRO subscription was ended by erasure"
+      - "When the renewal sweep lists due subscriptions at a time after U's old period end"
+      - "Then U's row is not listed, so no SUBSCRIPTION_FEE is charged for it"
+    tags: [promotion, user-erasure, monetization, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserSubscriptionNotDueForRenewal. Not producible black box: needs a database, injected store faults or time travel the public edge cannot reach."
+
+  - id: promotion.a-seller-without-a-paid-plan-is-unchanged
+    title: "A seller without a paid plan is unchanged"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: A seller without a paid plan is unchanged"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given seller V has an expired FREE row with `auto_renew` false and no pending plan, and user X has no subscription row"
+      - "When a `UserErased` event for V and then one for X are consumed"
+      - "Then V's row is byte-identical to before and no row exists for X"
+    tags: [promotion, user-erasure, monetization, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserEndsPaidSubscription. Not producible black box: needs a database, injected store faults or time travel the public edge cannot reach."
+
+  - id: promotion.redelivery-leaves-the-ended-subscription-unchanged
+    title: "Redelivery leaves the ended subscription unchanged"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: Redelivery leaves the ended subscription unchanged"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given a `UserErased` event for U was consumed"
+      - "When the same event and a second event for U are consumed"
+      - "Then both complete without error and U's subscription row is unchanged by them"
+    tags: [promotion, user-erasure, monetization, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserIdempotent. Not producible black box: needs a database, injected store faults or time travel the public edge cannot reach."
+
+  - id: promotion.a-store-error-leaves-the-plan-running-for-retry
+    title: "A store error leaves the plan running for retry"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: A store error leaves the plan running for retry"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given the promotion database fails after the subscription update but before the commit"
+      - "When a `UserErased` event for U is consumed"
+      - "Then U's subscription is still PRO ACTIVE with `auto_renew` true, U's vouchers are still active, the error is returned for retry, and after recovery the subscription is ended"
+    tags: [promotion, user-erasure, monetization, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserMonetizationRollsBack. Not producible black box: needs a database, injected store faults or time travel the public edge cannot reach."
+
+  - id: promotion.an-erased-seller-s-plan-is-never-renewed-on-the-real-stack
+    title: "An erased seller's plan is never renewed on the real stack"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: An erased seller's plan is never renewed on the real stack"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given a funded seller subscribed to `plan_pro` through the gateway"
+      - "When a `UserErased` event for that seller is consumed, the old period end is brought forward and the sweep runs"
+      - "Then the seller's `GetMySubscription` is empty, `GetEntitlements` returns FREE and the seller's ledger holds exactly one SUBSCRIPTION_FEE of -199000"
+    tags: [promotion, user-erasure, monetization]
+    status: automated
+    covered_by: "promotion/seller_erasure_monetization.feature::An erased seller's plan is never renewed"
+    notes: "promotion-seller-erasure-monetization: e2e in promotion/seller_erasure_monetization.feature."
+
+  - id: promotion.all-non-ended-campaigns-of-the-seller-end
+    title: "All non-ended campaigns of the seller end"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: All non-ended campaigns of the seller end"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given seller U has one ACTIVE, one PAUSED, one PAUSED_BUDGET and one ENDED campaign, the ACTIVE one with spent 800 and clicks 1, and seller W has one ACTIVE campaign"
+      - "When a `UserErased` event for U is consumed"
+      - "Then all four of U's campaigns are ENDED with their budget, spent, impressions and clicks unchanged, and W's campaign is unchanged"
+    tags: [promotion, user-erasure, monetization, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserEndsAdCampaigns. Not producible black box: needs a database, injected store faults or time travel the public edge cannot reach."
+
+  - id: promotion.an-ended-campaign-is-neither-served-nor-charged
+    title: "An ended campaign is neither served nor charged"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: An ended campaign is neither served nor charged"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given U's ACTIVE campaign was served and an impression token issued, and then U was erased"
+      - "When the slots for that category are listed and the token is clicked"
+      - "Then the slots do not contain U's campaign, the click is not charged and the campaign's spent and clicks are unchanged"
+    tags: [promotion, user-erasure, monetization, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserCampaignsNotServed. Not producible black box: needs a database, injected store faults or time travel the public edge cannot reach."
+
+  - id: promotion.redelivery-leaves-the-ended-campaigns-unchanged
+    title: "Redelivery leaves the ended campaigns unchanged"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: Redelivery leaves the ended campaigns unchanged"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given a `UserErased` event for U was consumed"
+      - "When the same event and a second event for U are consumed"
+      - "Then both complete without error and U's campaign rows are unchanged by them"
+    tags: [promotion, user-erasure, monetization, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion/internal/store TestEraseUserIdempotent. Not producible black box: needs a database, injected store faults or time travel the public edge cannot reach."
+
+  - id: promotion.an-erased-seller-s-ads-stop-serving-on-the-real-stack
+    title: "An erased seller's ads stop serving on the real stack"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change promotion-seller-erasure-monetization: An erased seller's ads stop serving on the real stack"
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Given an ads seller with an ACTIVE campaign that a buyer is served in a fresh category"
+      - "When a `UserErased` event for that seller is consumed"
+      - "Then the slots for that category no longer contain the listing, a click on the earlier token is not charged, and the seller's listed campaign reads status ENDED and spent 0"
+    tags: [promotion, user-erasure, monetization]
+    status: automated
+    covered_by: "promotion/seller_erasure_monetization.feature::An erased seller's ads stop serving"
+    notes: "promotion-seller-erasure-monetization: e2e in promotion/seller_erasure_monetization.feature."
