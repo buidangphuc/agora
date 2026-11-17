@@ -131,9 +131,7 @@ Staging/prod values for `COMMISSION_RATE_BPS` and the new upstream addresses are
 
 db4906ccf [2], 49052aaaf [2], 740784239 [1], 1cda4316c [1], c1158b718 [1], a56365cf3 [1], 04b5ee18f [2], 48386bfb7 [1], d21a2fa60 [1], d4e672dda [1], 8f82dc1a5 [1], 2fbc1fa0f [1], 44b094984 [1], 00f89bdcc [3], fa5a4ba03 [1, malformed, fixed forward by 00f89bdcc], 865cc46e4 [1], 2063220c7 [1]. Reasons: compat guards widened for the contract, formatting/fixture-only test edits, and guard scenarios already green at base.
 
-**Archive vs cross_change_check**
-
-The specs job runs `cross_change_check.py --slices plans/monetization/slices.yaml` because `slices.yaml` is in this diff. It needs `openspec/changes/<slice>`, which the archive moved. Pick one: a tooling fix (also look in `openspec/changes/archive/*-<slice>`, or skip a slices.yaml whose changes were all archived in the same diff), or accept the red for this PR.
+**Archive vs cross_change_check:** `cross_change_check` resolves archived slices via `a4bda1148` in the tooling PR (chore/asdlc-tooling); with that checker every slice of this initiative resolves (OK, same build order). `specs` is green once the tooling PR merges.
 
 **LOCK re-approvals**
 
