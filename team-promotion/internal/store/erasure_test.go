@@ -68,7 +68,9 @@ func reservationRows(t *testing.T, pool *pgxpool.Pool) string {
 func everything(t *testing.T, pool *pgxpool.Pool) string {
 	return rowJSON(t, pool, `SELECT row_to_json(v)::text FROM vouchers v
 		UNION ALL SELECT row_to_json(s)::text FROM new_user_voucher_state s
-		UNION ALL SELECT row_to_json(r)::text FROM voucher_reservations r`)
+		UNION ALL SELECT row_to_json(r)::text FROM voucher_reservations r
+		UNION ALL SELECT row_to_json(b)::text FROM seller_subscriptions b
+		UNION ALL SELECT row_to_json(c)::text FROM ad_campaigns c`)
 }
 
 type seeded struct {
@@ -86,6 +88,8 @@ func seedErasure(t *testing.T) seeded {
 	seedErasureVoucher(t, pool, "v-w", "NU-W", store.VoucherKindNewUser, "W", "")
 	seedErasureState(t, pool, "W")
 	seedErasureVoucher(t, pool, "v-shop", "SHOP-U", store.VoucherKindStandard, "", "U")
+	seedErasureSubscription(t, pool, "sub-u", "U", "plan_pro", store.SubscriptionStatusActive, true, "")
+	seedErasureCampaign(t, pool, "c-u", "U", store.AdCampaignStatusActive, 0, 0)
 	return seeded{pool: pool, repo: store.NewPostgresErasureRepository(pool)}
 }
 
