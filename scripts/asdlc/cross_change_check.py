@@ -7,7 +7,8 @@ Usage:
          [--root <polyrepo root>] [--json]
 
 Rules (each violation prints `rule: message`; exit 1 if any):
-  schema     slices.yaml shape; each slice has openspec/changes/<id>/ and its
+  schema     slices.yaml shape; each slice has openspec/changes/<id>/ (or an
+             archived openspec/changes/archive/YYYY-MM-DD-<id>/) and its
              proposal.md contains `initiative: <initiative>`.
   dag        depends_on ids exist; no cycles. Prints a build order (info, not a
              violation): topological, platform-core-owned contract slices first.
@@ -187,13 +188,12 @@ def transitive(sid: str, deps: dict[str, list[str]]) -> set[str]:
     return seen
 
 
-def resolve_change_dir(changes_dir: Path, sid: str) -> Path:
+def change_dir(changes_dir: Path, sid: str) -> Path:
     cdir = changes_dir / sid
     if cdir.is_dir():
         return cdir
-    hits = sorted(d for d in (changes_dir / "archive").glob(f"*-{sid}")
-                  if d.is_dir() and re.fullmatch(rf"\d{{4}}-\d{{2}}-\d{{2}}-{re.escape(sid)}", d.name))
-    return hits[-1] if hits else cdir
+    archived = sorted(p for p in (changes_dir / "archive").glob(f"*-{sid}") if re.fullmatch(rf"\d{{4}}-\d{{2}}-\d{{2}}-{re.escape(sid)}", p.name) and p.is_dir())
+    return archived[-1] if archived else cdir
 
 
 def check(slices_path: Path, changes_dir: Path, proto_dir: Path, root: Path) -> tuple[list[tuple[str, str]], list[str]]:
@@ -234,7 +234,7 @@ def check(slices_path: Path, changes_dir: Path, proto_dir: Path, root: Path) -> 
             "uses": list(s.get("uses") or []),
             "provides": list(s.get("provides") or []),
         }
-        cdir = resolve_change_dir(changes_dir, sid)
+        cdir = change_dir(changes_dir, sid)
         if not cdir.is_dir():
             bad("schema", f"{sid}: no change directory {cdir}")
         else:
@@ -259,7 +259,7 @@ def check(slices_path: Path, changes_dir: Path, proto_dir: Path, root: Path) -> 
 
     # contract
     cur_rpcs, cur_msgs = proto_tree(proto_dir)
-    delta = {sid: change_proto_delta(resolve_change_dir(changes_dir, sid)) for sid in slices}
+    delta = {sid: change_proto_delta(change_dir(changes_dir, sid)) for sid in slices}
     for sid, s in slices.items():
         up = transitive(sid, deps)
         up_rpcs = set().union(*(delta[u][0] for u in up)) if up else set()
@@ -279,7 +279,7 @@ def check(slices_path: Path, changes_dir: Path, proto_dir: Path, root: Path) -> 
     seen_scen: dict[str, str] = {}
     seen_req: dict[tuple[str, str], str] = {}
     for sid, s in slices.items():
-        for cap, d in change_specs(resolve_change_dir(changes_dir, sid)).items():
+        for cap, d in change_specs(change_dir(changes_dir, sid)).items():
             repos = cap_repos.get(cap)
             if repos and s["owner"] not in repos:
                 bad("ownership", f"{sid}: owner `{s['owner']}` touches capability `{cap}` held by {sorted(repos)}")
