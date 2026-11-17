@@ -141,6 +141,7 @@ Additive proto fields and RPCs (buf breaking passes), new optional env vars with
 - Beacon retention and consent basis for `impressionId` / `modelVersion`.
 - Recs experiment assignment sends user / anonymous ids to Flipt only as a salted SHA-256 hash; salt management per environment.
 - Anonymous visitors get no flag variant (server-readable anonymous-id cookie would raise a consent and Secure-cookie question).
+- User erasure (trust-legal, merged in #129): `experiment_exposure` and `ai_interaction` rows in `tracking_events` are pseudonymised with `properties` nulled, so erased users drop out of experiment readouts. Demand-forecast Redis keys `fc:v1:seller:<sellerID>:<listingID>` are not deleted on erasure; they expire on their 48 h TTL (decided 2026-11-17, no code change).
 
 ### Red-First-Exempt commits (review the reasons)
 - 0f80611a5 team-frontend/src/features/assistant/actions.test.ts — regression guard
