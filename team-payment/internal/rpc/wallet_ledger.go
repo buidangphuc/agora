@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"math"
 
 	"google.golang.org/grpc/codes"
@@ -112,4 +113,34 @@ func toWireLedgerEntry(e store.LedgerEntry) *paymentv1.WalletEntry {
 		CreatedAt:   timestamppb.New(e.CreatedAt),
 		ReferenceId: e.ReferenceID,
 	}
+}
+
+func (h *Handler) GetOrderSettlement(ctx context.Context, req *paymentv1.GetOrderSettlementRequest) (*paymentv1.GetOrderSettlementResponse, error) {
+	p, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetOrderId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "order_id is required")
+	}
+	notFound := status.Error(codes.NotFound, "settlement not found")
+	v, err := h.svc.GetOrderSettlement(ctx, req.GetOrderId())
+	if errors.Is(err, store.ErrNotSettled) {
+		return nil, notFound
+	}
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	if !p.HasScope("admin") && (p.Type != auth.TypeUser || p.ID == "" || p.ID != v.SellerID) {
+		return nil, notFound
+	}
+	return &paymentv1.GetOrderSettlementResponse{
+		OrderId:            req.GetOrderId(),
+		Credited:           v.Credited,
+		Commission:         v.Commission,
+		CommissionReversed: v.CommissionReversed,
+		RefundDeducted:     v.RefundDeducted,
+		Net:                v.Net(),
+		CommissionRateBps:  v.CommissionRateBps,
+	}, nil
 }

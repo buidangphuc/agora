@@ -226,7 +226,7 @@ team-identity for signed-in users and SHALL answer 501 for `OrderService.GetUser
 - **WHEN** a signed-in user posts `GetAccountDeletionStatus` through the gateway
 - **THEN** the gateway returns 200 with the status body
 
-#### Scenario: Anonymous request is rejected at the edge
+#### Scenario: Anonymous deletion request is rejected at the edge
 
 - **WHEN** a request without a token posts `RequestAccountDeletion` through the gateway
 - **THEN** the gateway returns 401 and team-identity receives no call

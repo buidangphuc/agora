@@ -69,9 +69,10 @@ func assertAuditUnavailable(t *testing.T, err error) {
 }
 
 type fakeListings struct {
-	owners map[string]string
-	err    error
-	calls  int
+	owners     map[string]string
+	categories map[string]string
+	err        error
+	calls      int
 }
 
 func (f *fakeListings) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
@@ -83,5 +84,5 @@ func (f *fakeListings) GetListing(_ context.Context, req *listingv1.GetListingRe
 	if !ok {
 		return nil, status.Error(codes.NotFound, "not_found")
 	}
-	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller}}, nil
+	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller, CategoryId: f.categories[req.GetId()]}}, nil
 }

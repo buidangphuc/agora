@@ -266,9 +266,12 @@ services:
         condition: service_healthy
       redpanda-init:
         condition: service_completed_successfully
+      team-promotion:
+        condition: service_started
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - UPSTREAM_AI_ADDR=team-ai-svc:50060
+      - UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061
       - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ERASURE_GROUP=team-domain-erasure
@@ -417,6 +420,7 @@ services:
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
       - UPSTREAM_ORDER_TIMEOUT=500ms
+      - UPSTREAM_PAYMENT_ADDR=team-payment-svc:50056
       - NEW_USER_WELCOME_AMOUNT=20000
       - NEW_USER_INVITED_AMOUNT=30000
       - NEW_USER_MIN_SPEND=100000

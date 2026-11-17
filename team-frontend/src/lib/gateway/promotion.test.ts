@@ -10,6 +10,7 @@ import {
 const rpc = vi.hoisted(() => ({
   listMyVouchers: vi.fn(),
   listVouchers: vi.fn(),
+  listSponsoredSlots: vi.fn(),
 }));
 const session = vi.hoisted(() => ({
   getPrincipal: vi.fn(),
@@ -28,7 +29,11 @@ vi.mock("./session.js", () => ({
   SESSION_COOKIE: "session",
 }));
 
-import { listMyVouchers, listVouchers } from "./promotion.js";
+import {
+  listMyVouchers,
+  listSponsoredSlotSet,
+  listVouchers,
+} from "./promotion.js";
 
 function protoVoucher(over: Record<string, unknown> = {}) {
   return {
@@ -146,5 +151,42 @@ describe("listVouchers mapping", () => {
       kind: VoucherKind.STANDARD,
       ownerUserId: "",
     });
+  });
+});
+
+describe("listSponsoredSlotSet", () => {
+  it("listSponsoredSlotSet maps slots", async () => {
+    rpc.listSponsoredSlots.mockResolvedValue({
+      listingIds: ["l1", "l2"],
+      slots: [
+        { listingId: "l1", campaignId: "c1", impressionToken: "tok-1" },
+        { listingId: "l2", campaignId: "c2", impressionToken: "tok-2" },
+      ],
+    });
+
+    const slots = await listSponsoredSlotSet({
+      placement: "search",
+      categoryId: "cat-9",
+      limit: 2,
+    });
+
+    expect(slots).toEqual([
+      { listingId: "l1", campaignId: "c1", impressionToken: "tok-1" },
+      { listingId: "l2", campaignId: "c2", impressionToken: "tok-2" },
+    ]);
+    expect(rpc.listSponsoredSlots).toHaveBeenCalledTimes(1);
+    expect(rpc.listSponsoredSlots.mock.calls[0][0]).toMatchObject({
+      placement: "search",
+      categoryId: "cat-9",
+      limit: 2,
+    });
+  });
+
+  it("listSponsoredSlotSet returns empty on error", async () => {
+    rpc.listSponsoredSlots.mockRejectedValue(new Error("unavailable"));
+
+    await expect(
+      listSponsoredSlotSet({ placement: "home", categoryId: "", limit: 2 }),
+    ).resolves.toEqual([]);
   });
 });

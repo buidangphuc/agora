@@ -116,6 +116,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		store.NewPostgresLedgerRepository(pool),
 		store.NewPostgresSettlementLedger(pool),
 		payment.WithPayoutHold(s.Payout.Window),
+		payment.WithCommissionRate(s.Commission.RateBps),
 		payment.WithProvider(payment.NewProvider(mocks)),
 	)
 	if err != nil {

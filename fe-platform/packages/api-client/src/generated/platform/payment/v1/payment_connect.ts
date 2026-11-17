@@ -6,7 +6,7 @@
 // team-payment (Go) owns this: mock payment transactions & seller wallets (Phase 5).
 // Financially sensitive => MOCK ONLY (no real money movement).
 
-import { CreatePaymentRequest, CreatePaymentResponse, GetPaymentRequest, GetPaymentResponse, GetPayoutObligationsRequest, GetPayoutObligationsResponse, GetSellerWalletRequest, GetSellerWalletResponse, GetWalletBalanceRequest, GetWalletBalanceResponse, ListLedgerEntriesRequest, ListLedgerEntriesResponse, ListPayoutHistoryRequest, ListPayoutHistoryResponse, ProcessMockPaymentRequest, ProcessMockPaymentResponse, RefundPaymentRequest, RefundPaymentResponse, RequestPayoutRequest, RequestPayoutResponse, RequestWalletPayoutRequest, RequestWalletPayoutResponse } from "./payment_pb.js";
+import { ChargeSellerFeeRequest, ChargeSellerFeeResponse, CreatePaymentRequest, CreatePaymentResponse, GetOrderSettlementRequest, GetOrderSettlementResponse, GetPaymentRequest, GetPaymentResponse, GetPayoutObligationsRequest, GetPayoutObligationsResponse, GetSellerWalletRequest, GetSellerWalletResponse, GetWalletBalanceRequest, GetWalletBalanceResponse, ListLedgerEntriesRequest, ListLedgerEntriesResponse, ListPayoutHistoryRequest, ListPayoutHistoryResponse, ProcessMockPaymentRequest, ProcessMockPaymentResponse, RefundPaymentRequest, RefundPaymentResponse, RequestPayoutRequest, RequestPayoutResponse, RequestWalletPayoutRequest, RequestWalletPayoutResponse } from "./payment_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -133,6 +133,35 @@ export const PaymentService = {
       name: "GetPayoutObligations",
       I: GetPayoutObligationsRequest,
       O: GetPayoutObligationsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * GetOrderSettlement returns the settlement of one order: net = credited - commission +
+     * commission_reversed - refund_deducted. Every amount is a positive integer VND or 0.
+     * Callable by the seller who owns the order and by an admin. It returns NOT_FOUND for an
+     * order of another seller and for an unsettled order, and does not reveal which case applies.
+     *
+     * @generated from rpc platform.payment.v1.PaymentService.GetOrderSettlement
+     */
+    getOrderSettlement: {
+      name: "GetOrderSettlement",
+      I: GetOrderSettlementRequest,
+      O: GetOrderSettlementResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * ChargeSellerFee books a fee against the seller's wallet. It is service-to-service only,
+     * not exposed by team-gateway: no end-user principal or scope may call it, so a seller
+     * cannot charge another seller's wallet. A replay of the same key returns created = false
+     * and nothing booked. A fee that would exceed the withdrawable balance fails with
+     * FAILED_PRECONDITION. Kind AD_SPEND is reserved.
+     *
+     * @generated from rpc platform.payment.v1.PaymentService.ChargeSellerFee
+     */
+    chargeSellerFee: {
+      name: "ChargeSellerFee",
+      I: ChargeSellerFeeRequest,
+      O: ChargeSellerFeeResponse,
       kind: MethodKind.Unary,
     },
   }

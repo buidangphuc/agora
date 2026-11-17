@@ -34,6 +34,12 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 | analytics `AnalyticsQueryService` | team-analytics (`UPSTREAM_ANALYTICS_ADDR`) |
 | referral / verification / sharing / audit | team-referral / team-verification / team-sharing / team-audit (`UPSTREAM_*_ADDR`) |
 
+`PaymentService.GetOrderSettlement` (`internal/edge/payment.go:187`) and `SponsoredService.ListMyAdCampaigns`, `PauseAdCampaign` and `ResumeAdCampaign` reject an anonymous caller with `Unauthenticated` at the edge before forwarding (`internal/edge/promotion.go:451`); upstream codes pass through. `SponsoredService.RecordAdClick` is forwarded without a session check (`internal/edge/promotion.go:435`).
+
+`SubscriptionService.GetMySubscription` (read) and `CancelSubscription` (write) are forwarded to team-promotion (`internal/edge/promotion.go:345`, `:364`); the edge rejects an anonymous or missing principal with `Unauthenticated` before calling upstream (`requireAuthenticated`, `internal/edge/promotion.go:383`).
+
+`PaymentService.ChargeSellerFee` is not forwarded: it is service-to-service only (built in team-payment by payment-seller-fee-charge), the mux mounts `http.NotFoundHandler` on its procedure path (`internal/edge/server.go`), so the edge answers HTTP 404 as not routed and never calls team-payment.
+
 `SearchService.GetListingStock` is not forwarded: `SearchForwarder` does not implement it, so the edge returns `Unimplemented` (service-to-service only, team-ai calls team-search directly).
 
 `RecommendationService.Recommend` rejects more than 50 `context_listing_ids` with `INVALID_ARGUMENT` before any upstream call (no truncation).
@@ -41,7 +47,8 @@ v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refuse
 Upstream calls get a deadline (`CALL_TIMEOUT_SECONDS`). Idempotent reads (`callRead`) retry up to
 `RETRY_MAX` times on `Unavailable`; writes (`callWrite`) never retry. Upstream gRPC statuses map to
 the matching Connect codes. An upstream `Unavailable` keeps its first `ErrorInfo` detail (domain, reason)
-behind the sanitized message; the promotion forwarders add `promotion.platform/PROMOTION_UNAVAILABLE`
+behind the sanitized message, and every client-meaningful code (for example `RESOURCE_EXHAUSTED` with
+`team-domain/PLAN_LISTING_LIMIT`) keeps its first `ErrorInfo` next to the upstream message (`internal/edge/forward.go`); the promotion forwarders add `promotion.platform/PROMOTION_UNAVAILABLE`
 when the upstream sent none (`internal/edge/promotion.go`). The seller RPCs `FlashSaleService` `ListMyCampaigns` / `CancelMyCampaign` and `VoucherService` `ListMyShopVouchers` / `DeactivateMyShopVoucher` are forwarded for any authenticated principal (`UNAUTHENTICATED` for anonymous) with no edge scope gate; team-promotion enforces `listing.write` and ownership.
 `VoucherService.ListMyVouchers` needs any authenticated principal (no scope; `UNAUTHENTICATED` for anonymous) and is forwarded with the verified principal. `OrderService.HasCompletedOrder` is an internal RPC and is not routed (`501`).
 

@@ -3702,6 +3702,35 @@ export class OrderPaidEvent extends Message<OrderPaidEvent> {
    */
   shipBy?: Timestamp;
 
+  /**
+   * items_subtotal is the sum of line prices before shipping and discounts, in integer VND.
+   * Absent (unset) when the event was published without a breakdown; absent is not zero.
+   *
+   * @generated from field: optional int64 items_subtotal = 9;
+   */
+  itemsSubtotal?: bigint;
+
+  /**
+   * shipping_fee is the shipping charged to the buyer, in integer VND. Absent when published without a breakdown.
+   *
+   * @generated from field: optional int64 shipping_fee = 10;
+   */
+  shippingFee?: bigint;
+
+  /**
+   * shop_discount_amount is the seller-funded voucher share, in integer VND. Absent when published without a breakdown; an explicit 0 means no discount.
+   *
+   * @generated from field: optional int64 shop_discount_amount = 11;
+   */
+  shopDiscountAmount?: bigint;
+
+  /**
+   * platform_discount_amount is the platform voucher share, in integer VND. Absent when published without a breakdown; an explicit 0 means no discount.
+   *
+   * @generated from field: optional int64 platform_discount_amount = 12;
+   */
+  platformDiscountAmount?: bigint;
+
   constructor(data?: PartialMessage<OrderPaidEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -3718,6 +3747,10 @@ export class OrderPaidEvent extends Message<OrderPaidEvent> {
     { no: 6, name: "paid_at", kind: "message", T: Timestamp },
     { no: 7, name: "seller_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 8, name: "ship_by", kind: "message", T: Timestamp },
+    { no: 9, name: "items_subtotal", kind: "scalar", T: 3 /* ScalarType.INT64 */, opt: true },
+    { no: 10, name: "shipping_fee", kind: "scalar", T: 3 /* ScalarType.INT64 */, opt: true },
+    { no: 11, name: "shop_discount_amount", kind: "scalar", T: 3 /* ScalarType.INT64 */, opt: true },
+    { no: 12, name: "platform_discount_amount", kind: "scalar", T: 3 /* ScalarType.INT64 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OrderPaidEvent {

@@ -163,6 +163,25 @@ service SubscriptionService {
   rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
   rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
   rpc GetEntitlements(GetEntitlementsRequest) returns (GetEntitlementsResponse);
+  // Returns the calling seller's own subscription; the seller is the principal
+  // and never a request field.
+  rpc GetMySubscription(GetMySubscriptionRequest) returns (GetMySubscriptionResponse);
+  // Turns off auto-renew for the caller's own subscription; access continues
+  // until current_period_end. The seller is the principal, never a request field.
+  rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse);
+}
+
+message GetMySubscriptionRequest {}
+
+message GetMySubscriptionResponse {
+  // Unset for a FREE seller: no subscription exists.
+  SellerSubscription subscription = 1;
+}
+
+message CancelSubscriptionRequest {}
+
+message CancelSubscriptionResponse {
+  SellerSubscription subscription = 1;
 }
 
 enum PlanTier {
@@ -182,8 +201,10 @@ enum SubscriptionStatus {
 message Plan {
   string id = 1;
   PlanTier name = 2;
-  int64 price = 3;              // minor units (per billing period)
+  // Price in integer VND (no minor units) per term.
+  int64 price = 3;
   repeated string features = 4; // human-readable feature bullets
+  int32 term_days = 5;
 }
 
 message SellerSubscription {
@@ -194,6 +215,8 @@ message SellerSubscription {
   SubscriptionStatus status = 5;
   google.protobuf.Timestamp starts_at = 6;
   google.protobuf.Timestamp ends_at = 7;
+  google.protobuf.Timestamp current_period_end = 8;
+  bool auto_renew = 9;
 }
 
 message ListPlansRequest {}
@@ -514,6 +537,18 @@ service SponsoredService {
   // Returns the listing ids to render in sponsored slots for a given context
   // (e.g. a search query, category, or homepage placement key).
   rpc ListSponsoredSlots(ListSponsoredSlotsRequest) returns (ListSponsoredSlotsResponse);
+  // Lists the caller's own campaigns only.
+  rpc ListMyAdCampaigns(ListMyAdCampaignsRequest) returns (ListMyAdCampaignsResponse);
+  // Pauses one of the caller's own campaigns; NOT_FOUND when it is not the
+  // caller's own campaign.
+  rpc PauseAdCampaign(PauseAdCampaignRequest) returns (PauseAdCampaignResponse);
+  // Resumes one of the caller's own campaigns; NOT_FOUND when it is not the
+  // caller's own campaign, FAILED_PRECONDITION when the remaining budget is
+  // below the bid.
+  rpc ResumeAdCampaign(ResumeAdCampaignRequest) returns (ResumeAdCampaignResponse);
+  // Records a click for an impression token. Callable by an anonymous
+  // principal. Charges at most once per token.
+  rpc RecordAdClick(RecordAdClickRequest) returns (RecordAdClickResponse);
 }
 
 enum AdCampaignStatus {
@@ -521,16 +556,25 @@ enum AdCampaignStatus {
   AD_CAMPAIGN_STATUS_ACTIVE = 1;
   AD_CAMPAIGN_STATUS_PAUSED = 2;
   AD_CAMPAIGN_STATUS_ENDED = 3;
+  // Set when the remaining budget falls below the bid.
+  AD_CAMPAIGN_STATUS_PAUSED_BUDGET = 4;
 }
 
 message AdCampaign {
   string id = 1;
   string seller_id = 2;
   string listing_id = 3;
-  int64 budget = 4; // total budget in minor units
-  int64 bid = 5;    // per-slot bid in minor units
+  // Total budget in integer VND.
+  int64 budget = 4;
+  // Per-click bid in integer VND; the minimum is 500, lower is INVALID_ARGUMENT.
+  int64 bid = 5;
   AdCampaignStatus status = 6;
   google.protobuf.Timestamp created_at = 7;
+  // Amount charged so far in integer VND.
+  int64 spent = 8;
+  int64 impressions = 9;
+  int64 clicks = 10;
+  string category_id = 11;
 }
 
 message CreateAdCampaignRequest {
@@ -546,11 +590,58 @@ message CreateAdCampaignResponse {
 message ListSponsoredSlotsRequest {
   // Placement context key (e.g. search query, category id, or slot name).
   string context_str = 1;
+  string placement = 2;
+  string category_id = 3;
+  // Maximum slots to return, 1..4; outside that range is INVALID_ARGUMENT.
+  int32 limit = 4;
+}
+
+message SponsoredSlot {
+  string listing_id = 1;
+  string campaign_id = 2;
+  // Opaque, single-use token valid for 30 minutes.
+  string impression_token = 3;
+}
+
+message ListMyAdCampaignsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListMyAdCampaignsResponse {
+  repeated AdCampaign campaigns = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message PauseAdCampaignRequest {
+  string campaign_id = 1;
+}
+
+message PauseAdCampaignResponse {
+  AdCampaign campaign = 1;
+}
+
+message ResumeAdCampaignRequest {
+  string campaign_id = 1;
+}
+
+message ResumeAdCampaignResponse {
+  AdCampaign campaign = 1;
+}
+
+message RecordAdClickRequest {
+  string impression_token = 1;
+}
+
+message RecordAdClickResponse {
+  string listing_id = 1;
+  // false when the token was replayed, expired, or belongs to the caller's own seller.
+  bool charged = 2;
 }
 
 message ListSponsoredSlotsResponse {
   // Listing ids to render as sponsored, best-bid first; resolve via ListingService.
   repeated string listing_ids = 1;
+  repeated SponsoredSlot slots = 2;
 }
 
 // ── Events (emitted on `promotion.events`, wrapped in EventEnvelope) ──

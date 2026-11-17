@@ -16,21 +16,27 @@ import {
 import { requestWalletPayout } from "@/lib/gateway/payment";
 import {
   cancelMyCampaign,
+  cancelSubscription,
   createAdCampaign,
   createCampaign,
   createVoucher,
   deactivateMyShopVoucher,
+  pauseAdCampaign,
+  resumeAdCampaign,
   subscribe,
 } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 import {
   cancelCampaignAction,
+  cancelSubscriptionAction,
   createAdCampaignAction,
   createBundleAction,
   createCampaignAction,
   createShopVoucherAction,
   deactivateShopVoucherAction,
+  pauseAdCampaignAction,
   requestWalletPayoutAction,
+  resumeAdCampaignAction,
   searchMyListingsAction,
   subscribeAction,
   upsertStorefrontAction,
@@ -45,7 +51,10 @@ vi.mock("@/lib/gateway/listings", () => ({
 vi.mock("@/lib/gateway/payment", () => ({ requestWalletPayout: vi.fn() }));
 vi.mock("@/lib/gateway/promotion", () => ({
   createAdCampaign: vi.fn(),
+  pauseAdCampaign: vi.fn(),
+  resumeAdCampaign: vi.fn(),
   subscribe: vi.fn(),
+  cancelSubscription: vi.fn(),
   createVoucher: vi.fn(),
   createCampaign: vi.fn(),
   cancelMyCampaign: vi.fn(),
@@ -174,11 +183,83 @@ describe("createAdCampaignAction", () => {
     });
     const campaign = { id: "c1" };
     vi.mocked(createAdCampaign).mockResolvedValue(campaign as never);
-    expect(await createAdCampaignAction("l", 100, 5)).toEqual({
+    expect(await createAdCampaignAction("l", 5000, 500)).toEqual({
       ok: true,
       data: { campaign },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/seller/ads");
+  });
+
+  it("rejects bid below 500 without calling the service (Bid below minimum is rejected)", async () => {
+    const res = await createAdCampaignAction("l", 5000, 499);
+    expect(res).toEqual({ ok: false, error: "Giá thầu tối thiểu là ₫500." });
+    expect(createAdCampaign).not.toHaveBeenCalled();
+  });
+
+  it("accepts a bid of exactly 500 (Bid of exactly 500 is accepted)", async () => {
+    const campaign = { id: "c1", bid: 500 };
+    vi.mocked(createAdCampaign).mockResolvedValue(campaign as never);
+    expect(await createAdCampaignAction("l", 5000, 500)).toEqual({
+      ok: true,
+      data: { campaign },
+    });
+    expect(createAdCampaign).toHaveBeenCalledWith("l", 5000, 500);
+  });
+});
+
+describe("pauseAdCampaignAction", () => {
+  it("pauses and returns the refreshed campaign (Pause an active campaign)", async () => {
+    const campaign = { id: "c1", statusText: "Tạm dừng" };
+    vi.mocked(pauseAdCampaign).mockResolvedValue(campaign as never);
+    expect(await pauseAdCampaignAction("c1")).toEqual({
+      ok: true,
+      data: { campaign },
+    });
+    expect(pauseAdCampaign).toHaveBeenCalledWith("c1");
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/ads");
+  });
+
+  it("pause maps NOT_FOUND to the not-found message (Another seller's campaign is not found)", async () => {
+    vi.mocked(pauseAdCampaign).mockRejectedValue(
+      new ConnectError("campaign not found", Code.NotFound),
+    );
+    expect(await pauseAdCampaignAction("other")).toEqual({
+      ok: false,
+      error: "Không tìm thấy chiến dịch.",
+    });
+  });
+});
+
+describe("resumeAdCampaignAction", () => {
+  it("resumes and returns the refreshed campaign (Resume a paused campaign)", async () => {
+    const campaign = { id: "c1", statusText: "Đang chạy" };
+    vi.mocked(resumeAdCampaign).mockResolvedValue(campaign as never);
+    expect(await resumeAdCampaignAction("c1")).toEqual({
+      ok: true,
+      data: { campaign },
+    });
+    expect(resumeAdCampaign).toHaveBeenCalledWith("c1");
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/ads");
+  });
+
+  it("resume maps NOT_FOUND to the not-found message (Another seller's campaign is not found)", async () => {
+    vi.mocked(resumeAdCampaign).mockRejectedValue(
+      new ConnectError("campaign not found", Code.NotFound),
+    );
+    expect(await resumeAdCampaignAction("other")).toEqual({
+      ok: false,
+      error: "Không tìm thấy chiến dịch.",
+    });
+  });
+
+  it("resume maps FAILED_PRECONDITION to the budget message (Budget-exhausted campaign cannot resume)", async () => {
+    vi.mocked(resumeAdCampaign).mockRejectedValue(
+      new ConnectError("remaining below bid", Code.FailedPrecondition),
+    );
+    expect(await resumeAdCampaignAction("c1")).toEqual({
+      ok: false,
+      error: "Ngân sách còn lại thấp hơn giá thầu, không thể tiếp tục chạy.",
+    });
   });
 });
 
@@ -650,6 +731,57 @@ describe("marketing actions", () => {
       ok: false,
       error: "Không có quyền hoặc flash sale không tồn tại",
     });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("subscribeAction gateway refusals", () => {
+  it("Insufficient balance is explained and nothing changes: FAILED_PRECONDITION", async () => {
+    vi.mocked(subscribe).mockRejectedValue(
+      new ConnectError("balance", Code.FailedPrecondition),
+    );
+    expect(await subscribeAction("p-pro")).toEqual({
+      ok: false,
+      error: "Số dư có thể rút không đủ để trả gói này.",
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("Subscribe denied by the gateway shows an error and no change", async () => {
+    for (const code of [Code.PermissionDenied, Code.Unauthenticated]) {
+      vi.mocked(subscribe).mockRejectedValue(new ConnectError("x", code));
+      expect(await subscribeAction("p-pro")).toEqual({
+        ok: false,
+        error: "Đăng ký gói thất bại.",
+      });
+    }
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("cancelSubscriptionAction", () => {
+  it("Confirmed cancel calls CancelSubscription once", async () => {
+    vi.mocked(cancelSubscription).mockResolvedValue({} as never);
+    expect(await cancelSubscriptionAction()).toEqual({ ok: true });
+    expect(cancelSubscription).toHaveBeenCalledTimes(1);
+    expect(cancelSubscription).toHaveBeenCalledWith();
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/plans");
+  });
+
+  it("Cancel denied by the gateway shows an error", async () => {
+    for (const code of [
+      Code.PermissionDenied,
+      Code.NotFound,
+      Code.Unavailable,
+    ]) {
+      vi.mocked(cancelSubscription).mockRejectedValue(
+        new ConnectError("x", code),
+      );
+      expect(await cancelSubscriptionAction()).toEqual({
+        ok: false,
+        error: "Hủy gia hạn thất bại.",
+      });
+    }
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

@@ -6071,10 +6071,10 @@ features:
     covered_by: "identity/account_deletion_gateway.feature::Signed-in user reaches the RPC"
 
   - id: identity.account-deletion-anonymous-request-is-rejected-at-the-edge
-    title: "Anonymous request is rejected at the edge"
+    title: "Anonymous deletion request is rejected at the edge"
     persona: buyer
     priority: P1
-    summary: "Anonymous request is rejected at the edge (change identity-account-deletion)"
+    summary: "Anonymous deletion request is rejected at the edge (change identity-account-deletion)"
     entry_route: /
     services: [team-identity, team-gateway]
     preconditions:
@@ -6082,10 +6082,10 @@ features:
     api:
       exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
     acceptance:
-      - "See spec scenario: Anonymous request is rejected at the edge"
+      - "See spec scenario: Anonymous deletion request is rejected at the edge"
     tags: [auth, buyer]
     status: automated
-    covered_by: "identity/account_deletion_gateway.feature::Anonymous request is rejected at the edge"
+    covered_by: "identity/account_deletion_gateway.feature::Anonymous deletion request is rejected at the edge"
 
   - id: identity.account-deletion-internal-obligation-rpcs-are-not-exposed
     title: "Internal obligation RPCs are not exposed"

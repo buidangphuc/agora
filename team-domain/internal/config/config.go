@@ -55,6 +55,7 @@ const (
 type Upstream struct {
 	AuditAddr        string  `env:"UPSTREAM_AUDIT_ADDR"`
 	AIAddr           string  `env:"UPSTREAM_AI_ADDR"`
+	PromotionAddr    string  `env:"UPSTREAM_PROMOTION_ADDR"`
 	AITimeoutSeconds float64 `env:"UPSTREAM_AI_TIMEOUT_SECONDS" default:"2"`
 }
 
@@ -65,6 +66,9 @@ func (u Upstream) ResolveFor(sdkconfig.Runtime) error {
 	}
 	if strings.TrimSpace(u.AIAddr) == "" {
 		errs = append(errs, errors.New("UPSTREAM_AI_ADDR is required"))
+	}
+	if strings.TrimSpace(u.PromotionAddr) == "" {
+		errs = append(errs, errors.New("UPSTREAM_PROMOTION_ADDR is required"))
 	}
 	return errors.Join(errs...)
 }

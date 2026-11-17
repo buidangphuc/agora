@@ -17,6 +17,7 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
 | `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
+| `POST /api/ads/click` | Sponsored-slot click beacon (`src/app/api/ads/click/route.ts`, sent by `src/features/ads/SponsoredClickGuard.tsx` via `sendBeacon`): body `{token}` is the slot's impression token, forwarded to `SponsoredService.RecordAdClick` (`recordAdClick` in `src/lib/gateway/promotion.ts`); always 204 for a well-formed body, charged or not; `GET` returns 405 | Public; session forwarded so the server skips a seller's own click; 400 on a missing or malformed token |
 | `GET /api/analytics/identity` | GA4 `user_id` from the verified principal (see GA4 via GTM) | Consent-gated; 204 when `GA4_USER_ID_HMAC_KEY` is unset |
 
 Route groups and page-level gates:
@@ -41,7 +42,7 @@ Session: login stores the JWT in cookie `session` (`httpOnly`, `sameSite=lax`, `
 
 ## 2. Events
 
-None produced or consumed over a broker. The browser sends a best-effort tracking beacon batch directly to the **gateway** `POST {NEXT_PUBLIC_GATEWAY_URL}/api/track` (`src/lib/analytics/queue.ts`: `sendBeacon`, else `fetch` with `keepalive` and `credentials: include`; batches of 20 or every 2 s). On `/search` the result grid tags its impression and click beacons with `placementId` `search_results`, `impressionId` (the search response `request_id`, omitted when empty) and `modelVersion` (`src/features/search/SearchBlocks.tsx`). This is the one browser-to-gateway call. An optional GTM dataLayer destination loads only if `NEXT_PUBLIC_GTM_ID` is set at build time.
+None produced or consumed over a broker. The browser sends a best-effort tracking beacon batch directly to the **gateway** `POST {NEXT_PUBLIC_GATEWAY_URL}/api/track` (`src/lib/analytics/queue.ts`: `sendBeacon`, else `fetch` with `keepalive` and `credentials: include`; batches of 20 or every 2 s). The first page of `/search` and the home feed render up to two labelled sponsored slots (`src/features/ads`, fail-open, deduped against organic items). On `/search` the result grid tags its impression and click beacons with `placementId` `search_results`, `impressionId` (the search response `request_id`, omitted when empty) and `modelVersion` (`src/features/search/SearchBlocks.tsx`). This is the one browser-to-gateway call. An optional GTM dataLayer destination loads only if `NEXT_PUBLIC_GTM_ID` is set at build time.
 
 ## 3. Data
 
@@ -119,7 +120,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 ## 7. Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (785 features: 499 `automated`, 279 `not-testable`, 7 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest. Seller and admin entries live in `team-frontend-seller/FEATURES.yaml` and `team-frontend-admin/FEATURES.yaml`.
+- Feature manifest: `FEATURES.yaml` (893 features: 555 `automated`, 332 `not-testable`, 6 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest. Seller and admin entries live in `team-frontend-seller/FEATURES.yaml` and `team-frontend-admin/FEATURES.yaml`.
 - E2E: `platform-e2e` (pytest-bdd + Playwright) drives `team-frontend:3000` through the gateway `:8080`. Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes are specified through OpenSpec (`openspec/changes/<id>`), then `FEATURES.yaml`, then platform-e2e, then `npm run check`, per the root README's ASDLC.
 
@@ -136,7 +137,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 - `/api/suggest` and `/api/listings` swallow every error and return empty results, hiding gateway outages from the UI.
 - `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
-- `FEATURES.yaml` has 7 `planned` features with no automated coverage yet.
+- `FEATURES.yaml` has 13 `planned` features with no automated coverage yet.
 - `/seller*` and `/sell` moved to `team-frontend-seller` (`:3001`) and are a 404 here (`src/app/sellerRoutes.test.ts`).
 - `/listing/[id]` still shows the admin review-moderation controls when the buyer session carries scope `admin`.
 - SSO covers the buyer and seller apps only (one-time hand-off code); the admin app is excluded by design, and logout still clears only this app's cookies.

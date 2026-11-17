@@ -68,18 +68,32 @@ func (p *Payout) ResolveFor(sdkconfig.Runtime) error {
 	return nil
 }
 
+const maxCommissionRateBps = 3000
+
+type Commission struct {
+	RateBps int64 `env:"COMMISSION_RATE_BPS" default:"500"`
+}
+
+func (c Commission) ResolveFor(sdkconfig.Runtime) error {
+	if c.RateBps < 0 || c.RateBps > maxCommissionRateBps {
+		return fmt.Errorf("COMMISSION_RATE_BPS must be between 0 and %d, got %d", maxCommissionRateBps, c.RateBps)
+	}
+	return nil
+}
+
 type Settings struct {
 	sdkconfig.Runtime
 	sdkconfig.GRPC
-	Postgres sdkconfig.Postgres
-	OTel     sdkconfig.OTel
-	Kafka    sdkconfig.Kafka
-	Outbox   sdkconfig.Outbox
-	LogKeyFP sdkconfig.LogKeyFP
-	MockData sdkconfig.MockData
-	Events   Events
-	Upstream Upstream
-	Payout   Payout
+	Postgres   sdkconfig.Postgres
+	OTel       sdkconfig.OTel
+	Kafka      sdkconfig.Kafka
+	Outbox     sdkconfig.Outbox
+	LogKeyFP   sdkconfig.LogKeyFP
+	MockData   sdkconfig.MockData
+	Events     Events
+	Upstream   Upstream
+	Payout     Payout
+	Commission Commission
 }
 
 func Load() (Settings, error) {

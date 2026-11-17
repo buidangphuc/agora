@@ -34,8 +34,8 @@ func TestMigrateUpMigratesEmptyDatabase(t *testing.T) {
 		}
 	}
 	v, dirty := schemaVersion(t, url)
-	if dirty || v != 9 || v != embeddedMigrationCount(t) {
-		t.Fatalf("schema version = %d dirty=%v, want 9 clean", v, dirty)
+	if dirty || v != 11 || v != embeddedMigrationCount(t) {
+		t.Fatalf("schema version = %d dirty=%v, want 11 clean", v, dirty)
 	}
 }
 
@@ -48,8 +48,8 @@ func TestMigrateUpTwiceIsNoop(t *testing.T) {
 			t.Fatalf("migrate up run %d: %v", i, err)
 		}
 	}
-	if v, dirty := schemaVersion(t, url); dirty || v != 9 {
-		t.Fatalf("schema version = %d dirty=%v, want 9 clean", v, dirty)
+	if v, dirty := schemaVersion(t, url); dirty || v != 11 {
+		t.Fatalf("schema version = %d dirty=%v, want 11 clean", v, dirty)
 	}
 }
 
@@ -83,6 +83,7 @@ func TestExecuteRejectsUnknownSubcommand(t *testing.T) {
 	t.Setenv("GRPC_PORT", strconv.Itoa(port))
 	t.Setenv("UPSTREAM_DOMAIN_ADDR", deadBroker)
 	t.Setenv("UPSTREAM_AUDIT_ADDR", deadBroker)
+	t.Setenv("UPSTREAM_PAYMENT_ADDR", deadBroker)
 	for _, args := range [][]string{{"migrate", "down"}, {"serve"}} {
 		err := app.Execute(t.Context(), args)
 		if err == nil {

@@ -25,6 +25,7 @@ import {
   type FlashSaleCampaign,
   type Plan,
   PlanTier,
+  type SellerSubscription,
   type Voucher,
   VoucherScope,
 } from "@/generated/platform/promotion/v1/promotion_pb.js";
@@ -279,6 +280,14 @@ export interface ViewPlan {
   tierText: string;
   price: number;
   features: string[];
+  termDays: number;
+}
+
+export interface ViewSubscription {
+  tier: PlanTier;
+  tierText: string;
+  currentPeriodEnd: string;
+  autoRenew: boolean;
 }
 
 export interface ViewEntitlements {
@@ -307,7 +316,35 @@ function mapPlan(p: Plan): ViewPlan {
     tierText: planTierText(p.name),
     price: Number(p.price),
     features: p.features ?? [],
+    termDays: Number(p.termDays),
   };
+}
+
+function mapSubscription(sub?: SellerSubscription): ViewSubscription {
+  if (!sub) {
+    return {
+      tier: PlanTier.FREE,
+      tierText: planTierText(PlanTier.FREE),
+      currentPeriodEnd: "",
+      autoRenew: false,
+    };
+  }
+  return {
+    tier: sub.tier,
+    tierText: planTierText(sub.tier),
+    currentPeriodEnd: tsToString(sub.currentPeriodEnd),
+    autoRenew: sub.autoRenew,
+  };
+}
+
+export async function getMySubscription(): Promise<ViewSubscription> {
+  const res = await promotion().subscription.getMySubscription({});
+  return mapSubscription(res.subscription);
+}
+
+export async function cancelSubscription(): Promise<ViewSubscription> {
+  const res = await promotion().subscription.cancelSubscription({});
+  return mapSubscription(res.subscription);
 }
 
 export async function listPlans(): Promise<ViewPlan[]> {
@@ -326,6 +363,7 @@ export async function subscribe(
     const res = await promotion().subscription.subscribe({ planId });
     return { ok: true, tier: res.subscription?.tier };
   } catch (err) {
+    if (err instanceof ConnectError) throw err;
     return {
       ok: false,
       message: err instanceof Error ? err.message : "Đăng ký gói thất bại.",
@@ -364,6 +402,9 @@ export interface ViewAdCampaign {
   listingId: string;
   budget: number;
   bid: number;
+  spent: number;
+  impressions: number;
+  clicks: number;
   status: AdCampaignStatus;
   statusText: string;
   createdAt: string;
@@ -375,6 +416,8 @@ export function adCampaignStatusText(s: AdCampaignStatus): string {
       return "Đang chạy";
     case AdCampaignStatus.PAUSED:
       return "Tạm dừng";
+    case AdCampaignStatus.PAUSED_BUDGET:
+      return "Hết ngân sách";
     case AdCampaignStatus.ENDED:
       return "Đã kết thúc";
     default:
@@ -389,6 +432,9 @@ function mapAdCampaign(c: AdCampaign): ViewAdCampaign {
     listingId: c.listingId,
     budget: Number(c.budget),
     bid: Number(c.bid),
+    spent: Number(c.spent),
+    impressions: Number(c.impressions),
+    clicks: Number(c.clicks),
     status: c.status,
     statusText: adCampaignStatusText(c.status),
     createdAt: tsToString(c.createdAt),
@@ -406,6 +452,46 @@ export async function createAdCampaign(
     bid: BigInt(Math.max(0, Math.round(bid))),
   });
   if (!res.campaign) throw new Error("create ad campaign failed");
+  return mapAdCampaign(res.campaign);
+}
+
+const AD_TIMEOUT_MS = 2000;
+
+export type ListAdCampaignsResult =
+  | { ok: true; campaigns: ViewAdCampaign[] }
+  | { ok: false };
+
+export async function listMyAdCampaigns(): Promise<ListAdCampaignsResult> {
+  try {
+    const res = await promotion().sponsored.listMyAdCampaigns(
+      {},
+      { timeoutMs: AD_TIMEOUT_MS },
+    );
+    return { ok: true, campaigns: res.campaigns.map(mapAdCampaign) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function pauseAdCampaign(
+  campaignId: string,
+): Promise<ViewAdCampaign> {
+  const res = await promotion().sponsored.pauseAdCampaign(
+    { campaignId },
+    { timeoutMs: AD_TIMEOUT_MS },
+  );
+  if (!res.campaign) throw new Error("pause ad campaign failed");
+  return mapAdCampaign(res.campaign);
+}
+
+export async function resumeAdCampaign(
+  campaignId: string,
+): Promise<ViewAdCampaign> {
+  const res = await promotion().sponsored.resumeAdCampaign(
+    { campaignId },
+    { timeoutMs: AD_TIMEOUT_MS },
+  );
+  if (!res.campaign) throw new Error("resume ad campaign failed");
   return mapAdCampaign(res.campaign);
 }
 

@@ -7,10 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
-import { Table, type TableColumn } from "@/components/ui/Table";
-import { Tag } from "@/components/ui/Tag";
 import { useToast } from "@/components/ui/ToastProvider";
-import type { ViewAdCampaign } from "@/lib/gateway/promotion";
 import { ListingPicker } from "./ListingPicker";
 import { createAdCampaignAction } from "./actions";
 import { usePending } from "./usePending";
@@ -27,29 +24,12 @@ export function validateAdCampaign(
   if (!listingId) errors.listing = "Chọn sản phẩm cần quảng cáo.";
   if (!(budget > 0)) errors.budget = "Ngân sách phải lớn hơn 0.";
   if (!(bid > 0)) errors.bid = "Giá thầu phải lớn hơn 0.";
+  else if (bid < 500) errors.bid = "Giá thầu tối thiểu là ₫500.";
+  else if (budget > 0 && budget < bid) {
+    errors.budget = "Ngân sách phải lớn hơn hoặc bằng giá thầu.";
+  }
   return errors;
 }
-
-const campaignColumns: TableColumn<ViewAdCampaign>[] = [
-  { key: "id", title: "Mã", render: (c) => `#${c.id.slice(0, 8)}` },
-  {
-    key: "budget",
-    title: "Ngân sách",
-    align: "right",
-    render: (c) => c.budget.toLocaleString("vi-VN"),
-  },
-  {
-    key: "bid",
-    title: "Giá thầu",
-    align: "right",
-    render: (c) => c.bid.toLocaleString("vi-VN"),
-  },
-  {
-    key: "status",
-    title: "Trạng thái",
-    render: (c) => <Tag color="success">{c.statusText}</Tag>,
-  },
-];
 
 /**
  * Sponsored-ad campaign form (Ant Basic Form): pick a listing, set budget and
@@ -61,7 +41,6 @@ export function AdCampaignForm() {
   const [bid, setBid] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
-  const [campaigns, setCampaigns] = useState<ViewAdCampaign[]>([]);
   const { pending, run } = usePending();
   const toast = useToast();
 
@@ -75,9 +54,7 @@ export function AdCampaignForm() {
     const res = await run(() =>
       createAdCampaignAction(listingId, Number(budget), Number(bid)),
     );
-    if (res.ok && res.data) {
-      const created = res.data.campaign;
-      setCampaigns((prev) => [created, ...prev]);
+    if (res.ok) {
       setBudget("");
       setBid("");
       setSubmitted(false);
@@ -139,22 +116,6 @@ export function AdCampaignForm() {
           </form>
         </CardContent>
       </Card>
-
-      {campaigns.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Chiến dịch vừa tạo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table
-              caption="Chiến dịch vừa tạo"
-              columns={campaignColumns}
-              dataSource={campaigns}
-              rowKey="id"
-            />
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

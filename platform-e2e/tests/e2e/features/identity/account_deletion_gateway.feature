@@ -8,7 +8,7 @@ Feature: The gateway routes the lifecycle RPCs for signed-in users only
     When "A" reads the deletion status
     Then the gateway answers 200 with the status body
 
-  Scenario: Anonymous request is rejected at the edge
+  Scenario: Anonymous deletion request is rejected at the edge
     When a caller without a token requests account deletion through the gateway
     Then the gateway answers 401
 

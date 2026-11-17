@@ -9117,6 +9117,530 @@ features:
     status: not-testable
     notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'buf lint and breaking pass' (tasks 2.1)"
 
+  - id: monetization.contract-breakdown-fields-present-at-9-to-12
+    title: "Breakdown fields present at 9 to 12"
+    persona: guest
+    priority: P2
+    summary: "Breakdown fields present at 9 to 12"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Breakdown fields present at 9 to 12 (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_OrderPaidBreakdownShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-missing-breakdown-is-distinct-from-zero
+    title: "Missing breakdown is distinct from zero"
+    persona: guest
+    priority: P2
+    summary: "Missing breakdown is distinct from zero"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing breakdown is distinct from zero (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_BreakdownPresenceRoundTrip\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-event-published-before-deploy-still-parses
+    title: "Event published before deploy still parses"
+    persona: guest
+    priority: P2
+    summary: "Event published before deploy still parses"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Event published before deploy still parses (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_OldOrderPaidParses\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-breakdown-semantics-are-documented
+    title: "Breakdown semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Breakdown semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Breakdown semantics are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_BreakdownDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-four-new-types-at-4-to-7
+    title: "Four new types at 4 to 7"
+    persona: guest
+    priority: P2
+    summary: "Four new types at 4 to 7"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Four new types at 4 to 7 (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_WalletTypesShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-old-consumer-meets-a-new-type
+    title: "Old consumer meets a new type"
+    persona: guest
+    priority: P2
+    summary: "Old consumer meets a new type"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old consumer meets a new type (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_OldSchemaParsesNewType\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-ad-spend-is-documented-as-reserved
+    title: "AD_SPEND is documented as reserved"
+    persona: guest
+    priority: P2
+    summary: "AD_SPEND is documented as reserved"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "AD_SPEND is documented as reserved (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_AdSpendDocumentedReserved\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-rpc-and-messages-present-at-the-specified-numbers
+    title: "RPC and messages present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "RPC and messages present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "RPC and messages present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_GetOrderSettlementShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-net-formula-and-access-rule-are-documented
+    title: "Net formula and access rule are documented"
+    persona: guest
+    priority: P2
+    summary: "Net formula and access rule are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Net formula and access rule are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_SettlementSemanticsDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-another-seller-and-an-unsettled-order-are-denied-as-not-found
+    title: "Another seller and an unsettled order are denied as not found"
+    persona: guest
+    priority: P2
+    summary: "Another seller and an unsettled order are denied as not found"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Another seller and an unsettled order are denied as not found (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_SettlementNotFoundDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-amount-fields-are-integer-vnd
+    title: "Amount fields are integer VND"
+    persona: guest
+    priority: P2
+    summary: "Amount fields are integer VND"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Amount fields are integer VND (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_NoFloatMoney\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-rpc-enum-and-messages-present-at-the-specified-numbers
+    title: "RPC, enum and messages present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "RPC, enum and messages present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "RPC, enum and messages present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-idempotency-and-error-rules-are-documented
+    title: "Idempotency and error rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Idempotency and error rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Idempotency and error rules are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeSemanticsDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-the-rpc-is-documented-as-internal-and-ad-spend-as-reserved
+    title: "The RPC is documented as internal and ad spend as reserved"
+    persona: guest
+    priority: P2
+    summary: "The RPC is documented as internal and ad spend as reserved"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The RPC is documented as internal and ad spend as reserved (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeInternalOnlyDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-fee-charge-is-not-reachable-by-a-seller-through-the-edge
+    title: "Fee charge is not reachable by a seller through the edge"
+    persona: guest
+    priority: P2
+    summary: "Fee charge is not reachable by a seller through the edge"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Fee charge is not reachable by a seller through the edge (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeNoUserScopeDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-existing-payment-surface-is-untouched
+    title: "Existing payment surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing payment surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing payment surface is untouched (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ExistingPaymentSurfaceUntouched\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-term-and-period-fields-present-at-the-specified-numbers
+    title: "Term and period fields present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Term and period fields present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Term and period fields present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_PlanTermShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-subscription-rpcs-present-with-empty-requests
+    title: "Subscription RPCs present with empty requests"
+    persona: guest
+    priority: P2
+    summary: "Subscription RPCs present with empty requests"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Subscription RPCs present with empty requests (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionRpcShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-price-unit-and-cancel-semantics-are-documented
+    title: "Price unit and cancel semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Price unit and cancel semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Price unit and cancel semantics are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionSemanticsDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-subscription-reads-take-no-seller-id
+    title: "Subscription reads take no seller id"
+    persona: guest
+    priority: P2
+    summary: "Subscription reads take no seller id"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Subscription reads take no seller id (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionRequestsCarryNoSellerId\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-status-and-counters-present-at-the-specified-numbers
+    title: "Status and counters present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Status and counters present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Status and counters present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdCampaignShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-old-consumer-meets-the-new-status
+    title: "Old consumer meets the new status"
+    persona: guest
+    priority: P2
+    summary: "Old consumer meets the new status"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old consumer meets the new status (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_OldSchemaParsesPausedBudget\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-minimum-bid-and-budget-status-are-documented
+    title: "Minimum bid and budget status are documented"
+    persona: guest
+    priority: P2
+    summary: "Minimum bid and budget status are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Minimum bid and budget status are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdCampaignSemanticsDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-request-and-response-fields-present-at-the-specified-numbers
+    title: "Request and response fields present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Request and response fields present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Request and response fields present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SponsoredSlotsShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-limit-bound-and-token-semantics-are-documented
+    title: "Limit bound and token semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Limit bound and token semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Limit bound and token semantics are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SlotBoundAndTokenDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-a-request-without-the-new-fields-still-parses
+    title: "A request without the new fields still parses"
+    persona: guest
+    priority: P2
+    summary: "A request without the new fields still parses"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A request without the new fields still parses (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_OldSponsoredSlotsParse\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-the-slot-carries-no-buyer-identifier
+    title: "The slot carries no buyer identifier"
+    persona: guest
+    priority: P2
+    summary: "The slot carries no buyer identifier"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The slot carries no buyer identifier (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_NoBuyerIdentifiers\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-four-rpcs-and-their-messages-present-at-the-specified-numbers
+    title: "Four RPCs and their messages present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Four RPCs and their messages present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Four RPCs and their messages present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdRpcsShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-ownership-and-error-rules-are-documented
+    title: "Ownership and error rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Ownership and error rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Ownership and error rules are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_CampaignRulesDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-click-rules-are-documented
+    title: "Click rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Click rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Click rules are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_ClickRulesDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-existing-promotion-surface-is-untouched
+    title: "Existing promotion surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing promotion surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing promotion surface is untouched (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_ExistingPromotionSurfaceUntouched\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-copies-match-the-source
+    title: "Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Copies match the source (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `copies match`. monetization-contract: not producible end to end."
+
+  - id: monetization.contract-drifted-or-missing-copy-is-rejected
+    title: "Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Drifted or missing copy is rejected (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `drifted and missing copy rejected and named`. monetization-contract: not producible end to end."
+
+  - id: monetization.contract-renumbering-is-rejected
+    title: "Renumbering is rejected"
+    persona: guest
+    priority: P2
+    summary: "Renumbering is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Renumbering is rejected (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `renumbering $label rejected and names $name`. monetization-contract: not producible end to end."
+
+  - id: monetization.contract-lint-and-breaking-check-pass
+    title: "Lint and breaking check pass"
+    persona: guest
+    priority: P2
+    summary: "Lint and breaking check pass"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Lint and breaking check pass (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` checks `buf lint` and `buf breaking vs $BASE_REF`. monetization-contract: not producible end to end."
   - id: sellercentre.contract-seller-promotion-rpcs-exist
     title: "Seller centre contract: Seller promotion RPCs exist"
     persona: guest

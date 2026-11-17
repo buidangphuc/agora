@@ -3,6 +3,7 @@ package listing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -49,6 +50,14 @@ type StorefrontService struct {
 	repo       store.StorefrontRepository
 	listings   store.ListingRepository
 	publicBase string
+	ent        EntitlementsPort
+}
+
+var ErrFeaturedLimit = errors.New("featured listings exceed plan limit")
+
+func (s *StorefrontService) WithEntitlements(p EntitlementsPort) *StorefrontService {
+	s.ent = p
+	return s
 }
 
 func NewStorefrontService(repo store.StorefrontRepository, publicBase string) *StorefrontService {
@@ -103,6 +112,9 @@ func (s *StorefrontService) Upsert(ctx context.Context, sf store.Storefront, own
 	if !validTheme(sf.Theme) {
 		return store.Storefront{}, ErrThemeInvalid
 	}
+	if err := s.checkFeaturedPlan(ctx, len(sf.FeaturedListingIDs), ownerID); err != nil {
+		return store.Storefront{}, err
+	}
 	if err := s.validateFeatured(ctx, sf.FeaturedListingIDs, ownerID); err != nil {
 		return store.Storefront{}, err
 	}
@@ -156,7 +168,7 @@ func (s *StorefrontService) validateFeatured(ctx context.Context, ids []string, 
 	if len(ids) == 0 {
 		return nil
 	}
-	if len(ids) > MaxFeatured {
+	if s.ent == nil && len(ids) > MaxFeatured {
 		return ErrTooManyFeatured
 	}
 	seen := make(map[string]struct{}, len(ids))
@@ -183,6 +195,23 @@ func (s *StorefrontService) validateFeatured(ctx context.Context, ids []string, 
 		if _, ok := owned[id]; !ok {
 			return ErrFeaturedInvalid
 		}
+	}
+	return nil
+}
+
+func (s *StorefrontService) checkFeaturedPlan(ctx context.Context, n int, ownerID string) error {
+	if n == 0 || s.ent == nil {
+		return nil
+	}
+	ent, err := s.ent.Get(ctx, ownerID)
+	if err != nil {
+		if errors.Is(err, ErrEntitlementsUnavailable) {
+			return err
+		}
+		return fmt.Errorf("%w: %w", ErrEntitlementsUnavailable, err)
+	}
+	if ent.FeaturedListings >= 0 && int64(n) > ent.FeaturedListings {
+		return ErrFeaturedLimit
 	}
 	return nil
 }

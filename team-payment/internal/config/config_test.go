@@ -24,7 +24,7 @@ var managedKeys = []string{
 	"PAYOUT_HOLD_DAYS", "PAYOUT_HOLD_WINDOW", "PAYMENT_EVENTS_TOPIC", "ORDER_EVENTS_TOPIC",
 	"PAYMENT_SETTLEMENT_CONSUMER_GROUP", "PAYMENT_SETTLEMENT_DLQ_TOPIC",
 	"PAYMENT_ERASURE_CONSUMER_GROUP", "PAYMENT_ERASURE_DLQ_TOPIC",
-	"OUTBOX_POLL_INTERVAL", "OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK",
+	"OUTBOX_POLL_INTERVAL", "OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK", "COMMISSION_RATE_BPS",
 }
 
 func cleanEnv(t *testing.T) {
@@ -297,4 +297,66 @@ func TestMockDataRefusedBeforeValidation(t *testing.T) {
 	if err != nil && strings.Contains(err.Error(), "DATABASE_URL") {
 		t.Errorf("error %q must not be the DATABASE_URL error", err)
 	}
+}
+
+func commissionRate(t *testing.T, s config.Settings) int64 {
+	t.Helper()
+	section := reflect.ValueOf(s).FieldByName("Commission")
+	if !section.IsValid() {
+		t.Fatal("Settings has no Commission section")
+	}
+	v := section.FieldByName("RateBps")
+	if !v.IsValid() {
+		t.Fatal("Settings has no Commission.RateBps")
+	}
+	return v.Int()
+}
+
+func TestCommissionRateInvalidRefusesStart(t *testing.T) {
+	// scenario: An invalid rate refuses to start
+	for _, raw := range []string{"-1", "3001", "abc", "5.5", "1e3"} {
+		t.Run(raw, func(t *testing.T) {
+			localEnv(t)
+			t.Setenv("COMMISSION_RATE_BPS", raw)
+			_, err := config.Load()
+			mustErrNaming(t, err, "COMMISSION_RATE_BPS")
+		})
+	}
+}
+
+func TestCommissionRateBoundariesAccepted(t *testing.T) {
+	// scenario: The boundary rates are accepted
+	cases := []struct {
+		name, raw string
+		want      int64
+	}{
+		{"unset defaults to 500", "", 500},
+		{"zero disables", "0", 0},
+		{"one", "1", 1},
+		{"default value", "500", 500},
+		{"maximum", "3000", 3000},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			localEnv(t)
+			if tc.raw != "" {
+				t.Setenv("COMMISSION_RATE_BPS", tc.raw)
+			}
+			s, err := config.Load()
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if got := commissionRate(t, s); got != tc.want {
+				t.Fatalf("Commission.RateBps = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCommissionRateInvalidRefusedInStrictEnv(t *testing.T) {
+	// scenario: An invalid rate refuses to start
+	strictEnv(t, "production")
+	t.Setenv("COMMISSION_RATE_BPS", "3001")
+	_, err := config.Load()
+	mustErrNaming(t, err, "COMMISSION_RATE_BPS")
 }
