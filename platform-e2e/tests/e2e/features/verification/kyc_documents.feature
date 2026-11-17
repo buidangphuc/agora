@@ -1,5 +1,5 @@
 Feature: KYC documents are uploaded, reviewed, listed and erased through private storage
-  Scenario titles are the spec scenarios of openspec/changes/verification-kyc-documents
+  Scenario titles are the spec scenarios of openspec/changes/archive/2026-11-17-verification-kyc-documents
   (capability kyc-documents). Sellers upload to presigned URLs for the private kyc-documents bucket,
   SubmitKyc accepts only keys issued to the caller, admins review through an oldest-first queue and an
   audited document link, and retention and UserErased remove the stored files.

@@ -2,7 +2,7 @@
 Feature: Admin KYC verification queue in the browser (admin-kyc-queue)
   /admin/cases?tab=kyc lists seller KYC submissions oldest first, opens documents only through the
   audited RPC and lets an admin approve or reject. Scenario names echo the spec scenarios of
-  openspec/changes/admin-kyc-queue (capability admin-kyc-queue-ui). Submissions are created through
+  openspec/changes/archive/2026-11-17-admin-kyc-queue (capability admin-kyc-queue-ui). Submissions are created through
   the real RPCs (CreateKycUploadUrl, presigned PUT, SubmitKyc). Scenarios that need an exact queue
   first clear the PENDING queue through ReviewKyc. Every refusal is paired with a positive control.
 
