@@ -1,6 +1,6 @@
 # team-domain
 
-Go gRPC service that owns the marketplace **listing write-model**: listings and variants, categories, seller storefronts (shop display name), bundles, and stock reservations. It is the bounded context behind `platform.listing.v1.ListingService` (CQRS write side, ADR-0005). Every listing write also records a `ListingChanged` event in a transactional outbox (ADR-0002) that a background relayer publishes to Kafka for read models such as `team-search`.
+Go gRPC service that owns the marketplace **listing write-model**: listings and variants, categories, seller storefronts (shop display name, tagline, banner, theme, featured listings), bundles, and stock reservations. It is the bounded context behind `platform.listing.v1.ListingService` (CQRS write side, ADR-0005). Every listing write also records a `ListingChanged` event in a transactional outbox (ADR-0002) that a background relayer publishes to Kafka for read models such as `team-search`.
 
 Status: deployed service (root `docker-compose.services.yaml`, `team-domain-svc:50051`). Only this service connects to its Postgres `listing_db`.
 
@@ -11,13 +11,13 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 | RPC | Authorization | Notes |
 |---|---|---|
 | `GetListing`, `ListListings`, `ListCategories`, `GetCategory` | `listing.read` | `NotFound` for unknown id |
-| `ListMyListings` | `listing.write` | caller's own listings |
+| `ListMyListings` | `listing.write` | caller's own listings; optional `statuses` (OR-ed; `LISTING_STATUS_UNSPECIFIED` gives `InvalidArgument`) and `query` (trimmed, case-insensitive title match, blank ignored, over 100 runes gives `InvalidArgument`, never logged) |
 | `CreateListing` | `listing.write` | seller id forced from the principal |
 | `UpdateListing`, `DeleteListing` | `listing.write` + owner, or `admin` scope | `PermissionDenied` "not the listing owner"; delete is a hard `DELETE` |
 | `GetImageUploadUrl` | `listing.write` | `Unavailable` if no object store |
-| `UpsertStorefront` | `listing.write` | row keyed by the principal; `AlreadyExists` on slug clash |
+| `UpsertStorefront` | `listing.write` | row keyed by the principal (body `seller_id` ignored); `AlreadyExists` on slug clash. `InvalidArgument` for: tagline over 120 runes or with a control character; theme not `default`/`dark`/`festive` (empty = default); `banner_url` not under `STORAGE_PUBLIC_BASE_URL` or with `?`/`#` (a stored legacy banner resent unchanged is kept); more than 6 featured ids, duplicate/empty ids, or an id not owned by the caller (unknown and foreign ids give the same answer, checked with one batched read) |
 | `GetStorefront`, `BatchGetStorefronts` | `listing.read` | batch max 100 ids, else `InvalidArgument` |
-| `CreateBundle` | `listing.write` | owner-scoped |
+| `CreateBundle` | `listing.write` | owner-scoped; 2 to 10 distinct own non-variant listings, price above 0 and below their sum (foreign or unknown listing: PermissionDenied; other rule breaks: InvalidArgument) |
 | `GetBundle`, `ListBundlesBySeller` | `listing.read` | |
 | `ModerateListing`, `ListModerationQueue` | `admin` scope (`PermissionDenied` with `missing scope` otherwise). `ModerateListing` writes a `listing.moderate` audit entry first (`Unavailable` with no change and the message `audit trail unavailable` if team-audit is down) |
 | `ReserveStock`, `ReleaseStock`, `CommitReservation` | **SERVICE principal** (type `service`) holding `listing.write` | internal RPCs; team-order calls them as `service-team-order`. A user, even a seller with the scope, gets `PermissionDenied` |
@@ -63,6 +63,8 @@ Postgres `listing_db` (role `listing_svc`). Migrations in `migrations/` (golang-
 | 0011 `listing_moderation` | `listings.moderation_reason_code`, `moderation_note`, `screen_flags`, `moderation_decided_at`, `submitted_at`; moderation queue index (`status = 'pending_review'`) |
 | 0012 `seller_enforcement_hold` | `listings.held_prior_status`; `processed_events` (dedupe of `UserStatusChanged`); `seller_status_applied` (stale-event guard) |
 | 0010 `reservation_lifecycle_constraints` | `NOT VALID` checks: `reservations.status IN ('active','committed','released')`, `listings.stock >= 0`, `listing_variants.stock >= 0`. Validate later with `psql "$DATABASE_URL" -f scripts/validate_0010_constraints.sql` (refuses unless every violation count is 0) |
+| 0013-0016 `outbox_v1_*` | `outbox_events.topic`, `traceparent`, `seq` (NOT NULL): SDK v1 outbox shape (columns, backfill, switch, finish) |
+| 0017 `listings_owner_status_idx` | index `listings (seller_id, status, id)` for the seller's filtered listing page |
 
 Applied by `make migrate` (`go run ./cmd/server migrate up`) locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/service/sweeper.go`, tick `RESERVATION_SWEEP_INTERVAL`, TTL `RESERVATION_TTL`; defaults 1m / 15m) runs inside this service and restores stock for expired `active` reservations only (committed ones are never swept).
 
@@ -86,7 +88,7 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | `minioadmin` / `minioadmin` |
 | `STORAGE_REGION` | `us-east-1` |
 | `STORAGE_USE_SSL` | `false` |
-| `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/listing-images` |
+| `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/listing-images` (also the only accepted prefix for storefront `banner_url`; empty falls back to `<scheme>://STORAGE_ENDPOINT/STORAGE_BUCKET`) |
 | `KAFKA_BROKERS` | `localhost:9092`, comma-separated |
 | `KAFKA_LISTING_TOPIC` | `listing.events` |
 | `KAFKA_IDENTITY_TOPIC` | `identity.events` |
@@ -145,7 +147,7 @@ Standalone, point `KAFKA_BROKERS` at a reachable broker (platform-core's Redpand
 
 ## Spec and verification
 
-- `FEATURES.yaml` (repo root): 151 features, 32 `automated`, 119 `not-testable`. For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
+- `FEATURES.yaml` (repo root): 271 features, 68 `automated`, 1 `planned` (`bundle.create`), 202 `not-testable` (`grep -c '^  - id:'` and `grep -c 'status: <s>'` on `FEATURES.yaml`). For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
 - E2E coverage lives in `platform-e2e`: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
 

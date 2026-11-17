@@ -5,6 +5,7 @@ syntax = "proto3";
 package platform.order.v1;
 
 import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
 import "platform/identity/v1/identity.proto";
 import "platform/payment/v1/payment.proto";
 
@@ -28,6 +29,22 @@ service CartService {
   // Reorder adds the items of a past order back into the caller's cart and
   // returns the updated cart.
   rpc Reorder(ReorderRequest) returns (ReorderResponse);
+  // AddBundleToCart adds every listing of a bundle to the caller's cart as one cart line per
+  // bundle listing, each tagged with bundle_id, and returns the updated cart. The line
+  // quantity is quantity of the bundle. Fails with NOT_FOUND when bundle_id is unknown,
+  // INVALID_ARGUMENT when quantity is below 1, and FAILED_PRECONDITION when a bundle listing
+  // is unpublished, out of stock, not owned by the bundle seller, or has a variant (variant
+  // listings cannot be bundled).
+  rpc AddBundleToCart(AddBundleToCartRequest) returns (AddBundleToCartResponse);
+}
+
+message AddBundleToCartRequest {
+  string bundle_id = 1;
+  int32 quantity = 2;
+}
+
+message AddBundleToCartResponse {
+  Cart cart = 1;
 }
 
 message CartItem {
@@ -40,12 +57,19 @@ message CartItem {
   string variant_name = 7;
   string image_url = 8;
   string seller_id = 9;
+  // Empty when the line was not added through a bundle.
+  string bundle_id = 10;
+  // VND share of the bundle discount allocated to this line. Computed by the server
+  // (server-owned, pro-rata across the bundle lines) and never trusted from a request.
+  int64 bundle_discount = 11;
 }
 
 message Cart {
   string user_id = 1;
   repeated CartItem items = 2;
   int64 subtotal = 3;
+  // Sum of bundle_discount over items; server-owned.
+  int64 bundle_discount_total = 4;
 }
 
 message GetCartRequest {}
@@ -401,6 +425,11 @@ message OrderItem {
   int32 quantity = 6;
   int64 unit_price = 7;
   string image_url = 8;
+  // Empty when the item did not come from a bundle.
+  string bundle_id = 9;
+  // VND share of the bundle discount copied from the cart line at checkout. Computed by the
+  // server (server-owned, pro-rata across the bundle lines) and never trusted from a request.
+  int64 bundle_discount = 10;
 }
 
 message Order {
@@ -512,12 +541,32 @@ message ListBuyerOrdersResponse {
   repeated Order orders = 1;
 }
 
+// Paging is optional: with page unset the response is the full list, as before. The caller
+// is the authenticated seller principal; orders of other sellers are never returned.
 message ListSellerOrdersRequest {
   OrderStatus status_filter = 1;
+  // When unset, the full list is returned and status_counts stays empty. page.page_size is
+  // capped at 100.
+  platform.common.v1.PageRequest page = 2;
+  // Case-insensitive match on order id and item title; the counts in status_counts are
+  // computed with the query applied. A query that is too long is INVALID_ARGUMENT.
+  string query = 3;
+  // When non-empty, statuses wins over status_filter.
+  repeated OrderStatus statuses = 4;
+}
+
+message OrderStatusCount {
+  OrderStatus status = 1;
+  int64 count = 2;
 }
 
 message ListSellerOrdersResponse {
   repeated Order orders = 1;
+  // Unset when the request had no page.
+  platform.common.v1.PageResponse page = 2;
+  // One entry per status of the seller's orders with the query applied, ignoring the status
+  // filters; empty when the request had no page.
+  repeated OrderStatusCount status_counts = 3;
 }
 
 message UpdateOrderStatusRequest {

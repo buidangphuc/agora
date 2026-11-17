@@ -1,0 +1,13 @@
+## 1. Code track: team-frontend-seller
+
+- [x] 1.1 Failing tests then `shopBranding.ts` (tagline rule 120 code points, no control chars, theme set, featured cap 6) and gateway `listMyListings` accepting `statuses` and `query`. Scenarios: Seller shop UI: a 120-character tagline is accepted and 121 is refused; a control character in the tagline is refused; The sixth featured listing is accepted; The seventh featured listing is refused
+- [x] 1.2 Failing tests then extend `upsertStorefrontAction` to take banner, tagline, featured ids, theme and name; read the current storefront first, send the full storefront, seller id from the session, scope check, revalidate `/seller` and `/shop/{id}`; add `searchMyListingsAction` (PUBLISHED, query, one page of 20, no logging of the query). Scenarios: Seller shop UI: saving sends the full storefront once; a tampered seller id is ignored; a principal without listing.write cannot save; a failed read blocks the save; an empty tagline clears the tagline only; remove banner sends empty url; reordering changes the saved order; a search runs on the server with the typed query
+- [x] 1.3 `ShopBannerField` (type and 10 MB check, `getUploadUrlAction`, PUT, preview, remove, failed upload keeps previous). Scenarios: Seller shop UI: an accepted banner is uploaded and previewed; a wrong type or oversize banner is refused before upload; a file of exactly 10 MB is accepted; a failed upload keeps the previous banner; removing the banner clears it
+- [x] 1.4 `FeaturedListingsPicker` (debounced search, add, no duplicates, move, remove, cap line, unavailable row, retry state). Scenarios: Seller shop UI: search runs on the server with the typed query; the seventh featured listing is refused; an already selected listing is not added twice; a search failure leaves the selection intact; an unavailable featured listing can be removed
+- [x] 1.5 Extend `ShopProfileForm` and `src/app/seller/shop/page.tsx` (pre-fill from `GetStorefront`, resolve titles of featured ids with `getListing`, theme select, server rejection alert, toast "Đã lưu thông tin gian hàng"; update the existing name tests). Scenarios: Seller shop UI: the form is pre-filled from the storefront; a server rejection is shown and the input kept
+- [ ] 1.6 `npm run vendor:check`, tests, lint, typecheck in team-frontend-seller
+
+## 2. E2E track
+
+- [x] 2.1 `platform-e2e/tests/e2e/features/frontend/seller_shop_customisation_ui.feature` (page object with `app = "seller"`, data seeded through the gateway API, no route fulfils). Scenarios: Seller shop UI: a seller brands the shop in the browser and the buyer sees it; a foreign featured listing is rejected
+- [x] 2.2 `openspec validate seller-shop-customisation-ui --strict`

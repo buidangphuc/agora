@@ -5698,6 +5698,457 @@ features:
     status: not-testable
     notes: "promotion-new-user-vouchers: VERIFIED BY team-promotion `internal/rpc/voucher_per_user_test.go` TestUpdatePerUserFields. Not producible end to end: internal consumer, store or service-only RPC behaviour that needs injected faults, clocks or a database."
 
+  # promotion-seller-self-service (initiative seller-centre)
+  - id: promotion.sss-seller-sees-only-their-own-campaigns-with-status
+    title: "Seller sees only their own campaigns with status"
+    persona: seller
+    priority: P0
+    summary: "Seller sees only their own campaigns with status (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyCampaigns]
+    acceptance:
+      - "Seller sees only their own campaigns with status"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller sees only their own campaigns with status"
+
+  - id: promotion.sss-status-filter-narrows-the-list
+    title: "Status filter narrows the list"
+    persona: seller
+    priority: P1
+    summary: "Status filter narrows the list (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyCampaigns]
+    acceptance:
+      - "Status filter narrows the list"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Status filter narrows the list"
+
+  - id: promotion.sss-caller-without-listing-write-is-denied
+    title: "Caller without listing.write is denied"
+    persona: buyer
+    priority: P0
+    summary: "Caller without listing.write is denied (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyCampaigns, promotion.v1.CancelMyCampaign]
+    acceptance:
+      - "Caller without listing.write is denied"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Caller without listing.write is denied"
+
+  - id: promotion.sss-seller-cancels-their-scheduled-campaign
+    title: "Seller cancels their SCHEDULED campaign"
+    persona: seller
+    priority: P0
+    summary: "Seller cancels their SCHEDULED campaign (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.CancelMyCampaign, promotion.v1.ListMyCampaigns, promotion.v1.GetActiveFlashSale]
+    acceptance:
+      - "Seller cancels their SCHEDULED campaign"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller cancels their SCHEDULED campaign"
+
+  - id: promotion.sss-cancelling-an-active-campaign-is-refused
+    title: "Cancelling an ACTIVE campaign is refused"
+    persona: seller
+    priority: P0
+    summary: "Cancelling an ACTIVE campaign is refused (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.CancelMyCampaign]
+    acceptance:
+      - "Cancelling an ACTIVE campaign is refused"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Cancelling an ACTIVE campaign is refused"
+
+  - id: promotion.sss-cancelling-another-seller-s-campaign-is-denied-like-an-unknown-id
+    title: "Cancelling another seller's campaign is denied like an unknown id"
+    persona: seller
+    priority: P0
+    summary: "Cancelling another seller's campaign is denied like an unknown id (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.CancelMyCampaign]
+    acceptance:
+      - "Cancelling another seller's campaign is denied like an unknown id"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Cancelling another seller's campaign is denied like an unknown id"
+
+  - id: promotion.sss-seller-cancellation-writes-no-audit-event
+    title: "Seller cancellation writes no audit event"
+    persona: seller
+    priority: P0
+    summary: "Seller cancellation writes no audit event (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.CancelMyCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Seller cancellation writes no audit event"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller cancellation writes no audit event"
+
+  - id: promotion.sss-seller-sees-own-vouchers-of-every-state
+    title: "Seller sees own vouchers of every state"
+    persona: seller
+    priority: P0
+    summary: "Seller sees own vouchers of every state (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyShopVouchers]
+    acceptance:
+      - "Seller sees own vouchers of every state"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller sees own vouchers of every state"
+
+  - id: promotion.sss-buyer-without-listing-write-is-denied
+    title: "Buyer without listing.write is denied"
+    persona: buyer
+    priority: P0
+    summary: "Buyer without listing.write is denied (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyShopVouchers, promotion.v1.DeactivateMyShopVoucher]
+    acceptance:
+      - "Buyer without listing.write is denied"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Buyer without listing.write is denied"
+
+  - id: promotion.sss-seller-deactivates-their-voucher
+    title: "Seller deactivates their voucher"
+    persona: seller
+    priority: P0
+    summary: "Seller deactivates their voucher (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.DeactivateMyShopVoucher, promotion.v1.ValidateAndReserve]
+    acceptance:
+      - "Seller deactivates their voucher"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller deactivates their voucher"
+
+  - id: promotion.sss-deactivating-another-seller-s-voucher-is-denied-like-an-unknown-id
+    title: "Deactivating another seller's voucher is denied like an unknown id"
+    persona: seller
+    priority: P0
+    summary: "Deactivating another seller's voucher is denied like an unknown id (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.DeactivateMyShopVoucher]
+    acceptance:
+      - "Deactivating another seller's voucher is denied like an unknown id"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Deactivating another seller's voucher is denied like an unknown id"
+
+  - id: promotion.sss-seller-deactivation-writes-no-audit-event
+    title: "Seller deactivation writes no audit event"
+    persona: seller
+    priority: P0
+    summary: "Seller deactivation writes no audit event (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.DeactivateMyShopVoucher, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Seller deactivation writes no audit event"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller deactivation writes no audit event"
+
+  - id: promotion.sss-seller-reaches-the-seller-rpcs-but-not-the-admin-ones
+    title: "Seller reaches the seller RPCs but not the admin ones"
+    persona: seller
+    priority: P0
+    summary: "Seller reaches the seller RPCs but not the admin ones (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.ListMyCampaigns, promotion.v1.ListCampaigns]
+    acceptance:
+      - "Seller reaches the seller RPCs but not the admin ones"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Seller reaches the seller RPCs but not the admin ones"
+
+  - id: promotion.sss-admin-cancel-keeps-its-admin-rules
+    title: "Admin cancel keeps its admin rules"
+    persona: admin
+    priority: P1
+    summary: "Admin cancel keeps its admin rules (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.CancelCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Admin cancel keeps its admin rules"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Admin cancel keeps its admin rules"
+
+  - id: promotion.sss-admin-deactivate-keeps-its-admin-rules
+    title: "Admin deactivate keeps its admin rules"
+    persona: admin
+    priority: P1
+    summary: "Admin deactivate keeps its admin rules (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion, team-gateway, team-identity, team-domain]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.DeactivateVoucher, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Admin deactivate keeps its admin rules"
+    tags: [promotion, seller-centre]
+    status: automated
+    covered_by: "promo/promotion_seller_self_service.feature::Admin deactivate keeps its admin rules"
+
+  - id: promotion.sss-unit-paging-boundary-at-21-campaigns
+    title: "Paging boundary at 21 campaigns"
+    persona: seller
+    priority: P1
+    summary: "Paging boundary at 21 campaigns (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Paging boundary at 21 campaigns"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/flashsale/flashsale_seller_test.go` `TestListMyCampaignsPaging_PagingBoundaryAt21Campaigns`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-anonymous-caller-is-rejected
+    title: "Anonymous caller is rejected"
+    persona: seller
+    priority: P1
+    summary: "Anonymous caller is rejected (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Anonymous caller is rejected"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/rpc/campaign_seller_test.go` `TestListMyCampaignsAnonymous`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-a-new-campaign-records-the-listing-owner
+    title: "A new campaign records the listing owner"
+    persona: seller
+    priority: P1
+    summary: "A new campaign records the listing owner (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A new campaign records the listing owner"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/flashsale/flashsale_seller_test.go` `TestCampaignSellerCreateStoresListingOwner_NewCampaignRecordsListingOwner`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-cancelling-twice-is-idempotent
+    title: "Cancelling twice is idempotent"
+    persona: seller
+    priority: P1
+    summary: "Cancelling twice is idempotent (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancelling twice is idempotent"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/flashsale/flashsale_seller_test.go` `TestCancelMyCampaignIdempotent_CancellingTwiceIsIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-campaign-starting-during-the-cancel-is-not-cancelled
+    title: "Campaign starting during the cancel is not cancelled"
+    persona: seller
+    priority: P1
+    summary: "Campaign starting during the cancel is not cancelled (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Campaign starting during the cancel is not cancelled"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/store/campaign_seller_test.go` `TestCancelIfScheduledOwnedBoundary_CampaignStartingDuringTheCancelIsNotCancelled`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-empty-list-for-a-seller-with-no-vouchers
+    title: "Empty list for a seller with no vouchers"
+    persona: seller
+    priority: P1
+    summary: "Empty list for a seller with no vouchers (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Empty list for a seller with no vouchers"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/voucher/voucher_seller_test.go` `TestListMyShopVouchersEmpty`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-page-size-above-the-maximum-is-capped
+    title: "Page size above the maximum is capped"
+    persona: seller
+    priority: P1
+    summary: "Page size above the maximum is capped (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Page size above the maximum is capped"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/voucher/voucher_seller_test.go` `TestListMyShopVouchersPageCap`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-deactivating-twice-keeps-the-first-timestamp
+    title: "Deactivating twice keeps the first timestamp"
+    persona: seller
+    priority: P1
+    summary: "Deactivating twice keeps the first timestamp (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Deactivating twice keeps the first timestamp"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/voucher/voucher_seller_test.go` `TestDeactivateMyShopVoucherIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-a-platform-voucher-cannot-be-deactivated-by-a-seller
+    title: "A platform voucher cannot be deactivated by a seller"
+    persona: seller
+    priority: P1
+    summary: "A platform voucher cannot be deactivated by a seller (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A platform voucher cannot be deactivated by a seller"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/rpc/voucher_seller_test.go` `TestDeactivateMyShopVoucherPlatformScopeDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-promotion-down-surfaces-as-unavailable
+    title: "Promotion down surfaces as unavailable"
+    persona: seller
+    priority: P1
+    summary: "Promotion down surfaces as unavailable (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion down surfaces as unavailable"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-gateway/internal/edge/promotion_seller_test.go` `TestPromotionSellerRPCsUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-backfill-fills-old-campaigns-once
+    title: "Backfill fills old campaigns once"
+    persona: seller
+    priority: P1
+    summary: "Backfill fills old campaigns once (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Backfill fills old campaigns once"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/app/backfill_test.go` `TestBackfillCampaignSellersIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-deleted-listing-is-left-unassigned
+    title: "Deleted listing is left unassigned"
+    persona: seller
+    priority: P1
+    summary: "Deleted listing is left unassigned (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Deleted listing is left unassigned"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/app/backfill_test.go` `TestBackfillCampaignSellersSkipsMissingListing`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-team-domain-down-stops-the-backfill
+    title: "Team-domain down stops the backfill"
+    persona: seller
+    priority: P1
+    summary: "Team-domain down stops the backfill (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Team-domain down stops the backfill"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/app/backfill_test.go` `TestBackfillCampaignSellersStopsOnLookupFailure`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-migration-keeps-old-rows-valid
+    title: "Migration keeps old rows valid"
+    persona: seller
+    priority: P1
+    summary: "Migration keeps old rows valid (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Migration keeps old rows valid"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-promotion/internal/store/migration_test.go` `TestMigration0009CampaignSeller_KeepsOldRowsValid`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.sss-unit-seller-reaches-the-seller-rpcs-but-not-the-admin-ones
+    title: "Seller reaches the seller RPCs but not the admin ones"
+    persona: seller
+    priority: P1
+    summary: "Seller reaches the seller RPCs but not the admin ones (promotion-seller-self-service)."
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller reaches the seller RPCs but not the admin ones"
+    tags: [promotion, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-gateway/internal/edge/promotion_seller_test.go` `TestSellerPromotionForwarders_SellerReachesSellerRPCsNotAdminOnes`. Not producible end to end through the gateway (unit level)."
+
   - id: promotion.pro-1-owned-vouchers-are-deactivated-and-state-is-deleted
     title: "PRO-1 Owned vouchers are deactivated and state is deleted"
     persona: buyer

@@ -30,6 +30,7 @@ export const SELLER_NAV: SellerNavItem[] = [
   { href: "/seller/orders", label: "Quản lý đơn hàng", icon: "orders" },
   { href: "/seller/bundles", label: "Combo sản phẩm", icon: "layers" },
   { href: "/seller/ads", label: "Quảng cáo", icon: "megaphone" },
+  { href: "/seller/marketing", label: "Marketing", icon: "megaphone" },
   { href: "/seller/analytics", label: "Báo cáo doanh thu", icon: "chart" },
   { href: "/seller/wallet", label: "Ví người bán", icon: "wallet" },
   { href: "/seller/verification", label: "Xác minh danh tính", icon: "store" },

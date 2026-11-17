@@ -143,6 +143,11 @@ func (s *Service) CreateCampaign(ctx context.Context, p CreateCampaignParams) (s
 	if err := s.validateFields(c); err != nil {
 		return store.FlashSaleCampaign{}, err
 	}
+	if p.IsAdmin && !useKey {
+		if l, err := listing.Get(ctx, s.listings, s.logger, listingID); err == nil {
+			c.SellerID = l.GetSellerId()
+		}
+	}
 	if !p.IsAdmin || useKey {
 		l, err := listing.Get(ctx, s.listings, s.logger, listingID)
 		if err != nil {
@@ -156,9 +161,15 @@ func (s *Service) CreateCampaign(ctx context.Context, p CreateCampaignParams) (s
 				return store.FlashSaleCampaign{}, err
 			}
 		}
+		if p.IsAdmin {
+			c.SellerID = l.GetSellerId()
+		}
 		if c.SalePrice >= l.GetPrice() {
 			return store.FlashSaleCampaign{}, invalidField("sale_price", "must be below the listing price")
 		}
+	}
+	if !p.IsAdmin {
+		c.SellerID = p.CallerID
 	}
 	var created store.FlashSaleCampaign
 	eventFn := func(ctx context.Context) func(store.FlashSaleCampaign) (outbox.Row, error) {

@@ -18,9 +18,6 @@ vi.mock("@/lib/gateway/promotion", async () => {
   };
 });
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal, hasScope }));
-vi.mock("@/features/voucher/VoucherManager", () => ({
-  VoucherManager: () => <div>MANAGER</div>,
-}));
 
 import VouchersPage from "./page";
 
@@ -89,23 +86,39 @@ describe("VouchersPage", () => {
     expect(screen.getByTestId("voucher-card")).toBeInTheDocument();
   });
 
-  it("hides the seller manager without the listing.write scope", async () => {
-    getPrincipal.mockReturnValue({ sub: "u" });
-    hasScope.mockReturnValue(false);
-    render(await VouchersPage({ searchParams: Promise.resolve({}) }));
-    expect(screen.queryByText("MANAGER")).toBeNull();
-  });
-
-  it("hides the seller manager for anonymous visitors", async () => {
-    render(await VouchersPage({ searchParams: Promise.resolve({}) }));
-    expect(screen.queryByText("MANAGER")).toBeNull();
-  });
-
-  it("shows the seller manager with listing.write", async () => {
+  it("Seller visiting the buyer voucher page sees no create form", async () => {
     getPrincipal.mockReturnValue({ sub: "u" });
     hasScope.mockImplementation((s: string) => s === "listing.write");
     render(await VouchersPage({ searchParams: Promise.resolve({}) }));
-    expect(screen.getByText("MANAGER")).toBeInTheDocument();
+    expect(screen.getByTestId("voucher-card")).toHaveAttribute(
+      "data-code",
+      "MINUS50K",
+    );
+    expect(screen.queryByRole("form", { name: "Create voucher" })).toBeNull();
+    expect(screen.queryByText(/Tạo Voucher/)).toBeNull();
+    expect(screen.queryByLabelText("Mã Voucher")).toBeNull();
+  });
+
+  it("renders no create form when ListVouchers is unavailable", async () => {
+    getPrincipal.mockReturnValue({ sub: "u" });
+    hasScope.mockImplementation((s: string) => s === "listing.write");
+    listVouchers.mockResolvedValue([]);
+    render(await VouchersPage({ searchParams: Promise.resolve({}) }));
+    expect(
+      screen.getByRole("link", { name: "Xem sản phẩm" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "Create voucher" })).toBeNull();
+    expect(screen.queryByText(/Tạo Voucher/)).toBeNull();
+  });
+
+  it("Buyer voucher wallet still renders", async () => {
+    getPrincipal.mockReturnValue({ sub: "u1" });
+    listMyVouchers.mockResolvedValue({ ok: true, vouchers: [own] });
+    render(await VouchersPage({ searchParams: Promise.resolve({}) }));
+    expect(
+      screen.getByRole("heading", { name: "Voucher của bạn" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("WELCOME50")).toBeInTheDocument();
   });
 
   it("renders Empty when the gateway returned nothing", async () => {

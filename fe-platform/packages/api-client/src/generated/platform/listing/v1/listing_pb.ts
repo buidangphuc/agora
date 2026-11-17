@@ -737,7 +737,12 @@ export class ListBundlesBySellerResponse extends Message<ListBundlesBySellerResp
 }
 
 /**
- * A seller's public storefront/shop page.
+ * A seller's public storefront/shop page. Validation rules (enforced on
+ * UpsertStorefront; a violation is INVALID_ARGUMENT and nothing is saved):
+ * tagline is at most 120 characters with no control characters; banner_url
+ * must be an https URL under the listing-images bucket, as returned by
+ * GetImageUploadUrl; featured_listing_ids holds at most 6 ids, unique and
+ * each owned by the caller; theme is one of default, dark, festive.
  *
  * @generated from message platform.listing.v1.Storefront
  */
@@ -818,6 +823,10 @@ export class Storefront extends Message<Storefront> {
 }
 
 /**
+ * UpsertStorefrontRequest replaces the caller's storefront. It is a full
+ * storefront replace, not a patch: unset fields are cleared. The rules on
+ * Storefront apply; any violation is INVALID_ARGUMENT and nothing is saved.
+ *
  * @generated from message platform.listing.v1.UpsertStorefrontRequest
  */
 export class UpsertStorefrontRequest extends Message<UpsertStorefrontRequest> {
@@ -2052,6 +2061,10 @@ export class ListListingsResponse extends Message<ListListingsResponse> {
 }
 
 /**
+ * ListMyListingsRequest optionally filters the caller's listings. An empty
+ * statuses and an empty query mean no filter: all of the caller's listings are
+ * returned, exactly as before these fields existed.
+ *
  * @generated from message platform.listing.v1.ListMyListingsRequest
  */
 export class ListMyListingsRequest extends Message<ListMyListingsRequest> {
@@ -2059,6 +2072,21 @@ export class ListMyListingsRequest extends Message<ListMyListingsRequest> {
    * @generated from field: platform.common.v1.PageRequest page = 1;
    */
   page?: PageRequest;
+
+  /**
+   * Keep only listings whose status is in this set. An empty list means all statuses.
+   *
+   * @generated from field: repeated platform.listing.v1.ListingStatus statuses = 2;
+   */
+  statuses: ListingStatus[] = [];
+
+  /**
+   * A case-insensitive substring match on the listing title. Trimmed; an empty
+   * means no text filter. At most 100 characters, longer is INVALID_ARGUMENT.
+   *
+   * @generated from field: string query = 3;
+   */
+  query = "";
 
   constructor(data?: PartialMessage<ListMyListingsRequest>) {
     super();
@@ -2069,6 +2097,8 @@ export class ListMyListingsRequest extends Message<ListMyListingsRequest> {
   static readonly typeName = "platform.listing.v1.ListMyListingsRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "page", kind: "message", T: PageRequest },
+    { no: 2, name: "statuses", kind: "enum", T: proto3.getEnumType(ListingStatus), repeated: true },
+    { no: 3, name: "query", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListMyListingsRequest {

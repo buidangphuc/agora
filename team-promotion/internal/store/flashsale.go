@@ -16,6 +16,9 @@ import (
 // ErrCampaignNotFound is returned when a flash-sale campaign lookup misses.
 var ErrCampaignNotFound = errors.New("flash sale campaign not found")
 
+// ErrNotOwner is returned when a campaign is unknown or not owned by the caller.
+var ErrNotOwner = errors.New("flash sale campaign not owned by caller")
+
 // FlashSaleCampaign is the persistence-layer view of a campaign. Field semantics
 // mirror platform.promotion.v1.FlashSaleCampaign; wire mapping lives in the
 // service layer.
@@ -29,6 +32,7 @@ type FlashSaleCampaign struct {
 	StartsAt    time.Time
 	EndsAt      time.Time
 	CancelledAt time.Time
+	SellerID    string
 }
 
 // FlashSaleRepository is the persistence seam for flash-sale campaigns.
@@ -59,14 +63,14 @@ func NewPostgresFlashSaleRepository(pool *pgxpool.Pool, ob *outbox.Store) *Postg
 	return &PostgresFlashSaleRepository{pool: pool, outbox: ob}
 }
 
-const campaignColumns = `id, listing_id, variant_id, sale_price, stock_cap, stock_sold, starts_at, ends_at`
+const campaignColumns = `id, listing_id, variant_id, sale_price, stock_cap, stock_sold, starts_at, ends_at, seller_id`
 
 const campaignSelectColumns = campaignColumns + `, cancelled_at`
 
 func scanCampaign(row pgx.Row, c *FlashSaleCampaign) error {
 	// starts_at / ends_at are nullable (NULL = open-ended, stored as the zero time).
 	var starts, ends, cancelled *time.Time
-	if err := row.Scan(&c.ID, &c.ListingID, &c.VariantID, &c.SalePrice, &c.StockCap, &c.StockSold, &starts, &ends, &cancelled); err != nil {
+	if err := row.Scan(&c.ID, &c.ListingID, &c.VariantID, &c.SalePrice, &c.StockCap, &c.StockSold, &starts, &ends, &c.SellerID, &cancelled); err != nil {
 		return err
 	}
 	c.StartsAt, c.EndsAt, c.CancelledAt = time.Time{}, time.Time{}, time.Time{}
@@ -87,10 +91,10 @@ func (r *PostgresFlashSaleRepository) Create(ctx context.Context, c FlashSaleCam
 		c.ID = NewID()
 	}
 	const q = `INSERT INTO flash_sale_campaigns (` + campaignColumns + `)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, q,
-			c.ID, c.ListingID, c.VariantID, c.SalePrice, c.StockCap, c.StockSold, nullableTime(c.StartsAt), nullableTime(c.EndsAt),
+			c.ID, c.ListingID, c.VariantID, c.SalePrice, c.StockCap, c.StockSold, nullableTime(c.StartsAt), nullableTime(c.EndsAt), c.SellerID,
 		); err != nil {
 			return fmt.Errorf("insert campaign: %w", err)
 		}

@@ -8,6 +8,7 @@ export interface ListParams {
   q: string;
   status: string;
   page: number;
+  cursor: string;
 }
 
 export const DEFAULT_STATUS = "all";
@@ -33,7 +34,7 @@ export function parseListParams(
   const rawPage = first(searchParams.page);
   const parsed = /^\d+$/.test(rawPage) ? Number.parseInt(rawPage, 10) : 1;
   const page = Math.min(MAX_PAGE, Math.max(1, parsed));
-  return { q, status, page };
+  return { q, status, page, cursor: first(searchParams.cursor) };
 }
 
 /** `/path?q=..&status=..&page=..` omitting empty and default values. */
@@ -53,4 +54,34 @@ export function buildListHref(basePath: string, params: object): string {
 export function slicePage<T>(items: T[], page: number, pageSize: number): T[] {
   const start = (Math.max(1, page) - 1) * pageSize;
   return items.slice(start, start + pageSize);
+}
+
+export const MARKETING_TABS = ["voucher", "flashsale"] as const;
+export type MarketingTab = (typeof MARKETING_TABS)[number];
+export const CAMPAIGN_STATUSES = [
+  "scheduled",
+  "active",
+  "ended",
+  "cancelled",
+] as const;
+
+export interface MarketingParams {
+  tab: MarketingTab;
+  cursor: string;
+  status: string;
+}
+
+/** `?tab=&cursor=&status=` of the marketing hub; unknown values fall back. */
+export function parseMarketingParams(
+  searchParams: SearchParams = {},
+): MarketingParams {
+  const rawTab = first(searchParams.tab);
+  const tab = (MARKETING_TABS as readonly string[]).includes(rawTab)
+    ? (rawTab as MarketingTab)
+    : "voucher";
+  const rawStatus = first(searchParams.status);
+  const status = (CAMPAIGN_STATUSES as readonly string[]).includes(rawStatus)
+    ? rawStatus
+    : DEFAULT_STATUS;
+  return { tab, cursor: first(searchParams.cursor), status };
 }

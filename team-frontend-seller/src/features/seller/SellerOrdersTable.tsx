@@ -2,9 +2,10 @@ import { Link } from "@/components/ui/Link";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { Table, type TableColumn } from "@/components/ui/Table";
 import type { ViewOrder } from "@/lib/gateway/orders";
+import { OrderSelectCheckbox } from "./BulkShipSelection";
 import { ShipOrderButton } from "./ShipOrderButton";
 import { ShipByLabel } from "./shipBy";
-import { OrderStatusTag, isShippable } from "./status";
+import { OrderStatusTag, isShippable, isToShip } from "./status";
 
 function itemsSummary(o: ViewOrder): string {
   const first = o.items[0]?.title ?? "";
@@ -13,6 +14,12 @@ function itemsSummary(o: ViewOrder): string {
 }
 
 const columns: TableColumn<ViewOrder>[] = [
+  {
+    key: "select",
+    title: "Chọn",
+    render: (o) =>
+      isToShip(o) ? <OrderSelectCheckbox orderId={o.id} /> : null,
+  },
   {
     key: "id",
     title: "Mã đơn",
@@ -73,7 +80,7 @@ const columns: TableColumn<ViewOrder>[] = [
   },
 ];
 
-/** Order Table List: server-rendered; only ShipOrderButton is a client island. */
+/** Order Table List: server-rendered; ShipOrderButton and the checkbox cells are client islands. */
 export function SellerOrdersTable({ orders }: { orders: ViewOrder[] }) {
   return (
     <Table

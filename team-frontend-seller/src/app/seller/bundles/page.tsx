@@ -2,7 +2,6 @@ import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { BundleManager } from "@/features/seller/BundleManager";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
-import { getAllListings } from "@/features/seller/listingsPage";
 import { listBundlesBySeller } from "@/lib/gateway/listings";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
@@ -15,10 +14,7 @@ export default async function SellerBundlesPage() {
   if (!principal) redirectGuestToLogin("/seller/bundles");
   if (!hasScope("listing.write")) return null;
 
-  const [listings, bundles] = await Promise.all([
-    getAllListings().catch(() => []),
-    listBundlesBySeller(principal.id),
-  ]);
+  const bundles = await listBundlesBySeller(principal.id);
 
   return (
     <>
@@ -26,10 +22,7 @@ export default async function SellerBundlesPage() {
         title="Combo sản phẩm"
         description="Gộp nhiều sản phẩm thành một combo với giá ưu đãi."
       />
-      <BundleManager
-        listings={listings.map((l) => ({ id: l.id, title: l.title }))}
-        bundles={bundles}
-      />
+      <BundleManager bundles={bundles} />
     </>
   );
 }

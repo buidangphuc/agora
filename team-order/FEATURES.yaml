@@ -7391,6 +7391,935 @@ features:
     status: not-testable
     notes: "VERIFIED BY team-order migrations TestMigration0024_NoCodOrders. Not producible black box: needs a seeded database, the migration body or a transaction fault."
 
+  - id: order.slp-pages-cover-the-seller-s-orders-exactly-once
+    title: "Pages cover the seller's orders exactly once"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Pages cover the seller's orders exactly once"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Pages cover the seller's orders exactly once"
+
+  - id: order.slp-default-page-size-is-20
+    title: "Default page size is 20"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Default page size is 20"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Default page size is 20"
+
+  - id: order.slp-page-size-above-the-maximum-is-clamped
+    title: "Seller orders: Page size above the maximum is clamped"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: Page size above the maximum is clamped"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: Page size above the maximum is clamped"
+
+  - id: order.slp-a-negative-page-size-is-rejected
+    title: "A negative page size is rejected"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A negative page size is rejected"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::A negative page size is rejected"
+
+  - id: order.slp-an-unknown-cursor-is-rejected
+    title: "An unknown cursor is rejected"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "An unknown cursor is rejected"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::An unknown cursor is rejected"
+
+  - id: order.slp-a-cursor-never-reaches-another-seller-s-orders
+    title: "A cursor never reaches another seller's orders"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A cursor never reaches another seller's orders"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::A cursor never reaches another seller's orders"
+
+  - id: order.slp-a-seller-with-no-orders-gets-an-empty-page
+    title: "A seller with no orders gets an empty page"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A seller with no orders gets an empty page"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::A seller with no orders gets an empty page"
+
+  - id: order.slp-an-unauthenticated-caller-is-denied
+    title: "Seller orders: An unauthenticated caller is denied"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "An unauthenticated caller is denied"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::An unauthenticated caller is denied"
+
+  - id: order.slp-paged-latency-at-5-000-orders
+    title: "Paged latency at 5,000 orders"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Paged latency at 5,000 orders"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Paged latency at 5,000 orders"
+
+  - id: order.slp-migration-applies-and-reverts
+    title: "Migration applies and reverts"
+    persona: seller
+    priority: P1
+    summary: "Unit-verified scenario of change order-seller-list-paging (initiative seller-centre)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Migration applies and reverts"
+    tags: [order, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-order/migrations/migration_test.go` `TestMigration0026_AppliesAndReverts`. Not producible black box: needs a database migrated up and down."
+
+  - id: order.slp-one-status-tab
+    title: "One status tab"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "One status tab"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::One status tab"
+
+  - id: order.slp-several-statuses-are-or-ed
+    title: "Seller orders: Several statuses are OR-ed"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: Several statuses are OR-ed"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: Several statuses are OR-ed"
+
+  - id: order.slp-statuses-wins-over-status-filter
+    title: "statuses wins over status_filter"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "statuses wins over status_filter"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::statuses wins over status_filter"
+
+  - id: order.slp-an-unspecified-status-is-rejected
+    title: "Seller orders: An unspecified status is rejected"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: An unspecified status is rejected"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: An unspecified status is rejected"
+
+  - id: order.slp-item-title-substring
+    title: "Item title substring"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Item title substring"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Item title substring"
+
+  - id: order.slp-order-id-prefix
+    title: "Order id prefix"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Order id prefix"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Order id prefix"
+
+  - id: order.slp-query-and-status-combine
+    title: "Seller orders: Query and status combine"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: Query and status combine"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: Query and status combine"
+
+  - id: order.slp-like-wildcards-match-literally
+    title: "Seller orders: LIKE wildcards match literally"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: LIKE wildcards match literally"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: LIKE wildcards match literally"
+
+  - id: order.slp-a-query-of-exactly-100-runes-is-accepted-101-is-rejected
+    title: "Seller orders: A query of exactly 100 runes is accepted, 101 is rejected"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: A query of exactly 100 runes is accepted, 101 is rejected"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: A query of exactly 100 runes is accepted, 101 is rejected"
+
+  - id: order.slp-a-blank-query-is-ignored
+    title: "Seller orders: A blank query is ignored"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: A blank query is ignored"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: A blank query is ignored"
+
+  - id: order.slp-no-match-returns-an-empty-page
+    title: "Seller orders: No match returns an empty page"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: No match returns an empty page"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: No match returns an empty page"
+
+  - id: order.slp-another-seller-s-orders-are-never-returned
+    title: "Another seller's orders are never returned"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Another seller's orders are never returned"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Another seller's orders are never returned"
+
+  - id: order.slp-the-query-text-is-not-logged
+    title: "Seller orders: The query text is not logged"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Seller orders: The query text is not logged"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Seller orders: The query text is not logged"
+
+  - id: order.slp-counts-ignore-the-selected-tab
+    title: "Counts ignore the selected tab"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Counts ignore the selected tab"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Counts ignore the selected tab"
+
+  - id: order.slp-counts-never-include-another-seller-s-orders
+    title: "Counts never include another seller's orders"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Counts never include another seller's orders"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Counts never include another seller's orders"
+
+  - id: order.slp-a-rejected-request-returns-no-counts
+    title: "A rejected request returns no counts"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "A rejected request returns no counts"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::A rejected request returns no counts"
+
+  - id: order.slp-counts-follow-the-query
+    title: "Counts follow the query"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Counts follow the query"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Counts follow the query"
+
+  - id: order.slp-legacy-call-returns-the-full-list
+    title: "Legacy call returns the full list"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Legacy call returns the full list"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Legacy call returns the full list"
+
+  - id: order.slp-legacy-call-without-any-field
+    title: "Legacy call without any field"
+    persona: seller
+    priority: P1
+    summary: "ListSellerOrders keyset paging, status tabs, search and counts (change order-seller-list-paging, initiative seller-centre)."
+    entry_route: /
+    services: [team-order, team-gateway, team-identity, team-domain, team-payment]
+    api:
+      exercised: [order.v1.ListSellerOrders, order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+    acceptance:
+      - "Legacy call without any field"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/seller_list_paging.feature::Legacy call without any field"
+
+  - id: order.obc-adding-a-bundle-creates-one-tagged-line-per-listing
+    title: "Adding a bundle creates one tagged line per listing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer calls `AddBundleToCart` for a published bundle of listings priced 100000 and 50000 with bundle price 120000 and quantity 1"
+      - "Then the returned cart holds two lines tagged with the bundle id whose `bundle_discount` values are 20000 and 10000 respectively"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::Adding a bundle creates one tagged line per listing"
+    notes: "e2e: order/bundle_checkout.feature::Adding a bundle creates one tagged line per listing"
+
+  - id: order.obc-the-discount-is-allocated-exactly-with-the-remainder-on-the-last-line
+    title: "The discount is allocated exactly with the remainder on the last line"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer calls `AddBundleToCart` with quantity 3 for a bundle whose discount per combo is 10000 over three listings priced 10000, 10000 and 10000"
+      - "Then the three `bundle_discount` values sum to exactly 30000 and `Cart.bundle_discount_total` equals 30000"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::The discount is allocated exactly with the remainder on the last line"
+    notes: "e2e: order/bundle_checkout.feature::The discount is allocated exactly with the remainder on the last line"
+
+  - id: order.obc-adding-the-same-bundle-again-increases-every-line
+    title: "Adding the same bundle again increases every line"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer who already has bundle B in the cart at quantity 1 calls `AddBundleToCart` for B with quantity 2"
+      - "Then every line of B has quantity 3 and `Cart.bundle_discount_total` equals three times the per-combo discount"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::Adding the same bundle again increases every line"
+    notes: "e2e: order/bundle_checkout.feature::Adding the same bundle again increases every line"
+
+  - id: order.obc-a-bundle-line-stays-separate-from-a-plain-line-of-the-same-listing
+    title: "A bundle line stays separate from a plain line of the same listing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer who has listing X as a plain line adds a bundle that contains X"
+      - "Then the cart holds a plain line for X and a bundle-tagged line for X, and the plain line keeps its quantity and price"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A bundle line stays separate from a plain line of the same listing"
+    notes: "e2e: order/bundle_checkout.feature::A bundle line stays separate from a plain line of the same listing"
+
+  - id: order.obc-an-unknown-bundle-is-rejected
+    title: "An unknown bundle is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer calls `AddBundleToCart` with a bundle id that does not exist"
+      - "Then the call fails with NOT_FOUND and the cart is unchanged"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::An unknown bundle is rejected"
+    notes: "e2e: order/bundle_checkout.feature::An unknown bundle is rejected"
+
+  - id: order.obc-a-quantity-out-of-range-is-rejected
+    title: "A quantity out of range is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer calls `AddBundleToCart` with quantity 0, and again with quantity 100"
+      - "Then both calls fail with INVALID_ARGUMENT and the cart is unchanged"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A quantity out of range is rejected"
+    notes: "e2e: order/bundle_checkout.feature::A quantity out of range is rejected"
+
+  - id: order.obc-a-bundle-with-an-unavailable-listing-is-refused
+    title: "A bundle with an unavailable listing is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer calls `AddBundleToCart` for a bundle in which one listing is unpublished, or out of stock for the requested quantity, or not owned by the bundle seller"
+      - "Then each call fails with FAILED_PRECONDITION and no line is added to the cart"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A bundle with an unavailable listing is refused"
+    notes: "e2e: order/bundle_checkout.feature::A bundle with an unavailable listing is refused"
+
+  - id: order.obc-a-bundle-with-a-variant-listing-is-refused
+    title: "A bundle with a variant listing is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer calls `AddBundleToCart` for an existing bundle that contains a listing with variants"
+      - "Then the call fails with FAILED_PRECONDITION and no line is added to the cart"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A bundle with a variant listing is refused"
+    notes: "e2e: order/bundle_checkout.feature::A bundle with a variant listing is refused"
+
+  - id: order.obc-a-bundle-priced-at-or-above-the-sum-of-its-listings-is-refused
+    title: "A bundle priced at or above the sum of its listings is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer calls `AddBundleToCart` for a bundle whose price is not below the sum of its current listing prices"
+      - "Then the call fails with FAILED_PRECONDITION and no line is added to the cart"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A bundle priced at or above the sum of its listings is refused"
+    notes: "e2e: order/bundle_checkout.feature::A bundle priced at or above the sum of its listings is refused"
+
+  - id: order.obc-an-unauthenticated-caller-is-rejected
+    title: "An unauthenticated caller is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a caller without a session calls `AddBundleToCart` through the gateway"
+      - "Then the call fails with UNAUTHENTICATED and no cart is read or written"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::An unauthenticated caller is rejected"
+    notes: "e2e: order/bundle_checkout.feature::An unauthenticated caller is rejected"
+
+  - id: order.obc-the-cart-of-another-buyer-is-never-touched
+    title: "The cart of another buyer is never touched"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When buyer A adds a bundle and buyer B then calls `GetCart`"
+      - "Then buyer B's cart holds no line tagged with that bundle id"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::The cart of another buyer is never touched"
+    notes: "e2e: order/bundle_checkout.feature::The cart of another buyer is never touched"
+
+  - id: order.obc-changing-one-line-quantity-drops-the-tag-from-all-lines
+    title: "Changing one line quantity drops the tag from all lines"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer with bundle B in the cart calls `UpdateCartItem` on one of its lines with a different quantity"
+      - "Then no line of B keeps a `bundle_id` or `bundle_discount` and `Cart.bundle_discount_total` is 0"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::Changing one line quantity drops the tag from all lines"
+    notes: "e2e: order/bundle_checkout.feature::Changing one line quantity drops the tag from all lines"
+
+  - id: order.obc-removing-one-line-drops-the-tag-from-the-others
+    title: "Removing one line drops the tag from the others"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer with bundle B in the cart calls `RemoveFromCart` on one of its lines"
+      - "Then the removed line is gone, the remaining lines of B are plain lines at regular prices and `Cart.bundle_discount_total` is 0"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::Removing one line drops the tag from the others"
+    notes: "e2e: order/bundle_checkout.feature::Removing one line drops the tag from the others"
+
+  - id: order.obc-a-dropped-line-merges-into-the-plain-line-of-the-same-listing
+    title: "A dropped line merges into the plain line of the same listing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer has a plain line of listing X at quantity 1 and a bundle line of X at quantity 2, then changes the quantity of another line of that bundle"
+      - "Then the cart holds one line for X with quantity 3 and no bundle tag"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A dropped line merges into the plain line of the same listing"
+    notes: "e2e: order/bundle_checkout.feature::A dropped line merges into the plain line of the same listing"
+
+  - id: order.obc-another-buyer-s-bundle-line-cannot-be-changed
+    title: "Another buyer's bundle line cannot be changed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When buyer B calls `UpdateCartItem` or `RemoveFromCart` with the id of a bundle line in buyer A's cart"
+      - "Then the call fails with NOT_FOUND and buyer A's bundle tag is unchanged"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::Another buyer's bundle line cannot be changed"
+    notes: "e2e: order/bundle_checkout.feature::Another buyer's bundle line cannot be changed"
+
+  - id: order.obc-the-order-total-reflects-the-bundle-price
+    title: "The order total reflects the bundle price"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer checks out a cart holding only a valid two-listing bundle (prices 100000 and 50000, bundle price 120000, quantity 1) with a shipping fee of 0"
+      - "Then the order `total_amount` is 120000 and `PreviewCheckout` returned the same items subtotal of 120000"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::The order total reflects the bundle price"
+    notes: "e2e: order/bundle_checkout.feature::The order total reflects the bundle price"
+
+  - id: order.obc-the-seller-s-order-shows-the-bundle-on-its-lines
+    title: "The seller's order shows the bundle on its lines"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When the seller of a bundle order calls `GetOrder` for that order"
+      - "Then every item carries the bundle id and a `bundle_discount` summing to 30000"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::The seller's order shows the bundle on its lines"
+    notes: "e2e: order/bundle_checkout.feature::The seller's order shows the bundle on its lines"
+
+  - id: order.obc-a-bundle-that-became-invalid-is-untagged-before-payment
+    title: "A bundle that became invalid is untagged before payment"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a listing of the bundle is unpublished after the buyer added it and the buyer calls `PreviewCheckout`"
+      - "Then the call fails with the price-changed error, the cart lines of the bundle are plain at regular prices, and no stock or voucher reservation exists"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A bundle that became invalid is untagged before payment"
+    notes: "e2e: order/bundle_checkout.feature::A bundle that became invalid is untagged before payment"
+
+  - id: order.obc-a-changed-bundle-price-is-untagged-at-checkout
+    title: "A changed bundle price is untagged at checkout"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When the seller changes the listing prices so the recomputed discount differs from the stored one and the buyer calls `CreateOrder`"
+      - "Then the call fails with the price-changed error and no order is created"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A changed bundle price is untagged at checkout"
+    notes: "e2e: order/bundle_checkout.feature::A changed bundle price is untagged at checkout"
+
+  - id: order.obc-checking-out-only-part-of-a-bundle-drops-the-discount
+    title: "Checking out only part of a bundle drops the discount"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer selects only one line of a two-line bundle for `CreateOrder`"
+      - "Then the call fails with the price-changed error and both lines of the bundle are plain lines at regular prices"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::Checking out only part of a bundle drops the discount"
+    notes: "e2e: order/bundle_checkout.feature::Checking out only part of a bundle drops the discount"
+
+  - id: order.obc-a-seller-cannot-check-out-their-own-bundle
+    title: "A seller cannot check out their own bundle"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When the seller of a bundle adds it to their own cart and calls `CreateOrder`"
+      - "Then the call fails with the existing self-purchase error and no order is created"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A seller cannot check out their own bundle"
+    notes: "e2e: order/bundle_checkout.feature::A seller cannot check out their own bundle"
+
+  - id: order.obc-a-return-refunds-the-allocated-bundle-price
+    title: "A return refunds the allocated bundle price"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When the buyer requests a return without an amount on a paid bundle order with `total_amount` 120000"
+      - "Then the return `refund_amount` is 120000 and a request above 120000 fails with INVALID_ARGUMENT"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A return refunds the allocated bundle price"
+    notes: "e2e: order/bundle_checkout.feature::A return refunds the allocated bundle price"
+
+  - id: order.obc-a-plain-cart-is-priced-as-before
+    title: "A plain cart is priced as before"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-bundle-checkout (initiative seller-centre), written red before the code."
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listings, bundle and buyers through the gateway."
+    api:
+      seed: [listing.v1.CreateListing, listing.v1.CreateBundle]
+      exercised: [order.v1.AddBundleToCart, order.v1.GetCart]
+    acceptance:
+      - "When a buyer with no bundle lines adds a listing with `AddToCart` and calls `PreviewCheckout`"
+      - "Then `Cart.bundle_discount_total` is 0, the subtotal equals `unit_price * quantity` and the preview totals equal those of the previous release"
+    tags: [order, seller-centre]
+    status: automated
+    covered_by: "order/bundle_checkout.feature::A plain cart is priced as before"
+    notes: "e2e: order/bundle_checkout.feature::A plain cart is priced as before"
+
+  - id: order.obc-re-running-the-migration-changes-nothing
+    title: "Re-running the migration changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change order-bundle-checkout (initiative seller-centre)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Re-running the migration changes nothing"
+    tags: [order, seller-centre, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-order/migrations/migration_0025_test.go` `TestBundleLinesMigrationIdempotent`. Not producible black box: needs a seeded database and the migration body."
+
   - id: order.obl-1-open-orders-and-returns-are-counted
     title: "OBL-1 Open orders and returns are counted"
     persona: buyer

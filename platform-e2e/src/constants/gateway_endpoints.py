@@ -43,6 +43,7 @@ LISTING_CATEGORIES = "/platform.listing.v1.ListingService/ListCategories"
 LISTING_RESERVE_STOCK = "/platform.listing.v1.ListingService/ReserveStock"
 LISTING_RELEASE_STOCK = "/platform.listing.v1.ListingService/ReleaseStock"
 LISTING_UPSERT_STOREFRONT = "/platform.listing.v1.ListingService/UpsertStorefront"
+LISTING_GET_IMAGE_UPLOAD_URL = "/platform.listing.v1.ListingService/GetImageUploadUrl"
 LISTING_GET_STOREFRONT = "/platform.listing.v1.ListingService/GetStorefront"
 LISTING_BATCH_GET_STOREFRONTS = "/platform.listing.v1.ListingService/BatchGetStorefronts"
 

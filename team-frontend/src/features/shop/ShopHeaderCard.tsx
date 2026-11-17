@@ -9,6 +9,7 @@ import { ShopRatingSummary } from "@/features/review/ShopRatingSummary";
 import type { ViewStorefront } from "@/lib/gateway/listings";
 import type { ViewShopRatingSummary } from "@/lib/gateway/reviews";
 import { shopLabel } from "@/lib/gateway/shops";
+import { resolveShopTheme } from "./shopTheme";
 
 /**
  * One shop header for the product page (`compact`) and the storefront
@@ -63,8 +64,9 @@ export function ShopHeaderCard({
   }
 
   const rated = summary.reviewCount > 0;
+  const theme = resolveShopTheme(storefront?.theme);
   return (
-    <Card data-testid="shop-header-card">
+    <Card data-testid="shop-header-card" data-theme={theme.key}>
       {storefront?.bannerUrl && (
         <Image
           src={storefront.bannerUrl}
@@ -74,11 +76,15 @@ export function ShopHeaderCard({
           radius="none"
         />
       )}
-      {storefront?.tagline && (
-        <p className="border-b border-border-subtle px-5 py-3 text-sm font-medium text-text-primary">
-          {storefront.tagline}
-        </p>
-      )}
+      <div
+        data-testid="shop-header-strip"
+        aria-hidden={storefront?.tagline ? undefined : true}
+        className={`border-b border-border-subtle ${theme.headerBg} ${theme.headerText} ${storefront?.tagline ? "px-5 py-3" : "h-2"}`}
+      >
+        {storefront?.tagline && (
+          <p className="text-sm font-medium">{storefront.tagline}</p>
+        )}
+      </div>
       <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-12 md:items-center">
         <div className="flex min-w-0 items-center gap-4 md:col-span-5">
           <Avatar name={name} size="xl" />

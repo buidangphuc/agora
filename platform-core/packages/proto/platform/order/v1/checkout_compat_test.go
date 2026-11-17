@@ -548,6 +548,7 @@ func TestCheckoutContract_ExistingOrderMessagesAreUntouched(t *testing.T) {
 		{"OrderItem", []wf{
 			str("id", 1), str("listing_id", 2), str("variant_id", 3), str("title", 4), str("variant_name", 5),
 			i32("quantity", 6), i64("unit_price", 7), str("image_url", 8),
+			str("bundle_id", 9), i64("bundle_discount", 10),
 		}},
 		{"GetOrderRequest", []wf{str("id", 1)}},
 		{"ListBuyerOrdersRequest", []wf{enm("status_filter", 1, orderPkg+"OrderStatus")}},

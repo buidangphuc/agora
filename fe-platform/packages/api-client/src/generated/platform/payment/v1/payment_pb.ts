@@ -691,6 +691,92 @@ export class WalletTransaction extends Message<WalletTransaction> {
 }
 
 /**
+ * @generated from message platform.payment.v1.GetPayoutObligationsRequest
+ */
+export class GetPayoutObligationsRequest extends Message<GetPayoutObligationsRequest> {
+  /**
+   * @generated from field: string user_id = 1;
+   */
+  userId = "";
+
+  constructor(data?: PartialMessage<GetPayoutObligationsRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.payment.v1.GetPayoutObligationsRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetPayoutObligationsRequest {
+    return new GetPayoutObligationsRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetPayoutObligationsRequest {
+    return new GetPayoutObligationsRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetPayoutObligationsRequest {
+    return new GetPayoutObligationsRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetPayoutObligationsRequest | PlainMessage<GetPayoutObligationsRequest> | undefined, b: GetPayoutObligationsRequest | PlainMessage<GetPayoutObligationsRequest> | undefined): boolean {
+    return proto3.util.equals(GetPayoutObligationsRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.payment.v1.GetPayoutObligationsResponse
+ */
+export class GetPayoutObligationsResponse extends Message<GetPayoutObligationsResponse> {
+  /**
+   * @generated from field: int64 available_balance = 1;
+   */
+  availableBalance = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 held_balance = 2;
+   */
+  heldBalance = protoInt64.zero;
+
+  /**
+   * @generated from field: int32 pending_payouts = 3;
+   */
+  pendingPayouts = 0;
+
+  constructor(data?: PartialMessage<GetPayoutObligationsResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.payment.v1.GetPayoutObligationsResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "available_balance", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 2, name: "held_balance", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "pending_payouts", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetPayoutObligationsResponse {
+    return new GetPayoutObligationsResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetPayoutObligationsResponse {
+    return new GetPayoutObligationsResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetPayoutObligationsResponse {
+    return new GetPayoutObligationsResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetPayoutObligationsResponse | PlainMessage<GetPayoutObligationsResponse> | undefined, b: GetPayoutObligationsResponse | PlainMessage<GetPayoutObligationsResponse> | undefined): boolean {
+    return proto3.util.equals(GetPayoutObligationsResponse, a, b);
+  }
+}
+
+/**
  * A single wallet ledger movement (settlement, payout, refund, etc.).
  *
  * @generated from message platform.payment.v1.WalletEntry

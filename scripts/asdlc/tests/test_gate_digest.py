@@ -113,3 +113,39 @@ def test_pytest_without_paths_is_error(monkeypatch):
     monkeypatch.setattr(g, "run", fake_run("", rc=0))
     res = g.pytest(argparse.Namespace(dir=".", rest=[]))
     assert res["verdict"] == "error"
+
+
+# ------------------------------------------------------------- python resolution
+def _venv(root):
+    p = root / "platform-e2e/.venv/bin/python"
+    p.parent.mkdir(parents=True)
+    p.write_text("")
+    return p
+
+
+def test_py_prefers_gate_python(monkeypatch, tmp_path):
+    monkeypatch.setenv("GATE_PYTHON", "/x/python")
+    assert g.py() == "/x/python"
+
+
+def test_py_uses_the_worktree_venv_when_present(monkeypatch, tmp_path):
+    monkeypatch.delenv("GATE_PYTHON", raising=False)
+    own = _venv(tmp_path / "wt")
+    monkeypatch.setattr(g, "ROOT", tmp_path / "wt")
+    monkeypatch.setattr(g, "main_checkout", lambda root=None: tmp_path / "main")
+    assert g.py() == str(own)
+
+
+def test_py_falls_back_to_the_main_checkout_venv(monkeypatch, tmp_path):
+    monkeypatch.delenv("GATE_PYTHON", raising=False)
+    main = _venv(tmp_path / "main")
+    (tmp_path / "wt").mkdir()
+    monkeypatch.setattr(g, "ROOT", tmp_path / "wt")
+    monkeypatch.setattr(g, "main_checkout", lambda root=None: tmp_path / "main")
+    assert g.py() == str(main)
+
+
+def test_main_checkout_is_the_parent_of_the_common_git_dir(tmp_path):
+    import subprocess
+    subprocess.run(["git", "init", "-q", str(tmp_path / "repo")], check=True)
+    assert g.main_checkout(tmp_path / "repo").resolve() == (tmp_path / "repo").resolve()

@@ -434,6 +434,11 @@ func TestMigration0023_BackfilledOrderCancelledLaterIsSubtractedOnce(t *testing.
 	m.line("o1", "L", 2)
 	m.runUp()
 	m.wantSold("L", 2)
+	body, err := fs.ReadFile(migrations.FS, "0025_bundle_lines.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.exec(string(body))
 
 	ob, err := outbox.NewStore(m.pool, "order_outbox_events")
 	if err != nil {
@@ -471,5 +476,95 @@ func TestMigration0023_BackfilledOrderCancelledLaterIsSubtractedOnce(t *testing.
 	m.wantSold("L", 0)
 	if n := m.count(`SELECT count(*) FROM order_outbox_events WHERE event_type = $1 AND aggregate_id = 'L'`, salesEventType); n != 2 {
 		t.Fatalf("%d ListingSalesChanged rows for L (backfill and cancel), want 2", n)
+	}
+}
+
+const (
+	sellerIdxUp   = "0026_orders_seller_status_created_idx.up.sql"
+	sellerIdxDown = "0026_orders_seller_status_created_idx.down.sql"
+)
+
+func newMigDB0026(t *testing.T) *mdb {
+	t.Helper()
+	dsn := testkit.Schema(t, testkit.SharedPostgres(t))
+	pool, err := pgxpool.New(t.Context(), dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	before := fstest.MapFS{}
+	entries, err := fs.ReadDir(migrations.FS, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() >= "0026" {
+			continue
+		}
+		b, err := fs.ReadFile(migrations.FS, e.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		before[e.Name()] = &fstest.MapFile{Data: b}
+	}
+	if err := migrate.Up(t.Context(), dsn, before); err != nil {
+		t.Fatalf("migrate to 0025: %v", err)
+	}
+	return &mdb{t: t, ctx: context.Background(), pool: pool}
+}
+
+func (m *mdb) applyFile(name string) {
+	m.t.Helper()
+	b, err := os.ReadFile(name)
+	if err != nil {
+		m.t.Fatalf("read %s: %v", name, err)
+	}
+	if _, err := m.pool.Exec(m.ctx, string(b)); err != nil {
+		m.t.Fatalf("apply %s: %v", name, err)
+	}
+}
+
+func (m *mdb) sellerStatusIndexes() int {
+	m.t.Helper()
+	return m.count(`SELECT count(*) FROM pg_indexes WHERE tablename = 'orders'
+		AND replace(indexdef, '  ', ' ') LIKE '%(seller_id, status, created_at DESC, id DESC)%'`)
+}
+
+func (m *mdb) ordersFingerprint() string {
+	m.t.Helper()
+	var fp string
+	if err := m.pool.QueryRow(m.ctx, `SELECT coalesce(md5(string_agg(o::text, '|' ORDER BY id)), '') FROM orders o`).Scan(&fp); err != nil {
+		m.t.Fatal(err)
+	}
+	return fp
+}
+
+func TestMigration0026_AppliesAndReverts(t *testing.T) {
+	m := newMigDB0026(t)
+	m.order("o1", stPaid, mMomo, true)
+	m.order("o2", stShipped, mCOD, false)
+	m.line("o1", "L", 1)
+	before := m.ordersFingerprint()
+	if n := m.sellerStatusIndexes(); n != 0 {
+		t.Fatalf("index exists before 0026: %d", n)
+	}
+
+	m.applyFile(sellerIdxUp)
+	if n := m.sellerStatusIndexes(); n != 1 {
+		t.Fatalf("seller/status/created_at/id index count after up = %d, want 1", n)
+	}
+	if got := m.ordersFingerprint(); got != before {
+		t.Fatal("order rows changed by the up migration")
+	}
+
+	m.applyFile(sellerIdxDown)
+	if n := m.sellerStatusIndexes(); n != 0 {
+		t.Fatalf("index count after down = %d, want 0", n)
+	}
+	if got := m.ordersFingerprint(); got != before {
+		t.Fatal("order rows changed by the down migration")
+	}
+	if n := m.count(`SELECT count(*) FROM orders`); n != 2 {
+		t.Fatalf("orders = %d, want 2", n)
 	}
 }

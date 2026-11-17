@@ -2,10 +2,13 @@ package rpc
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -17,6 +20,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/flags"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
+	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
@@ -379,15 +383,86 @@ func (h *OrderHandler) ListSellerOrders(ctx context.Context, req *orderv1.ListSe
 	if err != nil {
 		return nil, err
 	}
-	orders, err := h.svc.ListSellerOrders(ctx, principal.ID, int32(req.GetStatusFilter()))
+	f, err := sellerOrdersFilter(req)
+	if err != nil {
+		return nil, err
+	}
+	res, err := h.svc.ListSellerOrders(ctx, principal.ID, f)
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
-	wireOrders := make([]*orderv1.Order, 0, len(orders))
-	for _, o := range orders {
+	wireOrders := make([]*orderv1.Order, 0, len(res.Orders))
+	for _, o := range res.Orders {
 		wireOrders = append(wireOrders, toWireOrder(o))
 	}
-	return &orderv1.ListSellerOrdersResponse{Orders: wireOrders}, nil
+	out := &orderv1.ListSellerOrdersResponse{Orders: wireOrders}
+	out.Page = &commonv1.PageResponse{Total: res.Total}
+	if res.Next != nil {
+		out.Page.NextCursor = encodeSellerCursor(*res.Next)
+	}
+	out.StatusCounts = make([]*orderv1.OrderStatusCount, 0, len(res.Counts))
+	for _, c := range res.Counts {
+		out.StatusCounts = append(out.StatusCounts, &orderv1.OrderStatusCount{Status: orderv1.OrderStatus(c.Status), Count: c.Count})
+	}
+	return out, nil
+}
+
+const maxSellerOrdersQueryRunes = 100
+
+type sellerCursorWire struct {
+	T  int64  `json:"t"`
+	ID string `json:"id"`
+}
+
+func encodeSellerCursor(c store.SellerOrdersCursor) string {
+	b, _ := json.Marshal(sellerCursorWire{T: c.CreatedAt.UnixNano(), ID: c.ID})
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func decodeSellerCursor(s string) (*store.SellerOrdersCursor, error) {
+	b, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(s, "="))
+	if err != nil {
+		return nil, errors.New("invalid cursor")
+	}
+	var w sellerCursorWire
+	if err := json.Unmarshal(b, &w); err != nil || w.ID == "" {
+		return nil, errors.New("invalid cursor")
+	}
+	return &store.SellerOrdersCursor{CreatedAt: time.Unix(0, w.T).UTC(), ID: w.ID}, nil
+}
+
+func sellerOrdersFilter(req *orderv1.ListSellerOrdersRequest) (store.SellerOrdersFilter, error) {
+	var f store.SellerOrdersFilter
+	q := strings.TrimSpace(req.GetQuery())
+	if utf8.RuneCountInString(q) > maxSellerOrdersQueryRunes {
+		return f, status.Error(codes.InvalidArgument, "query is too long")
+	}
+	f.Query = q
+	if sts := req.GetStatuses(); len(sts) > 0 {
+		for _, st := range sts {
+			if st == orderv1.OrderStatus_ORDER_STATUS_UNSPECIFIED {
+				return f, status.Error(codes.InvalidArgument, "status must be specified")
+			}
+			f.Statuses = append(f.Statuses, store.OrderStatus(st))
+		}
+	} else if req.GetStatusFilter() > 0 {
+		f.Statuses = []store.OrderStatus{store.OrderStatus(req.GetStatusFilter())}
+	}
+	if pg := req.GetPage(); pg != nil {
+		if pg.GetPageSize() < 0 {
+			return f, status.Error(codes.InvalidArgument, "page size must not be negative")
+		}
+		f.Paged = true
+		f.PageSize = pg.GetPageSize()
+		if pg.GetCursor() != "" {
+			c, err := decodeSellerCursor(pg.GetCursor())
+			if err != nil {
+				return f, status.Error(codes.InvalidArgument, "invalid cursor")
+			}
+			f.Cursor = c
+		}
+	}
+	return f, nil
 }
 
 func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.UpdateOrderStatusRequest) (*orderv1.UpdateOrderStatusResponse, error) {
@@ -890,6 +965,9 @@ func toWireOrder(o store.Order) *orderv1.Order {
 			Quantity:    it.Quantity,
 			UnitPrice:   it.UnitPrice,
 			ImageUrl:    it.ImageURL,
+
+			BundleId:       it.BundleID,
+			BundleDiscount: it.BundleDiscount,
 		})
 	}
 

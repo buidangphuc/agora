@@ -86,6 +86,7 @@ export default async function CartPage(props: {
         checkoutEnabled={checkoutEnabled}
         discount={discount}
         voucherCode={applied}
+        bundleDiscount={cart.bundleDiscountTotal}
       >
         <CartGroups groups={groups} />
         <VoucherModal

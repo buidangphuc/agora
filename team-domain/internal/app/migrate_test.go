@@ -68,8 +68,8 @@ func TestMigrateUpSubcommandAppliesSchema(t *testing.T) {
 		t.Fatalf("server migrate up with only ENV and DATABASE_URL: %v\n%s", err, out)
 	}
 	want := embeddedMigrationCount(t)
-	if want != 16 {
-		t.Fatalf("embedded migrations = %d, want 16", want)
+	if want != 17 {
+		t.Fatalf("embedded migrations = %d, want 17", want)
 	}
 	if v, dirty := schemaVersion(t, url); dirty || v != want {
 		t.Fatalf("schema version = %d dirty=%v, want %d clean", v, dirty, want)

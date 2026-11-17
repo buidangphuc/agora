@@ -5,20 +5,15 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Checkbox } from "@/components/ui/Checkbox";
 import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { Table, type TableColumn } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ViewBundle } from "@/lib/gateway/listings";
+import { ListingPicker } from "./ListingPicker";
 import { createBundleAction } from "./actions";
 import { usePending } from "./usePending";
-
-interface SellerListingOption {
-  id: string;
-  title: string;
-}
 
 type Field = "title" | "items" | "price";
 
@@ -57,13 +52,7 @@ const bundleColumns: TableColumn<ViewBundle>[] = [
  * create a combo. The list comes from the server (`bundles`), so it refreshes
  * through revalidatePath after a successful create.
  */
-export function BundleManager({
-  listings,
-  bundles,
-}: {
-  listings: SellerListingOption[];
-  bundles: ViewBundle[];
-}) {
+export function BundleManager({ bundles }: { bundles: ViewBundle[] }) {
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -136,23 +125,10 @@ export function BundleManager({
                 status={shown("items") ? "error" : undefined}
                 help={shown("items")}
               >
-                {listings.length === 0 ? (
-                  <p className="text-sm text-text-secondary">
-                    Shop chưa có sản phẩm nào.
-                  </p>
-                ) : (
-                  <ul className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-border-subtle p-3">
-                    {listings.map((l) => (
-                      <li key={l.id}>
-                        <Checkbox
-                          label={l.title}
-                          checked={selected.includes(l.id)}
-                          onCheckedChange={() => toggle(l.id)}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ListingPicker
+                  selectedIds={selected}
+                  onToggle={(l) => toggle(l.id)}
+                />
               </FormItem>
             </fieldset>
             {error && <Alert type="error" description={error} />}

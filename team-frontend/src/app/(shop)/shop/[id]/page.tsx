@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 
 import { Tag } from "@/components/ui/Tag";
 import { parseSort } from "@/features/listing/pdp";
+import { BundleCard } from "@/features/shop/BundleCard";
 import { ShopStorefrontView } from "@/features/shop/ShopStorefrontView";
 import { isFollowing } from "@/lib/gateway/engagement";
-import { listBundlesBySeller } from "@/lib/gateway/listings";
+import { getListing, listBundlesBySeller } from "@/lib/gateway/listings";
 import { getShopRatingSummary } from "@/lib/gateway/reviews";
 import { searchListings } from "@/lib/gateway/search";
 import { getPrincipal } from "@/lib/gateway/session";
@@ -49,6 +50,14 @@ export default async function ShopPage(props: {
     ]);
   const verified = badges.get(params.id) === true;
 
+  const listed = new Set(shop.items.map((l) => l.id));
+  const missing = [...new Set(storefront?.featuredListingIds ?? [])].filter(
+    (id) => !listed.has(id),
+  );
+  const fetchedFeatured = (
+    await Promise.all(missing.map((id) => getListing(id).catch(() => null)))
+  ).filter((l) => l !== null);
+
   return (
     <section className="py-2">
       {verified && <Tag color="success">Đã xác minh</Tag>}
@@ -60,6 +69,7 @@ export default async function ShopPage(props: {
         storefront={storefront}
         summary={summary}
         sort={parseSort(searchParams.sort)}
+        fetchedFeatured={fetchedFeatured}
       />
 
       {/* ── Bundles / combos offered by this shop ── */}
@@ -70,18 +80,12 @@ export default async function ShopPage(props: {
           </h2>
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {bundles.map((b) => (
-              <li
+              <BundleCard
                 key={b.id}
-                className="rounded-xs border border-border-subtle p-3 text-xs"
-              >
-                <p className="font-semibold text-text-primary">{b.title}</p>
-                <p className="mt-0.5 text-text-disabled">
-                  {b.listingIds.length} sản phẩm
-                </p>
-                <p className="mt-1 font-bold text-action-primary">
-                  {b.bundlePrice.toLocaleString("vi-VN")} VND
-                </p>
-              </li>
+                bundle={b}
+                shopListings={shop.items}
+                shopId={params.id}
+              />
             ))}
           </ul>
         </div>
