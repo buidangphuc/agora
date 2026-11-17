@@ -76,7 +76,7 @@ platform-e2e/         56 e2e files: features, steps, recsys/forecast fixtures
 
 | check | result | evidence |
 |---|---|---|
-| ci_local specs (after archive, 2026-11-17) | pass | spec_sync --strict on all 10 archived changes ("e2e-ready to archive"), cross_change_check OK (resolves `openspec/changes/archive/<date>-<slice>`) |
+| ci_local specs (after archive, 2026-11-17) | pass | spec_sync --strict on all 10 archived changes ("e2e-ready to archive"), cross_change_check OK with the tooling PR's checker (`a4bda1148`) |
 | openspec validate --specs --strict (after archive) | pass for this branch | 154 passed, 53 failed; all 53 are main specs with the placeholder Purpose already on origin/main, none of the 15 capabilities this branch touches |
 | ci_local specs | pass | openspec validate --strict, spec_lint (warnings only), spec_sync, cross_change_check |
 | ci_local features | pass | `make -C platform-e2e features-check` |
@@ -115,7 +115,7 @@ Additive proto fields and RPCs (buf breaking passes), new optional env vars with
 - Assistant reply streaming route `POST /api/assistant/stream` is removed from team-frontend.
 - The three apps re-vendor `fe-platform-api-client.tgz`; a stale tarball breaks their build.
 - Hot file shared with the seller-centre / trust-legal PRs: `docker-compose.services.yaml`.
-- `openspec/specs/**`: no capability directory this branch touches is touched by the seller-centre, monetization or trust-legal branches, so the archive adds no spec merge conflict. `scripts/asdlc/cross_change_check.py` and its test carry the same content as dc30a7b5d on `asdlc/seller-centre` (the archive-dir resolver), so they merge cleanly either way. Trial merges still conflict on FEATURES.yaml, READMEs, `package-lock.json` and the vendored api-client tarball (pre-existing, not from the archive).
+- `openspec/specs/**`: no capability directory this branch touches is touched by the seller-centre, monetization or trust-legal branches, so the archive adds no spec merge conflict. The archive-dir resolver for `cross_change_check.py` moved to the tooling PR (`a4bda1148`); this branch no longer edits it. Trial merges still conflict on FEATURES.yaml, READMEs, `package-lock.json` and the vendored api-client tarball (pre-existing, not from the archive).
 - `scripts/asdlc/red_first.sh`, `scripts/devenv/agora_env.py` and `.github/workflows/services-ci.yml` are back to `origin/main` on this branch; their changes ship in the tooling PR.
 
 **Merge order:** `chore/asdlc-tooling` first, then this PR. Until the tooling PR lands: the services-ci platform-forecast job does not exist (`openspec/changes/archive/2026-11-17-forecast-nightly-job` task 1.8 and `openspec/specs/demand-forecast-job` still name it), `flipt_flow.py` falls back to container `agora-flipt-1` without the `FLIPT_CONTAINER` export, red_first can hit unauthenticated BSR rate limits, and the two tdd rows above stay red.
