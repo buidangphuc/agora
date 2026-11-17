@@ -1,7 +1,7 @@
 # [W2-T3] buyer-sponsored-slots
 
 ## Role
-feature-run worker (change `openspec/changes/buyer-sponsored-slots`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-buyer-sponsored-slots`)
 
 ## Objective
 Implement OpenSpec change `buyer-sponsored-slots` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).
@@ -26,7 +26,7 @@ Implement OpenSpec change `buyer-sponsored-slots` test-first per its tasks.md; c
 - platform-e2e/tests/e2e/support/buyer_sponsored_slots_support.py
 - platform-e2e/tests/e2e/step_definitions/test_buyer_sponsored_slots.py
 - widened (P1):
-  - openspec/changes/buyer-sponsored-slots/tasks.md — this change's own OpenSpec folder (task ticks)
+  - openspec/changes/archive/2026-11-17-buyer-sponsored-slots/tasks.md — this change's own OpenSpec folder (task ticks)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend`

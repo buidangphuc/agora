@@ -1,7 +1,7 @@
 # [W4-T1] seller-ads-ui
 
 ## Role
-feature-run worker (change `openspec/changes/seller-ads-ui`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-ads-ui`)
 
 ## Objective
 Implement OpenSpec change `seller-ads-ui` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).

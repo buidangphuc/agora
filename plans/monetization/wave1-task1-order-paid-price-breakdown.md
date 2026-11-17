@@ -1,7 +1,7 @@
 # [W1-T1] order-paid-price-breakdown
 
 ## Role
-feature-run worker (change `openspec/changes/order-paid-price-breakdown`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-order-paid-price-breakdown`)
 
 ## Objective
 Implement OpenSpec change `order-paid-price-breakdown` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).

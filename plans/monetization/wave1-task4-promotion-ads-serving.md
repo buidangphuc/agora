@@ -1,7 +1,7 @@
 # [W1-T4] promotion-ads-serving
 
 ## Role
-feature-run worker (change `openspec/changes/promotion-ads-serving`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-promotion-ads-serving`)
 
 ## Objective
 Implement OpenSpec change `promotion-ads-serving` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).
@@ -28,7 +28,7 @@ Implement OpenSpec change `promotion-ads-serving` test-first per its tasks.md; c
 - platform-e2e/tests/e2e/step_definitions/test_sponsored_serving.py
 - platform-e2e/tests/e2e/step_definitions/test_sponsored_click.py
 ### widened (P1)
-- openspec/changes/promotion-ads-serving/tasks.md (task ticks in this change's own OpenSpec folder)
+- openspec/changes/archive/2026-11-17-promotion-ads-serving/tasks.md (task ticks in this change's own OpenSpec folder)
 - platform-e2e/tests/e2e/step_definitions/test_sponsored_ads_steps.py (e2e step file of this change binding both ads features, named differently from the packet)
 
 ## Shared append (non-exclusive, owned by W1-T3 listing-plan-cap)

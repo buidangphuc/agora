@@ -1,7 +1,7 @@
 # [W2-T2] promotion-ads-campaign-mgmt
 
 ## Role
-feature-run worker (change `openspec/changes/promotion-ads-campaign-mgmt`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-promotion-ads-campaign-mgmt`)
 
 ## Objective
 Implement OpenSpec change `promotion-ads-campaign-mgmt` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).

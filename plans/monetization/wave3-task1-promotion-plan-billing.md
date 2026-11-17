@@ -1,7 +1,7 @@
 # [W3-T1] promotion-plan-billing
 
 ## Role
-feature-run worker (change `openspec/changes/promotion-plan-billing`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-promotion-plan-billing`)
 
 ## Objective
 Implement OpenSpec change `promotion-plan-billing` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).
@@ -28,8 +28,8 @@ Implement OpenSpec change `promotion-plan-billing` test-first per its tasks.md; 
 - platform-e2e/tests/e2e/step_definitions/test_seller_plan_billing.py
 - widened (P1)
   - team-gateway/README.md — docs-sync: GetMySubscription/CancelSubscription now forwarded, line citations refreshed
-  - openspec/changes/promotion-plan-billing/specs/promotion-plan-billing/spec.md — VERIFIED BY citations matched to real test names
-  - openspec/changes/promotion-plan-billing/tasks.md — task 2.4 tick
+  - openspec/changes/archive/2026-11-17-promotion-plan-billing/specs/promotion-plan-billing/spec.md — VERIFIED BY citations matched to real test names
+  - openspec/changes/archive/2026-11-17-promotion-plan-billing/tasks.md — task 2.4 tick
 
 ## Verify
 - `DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 /Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py go team-promotion` (equivalent: `cd team-promotion && DOCKER_HOST=unix:///Users/phuc.buidang/.orbstack/run/docker.sock GO_SDK_REQUIRE_DOCKER=1 go test ./...`)

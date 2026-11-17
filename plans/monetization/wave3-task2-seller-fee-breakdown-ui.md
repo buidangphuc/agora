@@ -1,7 +1,7 @@
 # [W3-T2] seller-fee-breakdown-ui
 
 ## Role
-feature-run worker (change `openspec/changes/seller-fee-breakdown-ui`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-fee-breakdown-ui`)
 
 ## Objective
 Implement OpenSpec change `seller-fee-breakdown-ui` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).
@@ -27,7 +27,7 @@ Implement OpenSpec change `seller-fee-breakdown-ui` test-first per its tasks.md;
 - platform-e2e/tests/e2e/step_definitions/test_seller_fee_breakdown_ui.py
 
 ### widened (P1)
-- openspec/changes/seller-fee-breakdown-ui/specs/ui-seller/spec.md (this change's OpenSpec folder: VERIFIED BY citations matched to the real test names; no requirement or scenario wording change)
+- openspec/changes/archive/2026-11-17-seller-fee-breakdown-ui/specs/ui-seller/spec.md (this change's OpenSpec folder: VERIFIED BY citations matched to the real test names; no requirement or scenario wording change)
 
 ## Verify
 - `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/gate_digest.py vitest team-frontend-seller`

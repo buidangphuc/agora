@@ -1,7 +1,7 @@
 # [W1-T2] payment-seller-fee-charge
 
 ## Role
-feature-run worker (change `openspec/changes/payment-seller-fee-charge`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-payment-seller-fee-charge`)
 
 ## Objective
 Implement OpenSpec change `payment-seller-fee-charge` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).

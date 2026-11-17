@@ -1,7 +1,7 @@
 # [W5-T1] seller-plan-ui
 
 ## Role
-feature-run worker (change `openspec/changes/seller-plan-ui`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-plan-ui`)
 
 ## Objective
 Implement OpenSpec change `seller-plan-ui` test-first per its tasks.md; context in plans/monetization/00-spec.md (decisions in LOCK.md, defaults in brackets apply).
