@@ -62,6 +62,26 @@ def test_schema_missing_change_dir(tree):
     assert "schema" in rules(tree)
 
 
+def test_archived_changes_resolve(tree):
+    arch = tree / "openspec/changes/archive"
+    arch.mkdir()
+    for sid in ("payout-contract", "payout-holdback", "payout-seller-ui"):
+        shutil.move(str(tree / "openspec/changes" / sid), str(arch / f"2026-11-17-{sid}"))
+    v, order = run(tree)
+    assert v == []
+    assert order == ["payout-contract", "payout-holdback", "payout-seller-ui"]
+
+
+def test_archived_change_wrong_initiative(tree):
+    arch = tree / "openspec/changes/archive"
+    arch.mkdir()
+    shutil.move(str(tree / "openspec/changes/payout-holdback"), str(arch / "2026-11-17-payout-holdback"))
+    (arch / "2026-11-17-payout-holdback/proposal.md").write_text("initiative: other\n")
+    v, _ = run(tree)
+    assert [r for r, _ in v] == ["schema"]
+    assert "says initiative `other`" in v[0][1]
+
+
 def test_schema_missing_owner(tree):
     edit_slices(tree, lambda s: s["payout-holdback"].pop("owner"))
     assert "schema" in rules(tree)
