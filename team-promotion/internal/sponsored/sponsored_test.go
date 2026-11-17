@@ -55,21 +55,21 @@ func TestListSponsoredSlotsBidOrdered(t *testing.T) {
 			t.Fatalf("CreateAdCampaign(%s): %v", listing, err)
 		}
 	}
-	mk("seller-1", "listing-low", 100)
+	mk("seller-1", "listing-low", 600)
 	mk("seller-2", "listing-high", 900)
-	mk("seller-3", "listing-mid", 500)
+	mk("seller-3", "listing-mid", 700)
 
-	slots, err := svc.ListSponsoredSlots(ctx, "homepage")
+	slots, err := svc.ListSponsoredSlots(ctx, SlotsParams{ContextStr: "homepage"})
 	if err != nil {
 		t.Fatalf("ListSponsoredSlots: %v", err)
 	}
 	want := []string{"listing-high", "listing-mid", "listing-low"}
-	if len(slots) != len(want) {
-		t.Fatalf("got %d slots, want %d: %v", len(slots), len(want), slots)
+	if len(slots.ListingIDs) != len(want) {
+		t.Fatalf("got %d listing ids, want %d: %v", len(slots.ListingIDs), len(want), slots.ListingIDs)
 	}
 	for i, w := range want {
-		if slots[i] != w {
-			t.Fatalf("slot[%d] = %q, want %q (full: %v)", i, slots[i], w, slots)
+		if slots.ListingIDs[i] != w {
+			t.Fatalf("listing id[%d] = %q, want %q (full: %v)", i, slots.ListingIDs[i], w, slots.ListingIDs)
 		}
 	}
 }
@@ -78,11 +78,11 @@ func TestListSponsoredSlotsEmpty(t *testing.T) {
 	svc, _ := newSponsoredSvc()
 	ctx := t.Context()
 
-	slots, err := svc.ListSponsoredSlots(ctx, "")
+	slots, err := svc.ListSponsoredSlots(ctx, SlotsParams{})
 	if err != nil {
 		t.Fatalf("ListSponsoredSlots(empty): %v", err)
 	}
-	if len(slots) != 0 {
+	if len(slots.ListingIDs) != 0 || len(slots.Slots) != 0 {
 		t.Fatalf("want no slots, got %v", slots)
 	}
 }
@@ -106,11 +106,11 @@ func TestCreateAdCampaignValidation(t *testing.T) {
 		}
 	}
 
-	slots, err := svc.ListSponsoredSlots(ctx, "")
+	slots, err := svc.ListSponsoredSlots(ctx, SlotsParams{})
 	if err != nil {
 		t.Fatalf("ListSponsoredSlots: %v", err)
 	}
-	if len(slots) != 0 {
+	if len(slots.ListingIDs) != 0 {
 		t.Fatalf("rejected creates leaked campaigns: %v", slots)
 	}
 	if active, _ := repo.ListActive(ctx, 10); len(active) != 0 {
@@ -167,7 +167,7 @@ func TestCreateAdCampaignRequiresOwnership(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := storefake.NewInMemoryAdCampaignRepository()
 			svc := New(repo, tc.listings, auditx.NewGate(&recordingAuditWriter{}, nil), nil)
-			_, err := svc.CreateAdCampaign(t.Context(), CreateAdCampaignParams{SellerID: "s1", ListingID: tc.listing, Bid: 1})
+			_, err := svc.CreateAdCampaign(t.Context(), CreateAdCampaignParams{SellerID: "s1", ListingID: tc.listing, Bid: 500, Budget: 5000})
 			stored, _ := repo.ListActive(t.Context(), 10)
 			if tc.want == nil {
 				if err != nil || len(stored) != 1 {
@@ -214,7 +214,7 @@ func TestCreateAdCampaignAuditBeforeInsertSameID(t *testing.T) {
 	log := &callLog{}
 	w := &recordingAuditWriter{log: log}
 	svc, mem := newAuditedAdSvc(t, w, nil, log)
-	c, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 5000, 100))
+	c, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 5000, 500))
 	if err != nil {
 		t.Fatalf("CreateAdCampaign: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestCreateAdCampaignAdminNoOwnerLookup(t *testing.T) {
 	lg := &fakeListings{err: errors.New("team-domain down")}
 	w := &recordingAuditWriter{}
 	svc, _ := newAuditedAdSvc(t, w, lg, &callLog{})
-	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 10, 1)); err != nil {
+	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 5000, 500)); err != nil {
 		t.Fatalf("CreateAdCampaign: %v", err)
 	}
 	if lg.calls != 0 || len(w.got()) != 1 {
@@ -259,7 +259,7 @@ func TestCreateAdCampaignAuditFailureFailsClosed(t *testing.T) {
 			log := &callLog{}
 			w := &recordingAuditWriter{err: cause, log: log}
 			svc, mem := newAuditedAdSvc(t, w, nil, log)
-			_, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 10, 1))
+			_, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 5000, 500))
 			assertAuditUnavailable(t, err)
 			for _, c := range log.get() {
 				if c == "insert" {
@@ -276,13 +276,13 @@ func TestCreateAdCampaignAuditFailureFailsClosed(t *testing.T) {
 func TestCreateAdCampaignBudgetBoundaryAudit(t *testing.T) {
 	w := &recordingAuditWriter{}
 	svc, mem := newAuditedAdSvc(t, w, nil, &callLog{})
-	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("l-max", 5000, 10)); err != nil {
+	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("l-max", 5000, 500)); err != nil {
 		t.Fatalf("budget at max: %v", err)
 	}
 	if n := len(w.got()); n != 1 {
 		t.Fatalf("at max: audit events = %d, want 1", n)
 	}
-	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("l-over", 5001, 10)); !errors.Is(err, ErrInvalidAdCampaign) {
+	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("l-over", 5001, 500)); !errors.Is(err, ErrInvalidAdCampaign) {
 		t.Fatalf("budget over max: err = %v, want ErrInvalidAdCampaign", err)
 	}
 	if n := len(w.got()); n != 1 {
@@ -295,7 +295,7 @@ func TestCreateAdCampaignBudgetBoundaryAudit(t *testing.T) {
 
 func TestCreateAdCampaignSellerNotAudited(t *testing.T) {
 	owners := map[string]string{"mine": "seller-1"}
-	p := CreateAdCampaignParams{SellerID: "seller-1", ListingID: "mine", Budget: 100, Bid: 10}
+	p := CreateAdCampaignParams{SellerID: "seller-1", ListingID: "mine", Budget: 5000, Bid: 500}
 	for name, w := range map[string]*recordingAuditWriter{"writer wired": {}, "writer failing": {err: errors.New("down")}} {
 		t.Run(name, func(t *testing.T) {
 			svc, _ := newAuditedAdSvc(t, w, &fakeListings{owners: owners}, &callLog{})

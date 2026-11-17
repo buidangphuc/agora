@@ -20,3 +20,15 @@ Feature: Seller listing management
     When the seller creates a new listing
     Then a success toast confirms the save
     And a success state offers a link to the seller's listings
+
+  Scenario: Eleventh listing on FREE shows the upgrade CTA
+    Given a plan-ui FREE seller owns 10 published listings
+    When the plan-ui seller submits a new listing
+    Then the plan-ui form shows the cap message and an upgrade link to the plans page
+    And the plan-ui seller owns 10 listings
+
+  Scenario: Boundary, the tenth listing is accepted
+    Given a plan-ui FREE seller owns 9 published listings
+    When the plan-ui seller submits a new listing
+    Then the plan-ui listing is created and no upgrade link is shown
+    And the plan-ui seller owns 10 listings

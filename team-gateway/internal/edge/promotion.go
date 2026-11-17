@@ -342,6 +342,52 @@ func (f *SubscriptionForwarder) GetEntitlements(
 	return connect.NewResponse(out), nil
 }
 
+func (f *SubscriptionForwarder) GetMySubscription(
+	ctx context.Context,
+	req *connect.Request[promotionv1.GetMySubscriptionRequest],
+) (*connect.Response[promotionv1.GetMySubscriptionResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.GetMySubscriptionResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetMySubscription(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *SubscriptionForwarder) CancelSubscription(
+	ctx context.Context,
+	req *connect.Request[promotionv1.CancelSubscriptionRequest],
+) (*connect.Response[promotionv1.CancelSubscriptionResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.CancelSubscriptionResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.CancelSubscription(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func requireAuthenticated(ctx context.Context) error {
+	p, ok := principalFrom(ctx)
+	if !ok || p.ptype == "anonymous" || p.id == "" || p.id == "anonymous" {
+		return connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+	return nil
+}
+
 // ── SponsoredService ──
 
 type SponsoredForwarder struct {
@@ -386,12 +432,77 @@ func (f *SponsoredForwarder) ListSponsoredSlots(
 	return connect.NewResponse(out), nil
 }
 
-func requireAuthenticated(ctx context.Context) error {
-	p, ok := principalFrom(ctx)
-	if !ok || p.ptype == "anonymous" || p.id == "" || p.id == "anonymous" {
-		return connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+func (f *SponsoredForwarder) RecordAdClick(
+	ctx context.Context,
+	req *connect.Request[promotionv1.RecordAdClickRequest],
+) (*connect.Response[promotionv1.RecordAdClickResponse], error) {
+	var out *promotionv1.RecordAdClickResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.RecordAdClick(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
 	}
-	return nil
+	return connect.NewResponse(out), nil
+}
+
+func (f *SponsoredForwarder) ListMyAdCampaigns(
+	ctx context.Context,
+	req *connect.Request[promotionv1.ListMyAdCampaignsRequest],
+) (*connect.Response[promotionv1.ListMyAdCampaignsResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.ListMyAdCampaignsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListMyAdCampaigns(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *SponsoredForwarder) PauseAdCampaign(
+	ctx context.Context,
+	req *connect.Request[promotionv1.PauseAdCampaignRequest],
+) (*connect.Response[promotionv1.PauseAdCampaignResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.PauseAdCampaignResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.PauseAdCampaign(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *SponsoredForwarder) ResumeAdCampaign(
+	ctx context.Context,
+	req *connect.Request[promotionv1.ResumeAdCampaignRequest],
+) (*connect.Response[promotionv1.ResumeAdCampaignResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.ResumeAdCampaignResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ResumeAdCampaign(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
 }
 
 func (f *VoucherForwarder) ListMyShopVouchers(

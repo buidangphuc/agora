@@ -30,6 +30,8 @@ principal, id `anonymous` and type ANONYMOUS are rejected with `Unauthenticated`
 | `GetWalletBalance` | `sellerAccess`, admin read allowed | Ledger model: `SUM(wallet_ledger.amount)`. |
 | `ListLedgerEntries` | `sellerAccess`, admin read allowed | Ledger model, newest first, opaque offset cursor (`o:<offset>`, base64; the page size is clamped by `pagination.Clamp`), page size default 20 and max 100. `reference_id`: the payment id for an `ORDER_SETTLEMENT`, the refund id (`rpc:`/`return:`/`cancel:`/`legacy:` key) for a `REFUND_DEDUCTION`, empty for a payout. |
 | `RequestWalletPayout` | `sellerAccess`, owner only | Ledger model: appends a negative PENDING `PAYOUT` row. Balance check, hold check and debit are one atomic step (per-seller `pg_advisory_xact_lock` in one transaction). Above the balance: `FailedPrecondition` `insufficient wallet balance`; within the balance but above the withdrawable amount: `FailedPrecondition` `amount is held until <RFC3339 UTC> (refund window)` (see Payout hold-back). |
+| `GetOrderSettlement` | Authenticated; the order's seller (user principal whose id is the settled seller) or a principal with scope `admin`; anyone else gets `NotFound` "settlement not found" (`internal/rpc/wallet_ledger.go:115`) | Read-only breakdown of a settled order: `credited`, `commission`, `commission_reversed`, `refund_deducted`, `net` and `commission_rate_bps`. Empty `order_id` is `InvalidArgument`; an order with no settled payment or credit yet is `NotFound`. |
+| `ChargeSellerFee` | Service principal with scope `payment:write` only (`internal/rpc/seller_fee.go:18`); a user or admin is `PermissionDenied`; not exposed by `team-gateway` | Appends one negative COMPLETED `SUBSCRIPTION_FEE` row per `reference_id` (1-64 chars, `InvalidArgument` otherwise; `seller_id` required; `amount` > 0; `kind` must be `SELLER_FEE_KIND_SUBSCRIPTION`). Balance check, hold check and debit are the payout's atomic step (`AppendDebitOnce`, `internal/store/ledger.go:228`): above the balance `FailedPrecondition` `insufficient wallet balance`, above the withdrawable amount the hold refusal. A replay of the same reference and amount returns the existing entry with `created=false` (even after the balance dropped); the same reference with another amount is `AlreadyExists`. |
 
 `sellerAccess` (`internal/rpc/wallet_ledger.go`) never trusts the request `seller_id` alone:
 
@@ -191,12 +193,15 @@ startup.
 | `0006_wallet_ledger_integrity` | `wallet_ledger.reference_id` + unique `(type, reference_id)`, type/sign CHECK, reference required for new settlement/refund rows (`NOT VALID`: legacy rows kept); `payment_transactions.refunded_amount` | settlement credit, refund deduction |
 | `0007_cumulative_refunds` | `payment_refunds`; `wallet_ledger.reference_id` widened to 96; LEGACY backfill and re-pointed legacy deductions; CHECKs `status <> 4 OR refunded_amount = amount` (`NOT VALID`) and `status <> 5 OR 0 < refunded_amount < amount` | refunds, refund deduction, hold-back |
 | `0008`-`0017` `outbox_v1_*` | `payment_outbox_events` gains `seq`, `topic`, `traceparent` (SDK `outbox.UpgradeSQL`, one file per step) | outbox relayer |
+| `0018_wallet_ledger_subscription_fee` | `wallet_ledger` type/sign CHECK allows `SUBSCRIPTION_FEE < 0`; reference required for new `SUBSCRIPTION_FEE` rows (`NOT VALID`) | `ChargeSellerFee` |
+| `0019_wallet_ledger_commission` | `wallet_ledger.commission_rate_bps` (nullable); type/sign CHECK allows `COMMISSION < 0` and `COMMISSION_REVERSAL > 0`; reference required for both (`NOT VALID`); `SUBSCRIPTION_FEE` arm kept | `CreditSettlement`, `ApplyRefund` |
 
 The **wallet ledger is the single source of truth** for seller money:
 
 - **Ledger** (`wallet_ledger`): append-only, single-entry signed rows (not double-entry, no bank
   fields). Balance is computed as `SUM(amount)`. Entry types: `ORDER_SETTLEMENT`, `PAYOUT`,
-  `REFUND_DEDUCTION`; statuses `PENDING`, `COMPLETED`, `REJECTED`.
+  `REFUND_DEDUCTION`, `SUBSCRIPTION_FEE` (written by `ChargeSellerFee`), `COMMISSION` and `COMMISSION_REVERSAL` (written by settlement and refund); statuses `PENDING`, `COMPLETED`, `REJECTED`.
+  The proto enum also defines `AD_SPEND` (`proto/platform/payment/v1/payment.proto:53`); contract only, nothing writes it.
 - **`payout_requests`** only records bank details and status for a payout, linked to the ledger
   debit that funded it (`ledger_entry_id`). If recording fails after the debit, a compensating
   credit is appended.
@@ -204,8 +209,8 @@ The **wallet ledger is the single source of truth** for seller money:
   The tables and their data are left in place.
 
 The ledger store enforces: one entry per `(type, reference_id)`; `ORDER_SETTLEMENT > 0`,
-`REFUND_DEDUCTION < 0`, `PAYOUT < 0` except a `REJECTED` compensating reversal `> 0`; a reference
-on every new settlement/refund row. A seller has no balance until a paid order is credited.
+`REFUND_DEDUCTION < 0`, `SUBSCRIPTION_FEE < 0`, `COMMISSION < 0`, `COMMISSION_REVERSAL > 0`, `PAYOUT < 0` except a `REJECTED` compensating reversal `> 0`; a reference
+on every new settlement/refund/fee row. A seller has no balance until a paid order is credited.
 Before applying `0006` to a long-lived DB, run the sign pre-check in the migration header and
 expect zero rows.
 
@@ -259,6 +264,7 @@ Kafka, `team-order` and `team-audit` are required.
 | `MOCK_DATA` | empty | Comma-separated mock adapters; `MOCK_DATA=payment-provider` enables the fixture adapter behind `ProcessMockPayment`. Refused in staging and prod |
 | `PAYOUT_HOLD_DAYS` | `7` | Payout hold window in days, 0-3650; `0` disables the hold. Invalid refuses startup |
 | `PAYOUT_HOLD_WINDOW` | empty | Optional Go duration (0 to 3650 days, e.g. `20s`) overriding `PAYOUT_HOLD_DAYS`; invalid refuses startup |
+| `COMMISSION_RATE_BPS` | `500` | Platform commission in basis points (500 = 5%), 0-3000; `0` disables it. Invalid refuses startup |
 | `PAYMENT_EVENTS_TOPIC` | `payment.events` | Topic the relayer produces to |
 | `ORDER_EVENTS_TOPIC` | `order.events` | Topic the settlement consumer reads |
 | `PAYMENT_SETTLEMENT_CONSUMER_GROUP` | `team-payment.settlement` | Consumer group (new group starts at the latest offset) |
@@ -351,7 +357,7 @@ from `COPY . .`, so `generated/` must exist in the build context; the SDK module
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (108 features: 71 `automated`, 37 `not-testable`), including
+- Feature manifest: `FEATURES.yaml` (207 features: 74 `automated`, 1 `planned`, 132 `not-testable`), including
   `payment.mock-pay`, `payment.seller-wallet`, `payment.payout`, `payment.refund` and the wallet-access
   authz features. Automated entries carry a `covered_by` pointing at a scenario in `platform-e2e`.
 - Verify e2e coverage with `make -C platform-e2e features-check`, and for an OpenSpec change with

@@ -1,3 +1,4 @@
+import { OrderSettlementCardSkeleton } from "@/features/seller/OrderSettlementCard";
 import {
   FormCardSkeleton,
   HeaderSkeleton,
@@ -13,6 +14,7 @@ export default function SellerOrderDetailLoading() {
           <FormCardSkeleton lines={2} />
           <FormCardSkeleton lines={5} />
           <FormCardSkeleton lines={3} />
+          <OrderSettlementCardSkeleton />
         </div>
         <div className="min-w-0 space-y-6 lg:col-span-2 lg:col-start-1 lg:row-start-1">
           <FormCardSkeleton lines={2} />

@@ -50,6 +50,11 @@ enum WalletTransactionType {
   WALLET_TRANSACTION_TYPE_ORDER_SETTLEMENT = 1;
   WALLET_TRANSACTION_TYPE_PAYOUT = 2;
   WALLET_TRANSACTION_TYPE_REFUND_DEDUCTION = 3;
+  WALLET_TRANSACTION_TYPE_COMMISSION = 4;
+  WALLET_TRANSACTION_TYPE_COMMISSION_REVERSAL = 5;
+  WALLET_TRANSACTION_TYPE_SUBSCRIPTION_FEE = 6;
+  // Reserved: not written in v1. A later change books ad spend from the campaign counter.
+  WALLET_TRANSACTION_TYPE_AD_SPEND = 7;
 }
 
 // PaymentSettled is emitted on Kafka topic "payment.events" (key = order_id),
@@ -120,6 +125,43 @@ message WalletTransaction {
   google.protobuf.Timestamp created_at = 6;
 }
 
+enum SellerFeeKind {
+  SELLER_FEE_KIND_UNSPECIFIED = 0;
+  SELLER_FEE_KIND_SUBSCRIPTION = 1;
+  // Reserved: rejected in v1.
+  SELLER_FEE_KIND_AD_SPEND = 2;
+}
+
+message GetOrderSettlementRequest {
+  string order_id = 1;
+}
+
+message GetOrderSettlementResponse {
+  string order_id = 1;
+  int64 credited = 2;
+  int64 commission = 3;
+  int64 commission_reversed = 4;
+  int64 refund_deducted = 5;
+  // net = credited - commission + commission_reversed - refund_deducted.
+  int64 net = 6;
+  int32 commission_rate_bps = 7;
+}
+
+message ChargeSellerFeeRequest {
+  string seller_id = 1;
+  // amount is integer VND and must be greater than 0, otherwise INVALID_ARGUMENT.
+  int64 amount = 2;
+  SellerFeeKind kind = 3;
+  // reference_id is the idempotency key: one entry per (seller_id, kind, reference_id).
+  string reference_id = 4;
+}
+
+message ChargeSellerFeeResponse {
+  string entry_id = 1;
+  // created is false on a replay of the same key, which books nothing more.
+  bool created = 2;
+}
+
 service PaymentService {
   rpc CreatePayment(CreatePaymentRequest) returns (CreatePaymentResponse);
   rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
@@ -135,6 +177,17 @@ service PaymentService {
   // RequestWalletPayout books a payout ledger entry for the seller. Named to
   // avoid colliding with the existing bank-detail RequestPayout RPC above.
   rpc RequestWalletPayout(RequestWalletPayoutRequest) returns (RequestWalletPayoutResponse);
+  // GetOrderSettlement returns the settlement of one order: net = credited - commission +
+  // commission_reversed - refund_deducted. Every amount is a positive integer VND or 0.
+  // Callable by the seller who owns the order and by an admin. It returns NOT_FOUND for an
+  // order of another seller and for an unsettled order, and does not reveal which case applies.
+  rpc GetOrderSettlement(GetOrderSettlementRequest) returns (GetOrderSettlementResponse);
+  // ChargeSellerFee books a fee against the seller's wallet. It is service-to-service only,
+  // not exposed by team-gateway: no end-user principal or scope may call it, so a seller
+  // cannot charge another seller's wallet. A replay of the same key returns created = false
+  // and nothing booked. A fee that would exceed the withdrawable balance fails with
+  // FAILED_PRECONDITION. Kind AD_SPEND is reserved.
+  rpc ChargeSellerFee(ChargeSellerFeeRequest) returns (ChargeSellerFeeResponse);
 }
 
 // A single wallet ledger movement (settlement, payout, refund, etc.).

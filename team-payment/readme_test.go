@@ -151,3 +151,13 @@ func TestCoverageSummaryHasNoRemovedPackages_SmokeWholeService(t *testing.T) {
 		}
 	}
 }
+
+func TestCommissionRateDocumentedInReadmeAndEnvExample(t *testing.T) {
+	// scenario: An invalid rate refuses to start
+	if !strings.Contains(read(t, "README.md"), "COMMISSION_RATE_BPS") {
+		t.Error("README.md does not document COMMISSION_RATE_BPS")
+	}
+	if !strings.Contains(read(t, ".env.example"), "COMMISSION_RATE_BPS=") {
+		t.Error(".env.example does not list COMMISSION_RATE_BPS=")
+	}
+}

@@ -1,10 +1,14 @@
 package events
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -75,6 +79,7 @@ func BuildOrderPaidEnvelope(
 	if order.ShipBy != nil {
 		paid.ShipBy = timestamppb.New(order.ShipBy.UTC())
 	}
+	applyPaidBreakdown(paid, order)
 	payload, err := proto.Marshal(paid)
 	if err != nil {
 		return nil, fmt.Errorf("marshal OrderPaidEvent: %w", err)
@@ -92,6 +97,31 @@ func BuildOrderPaidEnvelope(
 		return nil, fmt.Errorf("marshal EventEnvelope: %w", err)
 	}
 	return value, nil
+}
+
+func applyPaidBreakdown(paid *orderv1.OrderPaidEvent, order store.Order) {
+	shop := order.DiscountAmount - order.PlatformDiscountAmount
+	platform := order.PlatformDiscountAmount
+	if shop < 0 || platform < 0 || order.ItemsSubtotal+order.ShippingFee-shop-platform != order.TotalAmount {
+		recordBreakdownSkipped()
+		slog.Error("order paid breakdown incoherent, fields omitted", "event", OrderPaidEventType)
+		return
+	}
+	paid.ItemsSubtotal = proto.Int64(order.ItemsSubtotal)
+	paid.ShippingFee = proto.Int64(order.ShippingFee)
+	paid.ShopDiscountAmount = proto.Int64(shop)
+	paid.PlatformDiscountAmount = proto.Int64(platform)
+}
+
+func recordBreakdownSkipped() {
+	c, err := otel.GetMeterProvider().Meter("team-order/events").Int64Counter(
+		"order_paid_breakdown_skipped_total",
+		metric.WithDescription("OrderPaidEvent price breakdown omitted because amounts were incoherent"),
+	)
+	if err != nil {
+		return
+	}
+	c.Add(context.Background(), 1)
 }
 
 // orderPaidNamespace seeds deterministic event ids so a re-emitted PAID fact for

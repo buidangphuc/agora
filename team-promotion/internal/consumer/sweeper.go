@@ -26,12 +26,28 @@ func NewSweeper(pool *pgxpool.Pool, cfg Config) *Sweeper {
 }
 
 func (s *Sweeper) Sweep(ctx context.Context) (int, error) {
+	defer s.purgeImpressions(ctx)
 	total := 0
 	for {
 		n, err := s.sweepBatch(ctx)
 		total += n
 		if err != nil || n < sweepBatch {
 			return total, err
+		}
+	}
+}
+
+func (s *Sweeper) purgeImpressions(ctx context.Context) {
+	cutoff := s.cfg.now().Add(-retention)
+	for {
+		ct, err := s.pool.Exec(ctx, `DELETE FROM ad_impressions WHERE token IN (
+			SELECT token FROM ad_impressions WHERE created_at < $1 LIMIT $2)`, cutoff, sweepBatch)
+		if err != nil {
+			s.cfg.logger().ErrorContext(ctx, "ad impression purge failed", "err", err)
+			return
+		}
+		if ct.RowsAffected() < sweepBatch {
+			return
 		}
 	}
 }

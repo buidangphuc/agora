@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
@@ -10,6 +11,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-promotion/internal/sponsored"
+	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
 type SponsoredHandler struct {
@@ -45,9 +47,86 @@ func (h *SponsoredHandler) CreateAdCampaign(ctx context.Context, req *promotionv
 }
 
 func (h *SponsoredHandler) ListSponsoredSlots(ctx context.Context, req *promotionv1.ListSponsoredSlotsRequest) (*promotionv1.ListSponsoredSlotsResponse, error) {
-	ids, err := h.svc.ListSponsoredSlots(ctx, req.GetContextStr())
+	res, err := h.svc.ListSponsoredSlots(ctx, sponsored.SlotsParams{
+		ContextStr: req.GetContextStr(),
+		Placement:  req.GetPlacement(),
+		CategoryID: req.GetCategoryId(),
+		Limit:      req.GetLimit(),
+	})
 	if err != nil {
 		return nil, fail(ctx, h.logger, err)
 	}
-	return &promotionv1.ListSponsoredSlotsResponse{ListingIds: ids}, nil
+	out := &promotionv1.ListSponsoredSlotsResponse{ListingIds: res.ListingIDs}
+	for _, sl := range res.Slots {
+		out.Slots = append(out.Slots, &promotionv1.SponsoredSlot{ListingId: sl.ListingID, CampaignId: sl.CampaignID, ImpressionToken: sl.Token})
+	}
+	return out, nil
+}
+
+func (h *SponsoredHandler) RecordAdClick(ctx context.Context, req *promotionv1.RecordAdClickRequest) (*promotionv1.RecordAdClickResponse, error) {
+	if req.GetImpressionToken() == "" {
+		return nil, status.Error(codes.InvalidArgument, "impression_token is required")
+	}
+	principalID := ""
+	if p, ok := auth.FromContext(ctx); ok && !p.Anonymous() {
+		principalID = p.ID
+	}
+	res, err := h.svc.RecordAdClick(ctx, sponsored.RecordClickParams{Token: req.GetImpressionToken(), PrincipalID: principalID})
+	if err != nil {
+		if errors.Is(err, store.ErrImpressionNotFound) {
+			return nil, status.Error(codes.NotFound, "impression not found")
+		}
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.RecordAdClickResponse{ListingId: res.ListingID, Charged: res.Charged}, nil
+}
+
+func (h *SponsoredHandler) ListMyAdCampaigns(ctx context.Context, req *promotionv1.ListMyAdCampaignsRequest) (*promotionv1.ListMyAdCampaignsResponse, error) {
+	principal, err := requireSeller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res, err := h.svc.ListMyAdCampaigns(ctx, sponsored.ListMyAdCampaignsParams{
+		SellerID: principal.ID,
+		PageSize: req.GetPage().GetPageSize(),
+		Cursor:   req.GetPage().GetCursor(),
+	})
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	out := &promotionv1.ListMyAdCampaignsResponse{Page: pageResponse(res.NextCursor)}
+	for _, c := range res.Campaigns {
+		out.Campaigns = append(out.Campaigns, adCampaignToProto(c))
+	}
+	return out, nil
+}
+
+func (h *SponsoredHandler) PauseAdCampaign(ctx context.Context, req *promotionv1.PauseAdCampaignRequest) (*promotionv1.PauseAdCampaignResponse, error) {
+	principal, err := requireSeller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetCampaignId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "campaign_id is required")
+	}
+	c, err := h.svc.PauseAdCampaign(ctx, principal.ID, req.GetCampaignId())
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.PauseAdCampaignResponse{Campaign: adCampaignToProto(c)}, nil
+}
+
+func (h *SponsoredHandler) ResumeAdCampaign(ctx context.Context, req *promotionv1.ResumeAdCampaignRequest) (*promotionv1.ResumeAdCampaignResponse, error) {
+	principal, err := requireSeller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetCampaignId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "campaign_id is required")
+	}
+	c, err := h.svc.ResumeAdCampaign(ctx, principal.ID, req.GetCampaignId())
+	if err != nil {
+		return nil, fail(ctx, h.logger, err)
+	}
+	return &promotionv1.ResumeAdCampaignResponse{Campaign: adCampaignToProto(c)}, nil
 }

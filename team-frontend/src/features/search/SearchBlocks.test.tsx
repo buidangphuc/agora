@@ -14,6 +14,9 @@ const loadSearch = vi.hoisted(() => vi.fn());
 const loadCategories = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() => vi.fn());
 
+const loadSponsored = vi.hoisted(() => vi.fn());
+vi.mock("@/features/ads/data", () => ({ loadSponsored }));
+
 vi.mock("./data", () => ({
   loadSearch,
   loadCategories,
@@ -104,6 +107,7 @@ afterEach(endBeaconCapture);
 beforeEach(() => {
   vi.clearAllMocks();
   loadCategories.mockResolvedValue(cats);
+  loadSponsored.mockResolvedValue([]);
 });
 
 describe("SearchResultsBlock", () => {
@@ -403,6 +407,80 @@ describe("ResultCount / FilterPanel", () => {
     render(await FilterPanel({ state: state({}) }));
     expect(
       screen.getAllByText("Shop #".concat("abcdef")).length,
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe("SearchResultsBlock sponsored slots", () => {
+  const sponsored = (id: string) => ({
+    listing: listing(id),
+    impressionToken: `tok-${id}`,
+  });
+
+  it("Sponsored slot is shown labelled in its category", async () => {
+    loadSearch.mockResolvedValue(ok());
+    loadSponsored.mockResolvedValue([sponsored("sp1")]);
+    render(
+      await SearchResultsBlock({
+        state: state({ q: "ao", category: "c1" }),
+      }),
+    );
+    expect(loadSponsored).toHaveBeenCalledWith("search", "c1");
+    const slots = screen.getAllByTestId("sponsored-slot");
+    expect(slots).toHaveLength(1);
+    expect(
+      within(screen.getByTestId("search-results")).queryByTestId(
+        "sponsored-slot",
+      ),
+    ).toBeNull();
+    expect(within(slots[0]).getByText("Tài trợ")).toBeInTheDocument();
+    expect(
+      within(slots[0])
+        .getAllByRole("link")
+        .some((a) => a.getAttribute("href")?.startsWith("/listing/sp1")),
+    ).toBe(true);
+  });
+
+  it("Page 2 has no sponsored slots", async () => {
+    loadSearch.mockResolvedValue(ok({ page: 2 }));
+    loadSponsored.mockResolvedValue([sponsored("sp1")]);
+    render(await SearchResultsBlock({ state: state({ q: "ao", page: "2" }) }));
+    expect(loadSponsored).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("sponsored-slot")).toBeNull();
+  });
+
+  it("Slot service failure leaves organic results intact", async () => {
+    loadSearch.mockResolvedValue(ok());
+    loadSponsored.mockResolvedValue([]);
+    const { container } = render(
+      await SearchResultsBlock({ state: state({ q: "ao" }) }),
+    );
+    expect(screen.queryByTestId("sponsored-slot")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(container.querySelectorAll('a[href^="/listing/"]').length).toBe(4);
+  });
+
+  it("No slots when the organic search has no results", async () => {
+    loadSearch.mockResolvedValue(ok({ items: [], total: 0 }));
+    loadSponsored.mockResolvedValue([sponsored("sp1")]);
+    render(await SearchResultsBlock({ state: state({ q: "zzzz" }) }));
+    expect(screen.queryByTestId("sponsored-slot")).toBeNull();
+    expect(screen.getByText("Không tìm thấy sản phẩm")).toBeInTheDocument();
+  });
+
+  it("Sponsored listing is not duplicated in organic results", async () => {
+    loadSearch.mockResolvedValue(ok());
+    loadSponsored.mockResolvedValue([sponsored("a")]);
+    const { container } = render(
+      await SearchResultsBlock({ state: state({ q: "ao" }) }),
+    );
+    const slot = screen.getByTestId("sponsored-slot");
+    const inSlot = slot.querySelectorAll('a[href^="/listing/a"]').length;
+    const all = container.querySelectorAll('a[href^="/listing/a"]').length;
+    expect(inSlot).toBeGreaterThan(0);
+    expect(all).toBe(inSlot);
+    expect(
+      container.querySelectorAll('a[href^="/listing/b"]').length,
     ).toBeGreaterThan(0);
   });
 });

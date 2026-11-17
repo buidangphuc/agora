@@ -18,6 +18,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/upstream"
 	"github.com/buidangphuc/team-domain/internal/audit"
 	"github.com/buidangphuc/team-domain/internal/config"
 	"github.com/buidangphuc/team-domain/internal/events"
@@ -29,12 +30,14 @@ import (
 
 	auditv1 "github.com/buidangphuc/team-domain/generated/platform/audit/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
+	promotionv1 "github.com/buidangphuc/team-domain/generated/platform/promotion/v1"
 )
 
 const (
 	serviceName        = "team-domain"
 	servicePrincipal   = "service-team-domain"
 	auditScope         = "audit.write"
+	promotionScope     = "promotion.read"
 	outboxTable        = "outbox_events"
 	publishedRetention = 7 * 24 * time.Hour
 	closeGrace         = 2 * time.Second
@@ -109,15 +112,23 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	}
 	stack.Push(func(context.Context) error { return aiClient.Close() })
 
+	promoConn, err := upstream.NewClient(s.Upstream.PromotionAddr, upstream.AsService(servicePrincipal, promotionScope))
+	if err != nil {
+		return fmt.Errorf("dial team-promotion at %s: %w", s.Upstream.PromotionAddr, err)
+	}
+	stack.Push(func(context.Context) error { return promoConn.Close() })
+	entitlements := listing.NewGRPCEntitlements(promotionv1.NewSubscriptionServiceClient(promoConn))
+
 	repo := store.NewPostgresListingRepository(pool).WithStockEvents(outStore, rpc.NewStockEventBuilder())
 	svc := listing.NewListingServiceWithOutbox(repo, store.NewPgTxWriter(pool, outStore)).
 		WithAudit(gate).
+		WithEntitlements(entitlements).
 		WithScreener(kw, aiClient).
 		WithReservationTTL(s.ReservationTTL(logger))
 	sweeper := listing.NewReservationSweeper(svc, s.ReservationSweepInterval(logger), logger)
 
 	h := rpc.NewListingHandler(svc, store.NewPostgresCategoryRepository(pool), objects.NewS3Storage(s.Storage)).
-		WithStorefront(listing.NewStorefrontService(store.NewPostgresStorefrontRepository(pool), objects.PublicBase(s.Storage)).WithListings(repo)).
+		WithStorefront(listing.NewStorefrontService(store.NewPostgresStorefrontRepository(pool), objects.PublicBase(s.Storage)).WithListings(repo).WithEntitlements(entitlements)).
 		WithBundles(listing.NewBundleService(store.NewPostgresBundleRepository(pool), repo))
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})

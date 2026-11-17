@@ -420,3 +420,42 @@ describe("Magic Listing edited ai_interaction", () => {
     expect(events("edited")).toHaveLength(2);
   });
 });
+
+describe("ListingForm plan cap", () => {
+  const capMessage = "Bạn đã đạt giới hạn số tin đăng của gói hiện tại.";
+
+  it("cap refusal shows the upgrade link and keeps the typed value", async () => {
+    vi.mocked(saveListingAction).mockResolvedValue({
+      ok: false,
+      message: capMessage,
+      error: capMessage,
+      upgradeUrl: "/seller/plans",
+    });
+    render(<ListingForm categories={categories} submitLabel="Đăng bán ngay" />);
+    fillValid();
+    submit();
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(capMessage),
+    );
+    expect(screen.getByRole("link", { name: "Nâng cấp gói" })).toHaveAttribute(
+      "href",
+      "/seller/plans",
+    );
+    expect(screen.getByLabelText(/Tên sản phẩm/)).toHaveValue("Phone");
+  });
+
+  it("other resource exhaustion shows no upgrade link", async () => {
+    vi.mocked(saveListingAction).mockResolvedValue({
+      ok: false,
+      message: "Quá nhiều yêu cầu.",
+      error: "Quá nhiều yêu cầu.",
+    });
+    render(<ListingForm categories={categories} submitLabel="Đăng bán ngay" />);
+    fillValid();
+    submit();
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Quá nhiều yêu cầu."),
+    );
+    expect(screen.queryByRole("link", { name: "Nâng cấp gói" })).toBeNull();
+  });
+});

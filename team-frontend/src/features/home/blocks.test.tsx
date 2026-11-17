@@ -8,7 +8,10 @@ const getRecentlyViewed = vi.hoisted(() => vi.fn());
 const listCategories = vi.hoisted(() => vi.fn());
 const getListing = vi.hoisted(() => vi.fn());
 
+const loadSponsored = vi.hoisted(() => vi.fn());
+
 vi.mock("./data", () => ({ loadFeed }));
+vi.mock("@/features/ads/data", () => ({ loadSponsored }));
 vi.mock("@/lib/analytics", () => ({ trackEcommerce: vi.fn() }));
 vi.mock("@/features/engagement/FavoriteButton", () => ({
   FavoriteButton: () => null,
@@ -45,6 +48,8 @@ function listing(id: string, price = 6000000): ViewListing {
 
 beforeEach(() => {
   loadFeed.mockReset();
+  loadSponsored.mockReset();
+  loadSponsored.mockResolvedValue([]);
   getRecentlyViewed.mockReset();
   listCategories.mockReset();
   getListing.mockReset();
@@ -83,6 +88,52 @@ describe("FeedBlock", () => {
     expect(
       screen.getByText("Hiện chưa có sản phẩm nào được đăng bán."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("FeedBlock sponsored slots", () => {
+  it("Sponsored slot is shown on the home feed", async () => {
+    loadFeed.mockResolvedValue({ items: [listing("a")], failed: false });
+    loadSponsored.mockResolvedValue([
+      { listing: listing("sp1"), impressionToken: "tok" },
+    ]);
+    render(await FeedBlock());
+    expect(loadSponsored).toHaveBeenCalledWith("home", "");
+    const slots = screen.getAllByTestId("sponsored-slot");
+    expect(slots).toHaveLength(1);
+    expect(screen.getByText("Tài trợ")).toBeInTheDocument();
+  });
+
+  it("Home dedupes the sponsored listing", async () => {
+    loadFeed.mockResolvedValue({
+      items: [listing("a"), listing("b")],
+      failed: false,
+    });
+    loadSponsored.mockResolvedValue([
+      { listing: listing("a"), impressionToken: "tok" },
+    ]);
+    const { container } = render(await FeedBlock());
+    const slot = screen.getByTestId("sponsored-slot");
+    const inSlot = slot.querySelectorAll('a[href^="/listing/a"]').length;
+    expect(inSlot).toBeGreaterThan(0);
+    expect(container.querySelectorAll('a[href^="/listing/a"]').length).toBe(
+      inSlot,
+    );
+    expect(
+      container.querySelectorAll('a[href^="/listing/b"]').length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("Home slot failure does not break the feed", async () => {
+    loadFeed.mockResolvedValue({
+      items: [listing("a"), listing("b")],
+      failed: false,
+    });
+    loadSponsored.mockResolvedValue([]);
+    const { container } = render(await FeedBlock());
+    expect(screen.queryByTestId("sponsored-slot")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(container.querySelectorAll('a[href^="/listing/"]').length).toBe(4);
   });
 });
 

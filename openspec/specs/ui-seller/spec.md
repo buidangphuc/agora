@@ -275,11 +275,12 @@ show an `Alert` with a retry link, and an empty series an `Empty`.
 ### Requirement: Wallet, plans, ads and bundles use Server Actions with the shared mutation contract
 
 `/seller/wallet`, `/seller/plans`, `/seller/ads` and `/seller/bundles` SHALL be server pages composed of
-`Statistic`, `Card`, `Table`, `Pagination` and `FormItem`-based forms. Payout, subscribe, create-ad-campaign
-and create-bundle SHALL be Server Actions returning `{ ok: boolean; error?: string; data?: T }` that call
-`revalidatePath` for their route; their client buttons SHALL show a pending state, be disabled while pending
-and when the action is not applicable (zero balance, current plan, fewer than 2 bundle items), and show a
-success or error toast. Payout SHALL require a confirm `Modal`. Plans SHALL mark the current plan with a `Tag`.
+`Statistic`, `Card`, `Table`, `Pagination` and `FormItem`-based forms. Payout, subscribe, cancel-subscription,
+create-ad-campaign and create-bundle SHALL be Server Actions returning `{ ok: boolean; error?: string; data?: T }`
+that call `revalidatePath` for their route; their client buttons SHALL show a pending state, be disabled while
+pending and when the action is not applicable (zero balance, current plan, fewer than 2 bundle items), and show a
+success or error toast. Payout SHALL require a confirm `Modal`; subscribe and cancel-subscription SHALL require a
+confirm `Modal` that states the charge or the period end. Plans SHALL mark the current plan with a `Tag`.
 
 #### Scenario: Payout confirms, pends and toasts
 
@@ -296,7 +297,7 @@ success or error toast. Payout SHALL require a confirm `Modal`. Plans SHALL mark
 
 - **WHEN** the seller views `/seller/plans`
 - **THEN** the current plan shows a "Gói hiện tại" `Tag` and a disabled button, other plans show an enabled
-  "Đăng ký" button
+  "Nâng cấp" button above the current tier and an enabled "Hạ gói" button below it
 
 #### Scenario: Action errors use the error field
 
@@ -439,3 +440,214 @@ data read by the Analysis page SHALL still come from `getSellerFunnel` and `getR
 
 - **WHEN** a seller opens `/sell`
 - **THEN** the browser lands on `/seller/new`
+
+### Requirement: The seller ads page lists campaigns from the service
+
+`/seller/ads` SHALL list the signed-in seller's ad campaigns from `SponsoredService.ListMyAdCampaigns`, 20 per page
+with the page in the URL, each row showing the listing title, bid, budget, spent, remaining budget, impressions,
+clicks and a status label, all money as integer VND. The list SHALL survive a reload and SHALL include a campaign
+immediately after it is created. A failed list call SHALL affect only the list.
+
+#### Scenario: Campaigns persist after reload
+
+- **WHEN** a seller who created a campaign with budget 50 000 and bid 1 000 reloads `/seller/ads`
+- **THEN** the table shows one row with "₫1.000" bid, "₫50.000" budget, "₫0" spent, "₫50.000" remaining, 0 impressions, 0 clicks and "Đang chạy"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_ads_ui.feature` `Campaigns persist after reload`
+
+#### Scenario: Spend and counters come from the service
+
+- **WHEN** a buyer's click has charged the campaign once at bid 1 000 and the seller opens `/seller/ads`
+- **THEN** the row shows "₫1.000" spent, "₫49.000" remaining, 1 click and at least 1 impression
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_ads_ui.feature` `Spend and counters come from the service`
+
+#### Scenario: Seller with no campaign sees an empty state
+
+- **WHEN** a seller with no campaigns opens `/seller/ads`
+- **THEN** the table shows "Chưa có chiến dịch nào" and the create form is still rendered
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `renders empty state`
+
+#### Scenario: Campaigns are paged at 20
+
+- **WHEN** a seller has 21 campaigns and opens `/seller/ads` and then `/seller/ads?page=2`
+- **THEN** the first page shows 20 rows and the second shows 1 row
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/ads/page.test.tsx` `pages campaigns at 20`
+
+#### Scenario: List failure degrades only the list
+
+- **WHEN** `ListMyAdCampaigns` fails with UNAVAILABLE or exceeds the 2 s timeout
+- **THEN** the list shows an error alert "Không tải được chiến dịch" with a "Thử lại" link, the create form renders, and the page responds 200
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/ads/page.test.tsx` `list error degrades only the list`
+
+#### Scenario: Guest and non-seller are not authorized to open the page
+
+- **WHEN** an unauthenticated guest (401) opens `/seller/ads`, and separately a signed-in buyer without `listing.write` opens it
+- **THEN** the guest is redirected to the login page with `/seller/ads` as the return path, the buyer sees no campaign data, and no `ListMyAdCampaigns` call is made for either
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_ads_ui.feature` `Guest and non-seller are not authorized to open the page`
+
+### Requirement: A seller can pause and resume a campaign
+
+Each campaign row SHALL offer "Tạm dừng" when the status is ACTIVE and "Tiếp tục" when it is PAUSED, calling
+`PauseAdCampaign` or `ResumeAdCampaign` through a Server Action that returns `{ ok, error?, data? }`, shows a
+pending state, is disabled while pending, toasts the outcome and refreshes the row from the service response. A
+campaign in `PAUSED_BUDGET` SHALL show "Hết ngân sách" with the resume button disabled, and an ENDED campaign
+SHALL show no action. A campaign of another seller SHALL NOT be actionable: the service returns NOT_FOUND and the
+UI reports "Không tìm thấy chiến dịch.".
+
+#### Scenario: Pause an active campaign
+
+- **WHEN** the seller activates "Tạm dừng" on an ACTIVE campaign
+- **THEN** the row status becomes "Tạm dừng" and the button becomes "Tiếp tục", still so after reload, and the campaign is no longer served to buyers
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_ads_ui.feature` `Pause an active campaign`
+
+#### Scenario: Resume a paused campaign
+
+- **WHEN** the seller activates "Tiếp tục" on a PAUSED campaign whose remaining budget is at least its bid
+- **THEN** the row status becomes "Đang chạy" and the button becomes "Tạm dừng", still so after reload
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_ads_ui.feature` `Resume a paused campaign`
+
+#### Scenario: Budget-exhausted campaign cannot resume
+
+- **WHEN** a campaign has spent so that remaining budget (₫400) is below its bid (₫500 or more) and the seller opens `/seller/ads`
+- **THEN** the row shows "Hết ngân sách" and the resume button is disabled, and if the action is still forced the error toast reads "Ngân sách còn lại thấp hơn giá thầu, không thể tiếp tục chạy." and the status is unchanged
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/actions.test.ts` `resume maps FAILED_PRECONDITION to the budget message`
+
+#### Scenario: Ended campaign has no action
+
+- **WHEN** a campaign has status ENDED
+- **THEN** its row shows "Đã kết thúc" and neither "Tạm dừng" nor "Tiếp tục" is rendered
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `ended row has no action`
+
+#### Scenario: Double click issues one call
+
+- **WHEN** the seller double-clicks "Tạm dừng"
+- **THEN** the button is disabled after the first click and exactly one `PauseAdCampaign` call is made
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `double click pauses once`
+
+#### Scenario: Another seller's campaign is not found
+
+- **WHEN** seller B submits Pause or Resume with the id of seller A's campaign
+- **THEN** the action returns `ok: false` with "Không tìm thấy chiến dịch.", A's campaign is unchanged, and B's list does not contain it
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_ads_ui.feature` `Another seller's campaign is not found`
+
+### Requirement: The campaign form enforces the minimum bid
+
+The create form and `createAdCampaignAction` SHALL reject a per-click bid below 500 VND, and a budget below the
+bid, with a field error and without calling the service from the client path; a bid of exactly 500 VND SHALL be
+accepted. Server INVALID_ARGUMENT SHALL still be shown as the form error.
+
+#### Scenario: Bid below minimum is rejected
+
+- **WHEN** the seller submits a campaign with bid 499
+- **THEN** the field error "Giá thầu tối thiểu là ₫500." is shown and no `CreateAdCampaign` call is made
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects bid below 500`
+
+#### Scenario: Bid of exactly 500 is accepted
+
+- **WHEN** the seller submits a campaign with bid 500 and budget 5 000
+- **THEN** the campaign is created and appears in the list as "Đang chạy" with "₫500" bid
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_ads_ui.feature` `Bid of exactly 500 is accepted`
+
+#### Scenario: Ad form: budget below the bid is rejected
+
+- **WHEN** the seller submits bid 1 000 and budget 800
+- **THEN** the field error "Ngân sách phải lớn hơn hoặc bằng giá thầu." is shown and no call is made
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects budget below bid`
+
+### Requirement: The seller order page shows the settlement breakdown
+
+`/seller/orders/[id]` SHALL show, for an order that has settled into the seller's wallet, a "Đối soát thanh toán" card
+with the amount credited, the commission and its rate, the commission returned by refunds, the refunds deducted and
+the net, each formatted as integer VND, using only the values returned by `PaymentService.GetOrderSettlement`. The
+page SHALL request the settlement only after the existing ownership check passes. For an order that has not settled
+the card SHALL say so, and a failed settlement call SHALL affect only the card.
+
+#### Scenario: Breakdown of a settled order
+
+- **WHEN** the owning seller opens `/seller/orders/[id]` of an order paid online with items_subtotal 300 000,
+  shipping 30 000 and shop voucher 20 000 (credited 310 000, commission 14 000 at 500 bps)
+- **THEN** the card shows "₫310.000" as credited, "₫14.000" as commission labelled "5%", "₫296.000" as net, and
+  commission returned and refunds deducted as "₫0"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_fee_breakdown_ui.feature` `Breakdown of a settled order`
+
+#### Scenario: Breakdown after a partial refund
+
+- **WHEN** the owning seller opens the order page after a 40% partial return refund has been paid
+  (commission_reversed 5 600, refund_deducted 124 000)
+- **THEN** the card shows commission returned "₫5.600", refunds deducted "₫124.000" and net "₫177.600", equal to
+  the response `net`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_fee_breakdown_ui.feature` `Breakdown after a partial refund`
+
+#### Scenario: Zero commission is shown, not hidden
+
+- **WHEN** the response has commission 0 and commission_rate_bps 0 (an order settled before commission existed)
+- **THEN** the card shows commission "₫0" with rate "0%" and net equal to credited
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `Zero commission is shown, not hidden: renders 0% and a zero amount`
+
+#### Scenario: Unsettled order shows the not-settled state
+
+- **WHEN** the owning seller opens the page of a cash-on-delivery order, whose `GetOrderSettlement` returns NOT_FOUND
+- **THEN** the card shows "Đơn chưa được đối soát vào ví" and no amount rows, and the rest of the order page renders
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_fee_breakdown_ui.feature` `Unsettled order shows the not-settled state`
+
+#### Scenario: Settlement service failure degrades only the card
+
+- **WHEN** `GetOrderSettlement` fails with UNAVAILABLE or exceeds the 2 s timeout while the order itself loads
+- **THEN** the card shows an error alert "Không tải được đối soát thanh toán" with a "Thử lại" link, the order items,
+  totals and tabs still render, and the page responds 200
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/orders/[id]/page.test.tsx` `settlement error degrades only the card`
+
+#### Scenario: Another seller's order is not found and nothing is fetched
+
+- **WHEN** a seller opens `/seller/orders/[id]` of an order that belongs to a different seller
+- **THEN** the response is the not-found page and no `GetOrderSettlement` call is made
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_fee_breakdown_ui.feature` `Another seller's order is not found and nothing is fetched`
+
+#### Scenario: Guest cannot see the breakdown
+
+- **WHEN** a visitor without a session requests `/seller/orders/[id]`
+- **THEN** the visitor is redirected to login and the response contains no settlement amounts
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_fee_breakdown_ui.feature` `Guest cannot see the breakdown`
+
+#### Scenario: Large amounts keep integer precision
+
+- **WHEN** the response holds credited 9 007 199 254 740 000 (below 2^53) and commission 450 359 962 737 000
+- **THEN** the card renders both exactly as formatted integer VND with no fractional digit
+- **VERIFIED BY**: `team-frontend-seller/src/lib/gateway/payment.test.ts` `maps int64 settlement amounts without rounding`
+
+### Requirement: The wallet ledger shows Vietnamese type labels
+
+The `/seller/wallet` ledger Table SHALL show a Vietnamese label for each wallet transaction type: ORDER_SETTLEMENT
+"Thanh toán đơn hàng", PAYOUT "Rút tiền", REFUND_DEDUCTION "Hoàn tiền cho người mua", COMMISSION "Phí hoa hồng",
+COMMISSION_REVERSAL "Hoàn phí hoa hồng", SUBSCRIPTION_FEE "Phí gói người bán", AD_SPEND "Chi phí quảng cáo". A type
+the UI does not know SHALL be shown as its raw string, and an empty type as "—".
+
+#### Scenario: Commission rows are labelled
+
+- **WHEN** the seller opens `/seller/wallet` after an order settled with commission 14 000
+- **THEN** the ledger shows a row "Thanh toán đơn hàng" and a row "Phí hoa hồng" with amount "-₫14.000", and the text
+  "COMMISSION" appears in no cell
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_fee_breakdown_ui.feature` `Commission rows are labelled`
+
+#### Scenario: Every known type has a label
+
+- **WHEN** the label function receives each of the seven known type strings
+- **THEN** it returns the Vietnamese label listed above for each, and none returns the raw string
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `labels every known type`
+
+#### Scenario: Unknown or empty type falls back
+
+- **WHEN** a ledger entry has type "FUTURE_TYPE" or an empty type
+- **THEN** the cell shows "FUTURE_TYPE" or "—" respectively and the page does not error
+- **VERIFIED BY**: `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `falls back for unknown and empty types`
+
+#### Scenario: Ledger load failure keeps the existing error state
+
+- **WHEN** `ListLedgerEntries` fails while the wallet page loads
+- **THEN** the page shows "Không tải được lịch sử giao dịch" with "Thử lại" and no label is rendered from stale data
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `ledger error keeps the retry state`
+
+#### Scenario: Guest cannot see the ledger
+
+- **WHEN** a visitor without a session requests `/seller/wallet`
+- **THEN** the visitor is redirected to login and the response contains no ledger rows
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `guest is redirected to login`
