@@ -1,0 +1,55 @@
+# plans/docs-ai-data/slices.yaml — one slice = one OpenSpec change (plan section 13).
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc/cross_change_check.py --slices plans/docs-ai-data/slices.yaml
+initiative: docs-ai-data
+slices:
+  - id: docs-ai-data-contract
+    owner: platform-core
+    depends_on: []
+    provides:
+      - AnalyticsQueryService.GetRetentionCohorts
+      - AnalyticsQueryService.GetExperimentReadout
+      - AnalyticsQueryService.GetAiSurfaceReport
+  - id: forecast-nightly-job
+    owner: platform-forecast
+    depends_on: []
+  - id: analytics-forecast-serving
+    owner: team-analytics
+    depends_on: [docs-ai-data-contract, forecast-nightly-job]
+    uses: [AnalyticsQueryService.GetDemandForecast]
+  - id: recs-experiment-arms
+    owner: team-ai
+    depends_on: []
+    uses: [RecommendationService.Recommend]
+  - id: analytics-experiment-reports
+    owner: team-analytics
+    depends_on: [docs-ai-data-contract, analytics-forecast-serving]
+    uses:
+      - AnalyticsQueryService.GetRetentionCohorts
+      - AnalyticsQueryService.GetExperimentReadout
+      - AnalyticsQueryService.GetAiSurfaceReport
+      - analytics.events/TrackingEvent
+  - id: ai-assistant-grounding
+    owner: team-ai
+    depends_on: [docs-ai-data-contract, recs-experiment-arms]
+    uses: [AIService.ShoppingAssistant, SearchService.SearchListings, ListingService.GetListing]
+  - id: ai-copilot-grounding
+    owner: team-ai
+    depends_on: [docs-ai-data-contract, ai-assistant-grounding]
+    uses: [AIService.ChatCopilot, AIService.MagicListing, AIService.SummarizeReviews, ListingService.GetListing]
+  - id: seller-forecast-card
+    owner: team-frontend-seller
+    depends_on: [analytics-forecast-serving, ai-copilot-grounding]
+    uses: [AnalyticsQueryService.GetDemandForecast, AIService.MagicListing]
+  - id: admin-insights-panels
+    owner: team-frontend-admin
+    depends_on: [analytics-experiment-reports]
+    uses:
+      - AnalyticsQueryService.GetRetentionCohorts
+      - AnalyticsQueryService.GetExperimentReadout
+      - AnalyticsQueryService.GetAiSurfaceReport
+      - AnalyticsQueryService.GetRecommendationPerformance
+      - AnalyticsQueryService.GetSearchPerformance
+  - id: buyer-ai-surfaces-ui
+    owner: team-frontend
+    depends_on: [ai-assistant-grounding, ai-copilot-grounding, analytics-experiment-reports]
+    uses: [AIService.ShoppingAssistant, AIService.ChatCopilot, AIService.SummarizeReviews, analytics.events/TrackingEvent]

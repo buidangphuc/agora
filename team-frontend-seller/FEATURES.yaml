@@ -2112,6 +2112,7 @@ features:
     status: automated
     covered_by: "frontend/seller_fee_breakdown_ui.feature::Breakdown of a settled order"
     notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-fee-breakdown-ui.breakdown-after-a-partial-refund
     title: "Breakdown after a partial refund"
     persona: seller
@@ -2130,6 +2131,7 @@ features:
     status: automated
     covered_by: "frontend/seller_fee_breakdown_ui.feature::Breakdown after a partial refund"
     notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-fee-breakdown-ui.unsettled-order-shows-the-not-settled-state
     title: "Unsettled order shows the not-settled state"
     persona: seller
@@ -2148,6 +2150,7 @@ features:
     status: automated
     covered_by: "frontend/seller_fee_breakdown_ui.feature::Unsettled order shows the not-settled state"
     notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-fee-breakdown-ui.another-sellers-order-is-not-found-and-nothing-is-fetched
     title: "Another seller's order is not found and nothing is fetched"
     persona: seller
@@ -2166,6 +2169,7 @@ features:
     status: automated
     covered_by: "frontend/seller_fee_breakdown_ui.feature::Another seller's order is not found and nothing is fetched"
     notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-fee-breakdown-ui.guest-cannot-see-the-breakdown
     title: "Guest cannot see the breakdown"
     persona: seller
@@ -2184,6 +2188,7 @@ features:
     status: automated
     covered_by: "frontend/seller_fee_breakdown_ui.feature::Guest cannot see the breakdown"
     notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-fee-breakdown-ui.commission-rows-are-labelled
     title: "Commission rows are labelled"
     persona: seller
@@ -2202,6 +2207,7 @@ features:
     status: automated
     covered_by: "frontend/seller_fee_breakdown_ui.feature::Commission rows are labelled"
     notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-fee-breakdown-ui.zero-commission-is-shown-not-hidden
     title: "Zero commission is shown, not hidden"
     persona: seller
@@ -2299,6 +2305,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `guest is redirected to login`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
   - id: uisl.seller-plan-ui-paid-plan-prices-show-as-whole-vnd-per-term
     title: "Paid plan prices show as whole VND per term"
     persona: seller
@@ -2675,6 +2682,7 @@ features:
     status: automated
     covered_by: "frontend/seller_ads_ui.feature::Campaigns persist after reload"
     notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-ads-ui.spend-and-counters-come-from-the-service
     title: "Spend and counters come from the service"
     persona: seller
@@ -2694,6 +2702,7 @@ features:
     status: automated
     covered_by: "frontend/seller_ads_ui.feature::Spend and counters come from the service"
     notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-ads-ui.seller-with-no-campaign-sees-an-empty-state
     title: "Seller with no campaign sees an empty state"
     persona: seller
@@ -2709,6 +2718,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `renders empty state`. Unit level; not producible end to end."
+
   - id: seller-ads-ui.campaigns-are-paged-at-20
     title: "Campaigns are paged at 20"
     persona: seller
@@ -2724,6 +2734,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/seller/ads/page.test.tsx` `pages campaigns at 20`. Unit level; not producible end to end."
+
   - id: seller-ads-ui.list-failure-degrades-only-the-list
     title: "List failure degrades only the list"
     persona: seller
@@ -2739,6 +2750,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/seller/ads/page.test.tsx` `list error degrades only the list`. Unit level; not producible end to end."
+
   - id: seller-ads-ui.guest-and-non-seller-are-not-authorized-to-open-the-page
     title: "Guest and non-seller are not authorized to open the page"
     persona: seller
@@ -2758,6 +2770,7 @@ features:
     status: automated
     covered_by: "frontend/seller_ads_ui.feature::Guest and non-seller are not authorized to open the page"
     notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-ads-ui.pause-an-active-campaign
     title: "Pause an active campaign"
     persona: seller
@@ -2777,6 +2790,7 @@ features:
     status: automated
     covered_by: "frontend/seller_ads_ui.feature::Pause an active campaign"
     notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-ads-ui.resume-a-paused-campaign
     title: "Resume a paused campaign"
     persona: seller
@@ -2796,6 +2810,7 @@ features:
     status: automated
     covered_by: "frontend/seller_ads_ui.feature::Resume a paused campaign"
     notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-ads-ui.budget-exhausted-campaign-cannot-resume
     title: "Budget-exhausted campaign cannot resume"
     persona: seller
@@ -2811,6 +2826,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/features/seller/actions.test.ts` `resume maps FAILED_PRECONDITION to the budget message`. Unit level; not producible end to end."
+
   - id: seller-ads-ui.ended-campaign-has-no-action
     title: "Ended campaign has no action"
     persona: seller
@@ -2826,6 +2842,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `ended row has no action`. Unit level; not producible end to end."
+
   - id: seller-ads-ui.double-click-issues-one-call
     title: "Double click issues one call"
     persona: seller
@@ -2841,6 +2858,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `double click pauses once`. Unit level; not producible end to end."
+
   - id: seller-ads-ui.another-sellers-campaign-is-not-found
     title: "Another seller's campaign is not found"
     persona: seller
@@ -2860,6 +2878,7 @@ features:
     status: automated
     covered_by: "frontend/seller_ads_ui.feature::Another seller's campaign is not found"
     notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-ads-ui.bid-below-minimum-is-rejected
     title: "Bid below minimum is rejected"
     persona: seller
@@ -2875,6 +2894,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects bid below 500`. Unit level; not producible end to end."
+
   - id: seller-ads-ui.bid-of-exactly-500-is-accepted
     title: "Bid of exactly 500 is accepted"
     persona: seller
@@ -2894,6 +2914,7 @@ features:
     status: automated
     covered_by: "frontend/seller_ads_ui.feature::Bid of exactly 500 is accepted"
     notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
   - id: seller-ads-ui.ad-form-budget-below-the-bid-is-rejected
     title: "Ad form: budget below the bid is rejected"
     persona: seller
@@ -2909,6 +2930,7 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects budget below bid`. Unit level; not producible end to end."
+
   - id: seller-shop-customisation-ui.the-form-is-pre-filled-from-the-storefront
     title: "Seller shop UI: the form is pre-filled from the storefront"
     persona: seller
@@ -5226,3 +5248,472 @@ features:
     tags: [seller-kyc-ui]
     status: automated
     covered_by: "seller/kyc_payout_notice.feature::A verified seller sees no notice and can pay out"
+
+  - id: seller.forecast-card.seller-with-history-sees-the-forecast
+    title: "Seller with history sees the forecast"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a logged-in seller with at least 14 days of paid order lines on listing L and a forecast run after them opens `/seller/analytics`"
+      - "Then the card lists L with 14 rows of date, p10, p50 and p90, a line \"Điểm đặt hàng lại: N đơn vị\" equal to the RPC `suggested_reorder_point` rounded up, the RPC `model_version` string and the `generated_at` date as `dd/mm/yyyy`"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Seller with history sees the forecast"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Seller with history sees the forecast passed on env docs-ai-data (2026-11-16)"
+
+  - id: seller.forecast-card.values-are-rendered-exactly-as-served
+    title: "Values are rendered exactly as served"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the gateway returns a forecast whose p10, p50 and p90 are 1.0, 2.5 and 4.0 for a date"
+      - "Then that date row shows 1.0, 2.5 and 4.0 and no value is recomputed, smoothed or clamped by the frontend"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `renders served quantiles unchanged`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.card-covers-only-the-top-five-listings-of-the-range
+    title: "Card covers only the top five listings of the range"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller has paid revenue on 7 listings in the selected range"
+      - "Then the card shows exactly 5 listing sections, ordered by revenue descending, and `getDemandForecast` is called exactly 5 times"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `forecasts only the top five listings of the range`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.range-tab-selects-the-candidate-listings
+    title: "Range tab selects the candidate listings"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller selects the \"30 ngày\" range tab"
+      - "Then the URL contains `range=30d` and the revenue breakdown used to pick listings is requested with a `from` 30 days before `to`"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `range tab scopes the listing pick`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.forecast-request-is-fixed-at-fourteen-days
+    title: "Forecast request is fixed at fourteen days"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `getDemandForecast` is called by the page"
+      - "Then the RPC request has `horizon_days=14` and the `seller_id` of the session principal"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `requests a 14 day horizon for the principal`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.gateway-rejects-the-forecast-call-without-a-token
+    title: "Gateway rejects the forecast call without a token"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `getDemandForecast` is called with a session token that the gateway rejects with `Unauthenticated`"
+      - "Then the wrapper rejects with that error and the card shows \"Dự báo tạm thời không khả dụng\" without numbers"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `rejects on Unauthenticated`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.listing-without-a-forecast-key
+    title: "Listing without a forecast key"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller has paid orders on listing L but the forecast job wrote no key for L, so the RPC returns `is_cold_start=true` with no points"
+      - "Then L's section reads \"Chưa đủ dữ liệu để dự báo\" and contains no digit-bearing forecast cell, no reorder point and no model version"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Listing without a forecast key"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Listing without a forecast key passed on env docs-ai-data (2026-11-16)"
+
+  - id: seller.forecast-card.cold-start-with-stray-points-is-not-rendered
+    title: "Cold start with stray points is not rendered"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a response has `is_cold_start=true` and a non-empty `daily_forecasts` list"
+      - "Then the section shows only \"Chưa đủ dữ liệu để dự báo\" and none of the points"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `cold start never renders points`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.warm-response-with-no-points-is-an-error-state
+    title: "Warm response with no points is an error state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a response has `is_cold_start=false` and zero `daily_forecasts`"
+      - "Then the section reads \"Dự báo tạm thời không khả dụng\" and shows no numbers"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `empty warm response is treated as an error`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.store-unavailable
+    title: "Store unavailable"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When team-analytics cannot read the forecast store and `GetDemandForecast` returns `Unavailable` for every listing"
+      - "Then every listing section reads \"Dự báo tạm thời không khả dụng\", no forecast number is shown, and the page responds 200"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Store unavailable"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Store unavailable passed on env docs-ai-data (2026-11-16)"
+
+  - id: seller.forecast-card.one-listing-fails-others-render
+    title: "One listing fails, others render"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the call for the second of three listings rejects and the other two succeed"
+      - "Then the second section shows \"Dự báo tạm thời không khả dụng\" and the other two show their forecasts"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `one failed forecast does not hide the others`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.forecast-failure-leaves-funnel-and-revenue-intact
+    title: "Forecast failure leaves funnel and revenue intact"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When every forecast call rejects while the funnel and revenue reads succeed"
+      - "Then the KPI row, the funnel block and the revenue table render with their data and no funnel or revenue Alert appears"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `forecast failure does not touch funnel and revenue`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.wrapper-surfaces-failure-instead-of-zeros
+    title: "Wrapper surfaces failure instead of zeros"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the gateway call in `getDemandForecast` throws a `ConnectError` with code `Unavailable`"
+      - "Then the wrapper rejects with that error and returns no view object"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `rejects on Unavailable`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.revenue-read-fails
+    title: "Revenue read fails"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the revenue breakdown used to pick listings fails"
+      - "Then the card shows an `Alert` \"Dự báo tạm thời không khả dụng\" with a \"Thử lại\" link to the same URL and no forecast call is made"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `revenue failure shows the forecast alert`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.new-seller-without-orders
+    title: "New seller without orders"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with no paid orders in the range opens `/seller/analytics`"
+      - "Then the card shows \"Chưa có đơn hàng để dự báo\" and zero forecast calls are made"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `no revenue means an empty forecast card`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.top-sku-without-a-listing-id-is-skipped
+    title: "Top SKU without a listing id is skipped"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a top SKU row has an empty `listing_id`"
+      - "Then no forecast call is made for it and no section is shown for it"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `skips SKU rows without a listing id`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.query-string-cannot-select-another-seller
+    title: "Query string cannot select another seller"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens `/seller/analytics?range=30d&sellerId=other&listingId=other-1`"
+      - "Then every `GetDemandForecast` request carries the principal's own `seller_id` and none carries `other` or `other-1`"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `ignores seller and listing ids from the URL`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.guest-is-redirected
+    title: "Guest is redirected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a request without a session opens `/seller/analytics`"
+      - "Then the response redirects to login and no `GetDemandForecast` call is made"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `guest triggers no forecast call`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.buyer-without-seller-scope-is-denied
+    title: "Buyer without seller scope is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a logged-in principal without scope `listing.write` opens `/seller/analytics`"
+      - "Then the page renders nothing and no `GetDemandForecast` call is made"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `no listing.write scope triggers no forecast call`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.gateway-rejects-a-foreign-seller-id
+    title: "Gateway rejects a foreign seller id"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller session calls `GetDemandForecast` through the gateway with another seller's id"
+      - "Then the call is denied with `PermissionDenied` and no forecast is returned"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Gateway rejects a foreign seller id"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Gateway rejects a foreign seller id passed on env docs-ai-data (2026-11-16)"
+
+  - id: seller.forecast-card.shown-beacon-carries-provenance
+    title: "Shown beacon carries provenance"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller generates a Magic Listing suggestion and team-ai returns `request_id` R and `model_version` M"
+      - "Then one `ai_interaction` beacon with `properties` `{surface: \"magic_listing\", action: \"shown\"}` is queued with `impressionId` R and `modelVersion` M"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `shown beacon carries request id and model version`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.accepted-beacon-reuses-the-same-provenance
+    title: "Accepted beacon reuses the same provenance"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller applies a field of the suggestion shown with `request_id` R and `model_version` M"
+      - "Then the `accepted` beacon carries `impressionId` R and `modelVersion` M and the listing id when the form has one"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `accepted beacon reuses the shown provenance`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.create-form-has-no-listing-yet
+    title: "Create form has no listing yet"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a suggestion is generated on the create form where no listing id exists"
+      - "Then the beacon item has an empty `itemId` and still carries `impressionId` and `modelVersion`"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `provenance without a listing id`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.beacon-properties-stay-allowlisted
+    title: "Beacon properties stay allowlisted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When provenance is attached to a beacon"
+      - "Then `properties` contains exactly the keys `surface` and `action` and none of the suggestion text, `request_id` or `model_version`"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `provenance never enters properties`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.provenance-reaches-the-warehouse
+    title: "Provenance reaches the warehouse"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller generates a Magic Listing suggestion on the stack with team-ai on the mock backend"
+      - "Then the stored `ai_interaction` event has `model_version` equal to the response `model_version` and a non-empty `impression_id`"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Provenance reaches the warehouse"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Provenance reaches the warehouse passed on env docs-ai-data (2026-11-16)"
+
+  - id: seller.forecast-card.older-team-ai-returns-no-provenance
+    title: "Older team-ai returns no provenance"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `MagicListing` returns empty `request_id` and `model_version`"
+      - "Then the beacon has no `impressionId` and no `modelVersion` key and the suggestion is still shown"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `empty provenance is omitted`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.tracker-failure-never-breaks-the-action
+    title: "Tracker failure never breaks the action"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When queuing the beacon throws"
+      - "Then the suggestion is still shown and \"Áp dụng\" still fills the form"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `tracker failure does not break the assist`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.ai-failure-sends-no-beacon
+    title: "AI failure sends no beacon"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `magicListingAction` fails"
+      - "Then no `shown` beacon is queued and the error Alert with \"Thử lại\" is shown"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `failed suggestion sends no beacon`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.suggestion-never-overwrites-the-form-on-its-own
+    title: "Suggestion never overwrites the form on its own"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a suggestion with provenance arrives while the seller has typed their own title"
+      - "Then no form field changes until the seller activates \"Áp dụng\""
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `never overwrites the form on its own`. Unit level; not producible end to end."

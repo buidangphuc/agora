@@ -11,7 +11,7 @@
 // the payload. Authenticated user identity travels in EventEnvelope.principal —
 // this payload carries only anonymous_id/session_id (no PII by design).
 
-import { GetChannelFunnelRequest, GetChannelFunnelResponse, GetDemandForecastRequest, GetDemandForecastResponse, GetPlatformOrderSummaryRequest, GetPlatformOrderSummaryResponse, GetRecommendationPerformanceRequest, GetRecommendationPerformanceResponse, GetRevenueBreakdownRequest, GetRevenueBreakdownResponse, GetSearchPerformanceRequest, GetSearchPerformanceResponse, GetSellerFunnelRequest, GetSellerFunnelResponse, GetTrackingQualityReportRequest, GetTrackingQualityReportResponse, ListRecentOrdersRequest, ListRecentOrdersResponse } from "./analytics_pb.js";
+import { GetAiSurfaceReportRequest, GetAiSurfaceReportResponse, GetChannelFunnelRequest, GetChannelFunnelResponse, GetDemandForecastRequest, GetDemandForecastResponse, GetExperimentReadoutRequest, GetExperimentReadoutResponse, GetPlatformOrderSummaryRequest, GetPlatformOrderSummaryResponse, GetRecommendationPerformanceRequest, GetRecommendationPerformanceResponse, GetRetentionCohortsRequest, GetRetentionCohortsResponse, GetRevenueBreakdownRequest, GetRevenueBreakdownResponse, GetSearchPerformanceRequest, GetSearchPerformanceResponse, GetSellerFunnelRequest, GetSellerFunnelResponse, GetTrackingQualityReportRequest, GetTrackingQualityReportResponse, ListRecentOrdersRequest, ListRecentOrdersResponse } from "./analytics_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -135,6 +135,42 @@ export const AnalyticsQueryService = {
       name: "GetSearchPerformance",
       I: GetSearchPerformanceRequest,
       O: GetSearchPerformanceResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Weekly signup-cohort retention (d1, d7, d30, weekly active, 30-day repeat purchase) from
+     * [from] over a number of weeks. Admin-only (scope "admin"); aggregate-only, no ids.
+     *
+     * @generated from rpc platform.analytics.v1.AnalyticsQueryService.GetRetentionCohorts
+     */
+    getRetentionCohorts: {
+      name: "GetRetentionCohorts",
+      I: GetRetentionCohortsRequest,
+      O: GetRetentionCohortsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Per-variant exposure and conversion for one feature flag over [from, to]. Admin-only
+     * (scope "admin"); aggregate-only, no ids.
+     *
+     * @generated from rpc platform.analytics.v1.AnalyticsQueryService.GetExperimentReadout
+     */
+    getExperimentReadout: {
+      name: "GetExperimentReadout",
+      I: GetExperimentReadoutRequest,
+      O: GetExperimentReadoutResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Per-surface and model_version counts of AI suggestions shown, accepted, edited and
+     * dismissed over [from, to]. Admin-only (scope "admin"); aggregate-only, no ids.
+     *
+     * @generated from rpc platform.analytics.v1.AnalyticsQueryService.GetAiSurfaceReport
+     */
+    getAiSurfaceReport: {
+      name: "GetAiSurfaceReport",
+      I: GetAiSurfaceReportRequest,
+      O: GetAiSurfaceReportResponse,
       kind: MethodKind.Unary,
     },
   }

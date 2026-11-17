@@ -59,3 +59,27 @@ def test_stdlib_logger_routes_through_loguru():
         logger.remove(sink_id)
 
     assert any("stdlib message" in entry for entry in captured)
+
+
+def test_text_mode_line_carries_bound_fields(capsys):
+    configure_logging(json_mode=False)
+
+    logger.bind(tier="user_precomputed", ranker="fixed_weights", arm="none").info(
+        "recs.served"
+    )
+
+    out = capsys.readouterr().out
+    line = next(entry for entry in out.splitlines() if "recs.served" in entry)
+    assert "tier=user_precomputed" in line
+    assert "ranker=fixed_weights" in line
+    assert "arm=none" in line
+
+
+def test_text_mode_line_without_bound_fields_is_unchanged(capsys):
+    configure_logging(json_mode=False)
+
+    logger.info("plain message")
+
+    out = capsys.readouterr().out
+    line = next(entry for entry in out.splitlines() if "plain message" in entry)
+    assert line.endswith("- plain message")

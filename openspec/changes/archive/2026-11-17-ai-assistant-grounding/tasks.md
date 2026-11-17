@@ -1,0 +1,18 @@
+## 1. Code track (team-ai)
+
+- [x] 1.1 Tests first, `team-ai/tests/unit/test_assistant_grounding.py` with fake search and listing clients: Hit missing in domain; Card count capped at five; Unit parsing; Boundary price; Unparseable or invalid price phrase; LLM invented price; LLM failure falls back; Rating text with and without reviews; Every hydration fails; Search exceeds its deadline; Request ids unique; Provenance when search failed; No raw buyer id in logs; Prompt redacted; Listing description excluded; Scope denied; LLM backend without extra fails at boot. Verify red.
+- [x] 1.2 `core/config/ai.py` (hot): add `ASSISTANT_BACKEND` and the timeout, listing address and principal settings, remove `ASSISTANT_RAG_MIN_SCORE` (Invalid backend value is rejected at boot).
+- [x] 1.3 Adapters: gRPC search client (`SearchListings`, principal `search:read`) and listing client (`GetListing`, principal `listing.read`) in the style of `adapters/search_stock.py`; channels opened and closed in the bootstrap addon (Published in-stock listing becomes a card; Search is down).
+- [x] 1.4 `ai_assistant/grounding.py`: price parser, search call (hybrid, `in_stock=true`, `max_price`, 5), parallel hydration with deadlines, PUBLISHED filter, card build with rating from review data (Out-of-stock listing is never returned; Unpublished listing is not returned; Budget phrase narrows the cards; Ratings scenarios; Every hydration fails; Search exceeds its deadline).
+- [x] 1.5 `ai_assistant/shopping.py`, `factory.py`: `MockAssistantReplier` and `LLMAssistantReplier` with the title/price post-check and template fallback; mint `request_id`; compose `model_version`; drop `user_id` from the log (Reply cites only the returned cards; Responses carry request id and model version; Assistant keeps buyer data out of logs).
+- [x] 1.6 `servicers/ai.py` and `bootstrap/services.py` (hot): map `request_id` and `model_version` to the proto, drop the RAG argument from `build_ai_assistant_services` (Provenance on a grounded answer).
+- [x] 1.7 Delete `DemoCatalogRetriever`, `catalog.py`, the assistant's `RagProductRetriever` wiring and their tests (No demo cards with RAG disabled).
+- [x] 1.8 `team-ai/evals/assistant_grounding.jsonl` plus the runner case and wire into `run_eval --min-score 0.8` (Groundedness eval set passes).
+- [x] 1.9 `docker-compose.services.yaml` (hot): team-ai env `ASSISTANT_LISTING_ADDR=team-domain-svc:50051`, `ASSISTANT_BACKEND=mock`, depends_on team-search and team-domain.
+- [x] 1.10 `openspec validate ai-assistant-grounding --strict`, `spec_lint.py`, team-ai lint, type check and tests, pre-commit-ci.
+
+## 2. E2E track (platform-e2e)
+
+- [x] 2.1 Rewrite `features/ai/assistant_grounding.feature` against search and domain (drop the RAG-indexer and demo-catalog scenarios, remove the `rag-off` overlay use): A published in-stock listing becomes a card; An out-of-stock listing is never returned; An unpublished listing is not returned; A budget phrase narrows the cards; The mock reply is deterministic over real cards; No match gives a no-result reply without cards; Provenance on a grounded answer; Search is down and no invented catalog remains (destructive, restores team-search); No demo cards with RAG disabled.
+- [x] 2.2 Update `features/ai/assistant.feature` step wording if the answer now cites real cards; keep the scenario name stable for `ai.shopping-assistant` `covered_by`.
+- [x] 2.3 Handed to the e2e-author: update `team-ai/FEATURES.yaml` `ai.shopping-assistant` (title "AI shopping assistant (grounded)", acceptance, `covered_by` the new scenarios) and VERIFIED BY lines checked by features-check.

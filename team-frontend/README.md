@@ -16,7 +16,6 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 | `GET /sitemap.xml` | `src/app/sitemap.ts` (`revalidate = 3600`): `/`, `/search?category=<id>` per category, `/listing/<id>` for up to 5000 published listings (`src/lib/gateway/sitemap.ts`, newest first, pages of 50) and `/shop/<sellerId>` for their sellers; a failed read yields a shorter sitemap, not an error | Public; anonymous fallback |
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
-| `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
 | `POST /api/ads/click` | Sponsored-slot click beacon (`src/app/api/ads/click/route.ts`, sent by `src/features/ads/SponsoredClickGuard.tsx` via `sendBeacon`): body `{token}` is the slot's impression token, forwarded to `SponsoredService.RecordAdClick` (`recordAdClick` in `src/lib/gateway/promotion.ts`); always 204 for a well-formed body, charged or not; `GET` returns 405 | Public; session forwarded so the server skips a seller's own click; 400 on a missing or malformed token |
 | `GET /api/analytics/identity` | GA4 `user_id` from the verified principal (see GA4 via GTM) | Consent-gated; 204 when `GA4_USER_ID_HMAC_KEY` is unset |
 
@@ -58,6 +57,7 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `NEXT_PUBLIC_GATEWAY_URL` | `http://localhost:8080` (browser-visible, inlined at build) | `src/lib/analytics/queue.ts` |
 | `OTEL_SERVICE_NAME` | `team-frontend` | `src/lib/gateway/config.ts` |
 | `FEATURE_FLAGS_ENABLED` | `true` (anything but `false` enables) | `src/lib/flags/config.ts` |
+| `FLAG_ENTITY_SALT` | empty; salt hashed with the entity id before it reaches Flipt | `src/lib/flags/variant.ts` |
 | `FLIPT_ADDR` | `flipt:8080` (`http://` prepended if missing; Flipt REST port) | `src/lib/flags/config.ts` |
 | `COOKIE_SECURE` | unset (`true` forces the `Secure` cookie attribute; server-only, TLS environments only, never plain http; unset keeps the `X-Forwarded-Proto` rule) | `src/lib/gateway/session-cookie.ts` |
 | `TRUSTED_PROXY_HOPS` | `1` (values below 1 or non-numeric fall back to 1) | `src/lib/gateway/client-context.ts` |
@@ -120,7 +120,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 ## 7. Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (893 features: 555 `automated`, 332 `not-testable`, 6 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest. Seller and admin entries live in `team-frontend-seller/FEATURES.yaml` and `team-frontend-admin/FEATURES.yaml`.
+- Feature manifest: `FEATURES.yaml` (922 features: 563 `automated`, 353 `not-testable`, 6 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest. Seller and admin entries live in `team-frontend-seller/FEATURES.yaml` and `team-frontend-admin/FEATURES.yaml`.
 - E2E: `platform-e2e` (pytest-bdd + Playwright) drives `team-frontend:3000` through the gateway `:8080`. Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes are specified through OpenSpec (`openspec/changes/<id>`), then `FEATURES.yaml`, then platform-e2e, then `npm run check`, per the root README's ASDLC.
 

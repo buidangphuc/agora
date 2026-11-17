@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
+	"github.com/buidangphuc/team-analytics/internal/forecaststore"
 	"github.com/buidangphuc/team-analytics/internal/query"
 )
 
@@ -28,6 +30,13 @@ const (
 	defaultRecentOrders = 10
 	maxRecentOrders     = 100
 )
+
+const (
+	defaultForecastHorizon = 14
+	maxForecastHorizon     = 28
+)
+
+var forecastIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 // defaultTopSKULimit caps top-SKU rows when a caller does not (the RPC has no
 // limit field yet) — a sensible dashboard default.
@@ -43,6 +52,7 @@ var farFuture = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
 type Handler struct {
 	analyticsv1.UnimplementedAnalyticsQueryServiceServer
 	repo       query.Repository
+	forecasts  *forecaststore.Store
 	logger     *slog.Logger
 	errs       grpcx.ErrorTable
 	thresholds TrackingThresholds
@@ -210,21 +220,39 @@ func (s *Handler) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDem
 		return nil, err
 	}
 	sellerID := strings.TrimSpace(req.GetSellerId())
-	if sellerID == "" {
-		return nil, status.Error(codes.InvalidArgument, "seller_id is required")
+	if !forecastIDPattern.MatchString(sellerID) {
+		return nil, status.Error(codes.InvalidArgument, "seller_id is invalid")
 	}
 	listingID := strings.TrimSpace(req.GetListingId())
-	if listingID == "" {
-		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
+	if !forecastIDPattern.MatchString(listingID) {
+		return nil, status.Error(codes.InvalidArgument, "listing_id is invalid")
 	}
 	horizon := int(req.GetHorizonDays())
 	if horizon <= 0 {
-		horizon = 28
+		horizon = defaultForecastHorizon
+	}
+	if horizon > maxForecastHorizon {
+		horizon = maxForecastHorizon
 	}
 
-	res, err := s.repo.DemandForecast(ctx, sellerID, listingID, horizon)
+	if s.forecasts == nil {
+		return nil, status.Error(codes.Unavailable, "forecast store is not configured")
+	}
+	stored, found, err := s.forecasts.Get(ctx, sellerID, listingID)
 	if err != nil {
-		return nil, s.fail(ctx, err)
+		s.logger.WarnContext(ctx, "forecast store read failed", "error", err)
+		return nil, status.Error(codes.Unavailable, "forecast store unavailable")
+	}
+	if !found {
+		return &analyticsv1.GetDemandForecastResponse{SellerId: sellerID, ListingId: listingID, IsColdStart: true}, nil
+	}
+	res := struct {
+		ModelVersion  string
+		IsColdStart   bool
+		DailyForecast []forecaststore.Point
+	}{stored.ModelVersion, stored.IsColdStart, stored.Points}
+	if len(res.DailyForecast) > horizon {
+		res.DailyForecast = res.DailyForecast[:horizon]
 	}
 
 	leadTime := int(req.GetLeadTimeDays())
@@ -268,6 +296,7 @@ func (s *Handler) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDem
 		SuggestedReorderPoint: reorderPoint,
 		SafetyStock:           safetyStock,
 		DailyForecasts:        make([]*analyticsv1.DailyForecast, 0, len(res.DailyForecast)),
+		GeneratedAt:           timestamppb.New(stored.GeneratedAt),
 	}
 
 	for _, pt := range res.DailyForecast {

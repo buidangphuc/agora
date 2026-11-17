@@ -21,6 +21,7 @@ import (
 	"github.com/buidangphuc/team-analytics/internal/config"
 	"github.com/buidangphuc/team-analytics/internal/events"
 	"github.com/buidangphuc/team-analytics/internal/export"
+	"github.com/buidangphuc/team-analytics/internal/forecaststore"
 	"github.com/buidangphuc/team-analytics/internal/ga4import"
 	"github.com/buidangphuc/team-analytics/internal/observability"
 	"github.com/buidangphuc/team-analytics/internal/query"
@@ -77,6 +78,10 @@ func RunConsumer(ctx context.Context, s config.Settings) (err error) {
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	gauge := observability.NewReconcileGauge()
 	if isDuckDB {
+		fstore, fErr := forecaststore.New(s.Forecast.RedisURL, time.Duration(s.Forecast.ReadTimeoutMS)*time.Millisecond)
+		if fErr != nil {
+			return fErr
+		}
 		h, hErr := rpc.NewHandler(query.NewDuckDBRepository(dw.DB()), logger,
 			rpc.WithTrackingThresholds(rpc.TrackingThresholds{
 				StaleAfter:             time.Duration(s.Tracking.StaleAfterSeconds) * time.Second,
@@ -85,6 +90,7 @@ func RunConsumer(ctx context.Context, s config.Settings) (err error) {
 			}),
 			rpc.WithAttributionWindowHours(s.Recs.AttributionWindowHours),
 			rpc.WithGA4Reconcile(s.GA4.ReconcileMaxDiffRatio, gauge),
+			rpc.WithForecastStore(fstore),
 		)
 		if hErr != nil {
 			return hErr

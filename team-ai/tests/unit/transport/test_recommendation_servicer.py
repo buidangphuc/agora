@@ -45,6 +45,9 @@ class _FakeRecommendations:
             ],
             model_version="als-1",
             placement_id="home_feed",
+            tier="user_precomputed",
+            ranker="gbdt",
+            arm="recs-home-feed-ranker:control",
         )
 
 
@@ -106,7 +109,10 @@ async def test_response_maps_items_rank_model_version_and_request_id():
 
     assert [(i.listing_id, i.rank) for i in reply.items] == [("l1", 1), ("l2", 2)]
     assert reply.items[0].score == pytest.approx(0.9)
-    assert reply.model_version == "als-1"
+    assert (
+        reply.model_version
+        == "als-1/user_precomputed/gbdt/recs-home-feed-ranker:control"
+    )
     assert reply.placement_id == "home_feed"
     assert re.fullmatch(r"[0-9a-f]{32}", reply.request_id)
 
@@ -200,7 +206,12 @@ async def test_logs_one_served_line_per_response():
     extra = served[0]["extra"]
     assert extra["request_id"] == reply.request_id
     assert extra["placement_id"] == "home_feed"
-    assert extra["model_version"] == "als-1"
+    assert extra["tier"] == "user_precomputed"
+    assert extra["ranker"] == "gbdt"
+    assert extra["arm"] == "recs-home-feed-ranker:control"
+    assert "u1" not in str(
+        {k: v for k, v in extra.items() if k not in ("principal_type",)}
+    ).replace("l1", "")
     assert extra["listing_ids"] == ["l1", "l2"]
     assert extra["fallback"] is False
     assert extra["principal_type"] == "user"

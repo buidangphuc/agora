@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CockpitData } from "@/features/admin/CockpitView";
 import { fetchCockpit } from "@/lib/gateway/cockpit";
+import { fetchInsights, parseInsightParams } from "@/lib/gateway/insights";
 import { getPrincipal, getToken } from "@/lib/gateway/session";
 import CockpitPage from "./page";
 
@@ -18,6 +19,33 @@ vi.mock("@/lib/gateway/session", () => ({
   getToken: vi.fn(),
 }));
 vi.mock("@/lib/gateway/cockpit", () => ({ fetchCockpit: vi.fn() }));
+vi.mock("@/lib/gateway/insights", () => ({
+  fetchInsights: vi.fn(),
+  parseInsightParams: vi.fn(),
+}));
+
+const PARAMS = {
+  windowHours: 24,
+  weeks: 12,
+  rangeDays: 7,
+  flag: { kind: "none" },
+} as const;
+
+const insightsOf = (over: Record<string, unknown> = {}) => ({
+  recommendation: { status: "empty" },
+  search: { status: "empty" },
+  retention: { status: "empty" },
+  experiment: { status: "no_flag" },
+  aiSurfaces: { status: "empty" },
+  ...over,
+});
+
+const PANEL_IDS = [
+  "insights_placements",
+  "insights_retention",
+  "insights_experiments",
+  "insights_ai_surfaces",
+];
 
 const DATA: CockpitData = {
   timestamp: "2026-10-05T00:00:00Z",
@@ -42,6 +70,8 @@ beforeEach(() => {
   vi.mocked(getPrincipal).mockReturnValue(admin);
   vi.mocked(getToken).mockReturnValue("tok");
   vi.mocked(fetchCockpit).mockResolvedValue({ status: "ok", data: DATA });
+  vi.mocked(parseInsightParams).mockReturnValue(PARAMS as never);
+  vi.mocked(fetchInsights).mockResolvedValue(insightsOf() as never);
 });
 
 describe("CockpitPage", () => {
@@ -135,5 +165,57 @@ describe("CockpitPage", () => {
     const links = container.querySelectorAll('a[href="/admin/users"]');
     expect(links).toHaveLength(1);
     expect(links[0].textContent).toContain("Quản lý người dùng");
+  });
+
+  it("admin sees all four panels (Admin sees all four panels)", async () => {
+    render(await CockpitPage({ searchParams: {} }));
+    for (const id of PANEL_IDS) expect(screen.getByTestId(id)).toBeTruthy();
+    expect(fetchInsights).toHaveBeenCalledWith(PARAMS);
+  });
+
+  it("non-admin renders 403 and calls no report RPC (Non-admin gets no report calls)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-buyer",
+      name: "Buyer",
+      scopes: ["order.read"],
+    });
+    render(await CockpitPage({ searchParams: {} }));
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    for (const id of PANEL_IDS) expect(screen.queryByTestId(id)).toBeNull();
+    expect(fetchInsights).not.toHaveBeenCalled();
+  });
+
+  it("gateway permission denied renders 403 (Gateway denies a report call)", async () => {
+    vi.mocked(fetchInsights).mockResolvedValue(
+      insightsOf({ retention: { status: "forbidden" } }) as never,
+    );
+    render(await CockpitPage({ searchParams: {} }));
+    expect(fetchInsights).toHaveBeenCalled();
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    for (const id of PANEL_IDS) expect(screen.queryByTestId(id)).toBeNull();
+  });
+
+  it("guest is redirected to login (Anonymous visitor is redirected)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    vi.mocked(getToken).mockReturnValue(undefined);
+    await expect(CockpitPage({ searchParams: {} })).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Fadmin%2Fcockpit",
+    );
+    expect(fetchInsights).not.toHaveBeenCalled();
+  });
+
+  it("report unauthenticated is redirected to login (Expired session is redirected)", async () => {
+    vi.mocked(fetchInsights).mockResolvedValue(
+      insightsOf({ aiSurfaces: { status: "unauthenticated" } }) as never,
+    );
+    await expect(CockpitPage({ searchParams: {} })).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Fadmin%2Fcockpit",
+    );
   });
 });

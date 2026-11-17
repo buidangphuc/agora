@@ -45,6 +45,12 @@ class Filters(BaseModel):
     exclude_cart_items: bool = False
 
 
+class Experiment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    flag: str = Field(min_length=1)
+
+
 class Placement(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -53,6 +59,7 @@ class Placement(BaseModel):
     candidate_ladder: list[LadderStep] = []
     ranking: Ranking = Ranking()
     filters: Filters = Filters()
+    experiment: Experiment | None = None
 
 
 class Placements(BaseModel):

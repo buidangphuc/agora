@@ -11,6 +11,7 @@ import type {
   ViewSellerFunnel,
   ViewTopSku,
 } from "@/lib/gateway/analytics";
+import { ForecastCard, type ForecastItem } from "./ForecastCard";
 import { KpiRow } from "./KpiRow";
 import { LinkButton } from "./LinkButton";
 import { type Range, daysInRange, ratio } from "./analyticsRange";
@@ -69,12 +70,14 @@ export function AnalyticsView({
   range,
   retryHref,
   now,
+  forecastItems,
 }: {
   funnel: ViewSellerFunnel | null;
   revenue: ViewRevenueBreakdown | null;
   range: Range;
   retryHref: string;
   now?: number;
+  forecastItems?: ForecastItem[] | null;
 }) {
   const days = revenue ? daysInRange(revenue.days, range, now) : [];
   const totalRevenue = days.reduce((s, d) => s + d.revenue, 0);
@@ -193,6 +196,10 @@ export function AnalyticsView({
             />
           </CardContent>
         </Card>
+      )}
+
+      {forecastItems !== undefined && (
+        <ForecastCard items={forecastItems} retryHref={retryHref} />
       )}
     </>
   );

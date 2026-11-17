@@ -28,6 +28,7 @@ from tests.unit.recs_support import (
     FakeStock,
     Source,
     build_service,
+    cand,
     popular_entry,
     seed_popular,
     write_placements,
@@ -50,6 +51,9 @@ class _Fake:
             items=[RecommendedItem(listing_id="l1", score=0.9, rank=1)],
             model_version="als-1",
             placement_id="cart_cross_sell",
+            tier="seed_vector_similarity",
+            ranker="similarity",
+            arm="none",
         )
 
 
@@ -163,3 +167,37 @@ async def test_retrieval_timeout_yields_popular_fallback(tmp_path):
         )
     assert [i.listing_id for i in reply.items] == ["p1", "p2"]
     assert stock.calls == []
+
+
+async def test_the_served_model_version_names_generation_tier_ranker_and_arm_a_buyer_with_precomputed_recommendations_reports_the_user_tier():
+    redis = aioredis.FakeRedis(decode_responses=True)
+    await redis.set("recs:v1:serving", "g1")
+    await redis.set(
+        "recs:v1:gen:g1:user:u1",
+        '[{"listing_id": "a", "score": 0.9, "visible": true}]',
+    )
+    service = build_service(Source(), redis)
+    async with _serving(service) as stub:
+        reply = await stub.Recommend(
+            pb.RecommendRequest(context=pb.RECOMMENDATION_CONTEXT_HOMEPAGE),
+            metadata=_MD,
+        )
+    assert [i.listing_id for i in reply.items] == ["a"]
+    assert reply.model_version == "g1/user_precomputed/fixed_weights/none"
+
+
+async def test_a_similar_items_request_reports_the_seed_tier_and_similarity_ranker():
+    redis = aioredis.FakeRedis(decode_responses=True)
+    await redis.set("recs:v1:serving", "g1")
+    source = Source({"seed": [cand("n1", 0.9), cand("n2", 0.8)]})
+    service = build_service(source, redis)
+    async with _serving(service) as stub:
+        reply = await stub.Recommend(
+            pb.RecommendRequest(
+                context=pb.RECOMMENDATION_CONTEXT_SIMILAR_ITEMS,
+                seed_listing_id="seed",
+            ),
+            metadata=_MD,
+        )
+    assert [i.listing_id for i in reply.items] == ["n1", "n2"]
+    assert reply.model_version == "g1/seed_vector_similarity/similarity/none"

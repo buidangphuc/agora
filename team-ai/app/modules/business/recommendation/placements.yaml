@@ -20,6 +20,8 @@ placements:
     filters:
       in_stock_only: true
       deduplicate_sellers: false
+    experiment:
+      flag: "recs-home-feed-ranker"
 
   similar_items:
     result_limit: 10

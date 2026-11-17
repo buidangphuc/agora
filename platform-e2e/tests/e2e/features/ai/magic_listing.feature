@@ -9,3 +9,8 @@ Feature: AI magic listing
     And the seller clicks the AI generate button
     And the seller applies all AI suggestions
     Then the description field is filled by AI
+
+  @needsSeller
+  Scenario: Magic Listing response carries provenance
+    When the seller calls Magic Listing with a title and a category
+    Then the Magic Listing response has a 32-character hex request id and the model version "rules-v1"

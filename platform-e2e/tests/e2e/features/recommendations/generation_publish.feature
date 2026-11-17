@@ -59,4 +59,4 @@ Feature: A promoted model goes live as one generation (recsys-generation-publish
     Given a buyer is logged in
     And a model has been promoted on the good dataset and the gateway reports it
     When a new model is promoted
-    Then within 10 seconds a buyer's recommendations through the gateway report the new model's version
+    Then within 10 seconds the generation segment of a buyer's model_version through the gateway is the new model's version

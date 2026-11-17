@@ -26,12 +26,10 @@ def format_forecast_payload(
 
     daily_forecasts = []
     for i in range(n_days):
-        daily_forecasts.append({
-            "date": dates[i],
-            "p10": float(p10_list[i]) if i < len(p10_list) else 0.0,
-            "p50": float(p50_list[i]) if i < len(p50_list) else 0.0,
-            "p90": float(p90_list[i]) if i < len(p90_list) else 0.0,
-        })
+        p10 = max(0.0, float(p10_list[i])) if i < len(p10_list) else 0.0
+        p50 = max(p10, float(p50_list[i])) if i < len(p50_list) else p10
+        p90 = max(p50, float(p90_list[i])) if i < len(p90_list) else p50
+        daily_forecasts.append({"date": dates[i], "p10": p10, "p50": p50, "p90": p90})
 
     return {
         "seller_id": seller_id,
@@ -56,6 +54,17 @@ def publish_to_redis(
     data = json.dumps(payload)
     if redis_client is not None:
         redis_client.setex(key, ttl_seconds, data)
+    return key
+
+
+def publish_meta(
+    redis_client: Any,
+    meta: dict[str, Any],
+    key: str = "fc:v1:meta",
+    ttl_seconds: int = 172800,
+) -> str:
+    """Writes the run summary; called after every listing key."""
+    redis_client.setex(key, ttl_seconds, json.dumps(meta))
     return key
 
 

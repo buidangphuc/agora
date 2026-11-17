@@ -51,7 +51,7 @@ export function MagicListingAssist({
     if (res.ok && res.data) {
       setSuggestion(res.data);
       onDraft?.();
-      trackAiInteraction("magic_listing", "shown", listingId);
+      track("shown", res.data);
       return;
     }
     const message = res.ok ? "AI chưa có gợi ý cho sản phẩm này." : res.error;
@@ -61,7 +61,18 @@ export function MagicListingAssist({
 
   function apply(values: MagicApply) {
     onApply(values);
-    trackAiInteraction("magic_listing", "accepted", listingId);
+    track("accepted", suggestion);
+  }
+
+  function track(action: "shown" | "accepted", s: ViewMagicListing | null) {
+    try {
+      trackAiInteraction("magic_listing", action, listingId, {
+        impressionId: s?.requestId ?? "",
+        modelVersion: s?.modelVersion ?? "",
+      });
+    } catch {
+      // analytics must never break the assist
+    }
   }
 
   const s = suggestion;

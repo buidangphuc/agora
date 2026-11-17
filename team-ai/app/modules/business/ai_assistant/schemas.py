@@ -10,8 +10,8 @@ class ProductCard(BaseModel):
     currency: str = "VND"
     image_url: str = ""
     discount_rate: int = 0
-    rating: float = 4.8
-    rating_text: str = "4.8"
+    rating: float = 0.0
+    rating_text: str = ""
 
 
 class ShoppingAssistantRequest(BaseModel):
@@ -29,6 +29,8 @@ class ShoppingAssistantResponse(BaseModel):
     reply_text: str
     product_cards: list[ProductCard] = Field(default_factory=list)
     suggested_followups: list[str] = Field(default_factory=list)
+    request_id: str = ""
+    model_version: str = ""
 
 
 class MagicListingRequest(BaseModel):
@@ -60,6 +62,7 @@ class ChatCopilotRequest(BaseModel):
 
 class ChatCopilotResponse(BaseModel):
     quick_replies: list[str] = Field(default_factory=list)
+    model_version: str = "rules-v1"
 
 
 class ReviewItem(BaseModel):

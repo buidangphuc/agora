@@ -45,7 +45,10 @@
         ],
         "model_version": "g1",
         "placement_id": "home_feed",
-        "fallback": false
+        "fallback": false,
+        "tier": "user_precomputed",
+        "ranker": "fixed_weights",
+        "arm": "none"
       }
     },
     {
@@ -416,7 +419,10 @@
         ],
         "model_version": "g1",
         "placement_id": "home_feed",
-        "fallback": false
+        "fallback": false,
+        "tier": "user_precomputed",
+        "ranker": "gbdt",
+        "arm": "none"
       }
     },
     {
@@ -464,7 +470,10 @@
         ],
         "model_version": "g1",
         "placement_id": "home_feed",
-        "fallback": false
+        "fallback": false,
+        "tier": "user_precomputed",
+        "ranker": "fixed_weights",
+        "arm": "none"
       }
     },
     {
@@ -588,7 +597,10 @@
         ],
         "model_version": "g1",
         "placement_id": "similar_items",
-        "fallback": false
+        "fallback": false,
+        "tier": "seed_vector_similarity",
+        "ranker": "similarity",
+        "arm": "none"
       }
     },
     {
@@ -868,7 +880,10 @@
         "items": [],
         "model_version": "g1",
         "placement_id": "home_feed",
-        "fallback": true
+        "fallback": true,
+        "tier": "popular",
+        "ranker": "similarity",
+        "arm": "none"
       }
     },
     {
@@ -941,7 +956,10 @@
         ],
         "model_version": "serving-fallback",
         "placement_id": "home_feed",
-        "fallback": true
+        "fallback": true,
+        "tier": "serving-fallback",
+        "ranker": "similarity",
+        "arm": "none"
       }
     },
     {

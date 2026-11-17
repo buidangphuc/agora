@@ -5,13 +5,17 @@ from __future__ import annotations
 from contextlib import AsyncExitStack
 
 import grpc
+import httpx
 from qdrant_client import AsyncQdrantClient
 from redis.asyncio import Redis
 
 from app.bootstrap.resources import ApplicationResources, opened
 from app.core.config import Settings
 from app.modules.business.recommendation.adapters.search_stock import GrpcStockLookup
-from app.modules.business.recommendation.factory import RecommendationClients
+from app.modules.business.recommendation.factory import (
+    RecommendationClients,
+    build_experiment_assigner,
+)
 
 
 def _build_qdrant_client(settings: Settings) -> AsyncQdrantClient:
@@ -54,8 +58,15 @@ class RecommendationAddon:
         search = grpc.aio.insecure_channel(settings.RECS_SEARCH_ADDR)
         stack.push_async_callback(search.close)
 
+        assigner = None
+        if settings.RECS_FLIPT_URL:
+            flipt_http = httpx.AsyncClient(base_url=settings.RECS_FLIPT_URL)
+            stack.push_async_callback(flipt_http.aclose)
+            assigner = build_experiment_assigner(settings, flipt_http)
+
         resources.recommendation_clients = RecommendationClients(
             qdrant=qdrant,
+            assigner=assigner,
             featurestore=by_url.get(featurestore_url),
             nearline=by_url.get(nearline_url),
             stock=GrpcStockLookup(

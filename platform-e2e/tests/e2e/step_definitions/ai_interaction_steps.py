@@ -19,6 +19,7 @@ from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support import ai_events_support as ai
 from tests.e2e.support import d2_support as d2
 from tests.e2e.support import review_order_support as ros
+from tests.e2e.support import srm_support as srm
 from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
@@ -60,7 +61,16 @@ def _cards(world: World):  # noqa: ANN202
     return world.page.get_by_role("link", name="Xem Ngay")
 
 
+def ensure_answerable(world: World, question: str) -> None:
+    """Publish an in-stock listing titled with the question, cheap enough for any price cap, and
+    wait until search returns it, so the assistant has a product to ground its answer on."""
+    label = f"ai-{len(srm.ctx(world).listings)}"
+    srm.create_listing(world, label, stock=5, title_suffix=question, price=100_000)
+    srm.wait_indexed(world, label)
+
+
 def _open_assistant_and_ask(world: World, question: str) -> None:
+    ensure_answerable(world, question)
     goto_streamed(world.page, f"{_base(world)}/assistant")
     _ask(world, question)
     expect(_cards(world).first).to_be_visible(timeout=timeouts.LONG)
@@ -88,6 +98,7 @@ def type_in_assistant(world: World) -> None:
 @when("the buyer asks the assistant a second question and more product cards are shown")
 def ask_second(world: World) -> None:
     before = _cards(world).count()
+    ensure_answerable(world, _SECOND_QUESTION)
     _ask(world, _SECOND_QUESTION)
     expect(_cards(world)).not_to_have_count(before, timeout=timeouts.LONG)
 
@@ -209,6 +220,49 @@ def exact_keys(world: World) -> None:
     assert events, "no ai_interaction beacon captured"
     for e in events:
         assert set((e.get("properties") or {}).keys()) == ai.ALLOWED_KEYS, ai.describe([e])
+
+
+# ── Response provenance in wire fields ───────────────────────────────────
+def _provenance_events(world: World, surface: str, action: str) -> list[dict]:
+    found = ai.ai_events(world, surface, action)
+    assert found, f"no {surface}/{action} event captured"
+    return found
+
+
+@then(
+    parsers.parse(
+        'every captured "{surface}" "{action}" AI event carries an impressionId equal to the reply request id'
+    )
+)
+def carries_reply_request_id(world: World, surface: str, action: str) -> None:
+    ai.settled(world, 1, surface, action)
+    ids = {e.get("impressionId") for e in _provenance_events(world, surface, action)}
+    assert ids and all(ids), f"missing impressionId on {surface}/{action}: {ids}"
+    bodies = _x(world).get("ai_action_bodies", [])
+    assert bodies, "no assistant response body was recorded"
+    joined = "\n".join(bodies)
+    for rid in ids:
+        assert rid in joined, f"impressionId {rid!r} is not the request id of any assistant reply"
+
+
+@then(parsers.parse('every captured "{surface}" "{action}" AI event carries a non-empty modelVersion'))
+def carries_model_version(world: World, surface: str, action: str) -> None:
+    found = _provenance_events(world, surface, action)
+    assert all(e.get("modelVersion") for e in found), ai.describe(found)
+
+
+@then(parsers.parse('no captured "{surface}" AI event has impressionId or modelVersion in its properties'))
+def provenance_not_in_properties(world: World, surface: str) -> None:
+    for e in ai.ai_events(world, surface):
+        keys = set((e.get("properties") or {}).keys())
+        assert keys == ai.ALLOWED_KEYS, ai.describe([e])
+
+
+@when('the buyer clicks "Xem Ngay" on the first product card without leaving')
+def click_xem_ngay_stay(world: World) -> None:
+    _x(world).setdefault("ai_clicked", []).append(_first_card_listing(world))
+    _cards(world).first.evaluate("el => el.addEventListener('click', e => e.preventDefault(), true)")
+    _cards(world).first.click()
 
 
 # ── Seller chat copilot ──────────────────────────────────────────────────

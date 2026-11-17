@@ -25,6 +25,7 @@ SERVING_DB = 0  # team-ai's RECS_* cache (REDIS_DATABASE of the stack)
 FEATURES_DB = 2  # the feature store's online DB
 SERVING_KEY = "recs:v1:serving"
 FALLBACK_VERSION = "serving-fallback"
+FALLBACK_PREFIX = "serving-fallback/serving-fallback/"
 SETTLE_S = 20.0  # the 5 s pointer memo plus slack
 POLL_S = 0.5
 REDIS_CONTAINER = os.getenv("REDIS_CONTAINER", "agora-redis-1")
@@ -134,7 +135,8 @@ def await_serving_again(world: World, timeout_s: float = 90.0) -> None:
     try:
         await_recommend(
             world,
-            lambda r: bool(r.get("modelVersion")) and r.get("modelVersion") != FALLBACK_VERSION,
+            lambda r: bool(r.get("modelVersion"))
+            and not str(r.get("modelVersion")).startswith(FALLBACK_VERSION),
             "team-ai did not serve a real model again",
             timeout_s,
         )
@@ -145,3 +147,16 @@ def await_serving_again(world: World, timeout_s: float = 90.0) -> None:
 def ai_log_lines(needle: str) -> list[str]:
     out = pe.docker("logs", "--tail", "5000", pe.ai_container(), check=False)
     return [line for line in (out.stdout + out.stderr).splitlines() if needle in line]
+
+
+def in_stock_listing_ids(world: World, count: int, tag: str) -> list[str]:
+    """Publish `count` listings with stock 5 and wait until search reports that stock, so an
+    in-stock-only placement keeps them."""
+    from tests.e2e.support import srm_support as srm
+
+    labels = [f"{tag}-{n}" for n in range(count)]
+    for label in labels:
+        srm.create_listing(world, label, stock=5)
+    for label in labels:
+        srm.wait_stock(world, label, 5)
+    return [srm.listing(world, label).id for label in labels]

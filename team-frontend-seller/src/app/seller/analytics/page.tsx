@@ -2,13 +2,19 @@ import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Tabs } from "@/components/ui/Tabs";
 import { AnalyticsView } from "@/features/seller/AnalyticsView";
+import type { ForecastItem } from "@/features/seller/ForecastCard";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import {
   RANGES,
   RANGE_LABEL,
   parseRange,
+  rangeWindow,
 } from "@/features/seller/analyticsRange";
-import { getRevenueBreakdown, getSellerFunnel } from "@/lib/gateway/analytics";
+import {
+  getDemandForecast,
+  getRevenueBreakdown,
+  getSellerFunnel,
+} from "@/lib/gateway/analytics";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +33,27 @@ export default async function SellerAnalyticsPage(props: {
   if (!hasScope("listing.write")) return null;
 
   const range = parseRange(searchParams.range);
-  const [funnel, revenue] = await Promise.allSettled([
+  const [funnel, revenue, scoped] = await Promise.allSettled([
     getSellerFunnel(me.id, { throwOnError: true }),
     getRevenueBreakdown(me.id, { throwOnError: true }),
+    getRevenueBreakdown(me.id, { throwOnError: true, ...rangeWindow(range) }),
   ]);
+
+  let forecastItems: ForecastItem[] | null = null;
+  if (scoped.status === "fulfilled") {
+    const picks = [...scoped.value.topSkus]
+      .filter((t) => t.listingId !== "")
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+    const results = await Promise.allSettled(
+      picks.map((t) => getDemandForecast(me.id, t.listingId)),
+    );
+    forecastItems = picks.map((t, i) => ({
+      listingId: t.listingId,
+      sku: t.sku,
+      result: results[i],
+    }));
+  }
 
   return (
     <>
@@ -48,6 +71,7 @@ export default async function SellerAnalyticsPage(props: {
         revenue={revenue.status === "fulfilled" ? revenue.value : null}
         range={range}
         retryHref={href(range)}
+        forecastItems={forecastItems}
       />
     </>
   );

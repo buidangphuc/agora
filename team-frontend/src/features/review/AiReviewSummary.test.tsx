@@ -83,8 +83,32 @@ describe("AiReviewSummary ai_interaction", () => {
     rerender(<StrictMode>{card}</StrictMode>);
     rerender(<StrictMode>{card}</StrictMode>);
 
-    expect(vi.mocked(trackAiInteraction).mock.calls).toEqual([
-      ["review_summary", "shown", "lst_4"],
+    expect(vi.mocked(trackAiInteraction).mock.calls).toHaveLength(1);
+    expect(vi.mocked(trackAiInteraction).mock.calls[0].slice(0, 3)).toEqual([
+      "review_summary",
+      "shown",
+      "lst_4",
+    ]);
+  });
+
+  // Scenario: The review summary shown event carries the summary provenance
+  it("shown carries provenance", async () => {
+    vi.mocked(summarizeReviews).mockResolvedValue({
+      ...summary,
+      requestId: "s1",
+      modelVersion: "mock:v1",
+    } as never);
+    const card = await AiReviewSummary({
+      listingId: "lst_4",
+      reviewsPromise: Promise.resolve(makeReviews(2)),
+    });
+    render(<StrictMode>{card}</StrictMode>);
+    expect(vi.mocked(trackAiInteraction).mock.calls).toHaveLength(1);
+    expect(vi.mocked(trackAiInteraction).mock.calls[0]).toEqual([
+      "review_summary",
+      "shown",
+      "lst_4",
+      { requestId: "s1", modelVersion: "mock:v1" },
     ]);
   });
 

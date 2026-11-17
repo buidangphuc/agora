@@ -34,6 +34,7 @@ type Settings struct {
 	Recs       Recs
 	Engagement Engagement
 	GA4        GA4
+	Forecast   Forecast
 	Erasure    Erasure
 	OTel       sdkconfig.OTel
 }
@@ -133,6 +134,12 @@ type GA4 struct {
 	Endpoint           string `env:"GA4_ENDPOINT" default:"https://www.google-analytics.com/mp/collect"`
 	RelayConsumerGroup string `env:"GA4_RELAY_CONSUMER_GROUP" default:"team-analytics.ga4-relay"`
 	RelayDLQTopic      string `env:"GA4_RELAY_DLQ_TOPIC" default:"analytics.ga4-relay.dlq"`
+}
+
+// Forecast configures the read-only forecast store behind GetDemandForecast.
+type Forecast struct {
+	RedisURL      string `env:"FORECAST_REDIS_URL" default:"" keepempty:"true"`
+	ReadTimeoutMS int    `env:"FORECAST_READ_TIMEOUT_MS" default:"25"`
 }
 
 // Load reads the environment into Settings and validates it.

@@ -85,6 +85,8 @@ var beaconEventTypes = map[string]analyticsv1.EventType{
 	"alert_subscribe": analyticsv1.EventType_EVENT_TYPE_ALERT_SUBSCRIBE,
 	"ai_interaction":  analyticsv1.EventType_EVENT_TYPE_AI_INTERACTION,
 
+	"experiment_exposure": analyticsv1.EventType_EVENT_TYPE_EXPERIMENT_EXPOSURE,
+
 	// GA4 Standard Event Aliases
 	"view_item":      analyticsv1.EventType_EVENT_TYPE_VIEW,
 	"select_item":    analyticsv1.EventType_EVENT_TYPE_CLICK,
@@ -96,6 +98,8 @@ var (
 	aiSurfaces = map[string]bool{"assistant": true, "chat_copilot": true, "magic_listing": true, "review_summary": true}
 	aiActions  = map[string]bool{"shown": true, "accepted": true, "edited": true, "dismissed": true}
 )
+
+var reExposureValue = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$`)
 
 // Per-field bounds (characters). An event breaking any of them is dropped.
 const (
@@ -146,6 +150,11 @@ func validateBeacon(b *trackBeacon) error {
 	if et == analyticsv1.EventType_EVENT_TYPE_AI_INTERACTION {
 		if len(b.Properties) != 2 || !aiSurfaces[b.Properties["surface"]] || !aiActions[b.Properties["action"]] {
 			return jsonError("invalid ai_interaction properties")
+		}
+	}
+	if et == analyticsv1.EventType_EVENT_TYPE_EXPERIMENT_EXPOSURE {
+		if len(b.Properties) != 2 || !reExposureValue.MatchString(b.Properties["flag"]) || !reExposureValue.MatchString(b.Properties["variant"]) {
+			return jsonError("invalid experiment_exposure properties")
 		}
 	}
 	for _, f := range []string{

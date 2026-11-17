@@ -47,6 +47,12 @@ class RecommendationSettingsMixin(BaseModel):
     RECS_NEARLINE_MIN_IMPRESSIONS: float = Field(default=1.0, ge=0)
     RECS_NEARLINE_TIMEOUT_MS: int = Field(default=20, gt=0)
 
+    # Flipt serves the ranker experiment arms; empty URL = off. The salt hashes the entity id
+    # before it leaves the service and is required outside local.
+    RECS_FLIPT_URL: str = ""
+    RECS_FLIPT_TIMEOUT_MS: int = Field(default=50, gt=0)
+    RECS_EXPERIMENT_SALT: str = ""
+
     # team-search's gRPC address and the service principal team-ai sends on stock lookups
     # (``in_stock_only`` placements); the scopes are comma-separated.
     RECS_SEARCH_ADDR: str = "localhost:50052"

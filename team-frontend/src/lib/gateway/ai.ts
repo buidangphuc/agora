@@ -28,6 +28,8 @@ export interface ViewAssistantReply {
   replyText: string;
   productCards: ViewProductCard[];
   suggestedFollowups: string[];
+  requestId?: string;
+  modelVersion?: string;
 }
 
 /** Shopping Assistant (RAG chatbot): question → reply + product cards + followups. */
@@ -53,6 +55,8 @@ export async function shoppingAssistant(
       ratingText: c.ratingText,
     })),
     suggestedFollowups: res.suggestedFollowups,
+    requestId: res.requestId,
+    modelVersion: res.modelVersion,
   };
 }
 
@@ -61,13 +65,21 @@ export async function chatCopilot(
   sellerId: string,
   buyerMessage: string,
   listingId = "",
-): Promise<string[]> {
+): Promise<{
+  quickReplies: string[];
+  requestId?: string;
+  modelVersion?: string;
+}> {
   const res = await gateway().ai.chatCopilot({
     sellerId,
     buyerMessage,
     listingId,
   });
-  return res.quickReplies;
+  return {
+    quickReplies: res.quickReplies,
+    requestId: res.requestId,
+    modelVersion: res.modelVersion,
+  };
 }
 
 export interface ViewReviewSummary {
@@ -75,6 +87,8 @@ export interface ViewReviewSummary {
   pros: string[];
   cons: string[];
   sentiment: string;
+  requestId?: string;
+  modelVersion?: string;
 }
 
 /** AI review summary: condense a listing's reviews into pros/cons + sentiment. */
@@ -93,6 +107,8 @@ export async function summarizeReviews(
       pros: res.pros,
       cons: res.cons,
       sentiment: res.sentiment,
+      requestId: res.requestId,
+      modelVersion: res.modelVersion,
     };
   } catch {
     return null; // team-ai unavailable — hide the block

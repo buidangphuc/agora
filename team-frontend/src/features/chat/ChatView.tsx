@@ -53,12 +53,20 @@ export function ChatView({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // The inserted copilot suggestion still waiting for its first edit.
+  const [copilotProv, setCopilotProv] = useState<
+    { requestId: string; modelVersion: string } | undefined
+  >(undefined);
   const insertedSuggestion = useRef<string | null>(null);
 
   function insertSuggestion(sug: string) {
     setText(sug);
     insertedSuggestion.current = sug;
-    trackAiInteraction("chat_copilot", "accepted", activeThread?.listingId);
+    trackAiInteraction(
+      "chat_copilot",
+      "accepted",
+      activeThread?.listingId,
+      copilotProv,
+    );
   }
 
   function handleComposerChange(value: string) {
@@ -68,7 +76,12 @@ export function ChatView({
       value !== insertedSuggestion.current
     ) {
       insertedSuggestion.current = null;
-      trackAiInteraction("chat_copilot", "edited", activeThread?.listingId);
+      trackAiInteraction(
+        "chat_copilot",
+        "edited",
+        activeThread?.listingId,
+        copilotProv,
+      );
     }
   }
 
@@ -90,7 +103,12 @@ export function ChatView({
     setCopilotLoading(false);
     if (res.ok && res.replies.length > 0) {
       setCopilotReplies(res.replies);
-      trackAiInteraction("chat_copilot", "shown", activeThread.listingId);
+      const prov = {
+        requestId: res.requestId ?? "",
+        modelVersion: res.modelVersion ?? "",
+      };
+      setCopilotProv(prov);
+      trackAiInteraction("chat_copilot", "shown", activeThread.listingId, prov);
     }
   }
 

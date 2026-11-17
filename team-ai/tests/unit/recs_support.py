@@ -17,7 +17,7 @@ from app.modules.business.recommendation.placements import (
 )
 from app.modules.business.recommendation.ports import StockEntry, StockLookupError
 from app.modules.business.recommendation.ranking.artifact import TrainedRankerLoader
-from app.modules.business.recommendation.schemas import Candidate
+from app.modules.business.recommendation.schemas import SERVING_FALLBACK, Candidate
 from app.modules.business.recommendation.service import RecommendationService
 
 
@@ -110,6 +110,16 @@ def write_placements(tmp_path: Path, body: str) -> Placements:
     return load_placements(path)
 
 
+class FakeAssigner:
+    def __init__(self, assignment: Any) -> None:
+        self.assignment = assignment
+        self.calls: list[tuple[str | None, str | None]] = []
+
+    async def assign(self, flag: str | None, entity_id: str | None) -> Any:
+        self.calls.append((flag, entity_id))
+        return self.assignment
+
+
 class FakeStock:
     def __init__(
         self,
@@ -153,6 +163,7 @@ def build_service(
     *,
     stock_lookup: Any = None,
     retrieve_timeout_s: float = 1.0,
+    assigner: Any = None,
 ) -> RecommendationService:
     redis = aioredis.FakeRedis(decode_responses=True) if redis is None else redis
     cache = RedisServingCache(redis, ServingKeys("recs", "v1"))
@@ -166,7 +177,8 @@ def build_service(
         ranker_loader=TrainedRankerLoader(cache),
         candidate_top_k=100,
         result_top_k=10,
-        model_version="test-v1",
+        model_version=SERVING_FALLBACK,
         stock_lookup=FakeStock() if stock_lookup is None else stock_lookup,
         retrieve_timeout_s=retrieve_timeout_s,
+        **({"assigner": assigner} if assigner is not None else {}),
     )

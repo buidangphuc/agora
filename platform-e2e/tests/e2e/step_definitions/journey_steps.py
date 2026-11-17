@@ -417,6 +417,10 @@ def verify_conversion_funnel_counts(world: World) -> None:
 @when("the seller queries probabilistic demand forecast for the listing")
 def seller_queries_probabilistic_demand_forecast(world: World) -> None:
     listing_id = world.state.listing.listing_id
+    from tests.e2e.step_definitions import fsv_steps
+
+    key = fsv_steps.seed_forecast_key(_seller_id(world), listing_id)
+    world.add_cleanup(lambda: fsv_steps.drop_key(key))
     resp = world.service_factory.analytics.forecast_response(
         _seller_id(world), listing_id, horizon_days=14, lead_time_days=3, service_level=0.95
     )

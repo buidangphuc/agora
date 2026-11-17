@@ -23,7 +23,8 @@ export type GA4EventName =
   | "referral_redeem"
   | "daily_check_in"
   | "alert_subscribe"
-  | "ai_interaction";
+  | "ai_interaction"
+  | "experiment_exposure";
 
 export type InternalEventType =
   | "view"
@@ -46,7 +47,8 @@ export type InternalEventType =
   | "referral_redeem"
   | "daily_check_in"
   | "alert_subscribe"
-  | "ai_interaction";
+  | "ai_interaction"
+  | "experiment_exposure";
 
 export interface EcommerceItem {
   itemId: string;
@@ -75,6 +77,8 @@ export interface EcommerceParams {
   referrer?: string;
   query?: string;
   properties?: Record<string, string>;
+  impressionId?: string;
+  modelVersion?: string;
   /** Caller-provided group id shared by all beacons of one list instance. */
   eventGroupId?: string;
 }

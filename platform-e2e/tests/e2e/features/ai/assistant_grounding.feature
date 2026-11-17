@@ -1,30 +1,56 @@
 @ai @buyer @needsModelserveOverlay
-Feature: Shopping assistant grounded in indexed listings
-  The assistant retrieves real listings from the RAG store the listing indexer feeds and returns them as
-  product cards. Everything goes through the gateway (Connect JSON). Needs team-ai running the RAG store
-  and the indexer (change assistant-rag-grounding, design.md "Deployment needs"); both are on in the base compose
-  by default (change assistant-rag-default-on). The last scenario recreates team-ai with
-  compose/rag-off.override.yaml and restores the standing configuration in teardown.
+Feature: Shopping assistant grounded in live catalog search
+  The assistant builds its product cards from team-search hits hydrated with team-domain listings, so a
+  card exists only for a published in-stock listing and carries the domain's title and price. Everything
+  goes through the gateway (Connect JSON). Needs team-ai with ASSISTANT_BACKEND=mock, team-search and
+  team-domain (change ai-assistant-grounding). The destructive scenarios stop team-search or recreate
+  team-ai with compose/rag-off.override.yaml and restore the standing stack in teardown.
 
-  Scenario: A published listing is returned as a product card
-    When a seller publishes a listing with a unique title and a buyer asks the assistant for that title
-    Then the response contains a product card whose listing id is that listing's id with its title and price
+  Scenario: A published in-stock listing becomes a card
+    When a seller publishes a listing with stock 5 and a buyer asks the assistant for its unique title
+    Then the response has a product card whose listing id, title and price equal that listing's domain values
 
-  Scenario: An unpublished listing disappears from the assistant
-    Given the assistant returns a published control listing, a listing to unpublish and a listing to delete
-    When the seller changes the first to draft and deletes the second
-    Then the assistant no longer returns either of them and still returns the control listing
+  Scenario: An out-of-stock listing is never returned
+    Given the assistant returns a published in-stock control listing
+    And a published listing with stock 0 shares the control listing's title word
+    When a buyer asks the assistant for that title word
+    Then the response contains no product card for the listing with stock 0 and still has the control card
+
+  Scenario: An unpublished listing is not returned
+    Given the assistant returns a published in-stock control listing and a second published listing
+    When the seller changes the second listing to draft
+    Then the assistant no longer returns the second listing and still returns the control listing
+
+  Scenario: A budget phrase narrows the cards
+    Given published listings priced 300000 and 800000 share a unique title word
+    When a buyer asks the assistant for that word with the budget "dưới 500k"
+    Then every returned card has a price of at most 500000 and the 300000 listing is returned
+
+  Scenario: The mock reply is deterministic over real cards
+    Given the assistant returns a published in-stock control listing
+    When a buyer asks the assistant for that title word twice
+    Then both replies are byte-identical and name the first card's title and its price
+
+  Scenario: No match gives a no-result reply without cards
+    When a buyer asks the assistant for a product no published in-stock listing matches
+    Then the response has no product cards and a non-empty reply naming no listing title
+
+  Scenario: Provenance on a grounded answer
+    Given the assistant returns a published in-stock control listing
+    When a buyer asks the assistant for that title word
+    Then the request id is 32 lowercase hex characters and the model version matches "mock:assistant-v1|" followed by the search model version
 
   @destructive
-  Scenario: The assistant answers when retrieval is down
-    Given the assistant returns a published listing
-    And the modelserve router is stopped
-    When a buyer asks the assistant for that listing
-    Then the call succeeds with a non-empty reply and no product cards
-    And the product card comes back once the router is restored
+  Scenario: Search is down and no invented catalog remains
+    Given the assistant returns a published in-stock control listing
+    And team-search is stopped
+    When a buyer asks the assistant for that title word
+    Then the call succeeds with the retrieval-failed reply, no product cards and the model version "mock:assistant-v1"
+    And the control card comes back once team-search is restored
 
   @destructive
-  Scenario: Without a RAG store the demo catalog answers
-    Given team-ai runs with RAG disabled
+  Scenario: No demo cards with RAG disabled
+    Given a published in-stock control listing exists in the catalog
+    And team-ai runs with RAG disabled
     When a buyer asks the assistant for a t-shirt
-    Then the response carries demo catalog cards and none of the listings published to the platform
+    Then every returned card id is a listing that exists in team-domain

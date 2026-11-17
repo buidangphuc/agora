@@ -1,6 +1,6 @@
 # ADR-0013 — Seller Demand Forecasting & Order Warehouse Integration (platform-forecast)
 
-**Status:** Proposed · **Date:** 2026-09-20 · **Relates to:** ADR-0002, ADR-0005, ADR-0008, ADR-0009, ADR-0011
+**Status:** Accepted · **Date:** 2026-09-20 · **Relates to:** ADR-0002, ADR-0005, ADR-0008, ADR-0009, ADR-0011
 
 ## Context
 

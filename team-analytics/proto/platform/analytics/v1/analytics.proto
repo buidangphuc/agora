@@ -48,6 +48,15 @@ service AnalyticsQueryService {
   // placement_id = search_results: impressions, clicks, and add-to-carts / purchases attributed
   // to a click within the attribution window. Admin-only (scope "admin"); carries no per-user data.
   rpc GetSearchPerformance(GetSearchPerformanceRequest) returns (GetSearchPerformanceResponse);
+  // Weekly signup-cohort retention (d1, d7, d30, weekly active, 30-day repeat purchase) from
+  // [from] over a number of weeks. Admin-only (scope "admin"); aggregate-only, no ids.
+  rpc GetRetentionCohorts(GetRetentionCohortsRequest) returns (GetRetentionCohortsResponse);
+  // Per-variant exposure and conversion for one feature flag over [from, to]. Admin-only
+  // (scope "admin"); aggregate-only, no ids.
+  rpc GetExperimentReadout(GetExperimentReadoutRequest) returns (GetExperimentReadoutResponse);
+  // Per-surface and model_version counts of AI suggestions shown, accepted, edited and
+  // dismissed over [from, to]. Admin-only (scope "admin"); aggregate-only, no ids.
+  rpc GetAiSurfaceReport(GetAiSurfaceReportRequest) returns (GetAiSurfaceReportResponse);
 }
 
 message GetChannelFunnelRequest {
@@ -145,6 +154,71 @@ message GetDemandForecastResponse {
   double safety_stock = 5;
   string model_version = 6;
   bool is_cold_start = 7;
+  // The run time of the forecast; unset when is_cold_start is true (no model run).
+  google.protobuf.Timestamp generated_at = 8;
+}
+
+message GetRetentionCohortsRequest {
+  google.protobuf.Timestamp from = 1;
+  // Number of weekly cohorts, 1..26; 0 = 12; values above 26 are rejected with INVALID_ARGUMENT.
+  uint32 weeks = 2;
+}
+
+// RetentionCohort is one signup week, starting on a UTC Monday. d1, d7, d30,
+// weekly_active and repeat_purchase_30d are ratios in 0..1.
+message RetentionCohort {
+  string cohort_week = 1;
+  int64 cohort_size = 2;
+  double d1 = 3;
+  double d7 = 4;
+  double d30 = 5;
+  repeated double weekly_active = 6;
+  double repeat_purchase_30d = 7;
+}
+
+message GetRetentionCohortsResponse {
+  repeated RetentionCohort cohorts = 1;
+}
+
+message GetExperimentReadoutRequest {
+  string flag = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+// ExperimentVariantRow is one variant of the flag. rate is converted / exposed in 0..1,
+// with a 95% Wilson interval [ci_low, ci_high] also in 0..1.
+message ExperimentVariantRow {
+  string variant = 1;
+  int64 exposed = 2;
+  int64 converted = 3;
+  double rate = 4;
+  double ci_low = 5;
+  double ci_high = 6;
+}
+
+message GetExperimentReadoutResponse {
+  repeated ExperimentVariantRow variants = 1;
+  // Conversion window: a paid order within 7 days after the first exposure.
+  uint32 window_days = 2;
+}
+
+message GetAiSurfaceReportRequest {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+}
+
+message AiSurfaceRow {
+  string surface = 1;
+  string model_version = 2;
+  int64 shown = 3;
+  int64 accepted = 4;
+  int64 edited = 5;
+  int64 dismissed = 6;
+}
+
+message GetAiSurfaceReportResponse {
+  repeated AiSurfaceRow rows = 1;
 }
 
 message GetPlatformOrderSummaryRequest {
@@ -284,6 +358,9 @@ enum EventType {
   // An interaction with an AI surface. properties: exactly surface, action
   // (both allowlisted values, no free text).
   EVENT_TYPE_AI_INTERACTION = 21;
+  // A visitor was exposed to a feature-flag variant. properties: exactly flag,
+  // variant (both allowlisted values, no free text).
+  EVENT_TYPE_EXPERIMENT_EXPOSURE = 22;
 }
 
 

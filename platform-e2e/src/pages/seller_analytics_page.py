@@ -40,5 +40,17 @@ class SellerAnalyticsPage(BasePage):
     def revenue_table(self) -> Locator:
         return self.page.get_by_role("table", name="Doanh thu theo ngày")
 
+    @property
+    def forecast_card(self) -> Locator:
+        return self.page.get_by_test_id("forecast-card")
+
+    @property
+    def forecast_title(self) -> Locator:
+        return self.page.get_by_text("Dự báo nhu cầu 14 ngày", exact=True).first
+
+    @property
+    def forecast_rows(self) -> Locator:
+        return self.forecast_card.get_by_role("row").filter(has=self.page.get_by_role("cell"))
+
     def is_displayed(self) -> bool:
         return "/seller/analytics" in self.page.url

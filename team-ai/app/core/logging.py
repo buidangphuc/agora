@@ -37,6 +37,25 @@ def _inject_request_id(record: "Record") -> None:
     record["extra"].setdefault("request_id", get_request_id())
 
 
+_TEXT_FORMAT = (
+    "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> "
+    "<level>{level: <8}</level> "
+    "<cyan>{name}</cyan>:<cyan>{line}</cyan> "
+    "[req={extra[request_id]}] - <level>{message}</level>"
+)
+_FIELDS_KEY = "_text_fields"
+
+
+def _text_format(record: "Record") -> str:
+    fields = " ".join(
+        f"{key}={value}"
+        for key, value in record["extra"].items()
+        if key != "request_id" and not key.startswith("_")
+    )
+    record["extra"][_FIELDS_KEY] = f" {fields}" if fields else ""
+    return _TEXT_FORMAT + "{extra[" + _FIELDS_KEY + "]}\n{exception}"
+
+
 def configure_logging(
     *,
     level: str = "INFO",
@@ -58,16 +77,10 @@ def configure_logging(
             diagnose=False,
         )
     else:
-        fmt = (
-            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> "
-            "<level>{level: <8}</level> "
-            "<cyan>{name}</cyan>:<cyan>{line}</cyan> "
-            "[req={extra[request_id]}] - <level>{message}</level>"
-        )
         logger.add(
             sys.stdout,
             level=resolved_level,
-            format=fmt,
+            format=_text_format,
             enqueue=enqueue,
             backtrace=False,
             diagnose=False,

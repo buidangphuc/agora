@@ -17,10 +17,21 @@ export async function chatCopilotAction(
   sellerId: string,
   buyerMessage: string,
   listingId = "",
-): Promise<{ ok: boolean; replies: string[]; message?: string }> {
+): Promise<{
+  ok: boolean;
+  replies: string[];
+  requestId?: string;
+  modelVersion?: string;
+  message?: string;
+}> {
   try {
-    const replies = await chatCopilot(sellerId, buyerMessage, listingId);
-    return { ok: true, replies };
+    const res = await chatCopilot(sellerId, buyerMessage, listingId);
+    return {
+      ok: true,
+      replies: res.quickReplies,
+      requestId: res.requestId,
+      modelVersion: res.modelVersion,
+    };
   } catch (err) {
     return {
       ok: false,

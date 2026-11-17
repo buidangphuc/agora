@@ -27,9 +27,9 @@ Served by the platform-core contract (vendored in `proto/`), always started once
 
 | Service | RPCs served |
 | --- | --- |
-| `platform.ai.v1.AIService` | `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews`, `ClassifyTags` and `ScreenListing` (internal: service principals with `ai.classify`) |
+| `platform.ai.v1.AIService` | `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews`, `ClassifyTags` and `ScreenListing` (internal: service principals with `ai.classify`); the `request_id` and `model_version` fields on the `ShoppingAssistant`, `MagicListing`, `ChatCopilot` and `SummarizeReviews` responses are contract only (docs-ai-data-contract, not built) and are left empty |
 | `platform.chat.v1.ChatService` | `StreamChat` (server stream) |
-| `platform.recommendation.v1.RecommendationService` | `Recommend` |
+| `platform.recommendation.v1.RecommendationService` | `Recommend` (`model_version` is `<model_version>/<tier>/<ranker>/<arm>`, see the [README](../README.md)) |
 | `platform.search.v1.SearchService` | `SearchListings` only (scope `search:read`, answers unavailable unless `RAG_ENABLED`; each response carries a random 32-hex `request_id` and `model_version` `semantic@<SEARCH_RANKER_VERSION>`, default `v1`); the other search RPCs return unimplemented |
 
 Auth is the gateway's: the service reads forwarded `x-principal-*` metadata and enforces scopes. A call without that metadata is `UNAUTHENTICATED`; with `grpcurl`, send the `x-principal-*` headers yourself. `AI_USE_SCOPE_REQUIRED` adds the `ai:use` scope to the shopper LLM RPCs and chat. `ShoppingAssistant` and `StreamChat` are always throttled per principal on Redis (`RATE_LIMIT_PRINCIPAL_PER_MINUTE` per `RATE_LIMIT_WINDOW_SECONDS`), and reflection is always served.
@@ -56,6 +56,8 @@ Four settings switch behaviour: `CHAT_BACKEND`, `RAG_ENABLED`, `AI_USE_SCOPE_REQ
 | Chat backend | `CHAT_BACKEND` | `mock` echoes offline; `llm_router` streams from the LLM chain (`CHAT_MODEL`, `CHAT_FALLBACK_MODELS`) and needs the `ai` extra. |
 | Listing indexer | (with `RAG_ENABLED`) | Consumes `listing.events` from `KAFKA_BROKERS` into RAG. Indexes `PUBLISHED` listings only (and an empty status from legacy producers). |
 | Listing screen | `SCREEN_BACKEND` | `mock` (default) flags text containing `SCREEN_MOCK_MARKER`; `llm_router` runs the LLM chain and needs the `ai` extra. Served as `AIService/ScreenListing`. |
+| Shopping assistant replies | `ASSISTANT_BACKEND` | `mock` (default) replies from a template; `llm_router` drafts within `ASSISTANT_TIMEOUT_SECONDS` and needs the `ai` extra (boot fails without it). Grounding always runs: search via `RECS_SEARCH_ADDR` within `ASSISTANT_SEARCH_TIMEOUT_SECONDS`, then team-domain `GetListing` at `ASSISTANT_LISTING_ADDR` within `ASSISTANT_LISTING_TIMEOUT_SECONDS`, as principal `ASSISTANT_LISTING_PRINCIPAL_ID` with `ASSISTANT_LISTING_PRINCIPAL_SCOPES`. |
+| Chat copilot drafts | `COPILOT_BACKEND` | `mock` (default) drafts from rules; `llm_router` drafts within `COPILOT_TIMEOUT_SECONDS`, needs the `ai` extra and falls back to the rules on unusable or contradicting output. |
 | Taxonomy persistence | always on | Curated tags survive restarts, in Redis database `TAXONOMY_REDIS_DATABASE` (must differ from `REDIS_DATABASE`). |
 | Quota | always on | Chat reply quota (`QUOTA_CHAT_*`), counted in Redis under `QUOTA_REDIS_PREFIX` so every pod shares it. |
 | Rate limiting | always on | Per-principal limit on HTTP and gRPC, counted in Redis (`RATE_LIMIT_*`). There is no per-IP limit: edge limiting is the gateway's job. |

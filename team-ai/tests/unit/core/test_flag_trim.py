@@ -62,7 +62,7 @@ def test_removed_key_in_env_file_is_rejected(tmp_path: Path, key: str):
     assert [e["type"] for e in excinfo.value.errors()] == ["extra_forbidden"]
 
 
-def test_switches_are_the_four_that_remain():
+def test_switches_are_the_five_that_remain():
     switches = {
         name
         for name in Settings.model_fields
@@ -74,6 +74,8 @@ def test_switches_are_the_four_that_remain():
         "DOCS_ENABLED",
         "CHAT_BACKEND",
         "SCREEN_BACKEND",  # ai-listing-screen: mock|llm_router selector
+        "ASSISTANT_BACKEND",  # ai-assistant-grounding: mock|llm_router selector
+        "COPILOT_BACKEND",  # ai-copilot-grounding: mock|llm_router selector
     }
     assert "AI_USE_SCOPE_REQUIRED" in Settings.model_fields
 

@@ -82,13 +82,14 @@ team-ai SHALL read recommendations from the keys of the generation named by `rec
 most 5 seconds, and SHALL query Qdrant in the collection of that same generation
 (`<RECS_QDRANT_COLLECTION>__<generation>`), never through the alias, so one pointer read decides both stores. The
 generation SHALL be fixed once per request: the lists and the vectors of one request belong to one generation. When
-`recs:v1:serving` is absent it SHALL read the unscoped v1 keys and the alias collection as before. The reported
-`model_version` SHALL be the serving generation.
+`recs:v1:serving` is absent it SHALL read the unscoped v1 keys and the alias collection as before. The first segment of the
+reported `model_version` (`<generation>/<tier>/<ranker>/<arm>`) SHALL be the serving generation.
 
 #### Scenario: Serving follows a promotion within seconds
 
 - **WHEN** a new model is promoted
-- **THEN** within 10 seconds a buyer's recommendations through the gateway report the new model's version
+- **THEN** within 10 seconds the generation segment of a buyer's `model_version` through the gateway is the new model's version
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/generation_publish.feature` `Serving follows a promotion within seconds`
 
 #### Scenario: A similar-items request reads the vectors of the serving generation
 

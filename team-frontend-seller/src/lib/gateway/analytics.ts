@@ -7,6 +7,7 @@
  */
 import "server-only";
 
+import { Timestamp } from "@bufbuild/protobuf";
 import { createPromiseClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-node";
 
@@ -71,10 +72,14 @@ export async function getSellerFunnel(
 
 export async function getRevenueBreakdown(
   sellerId: string,
-  opts: { throwOnError?: boolean } = {},
+  opts: { throwOnError?: boolean; from?: Date; to?: Date } = {},
 ): Promise<ViewRevenueBreakdown> {
   try {
-    const res = await analytics().getRevenueBreakdown({ sellerId });
+    const res = await analytics().getRevenueBreakdown({
+      sellerId,
+      ...(opts.from ? { from: Timestamp.fromDate(opts.from) } : {}),
+      ...(opts.to ? { to: Timestamp.fromDate(opts.to) } : {}),
+    });
     return {
       days: res.days.map((d) => ({
         day: d.day,
@@ -92,4 +97,56 @@ export async function getRevenueBreakdown(
     if (opts.throwOnError) throw err;
     return { days: [], topSkus: [] };
   }
+}
+
+export interface ViewForecastPoint {
+  date: string;
+  p10: number;
+  p50: number;
+  p90: number;
+}
+
+export interface ViewDemandForecast {
+  sellerId: string;
+  listingId: string;
+  dailyForecasts: ViewForecastPoint[];
+  suggestedReorderPoint: number;
+  safetyStock: number;
+  modelVersion: string;
+  isColdStart: boolean;
+  generatedAt: string | null;
+}
+
+const FORECAST_HORIZON_DAYS = 14;
+
+/** Always throws on failure: a forecast is never replaced by zeros. */
+export async function getDemandForecast(
+  sellerId: string,
+  listingId: string,
+): Promise<ViewDemandForecast> {
+  const res = await analytics().getDemandForecast({
+    sellerId,
+    listingId,
+    horizonDays: FORECAST_HORIZON_DAYS,
+  });
+  return {
+    sellerId: res.sellerId,
+    listingId: res.listingId,
+    dailyForecasts: res.dailyForecasts.map((d) => ({
+      date: d.date,
+      p10: d.p10,
+      p50: d.p50,
+      p90: d.p90,
+    })),
+    suggestedReorderPoint: res.suggestedReorderPoint,
+    safetyStock: res.safetyStock,
+    modelVersion: res.modelVersion,
+    isColdStart: res.isColdStart,
+    generatedAt: res.generatedAt
+      ? new Date(
+          Number(res.generatedAt.seconds) * 1000 +
+            Math.floor(res.generatedAt.nanos / 1e6),
+        ).toISOString()
+      : null,
+  };
 }

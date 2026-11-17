@@ -10,6 +10,7 @@ import { createPromiseClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-node";
 
 import { AIService } from "@/generated/platform/ai/v1/ai_connect.js";
+import { AnalyticsQueryService } from "@/generated/platform/analytics/v1/analytics_connect.js";
 import { AuditService } from "@/generated/platform/audit/v1/audit_connect.js";
 import { ChatService } from "@/generated/platform/chat/v1/chat_connect.js";
 import { EngagementService } from "@/generated/platform/engagement/v1/engagement_connect.js";
@@ -71,6 +72,7 @@ export function makeClients(
     ai: createPromiseClient(AIService, transport),
     recommendation: createPromiseClient(RecommendationService, transport),
     audit: createPromiseClient(AuditService, transport),
+    analytics: createPromiseClient(AnalyticsQueryService, transport),
     voucher: createPromiseClient(VoucherService, transport),
     flashSale: createPromiseClient(FlashSaleService, transport),
     subscription: createPromiseClient(SubscriptionService, transport),

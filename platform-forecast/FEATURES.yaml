@@ -1,0 +1,373 @@
+repo: platform-forecast
+owner: platform-ml-team
+features:
+- id: forecast.nightly-missing-export
+  title: FNJ-3 A missing export file is a configuration error
+  persona: seller
+  priority: P1
+  summary: A missing export fails the run with exit 2 and writes nothing.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-3 A missing export file is a configuration error
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A missing export file is a configuration error"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A missing export file is a configuration error passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-listing-key
+  title: FNJ-6 A listing with history gets a 14-day key
+  persona: seller
+  priority: P1
+  summary: A listing with history gets a 14-day key (FNJ-6).
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-6 A listing with history gets a 14-day key
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A listing with history gets a 14-day key"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A listing with history gets a 14-day key passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-key-ttl
+  title: FNJ-7 Keys expire after 48 hours
+  persona: seller
+  priority: P1
+  summary: A written listing key carries a 48 hour TTL.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-7 Keys expire after 48 hours
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::Keys expire after 48 hours"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::Keys expire after 48 hours passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-no-paid-no-key
+  title: FNJ-8 A listing without paid lines gets no key
+  persona: seller
+  priority: P1
+  summary: A listing without paid lines in the window gets no key.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-8 A listing without paid lines gets no key
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A listing without paid lines gets no key"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A listing without paid lines gets no key passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-cold-start
+  title: FNJ-13 A short history is a cold start
+  persona: seller
+  priority: P1
+  summary: A listing under MIN_HISTORY_DAYS_FOR_ML gets the baseline and is_cold_start.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-13 A short history is a cold start
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A short history is a cold start"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A short history is a cold start passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-label-honesty
+  title: FNJ-14 A label never overstates the model
+  persona: seller
+  priority: P1
+  summary: lgbm_quantile_v1 is carried only when meta wape beats baseline_wape.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-14 A label never overstates the model
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::A label never overstates the model"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::A label never overstates the model passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-run-summary
+  title: FNJ-15 The summary counts the run
+  persona: seller
+  priority: P1
+  summary: fc:v1:meta counts listings and cold starts and equals the stdout line.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-15 The summary counts the run
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::The summary counts the run"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::The summary counts the run passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-empty-export
+  title: FNJ-16 An empty export writes nothing and succeeds
+  persona: seller
+  priority: P1
+  summary: An export with zero rows gives status empty, exit 0 and no key.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-16 An empty export writes nothing and succeeds
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::An empty export writes nothing and succeeds"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::An empty export writes nothing and succeeds passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-compose-hardened
+  title: FNJ-18 The compose job runs as a non-root user
+  persona: seller
+  priority: P1
+  summary: forecast-job runs as uid 1001 with the export mounted read-only.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-18 The compose job runs as a non-root user
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::The compose job runs as a non-root user"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::The compose job runs as a non-root user passed on env docs-ai-data (2026-11-16)"
+- id: forecast.nightly-cronjob
+  title: FNJ-19 The CronJob is scheduled after the export and isolated
+  persona: seller
+  priority: P1
+  summary: The CronJob renders with schedule 45 2 * * *, hardening and an isolating NetworkPolicy.
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+    data: Stack with Redis DB 3; platform-forecast:local image built.
+  acceptance:
+  - FNJ-19 The CronJob is scheduled after the export and isolated
+  tags:
+  - analytics
+  - batch
+  - ml
+  status: automated
+  covered_by: "forecast/nightly_forecast.feature::The CronJob is scheduled after the export and isolated"
+  notes: "forecast-nightly-job: e2e forecast/nightly_forecast.feature::The CronJob is scheduled after the export and isolated passed on env docs-ai-data (2026-11-16)"
+- id: forecast.unit-only-paid-complete-days
+  title: FNJ-1 Only paid lines before the as-of day are counted
+  persona: guest
+  priority: P2
+  summary: FNJ-1 Only paid lines before the as-of day are counted
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-1 Only paid lines before the as-of day are counted (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_extract_paid_lines.py::test_only_paid_complete_days. Not producible end to end.'
+- id: forecast.unit-series-starts-at-first-sale
+  title: FNJ-2 A listing's series starts at its own first sale
+  persona: guest
+  priority: P2
+  summary: FNJ-2 A listing's series starts at its own first sale
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-2 A listing's series starts at its own first sale (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_extract_paid_lines.py::test_series_starts_at_first_sale. Not producible end to end.'
+- id: forecast.unit-missing-column
+  title: FNJ-4 An export without a required column is rejected
+  persona: guest
+  priority: P2
+  summary: FNJ-4 An export without a required column is rejected
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-4 An export without a required column is rejected (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_extract_paid_lines.py::test_missing_column_exits_2. Not producible end to end.'
+- id: forecast.unit-redis-down
+  title: FNJ-5 An unreachable Redis fails the run
+  persona: guest
+  priority: P2
+  summary: FNJ-5 An unreachable Redis fails the run
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-5 An unreachable Redis fails the run (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_cli_exit_codes.py::test_redis_down_exits_3. Not producible end to end.'
+- id: forecast.unit-determinism
+  title: FNJ-9 A rerun with the same inputs gives the same numbers
+  persona: guest
+  priority: P2
+  summary: FNJ-9 A rerun with the same inputs gives the same numbers
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-9 A rerun with the same inputs gives the same numbers (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_determinism.py::test_same_input_same_output. Not producible end to end.'
+- id: forecast.unit-failed-run-keeps-keys
+  title: FNJ-10 A failed run deletes no earlier key
+  persona: guest
+  priority: P2
+  summary: FNJ-10 A failed run deletes no earlier key
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-10 A failed run deletes no earlier key (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_cli_exit_codes.py::test_failed_run_keeps_old_keys. Not producible end to end.'
+- id: forecast.unit-lgbm-wins-on-trend
+  title: FNJ-11 LightGBM is used only when it beats the baseline
+  persona: guest
+  priority: P2
+  summary: FNJ-11 LightGBM is used only when it beats the baseline
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-11 LightGBM is used only when it beats the baseline (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_model_selection.py::test_lgbm_wins_on_trend. Not producible end to end.'
+- id: forecast.unit-baseline-labelled
+  title: FNJ-12 The baseline is labelled when LightGBM does not win
+  persona: guest
+  priority: P2
+  summary: FNJ-12 The baseline is labelled when LightGBM does not win
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-12 The baseline is labelled when LightGBM does not win (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_model_selection.py::test_baseline_labelled_when_not_beaten. Not producible end to end.'
+- id: forecast.unit-summary-aggregates-only
+  title: FNJ-17 The summary carries no row data
+  persona: guest
+  priority: P2
+  summary: FNJ-17 The summary carries no row data
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-17 The summary carries no row data (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_run_summary.py::test_summary_has_only_aggregates. Not producible end to end.'
+- id: forecast.unit-env-example-drift
+  title: FNJ-20 A settings drift fails the gate
+  persona: guest
+  priority: P2
+  summary: FNJ-20 A settings drift fails the gate
+  entry_route: /
+  services:
+  - platform-forecast
+  preconditions:
+    login: guest
+  acceptance:
+  - FNJ-20 A settings drift fails the gate (unit-verified)
+  tags:
+  - analytics
+  - unit
+  status: not-testable
+  notes: 'forecast-nightly-job: unit-verified: platform-forecast/tests/test_env_example.py::test_env_example_matches_settings. Not producible end to end.'

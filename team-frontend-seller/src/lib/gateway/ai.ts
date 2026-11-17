@@ -37,6 +37,8 @@ export interface ViewMagicListing {
   suggestedPriceMin: number;
   suggestedPriceMax: number;
   highlightTags: string[];
+  requestId?: string;
+  modelVersion?: string;
 }
 
 /** Shopping Assistant (RAG chatbot): question → reply + product cards + followups. */
@@ -83,6 +85,8 @@ export async function magicListing(
     suggestedPriceMin: Number(res.suggestedPriceMin),
     suggestedPriceMax: Number(res.suggestedPriceMax),
     highlightTags: res.highlightTags,
+    requestId: res.requestId,
+    modelVersion: res.modelVersion,
   };
 }
 

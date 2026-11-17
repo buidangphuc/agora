@@ -89,8 +89,12 @@ export function trackEcommerce(
           position: it.index ?? 0,
           query,
           ...(it.placementId ? { placementId: it.placementId } : {}),
-          ...(it.impressionId ? { impressionId: it.impressionId } : {}),
-          ...(it.modelVersion ? { modelVersion: it.modelVersion } : {}),
+          ...(it.impressionId || params.impressionId
+            ? { impressionId: it.impressionId || params.impressionId }
+            : {}),
+          ...(it.modelVersion || params.modelVersion
+            ? { modelVersion: it.modelVersion || params.modelVersion }
+            : {}),
           ...(params.properties ? { properties: params.properties } : {}),
           ...(params.currency ? { currency: params.currency } : {}),
           ...(typeof params.value === "number"
@@ -128,6 +132,8 @@ export function trackEcommerce(
         referrer,
         position: 0,
         query,
+        ...(params.impressionId ? { impressionId: params.impressionId } : {}),
+        ...(params.modelVersion ? { modelVersion: params.modelVersion } : {}),
         ...(params.properties ? { properties: params.properties } : {}),
         ...(params.currency ? { currency: params.currency } : {}),
         ...(typeof params.value === "number"

@@ -100,7 +100,7 @@ def _service(case: dict[str, Any], redis: Any) -> RecommendationService:
     )
 
 
-def _wire(result: RecommendationResult) -> dict[str, Any]:
+def _wire(result: RecommendationResult, expected: dict[str, Any]) -> dict[str, Any]:
     return {
         "items": [
             {"listing_id": i.listing_id, "score": round(i.score, 6), "rank": i.rank}
@@ -109,6 +109,7 @@ def _wire(result: RecommendationResult) -> dict[str, Any]:
         "model_version": result.model_version,
         "placement_id": result.placement_id,
         "fallback": result.fallback,
+        **{k: getattr(result, k) for k in ("tier", "ranker", "arm") if k in expected},
     }
 
 
@@ -119,7 +120,7 @@ async def _replay(case: dict[str, Any]) -> dict[str, Any]:
     for key, fields in case["hashes"].items():
         await redis.hset(key, mapping=fields)  # pyright: ignore[reportGeneralTypeIssues]
     result = await _service(case, redis).recommend(RecommendationQuery(**case["query"]))
-    return _wire(result)
+    return _wire(result, case["result"])
 
 
 def test_fixture_names_its_source() -> None:
@@ -167,3 +168,25 @@ def test_fixture_cases_differ_where_the_scenario_says_they_do() -> None:
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c["name"])
 async def test_replay_matches_team_ai(case: dict[str, Any]) -> None:
     assert await _replay(case) == case["result"]
+
+
+@pytest.mark.parametrize(
+    ("name", "tier", "ranker"),
+    [
+        ("user_precomputed_gbdt_no_featurestore", "user_precomputed", "fixed_weights"),
+        ("trained_artifact", "user_precomputed", "gbdt"),
+        (
+            "trained_artifact_without_feature_rows_uses_fixed_weights",
+            "user_precomputed",
+            "fixed_weights",
+        ),
+        ("seed_vector_similarity", "seed_vector_similarity", "similarity"),
+        ("ladder_exhausted_popular_floor", "popular", "similarity"),
+        ("internal_error_serving_fallback_popular", "serving-fallback", "similarity"),
+    ],
+)
+def test_golden_records_tier_and_ranker_a_trained_ranker_is_named_only_when_it_ran(
+    name: str, tier: str, ranker: str
+) -> None:
+    result = BY_NAME[name]["result"]
+    assert (result["tier"], result["ranker"], result["arm"]) == (tier, ranker, "none")

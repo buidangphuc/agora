@@ -41,3 +41,6 @@ class RecommendationResult(BaseModel):
     # True when the ladder found nothing or a dependency failed and the result is the
     # popular-list floor.
     fallback: bool = False
+    tier: str = ""
+    ranker: str = ""
+    arm: str = "none"
