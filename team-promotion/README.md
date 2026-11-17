@@ -25,6 +25,10 @@ these into a principal; each RPC handler in `internal/rpc` enforces its own rule
 | `VoucherService/DeactivateVoucher` | Scope `admin`. Writes a `voucher.deactivate` audit event first (fail-closed, `Unavailable` with `ErrorInfo` `promotion.platform/AUDIT_UNAVAILABLE`), then sets `active = false`; idempotent (keeps the first `deactivated_at`). An inactive voucher is refused by `ValidateAndReserve` (`internal/voucher/voucher.go:350`). |
 | `VoucherService/UpdateVoucher` | Scope `admin`. Only `ends_at` (must be in the future and after `starts_at`), `quota` (positive, never lowered, not on an unlimited voucher), `per_user_limit` (0..1000) and `new_user_only` change; the last two are `InvalidArgument` on a `VOUCHER_KIND_NEW_USER` voucher, and `owner_user_id` and `kind` are server-owned; nothing to change is `InvalidArgument`, an inactive voucher `FailedPrecondition`. Audited as `voucher.update` (fail-closed) (`internal/voucher/voucher.go:173`). |
 | `VoucherService/ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | `Commit`/`Release`: SERVICE principal holding `promotion.reserve` only (user/admin tokens are `PermissionDenied`). `ValidateAndReserve` is dual-mode: a SERVICE principal with `promotion.reserve` is trusted (request `buyer_id`/`seller_id` honoured); any other authenticated principal gets `buyer_id` forced to its own id and `reservation_id` must start `preview:<its id>:` (else `PermissionDenied`), so a preview hold can never be committed. |
+| `FlashSaleService/ListMyCampaigns` | Requires `listing.write` (not `admin`); lists only campaigns whose `seller_id` is the caller's id, optional status filter, paged. Campaigns with an empty `seller_id` are never listed. |
+| `FlashSaleService/CancelMyCampaign` | Requires `listing.write`. Only a scheduled campaign owned by the caller can be cancelled; an unknown or foreign id is `NotFound`-like denial, a started campaign is refused, a repeat cancel is idempotent. Not audited. |
+| `VoucherService/ListMyShopVouchers` | Requires `listing.write`. Lists the caller's SHOP vouchers in every state (inactive included); user-bound and platform vouchers never appear. |
+| `VoucherService/DeactivateMyShopVoucher` | Requires `listing.write`. Only a SHOP voucher owned by the caller with no `owner_user_id`; unknown or foreign id is denied alike. Not audited. |
 | `FlashSaleService/CreateCampaign` | Principal required plus `listing.write` or `admin`. Non-admins must own the listing: team-domain `GetListing` (as the caller) must return `seller_id` equal to the caller id. Foreign listing is `PermissionDenied`, unknown listing `InvalidArgument`, lookup failure or `UPSTREAM_DOMAIN_ADDR` unset is `Unavailable` (fails closed, `ErrorInfo` `promotion.platform/LISTING_UNAVAILABLE`). `sale_price` and `stock_cap` must be positive, `ends_at` after `starts_at` and in the future, and `sale_price` below the listing price. Admins must send an `idempotency_key` (8-64 of `[A-Za-z0-9_-]`): a replay with the same payload returns the first campaign, a different payload is `AlreadyExists`; the admin path now also looks the listing up (no owner check) (`internal/flashsale/flashsale.go`, `internal/rpc/flashsale.go`). |
 | `FlashSaleService/GetActiveFlashSale`, `ListActiveCampaigns`, `GetFlashSaleStock` | None (public reads). `ListActiveCampaigns` sets `flash_sale_disabled` when the kill-switch is off. |
 | `FlashSaleService/ListCampaigns` | Scope `admin`. Every campaign, newest first, optional `statuses` filter (`SCHEDULED`, `ACTIVE`, `ENDED`, `CANCELLED`, derived from the window and `cancelled_at`), offset cursor; also returns `flash_sale_disabled` (`internal/flashsale/flashsale_list.go:66`). |
@@ -114,8 +118,9 @@ Own database `promotion_db` (user `promotion_svc`). Migrations in `internal/stor
 | `0006_voucher_active` | adds `vouchers.active` (default true), `deactivated_at` |
 | `0007_campaign_cancel_idempotency` | adds `flash_sale_campaigns.cancelled_at`; `campaign_idempotency` (PK `actor_id`, `key`; payload hash, campaign id) |
 | `0008_user_vouchers` | adds `vouchers.owner_user_id`, `kind`, `per_user_limit`, `new_user_only`; `voucher_reservations.expires_at`; `promotion_processed_events` |
-| `0009_ad_serving` | adds `ad_campaigns.spent`, `impressions`, `clicks`, `category_id`; sets active campaigns with bid below 500 or budget below the bid to `ENDED`; `ad_impressions` (PK `token`, `campaign_id`, `listing_id`, `expires_at`, `clicked_at`); indexes `ad_impressions_campaign_idx`, `ad_campaigns_serving_idx` |
-| `0010_plan_billing` | adds `subscription_plans.term_days` (default 30, CHECK > 0) and sets PRO 199000 / PREMIUM 499000; adds `seller_subscriptions.current_period_start`, `current_period_end`, `auto_renew`, `pending_plan_id`, `period_seq` and index `seller_subscriptions_due_idx`; existing active paid rows get one free term with `auto_renew` on |
+| `0009_campaign_seller` | adds `flash_sale_campaigns.seller_id` (default `''`) and a partial index on it |
+| `0010_ad_serving` | adds `ad_campaigns.spent`, `impressions`, `clicks`, `category_id`; sets active campaigns with bid below 500 or budget below the bid to `ENDED`; `ad_impressions` (PK `token`, `campaign_id`, `listing_id`, `expires_at`, `clicked_at`); indexes `ad_impressions_campaign_idx`, `ad_campaigns_serving_idx` |
+| `0011_plan_billing` | adds `subscription_plans.term_days` (default 30, CHECK > 0) and sets PRO 199000 / PREMIUM 499000; adds `seller_subscriptions.current_period_start`, `current_period_end`, `auto_renew`, `pending_plan_id`, `period_seq` and index `seller_subscriptions_due_idx`; existing active paid rows get one free term with `auto_renew` on |
 
 Migrations are embedded in `internal/store/migrations` and applied by `server migrate up` (the
 `team-promotion-migrate` one-shot container in the root compose runs it; it needs only `ENV` and
@@ -149,6 +154,7 @@ Startup fails when a required key is missing or invalid.
 | `OUTBOX_POLL_INTERVAL` | SDK default | outbox relay poll interval |
 | `OUTBOX_BATCH_SIZE` | SDK default | rows per relay batch |
 | `OUTBOX_CLAIM_LOCK` | SDK default | relay row claim lock duration |
+| `UPSTREAM_DOMAIN_ADDR` (subcommand `backfill-campaign-sellers`) | none | `team-promotion backfill-campaign-sellers` with `DATABASE_URL` and `UPSTREAM_DOMAIN_ADDR` sets `seller_id` on campaigns where it is empty from `GetListing(listing_id).seller_id`, in keyset batches of 100. Idempotent, never overwrites; a deleted listing stays unassigned; a lookup failure stops the run (finished batches stay). Run once per environment after migrate |
 | `UPSTREAM_AUDIT_ADDR` | none | required. team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher` (`voucher.admin_create`), `DeactivateVoucher`, `UpdateVoucher`, admin `CreateCampaign`, `CancelCampaign`, `UpdateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; an audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
 | `MAX_AD_BID` | `1000000` | Upper bound on a sponsored ad bid; larger is `InvalidArgument` |
 | `MAX_AD_BUDGET` | `1000000000` | Upper bound on an ad campaign budget; larger is `InvalidArgument` |
@@ -214,8 +220,8 @@ Database tests run against Docker Postgres and never skip; a skip is a gate fail
 
 ## Spec and verification
 
-- `FEATURES.yaml` declares 301 features: 130 `automated` (each with a `covered_by` scenario, mostly in
-  `platform-e2e/tests/e2e/features/promo/` and `security/promotion_access.feature`), 169 `not-testable` and 2 `planned`.
+- `FEATURES.yaml` declares 380 features: 164 `automated` (each with a `covered_by` scenario, mostly in
+  `platform-e2e/tests/e2e/features/promo/` and `security/promotion_access.feature`), 214 `not-testable` and 2 `planned` (`grep -c '^  - id:'` and `grep -c 'status: <s>'` on `FEATURES.yaml`).
 - Verify coverage with `make -C platform-e2e features-check` and, per change,
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC.

@@ -7,15 +7,10 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
+import { ListingPicker } from "./ListingPicker";
 import { createAdCampaignAction } from "./actions";
 import { usePending } from "./usePending";
-
-interface SellerListingOption {
-  id: string;
-  title: string;
-}
 
 type Field = "listing" | "budget" | "bid";
 
@@ -40,12 +35,8 @@ export function validateAdCampaign(
  * Sponsored-ad campaign form (Ant Basic Form): pick a listing, set budget and
  * bid, launch. Wired to team-promotion through createAdCampaignAction.
  */
-export function AdCampaignForm({
-  listings,
-}: {
-  listings: SellerListingOption[];
-}) {
-  const [listingId, setListingId] = useState(listings[0]?.id ?? "");
+export function AdCampaignForm() {
+  const [listingId, setListingId] = useState("");
   const [budget, setBudget] = useState("");
   const [bid, setBid] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -85,20 +76,18 @@ export function AdCampaignForm({
         <CardContent>
           <form onSubmit={submit} noValidate className="space-y-4">
             <fieldset disabled={pending} className="m-0 space-y-4 border-0 p-0">
-              <Select
+              <FormItem
+                group
                 label="Sản phẩm"
                 required
-                error={shown("listing") || undefined}
-                value={listingId}
-                onChange={(e) => setListingId(e.target.value)}
-                placeholder={
-                  listings.length === 0 ? "Shop chưa có sản phẩm" : undefined
-                }
-                options={listings.map((l) => ({
-                  value: l.id,
-                  label: l.title,
-                }))}
-              />
+                status={shown("listing") ? "error" : undefined}
+                help={shown("listing")}
+              >
+                <ListingPicker
+                  selectedIds={listingId ? [listingId] : []}
+                  onToggle={(l) => setListingId(l.id)}
+                />
+              </FormItem>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input
                   required

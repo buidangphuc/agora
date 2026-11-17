@@ -128,8 +128,8 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	sweeper := listing.NewReservationSweeper(svc, s.ReservationSweepInterval(logger), logger)
 
 	h := rpc.NewListingHandler(svc, store.NewPostgresCategoryRepository(pool), objects.NewS3Storage(s.Storage)).
-		WithStorefront(listing.NewStorefrontService(store.NewPostgresStorefrontRepository(pool)).WithEntitlements(entitlements)).
-		WithBundles(listing.NewBundleService(store.NewPostgresBundleRepository(pool)))
+		WithStorefront(listing.NewStorefrontService(store.NewPostgresStorefrontRepository(pool), objects.PublicBase(s.Storage)).WithListings(repo).WithEntitlements(entitlements)).
+		WithBundles(listing.NewBundleService(store.NewPostgresBundleRepository(pool), repo))
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	listingv1.RegisterListingServiceServer(srv, h)

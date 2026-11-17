@@ -14,7 +14,7 @@ import (
 	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
-const migration9 = "0010_plan_billing.up.sql"
+const migration11 = "0011_plan_billing.up.sql"
 
 type planRow struct {
 	ID       string
@@ -24,10 +24,10 @@ type planRow struct {
 }
 
 func TestMigrationCorrectsPlanPrices_CatalogShowsCorrectedPrices(t *testing.T) {
-	pool := newPoolUpTo(t, 8)
+	pool := newPoolUpTo(t, 10)
 	ctx := t.Context()
-	if _, err := pool.Exec(ctx, migrationSQL(t, migration9)); err != nil {
-		t.Fatalf("apply %s: %v", migration9, err)
+	if _, err := pool.Exec(ctx, migrationSQL(t, migration11)); err != nil {
+		t.Fatalf("apply %s: %v", migration11, err)
 	}
 	rows, err := pool.Query(ctx, `SELECT id, tier, price, term_days FROM subscription_plans ORDER BY tier`)
 	if err != nil {
@@ -125,7 +125,7 @@ func assertCheckViolation(t *testing.T, err error, what string) {
 }
 
 func TestMigrationGrandfathersActiveSubscriptions_ActivePaidRowGetsOneTerm(t *testing.T) {
-	pool := newPoolUpTo(t, 8)
+	pool := newPoolUpTo(t, 10)
 	ctx := t.Context()
 	if _, err := pool.Exec(ctx, `INSERT INTO seller_subscriptions (id, seller_id, plan_id, status) VALUES
 		('sub-pro', 'seller-pro', 'plan_pro', 'active'),
@@ -136,8 +136,8 @@ func TestMigrationGrandfathersActiveSubscriptions_ActivePaidRowGetsOneTerm(t *te
 	if err := pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&before); err != nil {
 		t.Fatalf("clock: %v", err)
 	}
-	if _, err := pool.Exec(ctx, migrationSQL(t, migration9)); err != nil {
-		t.Fatalf("apply %s: %v", migration9, err)
+	if _, err := pool.Exec(ctx, migrationSQL(t, migration11)); err != nil {
+		t.Fatalf("apply %s: %v", migration11, err)
 	}
 	var after time.Time
 	if err := pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&after); err != nil {

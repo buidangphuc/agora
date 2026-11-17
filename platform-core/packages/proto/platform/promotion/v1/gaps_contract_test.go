@@ -500,7 +500,7 @@ func TestGapsContract_RenumberDetected(t *testing.T) {
 		t.Fatalf("harness: %v", err)
 	}
 	const from = "google.protobuf.Timestamp ends_at = 8;"
-	const to = "google.protobuf.Timestamp ends_at = 11;"
+	const to = "google.protobuf.Timestamp ends_at = 12;"
 	if strings.Count(string(b), from) != 1 {
 		t.Fatalf("harness: expected exactly one %q in current proto", from)
 	}
@@ -515,7 +515,7 @@ func TestGapsContract_RenumberDetected(t *testing.T) {
 	if !strings.Contains(out, "ends_at") {
 		t.Errorf("finding does not name ends_at:\n%s", out)
 	}
-	if !strings.Contains(out, "FIELD_SAME_NUMBER") && !strings.Contains(out, "changed from 8 to 11") && !strings.Contains(out, `field "8"`) {
+	if !strings.Contains(out, "FIELD_SAME_NUMBER") && !strings.Contains(out, "changed from 8 to 12") && !strings.Contains(out, `field "8"`) {
 		t.Errorf("finding is not a same-number style finding:\n%s", out)
 	}
 }

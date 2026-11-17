@@ -9641,3 +9641,407 @@ features:
     tags: [monetization-contract, unit]
     status: not-testable
     notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` checks `buf lint` and `buf breaking vs $BASE_REF`. monetization-contract: not producible end to end."
+  - id: sellercentre.contract-seller-promotion-rpcs-exist
+    title: "Seller centre contract: Seller promotion RPCs exist"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Seller promotion RPCs exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Seller promotion RPCs exist (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_SellerPromotionRPCsExist`."
+
+  - id: sellercentre.contract-flashsalecampaign-carries-seller-id
+    title: "Seller centre contract: FlashSaleCampaign carries seller_id"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: FlashSaleCampaign carries seller_id"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: FlashSaleCampaign carries seller_id (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_FlashSaleCampaignCarriesSellerID`."
+
+  - id: sellercentre.contract-seller-promotion-authz-and-preconditions-are-documented
+    title: "Seller centre contract: Seller promotion authz and preconditions are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Seller promotion authz and preconditions are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Seller promotion authz and preconditions are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_SellerPromotionAuthzAndPreconditionsDocumented`."
+
+  - id: sellercentre.contract-missing-authz-note-is-caught
+    title: "Seller centre contract: Missing authz note is caught"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Missing authz note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Missing authz note is caught (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_MissingAuthzNoteIsCaught`."
+
+  - id: sellercentre.contract-campaign-and-voucher-lists-round-trip
+    title: "Seller centre contract: Campaign and voucher lists round-trip"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Campaign and voucher lists round-trip"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Campaign and voucher lists round-trip (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_CampaignAndVoucherListsRoundTrip`."
+
+  - id: sellercentre.contract-old-readers-skip-seller-id
+    title: "Seller centre contract: Old readers skip seller_id"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Old readers skip seller_id"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Old readers skip seller_id (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_OldReadersSkipSellerID`."
+
+  - id: sellercentre.contract-addbundletocart-rpc-exists
+    title: "Seller centre contract: AddBundleToCart RPC exists"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: AddBundleToCart RPC exists"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: AddBundleToCart RPC exists (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_AddBundleToCartRPCExists`."
+
+  - id: sellercentre.contract-bundle-fields-have-fixed-numbers
+    title: "Seller centre contract: Bundle fields have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Bundle fields have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Bundle fields have fixed numbers (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_BundleFieldsHaveFixedNumbers`."
+
+  - id: sellercentre.contract-addbundletocart-failures-are-documented
+    title: "Seller centre contract: AddBundleToCart failures are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: AddBundleToCart failures are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: AddBundleToCart failures are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_AddBundleToCartFailuresAreDocumented`."
+
+  - id: sellercentre.contract-bundle-fields-are-documented-server-owned
+    title: "Seller centre contract: Bundle fields are documented server-owned"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Bundle fields are documented server-owned"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Bundle fields are documented server-owned (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_BundleFieldsAreDocumentedServerOwned`."
+
+  - id: sellercentre.contract-cart-with-bundle-lines-round-trips
+    title: "Seller centre contract: Cart with bundle lines round-trips"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Cart with bundle lines round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Cart with bundle lines round-trips (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_CartWithBundleLinesRoundTrips`."
+
+  - id: sellercentre.contract-old-readers-skip-bundle-fields
+    title: "Seller centre contract: Old readers skip bundle fields"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Old readers skip bundle fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Old readers skip bundle fields (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_OldReadersSkipBundleFields`."
+
+  - id: sellercentre.contract-listsellerorders-fields-have-fixed-numbers
+    title: "Seller centre contract: ListSellerOrders fields have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: ListSellerOrders fields have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: ListSellerOrders fields have fixed numbers (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_ListSellerOrdersFieldsHaveFixedNumbers`."
+
+  - id: sellercentre.contract-listsellerorders-semantics-are-documented
+    title: "Seller centre contract: ListSellerOrders semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: ListSellerOrders semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: ListSellerOrders semantics are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_ListSellerOrdersSemanticsAreDocumented`."
+
+  - id: sellercentre.contract-unpaged-request-keeps-the-old-wire-form
+    title: "Seller centre contract: Unpaged request keeps the old wire form"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Unpaged request keeps the old wire form"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Unpaged request keeps the old wire form (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_UnpagedRequestKeepsTheOldWireForm`."
+
+  - id: sellercentre.contract-paged-response-round-trips
+    title: "Seller centre contract: Paged response round-trips"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Paged response round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Paged response round-trips (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_PagedResponseRoundTrips`."
+
+  - id: sellercentre.contract-listmylistings-filter-fields-exist
+    title: "Seller centre contract: ListMyListings filter fields exist"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: ListMyListings filter fields exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: ListMyListings filter fields exist (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_ListMyListingsFilterFieldsExist`."
+
+  - id: sellercentre.contract-listmylistings-filter-semantics-are-documented
+    title: "Seller centre contract: ListMyListings filter semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: ListMyListings filter semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: ListMyListings filter semantics are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_ListMyListingsFilterSemanticsAreDocumented`."
+
+  - id: sellercentre.contract-empty-filter-request-keeps-the-old-wire-form
+    title: "Seller centre contract: Empty filter request keeps the old wire form"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Empty filter request keeps the old wire form"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Empty filter request keeps the old wire form (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_EmptyFilterRequestKeepsTheOldWireForm`."
+
+  - id: sellercentre.contract-storefront-fields-are-unchanged
+    title: "Seller centre contract: Storefront fields are unchanged"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Storefront fields are unchanged"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Storefront fields are unchanged (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_StorefrontFieldsAreUnchanged`."
+
+  - id: sellercentre.contract-storefront-rules-are-documented
+    title: "Seller centre contract: Storefront rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Storefront rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Storefront rules are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_StorefrontRulesAreDocumented`."
+
+  - id: sellercentre.contract-change-is-backward-compatible
+    title: "Seller centre contract: Change is backward compatible"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Change is backward compatible"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Change is backward compatible (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf breaking vs $BASE_REF`."
+
+  - id: sellercentre.contract-wire-breaking-edit-is-rejected
+    title: "Seller centre contract: Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Wire-breaking edit is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Wire-breaking edit is rejected (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `renum`."
+
+  - id: sellercentre.contract-new-contract-in-every-generated-language
+    title: "Seller centre contract: New contract in every generated language"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: New contract in every generated language"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: New contract in every generated language (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `gen_has`."
+
+  - id: sellercentre.contract-copies-match-the-source
+    title: "Seller centre contract: Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Copies match the source (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `check_copies`."
+
+  - id: sellercentre.contract-drifted-or-missing-copy-is-rejected
+    title: "Seller centre contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Drifted or missing copy is rejected (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `drifted and missing copy rejected and named`."
+
+  - id: sellercentre.contract-consumer-copies-lint
+    title: "Seller centre contract: Consumer copies lint"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Consumer copies lint"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Consumer copies lint (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf lint $r`."

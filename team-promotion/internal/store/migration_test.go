@@ -55,8 +55,8 @@ func TestMigrateFromVersion4AppliesOutboxOnly(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT version, dirty FROM schema_migrations`).Scan(&version, &dirty); err != nil {
 		t.Fatalf("read schema_migrations: %v", err)
 	}
-	if version != 10 || dirty {
-		t.Fatalf("schema_migrations = version %d dirty %v, want 10 false", version, dirty)
+	if version != 11 || dirty {
+		t.Fatalf("schema_migrations = version %d dirty %v, want 11 false", version, dirty)
 	}
 	var exists bool
 	if err := pool.QueryRow(ctx, `SELECT to_regclass('`+outboxTable+`') IS NOT NULL`).Scan(&exists); err != nil || !exists {
@@ -347,5 +347,52 @@ func TestVoucherPerUserFieldsRoundTrip(t *testing.T) {
 	}
 	if got.PerUserLimit != 3 || !got.NewUserOnly || got.OwnerUserID != "" || got.Kind != store.VoucherKindStandard {
 		t.Fatalf("round trip = per_user_limit %d new_user_only %v owner %q kind %d, want 3 true '' STANDARD", got.PerUserLimit, got.NewUserOnly, got.OwnerUserID, got.Kind)
+	}
+}
+
+func TestMigration0009CampaignSeller_KeepsOldRowsValid(t *testing.T) {
+	pool := newPoolUpTo(t, 8)
+	ctx := t.Context()
+	if columnExists(t, pool, "flash_sale_campaigns", "seller_id") {
+		t.Fatal("seller_id exists before 0009")
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO flash_sale_campaigns (id, listing_id, sale_price, stock_cap, stock_sold)
+		VALUES ('c-old', 'l-old', 99, 10, 4), ('c-old2', 'l-old2', 50, 5, 0)`); err != nil {
+		t.Fatalf("seed old campaigns: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, migrationSQL(t, "0009_campaign_seller.up.sql")); err != nil {
+		t.Fatalf("apply 0009 up: %v", err)
+	}
+	if !columnExists(t, pool, "flash_sale_campaigns", "seller_id") {
+		t.Fatal("seller_id missing after 0009 up")
+	}
+	for _, id := range []string{"c-old", "c-old2"} {
+		var seller string
+		var sold int64
+		if err := pool.QueryRow(ctx, `SELECT seller_id, stock_sold FROM flash_sale_campaigns WHERE id = $1`, id).Scan(&seller, &sold); err != nil {
+			t.Fatalf("read %s after up: %v", id, err)
+		}
+		if seller != "" {
+			t.Errorf("%s seller_id = %q after 0009, want empty (unassigned until backfill)", id, seller)
+		}
+		if id == "c-old" && sold != 4 {
+			t.Errorf("c-old stock_sold = %d after 0009, want 4", sold)
+		}
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO flash_sale_campaigns (id, listing_id, sale_price, stock_cap, stock_sold)
+		VALUES ('c-noseller', 'l-x', 10, 1, 0)`); err != nil {
+		t.Fatalf("insert without seller_id must still work: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, migrationSQL(t, "0009_campaign_seller.down.sql")); err != nil {
+		t.Fatalf("apply 0009 down: %v", err)
+	}
+	if columnExists(t, pool, "flash_sale_campaigns", "seller_id") {
+		t.Fatal("seller_id still present after 0009 down")
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM flash_sale_campaigns`).Scan(&n); err != nil || n != 3 {
+		t.Fatalf("campaigns after 0009 down = %d err=%v, want 3", n, err)
 	}
 }

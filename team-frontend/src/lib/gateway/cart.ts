@@ -23,6 +23,8 @@ export interface ViewCartItem {
   sellerId: string;
   /** Resolved shop name; empty when unknown (render via shopLabel()). */
   sellerDisplayName: string;
+  bundleId: string;
+  bundleDiscount: number;
 }
 
 export interface ViewCart {
@@ -30,6 +32,7 @@ export interface ViewCart {
   items: ViewCartItem[];
   subtotal: number;
   totalItems: number;
+  bundleDiscountTotal: number;
 }
 
 function mapCartItem(it: CartItem): ViewCartItem {
@@ -44,12 +47,20 @@ function mapCartItem(it: CartItem): ViewCartItem {
     imageUrl: it.imageUrl,
     sellerId: it.sellerId,
     sellerDisplayName: "",
+    bundleId: it.bundleId ?? "",
+    bundleDiscount: Number(it.bundleDiscount ?? 0),
   };
 }
 
 function mapCart(c?: Cart): ViewCart {
   if (!c) {
-    return { userId: "", items: [], subtotal: 0, totalItems: 0 };
+    return {
+      userId: "",
+      items: [],
+      subtotal: 0,
+      totalItems: 0,
+      bundleDiscountTotal: 0,
+    };
   }
   const items = c.items.map(mapCartItem);
   const totalItems = items.reduce((acc, it) => acc + it.quantity, 0);
@@ -58,6 +69,7 @@ function mapCart(c?: Cart): ViewCart {
     items,
     subtotal: Number(c.subtotal),
     totalItems,
+    bundleDiscountTotal: Number(c.bundleDiscountTotal ?? 0),
   };
 }
 
@@ -80,6 +92,7 @@ const EMPTY_CART: ViewCart = {
   items: [],
   subtotal: 0,
   totalItems: 0,
+  bundleDiscountTotal: 0,
 };
 
 /**
@@ -129,6 +142,14 @@ export async function addToCart(
     variantId: variantId ?? "",
     quantity,
   });
+  return mapCart(res.cart);
+}
+
+export async function addBundleToCart(
+  bundleId: string,
+  quantity = 1,
+): Promise<ViewCart> {
+  const res = await gateway().cart.addBundleToCart({ bundleId, quantity });
   return mapCart(res.cart);
 }
 

@@ -3,11 +3,12 @@ import { Image } from "@/components/ui/Image";
 import { Link } from "@/components/ui/Link";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { Tag } from "@/components/ui/Tag";
+import { formatPrice } from "@/components/ui/format";
 import { shopLabel } from "@/lib/gateway/shops";
 import { getImageUrl } from "@/lib/media";
 import { CartQuantityControl } from "./CartQuantityControl";
 import { LineCheckbox, ShopCheckbox } from "./CartSelection";
-import type { ShopGroup } from "./groupByShop";
+import { type ShopGroup, isComboLine } from "./groupByShop";
 
 /**
  * One Card per shop: header (real shop display name, "Shop #<6 chars>" only
@@ -57,6 +58,16 @@ export function CartGroups({ groups }: { groups: ShopGroup[] }) {
                       </Link>
                     </span>
                     {it.variantName && <Tag>Phân loại: {it.variantName}</Tag>}
+                    {isComboLine(it) &&
+                    group.combos.find((c) => c.bundleId === it.bundleId)
+                      ?.items[0]?.id === it.id ? (
+                      <Tag color="success">Combo</Tag>
+                    ) : null}
+                    {isComboLine(it) ? (
+                      <div className="text-xs text-text-secondary">
+                        Giảm giá combo: -{formatPrice(it.bundleDiscount)}
+                      </div>
+                    ) : null}
                     <div>
                       <PriceTag price={it.unitPrice} size="sm" />
                     </div>
@@ -67,6 +78,7 @@ export function CartGroups({ groups }: { groups: ShopGroup[] }) {
                     itemId={it.id}
                     quantity={it.quantity}
                     title={it.title}
+                    bundleId={isComboLine(it) ? it.bundleId : ""}
                   />
                   <div className="min-w-0 text-right sm:w-32">
                     <PriceTag price={it.unitPrice * it.quantity} size="md" />

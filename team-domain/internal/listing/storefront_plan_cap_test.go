@@ -35,7 +35,7 @@ func sfIDs(n int) []string {
 func sfEnv(featured int64, seed ...store.Storefront) (*listing.StorefrontService, *storetest.InMemoryStorefrontRepository, *sfEnt) {
 	repo := storetest.NewInMemoryStorefrontRepository(seed...)
 	ent := &sfEnt{ent: listing.Entitlements{MaxListings: 10, FeaturedListings: featured}}
-	return listing.NewStorefrontService(repo).WithEntitlements(ent), repo, ent
+	return listing.NewStorefrontService(repo, "").WithEntitlements(ent), repo, ent
 }
 
 func TestStorefrontFeaturedAbovePlanCapRejected(t *testing.T) {

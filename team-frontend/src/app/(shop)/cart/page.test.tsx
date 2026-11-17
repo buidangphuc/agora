@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { isCheckoutEnabled } from "@/lib/flags";
@@ -49,6 +49,8 @@ function item(id: string, sellerId: string, name: string): ViewCartItem {
     imageUrl: "",
     sellerId,
     sellerDisplayName: name,
+    bundleId: "",
+    bundleDiscount: 0,
   };
 }
 
@@ -58,6 +60,7 @@ function cartOf(items: ViewCartItem[]): ViewCart {
     items,
     subtotal: items.reduce((a, i) => a + i.unitPrice * i.quantity, 0),
     totalItems: items.length,
+    bundleDiscountTotal: 0,
   };
 }
 
@@ -259,5 +262,40 @@ describe("/cart page", () => {
     await renderPage();
     expect(screen.getAllByTestId(/^cart-line-checkbox-/)).toHaveLength(3);
     expect(screen.getAllByTestId(/^cart-shop-checkbox-/)).toHaveLength(2);
+  });
+});
+
+describe("/cart page combos", () => {
+  const comboLine = (id: string, d: number) => ({
+    ...item(id, "s1", "Shop"),
+    bundleId: "b1",
+    bundleDiscount: d,
+  });
+
+  it("C8 shows the Combo label and the Giảm giá combo row with the server total", async () => {
+    vi.mocked(getCartWithShopNames).mockResolvedValue({
+      ...cartOf([comboLine("a", 10000), comboLine("b", 20000)]),
+      bundleDiscountTotal: 30000,
+    });
+    await renderPage();
+    expect(screen.getAllByText("Combo")).toHaveLength(1);
+    expect(screen.getAllByText("Giảm giá combo").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("bundle-discount")[0]).toHaveTextContent(
+      "30.000",
+    );
+    expect(
+      within(screen.getByTestId("order-summary")).getByTestId(
+        "bundle-discount",
+      ),
+    ).toHaveTextContent("30.000");
+  });
+
+  it("C9 shows no Combo label and no Giảm giá combo row without bundles", async () => {
+    vi.mocked(getCartWithShopNames).mockResolvedValue(
+      cartOf([item("a", "s1", "Shop")]),
+    );
+    await renderPage();
+    expect(screen.queryByText("Combo")).not.toBeInTheDocument();
+    expect(screen.queryByText("Giảm giá combo")).not.toBeInTheDocument();
   });
 });

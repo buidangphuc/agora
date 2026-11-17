@@ -184,7 +184,7 @@ func (r *PostgresVoucherRepository) List(ctx context.Context, sellerID string, l
 	if limit <= 0 {
 		limit = 50
 	}
-	const q = `SELECT ` + voucherColumns + ` FROM vouchers WHERE seller_id = $1 AND owner_user_id = '' ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+	const q = `SELECT ` + voucherColumns + ` FROM vouchers WHERE seller_id = $1 AND owner_user_id = '' AND ($1 = '' OR scope <> 2) ORDER BY created_at DESC LIMIT $2 OFFSET $3`
 	rows, err := r.pool.Query(ctx, q, sellerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list vouchers: %w", err)

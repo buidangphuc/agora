@@ -47,7 +47,7 @@ sponsored ads (team-promotion SponsoredService)
 | repo | files | lines | what |
 |---|---|---|---|
 | platform-core | 10 | +1885 -6 | order/payment/promotion proto additions, compat guards |
-| team-promotion | 56 | +7032 -140 | plan billing + renewal sweeper, ad serving/click charge, campaign mgmt; migrations 0009, 0010 |
+| team-promotion | 56 | +7032 -140 | plan billing + renewal sweeper, ad serving/click charge, campaign mgmt; migrations 0010, 0011 |
 | team-payment | 38 | +4057 -47 | commission at settlement, ChargeSellerFee, GetOrderSettlement; migrations 0018, 0019 |
 | team-domain | 28 | +2329 -13 | listing and featured caps from entitlements |
 | team-order | 9 | +755 -8 | breakdown on OrderPaidEvent via outbox |
@@ -93,7 +93,7 @@ sponsored ads (team-promotion SponsoredService)
 
 **Door:** one-way
 
-Four forward migrations change data on deploy: team-payment 0018/0019 widen the `wallet_ledger` type/sign CHECK (SUBSCRIPTION_FEE, COMMISSION, COMMISSION_REVERSAL); team-promotion 0009 sets existing campaigns with `bid < 500` or `budget < bid` to ENDED, 0010 adds plan billing (grandfathered ACTIVE paid rows get one free 30-day term). Once commission and fee rows are written to seller wallets, rolling back the binaries leaves ledger rows the old code does not know.
+Four forward migrations change data on deploy: team-payment 0018/0019 widen the `wallet_ledger` type/sign CHECK (SUBSCRIPTION_FEE, COMMISSION, COMMISSION_REVERSAL); team-promotion 0010 sets existing campaigns with `bid < 500` or `budget < bid` to ENDED, 0011 adds plan billing (grandfathered ACTIVE paid rows get one free 30-day term). Once commission and fee rows are written to seller wallets, rolling back the binaries leaves ledger rows the old code does not know.
 
 **Blast Radius:** money
 
@@ -111,7 +111,7 @@ Four forward migrations change data on deploy: team-payment 0018/0019 widen the 
 1. platform-core proto (contract only, additive).
 2. team-payment with migrations 0018, 0019 (ChargeSellerFee, GetOrderSettlement, commission on settlement; accepts old-shape OrderPaidEvent).
 3. team-order (publishes the breakdown).
-4. team-promotion with migrations 0009, 0010 and `UPSTREAM_PAYMENT_ADDR`, `UPSTREAM_PAYMENT_TIMEOUT`, `SUBSCRIPTION_RENEWAL_RETRY_WINDOW`, `MIN_AD_BID`.
+4. team-promotion with migrations 0010, 0011 (after main's 0009_campaign_seller) and `UPSTREAM_PAYMENT_ADDR`, `UPSTREAM_PAYMENT_TIMEOUT`, `SUBSCRIPTION_RENEWAL_RETRY_WINDOW`, `MIN_AD_BID`.
 5. team-domain with `UPSTREAM_PROMOTION_ADDR` (required; caps fail closed).
 6. team-gateway.
 7. team-frontend-seller, team-frontend (and team-frontend-admin for the re-vendored api-client).
@@ -143,5 +143,7 @@ All 12 slice digests changed at converge (VERIFIED BY citations, task ticks, ren
 - validate_plan --audit does not parse "widened (P1)" `path — reason` entries.
 - red_first e2e-order red from vendored proto copies: fixed by chore/asdlc-tooling, which must merge first.
 - Pre-existing on main: `TestWriteAuditEventRequest_Comment_Scenarios_NamingRuleCatalogueAndAdminPathWording` in platform-core proto.
+
+**Merge of origin/main (seller-centre #127, tooling #126).** team-promotion migrations renumbered: main's `0009_campaign_seller` keeps 0009; this branch's `0009_ad_serving` is now `0010_ad_serving` and `0010_plan_billing` is now `0011_plan_billing` (schema version 11; tests and README updated). No other service had a number clash (team-order 0025/0026 and team-domain 0017 are main-only; team-payment 0018/0019 are branch-only). Storefront featured ids: the plan `featured_listings` cap replaces main's fixed limit of 6 when entitlements are wired (00-spec, S2); the fixed 6 still applies without an entitlements port. The `/seller/ads` form now picks the listing with main's `ListingPicker`; campaign titles resolve per visible page through `getListing` because main removed `getAllListings`.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

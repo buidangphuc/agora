@@ -158,8 +158,8 @@ func TestCheckoutContract_PreviewCheckoutExistsOnOrderService(t *testing.T) {
 	if p.InputType != orderPkg+"PreviewCheckoutRequest" || p.OutputType != orderPkg+"PreviewCheckoutResponse" {
 		t.Errorf("PreviewCheckout = %s -> %s", p.InputType, p.OutputType)
 	}
-	if len(svc.Method) != len(names)+1 {
-		t.Errorf("OrderService has %d RPCs, want exactly %d", len(svc.Method), len(names)+1)
+	if len(svc.Method) != len(names)+2 {
+		t.Errorf("OrderService has %d RPCs, want exactly %d", len(svc.Method), len(names)+2)
 	}
 }
 
@@ -548,6 +548,7 @@ func TestCheckoutContract_ExistingOrderMessagesAreUntouched(t *testing.T) {
 		{"OrderItem", []wf{
 			str("id", 1), str("listing_id", 2), str("variant_id", 3), str("title", 4), str("variant_name", 5),
 			i32("quantity", 6), i64("unit_price", 7), str("image_url", 8),
+			str("bundle_id", 9), i64("bundle_discount", 10),
 		}},
 		{"GetOrderRequest", []wf{str("id", 1)}},
 		{"ListBuyerOrdersRequest", []wf{enm("status_filter", 1, orderPkg+"OrderStatus")}},

@@ -56,7 +56,7 @@ func upsertStorefrontErr(t *testing.T, repoErr error) error {
 	t.Helper()
 	repo := failingStorefrontRepo{InMemoryStorefrontRepository: storetest.NewInMemoryStorefrontRepository(), err: repoErr}
 	h := rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
-		WithStorefront(listing.NewStorefrontService(repo))
+		WithStorefront(listing.NewStorefrontService(repo, "http://localhost:9000/listing-images"))
 	_, err := h.UpsertStorefront(typedCtx("seller-a", "user", "listing.read", "listing.write"), &listingv1.UpsertStorefrontRequest{
 		Storefront: &listingv1.Storefront{Slug: "shop-a"},
 	})
@@ -82,7 +82,7 @@ func TestUniqueViolationMapsAlreadyExists(t *testing.T) {
 func TestUpsertStorefrontSlugTakenAlreadyExists(t *testing.T) {
 	repo := storetest.NewInMemoryStorefrontRepository()
 	h := rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
-		WithStorefront(listing.NewStorefrontService(repo))
+		WithStorefront(listing.NewStorefrontService(repo, "http://localhost:9000/listing-images"))
 	req := &listingv1.UpsertStorefrontRequest{Storefront: &listingv1.Storefront{Slug: "shop-a"}}
 	if _, err := h.UpsertStorefront(typedCtx("seller-a", "user", "listing.read", "listing.write"), req); err != nil {
 		t.Fatalf("first upsert: %v", err)
@@ -188,5 +188,37 @@ func TestListModerationQueueInvalidCursor(t *testing.T) {
 	_, err := h.ListModerationQueue(adminCtx(), &listingv1.ListModerationQueueRequest{})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("code = %v (%v), want InvalidArgument", status.Code(err), err)
+	}
+}
+
+// Scenario: Tagline over 120 runes is rejected (maps to INVALID_ARGUMENT)
+func TestStorefrontCustomisationSentinelsMapInvalidArgument(t *testing.T) {
+	sentinels := map[string]error{
+		"tagline":  listing.ErrTaglineInvalid,
+		"banner":   listing.ErrBannerInvalid,
+		"theme":    listing.ErrThemeInvalid,
+		"featured": listing.ErrFeaturedInvalid,
+		"toomany":  listing.ErrTooManyFeatured,
+	}
+	for name, sentinel := range sentinels {
+		st := status.Convert(upsertStorefrontErr(t, fmt.Errorf("validate: %w", sentinel)))
+		if st.Code() != codes.InvalidArgument {
+			t.Errorf("%s: code = %v (%q), want InvalidArgument", name, st.Code(), st.Message())
+		}
+		if st.Message() == "" || len(st.Message()) > 80 || strings.Contains(st.Message(), "validate") {
+			t.Errorf("%s: message %q must be fixed and short", name, st.Message())
+		}
+	}
+}
+
+// Scenario: Unknown theme is rejected (end to end through the handler)
+func TestUpsertStorefrontUnknownThemeInvalidArgument(t *testing.T) {
+	h := rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
+		WithStorefront(listing.NewStorefrontService(storetest.NewInMemoryStorefrontRepository(), "http://localhost:9000/listing-images"))
+	_, err := h.UpsertStorefront(typedCtx("seller-a", "user", "listing.read", "listing.write"), &listingv1.UpsertStorefrontRequest{
+		Storefront: &listingv1.Storefront{Slug: "shop-a", Theme: "neon"},
+	})
+	if status.Convert(err).Code() != codes.InvalidArgument {
+		t.Fatalf("code = %v, want InvalidArgument", status.Convert(err).Code())
 	}
 }

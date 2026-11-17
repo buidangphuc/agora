@@ -65,7 +65,7 @@ func repeatStatus(st string, n int) []string {
 
 func (e *capEnv) owned(t *testing.T, seller string) int64 {
 	t.Helper()
-	p, err := e.repo.ListByOwner(context.Background(), seller, "", 100)
+	p, err := e.repo.ListByOwner(context.Background(), seller, store.ListingFilter{}, "", 100)
 	if err != nil {
 		t.Fatalf("ListByOwner: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestOverCapSellerKeepsListings(t *testing.T) {
 	env := newCapEnv("s1", repeatStatus("draft", 14), 10)
 	ctx := context.Background()
 
-	page, err := env.svc.ListMine(ctx, "s1", "", 100)
+	page, err := env.svc.ListMine(ctx, "s1", store.ListingFilter{}, "", 100)
 	if err != nil || len(page.Items) != 14 {
 		t.Fatalf("ListMine = %d items, err %v; want 14", len(page.Items), err)
 	}

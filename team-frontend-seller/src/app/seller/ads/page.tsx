@@ -13,7 +13,7 @@ import {
   parseListParams,
   slicePage,
 } from "@/features/seller/listParams";
-import { getAllListings } from "@/features/seller/listingsPage";
+import { getListing } from "@/lib/gateway/listings";
 import { listMyAdCampaigns } from "@/lib/gateway/promotion";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
@@ -22,6 +22,19 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Quảng cáo" };
 
 const PAGE_SIZE = 20;
+
+async function listingTitles(ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids)];
+  const found = await Promise.all(
+    unique.map((id) => getListing(id).catch(() => null)),
+  );
+  const titles = new Map<string, string>();
+  unique.forEach((id, i) => {
+    const title = found[i]?.title;
+    if (title) titles.set(id, title);
+  });
+  return titles;
+}
 
 export default async function SellerAdsPage({
   searchParams,
@@ -33,11 +46,9 @@ export default async function SellerAdsPage({
   if (!hasScope("listing.write")) return null;
 
   const { page } = parseListParams(sp);
-  const [listings, result] = await Promise.all([
-    getAllListings().catch(() => []),
-    listMyAdCampaigns(),
-  ]);
-  const titles = new Map(listings.map((l) => [l.id, l.title]));
+  const result = await listMyAdCampaigns();
+  const visible = result.ok ? slicePage(result.campaigns, page, PAGE_SIZE) : [];
+  const titles = await listingTitles(visible.map((c) => c.listingId));
   const here = buildListHref("/seller/ads", { page });
 
   return (
@@ -46,9 +57,7 @@ export default async function SellerAdsPage({
         title="Quảng cáo sản phẩm"
         description="Tạo chiến dịch để sản phẩm xuất hiện ở vị trí được tài trợ."
       />
-      <AdCampaignForm
-        listings={listings.map((l) => ({ id: l.id, title: l.title }))}
-      />
+      <AdCampaignForm />
       <Card>
         <CardHeader>
           <CardTitle>Chiến dịch của bạn</CardTitle>
@@ -58,12 +67,10 @@ export default async function SellerAdsPage({
             {result.ok ? (
               <>
                 <AdCampaignTable
-                  campaigns={slicePage(result.campaigns, page, PAGE_SIZE).map(
-                    (c) => ({
-                      ...c,
-                      listingTitle: titles.get(c.listingId) ?? c.listingId,
-                    }),
-                  )}
+                  campaigns={visible.map((c) => ({
+                    ...c,
+                    listingTitle: titles.get(c.listingId) ?? c.listingId,
+                  }))}
                 />
                 <SellerPagination
                   current={page}

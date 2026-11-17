@@ -189,7 +189,7 @@ func TestCreateCampaignOwnership(t *testing.T) {
 		{"listing not found", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "ghost", CallerID: "seller-1"}, ErrInvalidCampaign},
 		{"upstream error", &fakeListings{err: status.Error(codes.Internal, "boom")}, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, listing.ErrLookupFailed},
 		{"upstream down", &fakeListings{err: errors.New("dial tcp: refused")}, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, listing.ErrLookupFailed},
-		{"admin skips lookup", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "theirs", CallerID: "admin-1", IsAdmin: true}, nil},
+		{"admin skips ownership check", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "theirs", CallerID: "admin-1", IsAdmin: true}, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -203,9 +203,6 @@ func TestCreateCampaignOwnership(t *testing.T) {
 			}
 			if tc.want != nil && !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
-			}
-			if tc.params.IsAdmin && tc.listings.calls != 0 {
-				t.Fatalf("admin must not trigger an ownership lookup")
 			}
 		})
 	}

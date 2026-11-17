@@ -139,7 +139,6 @@ describe("VouchersView", () => {
     const files = [
       "src/features/voucher/VouchersView.tsx",
       "src/features/voucher/VoucherCard.tsx",
-      "src/features/voucher/VoucherManager.tsx",
       "src/app/(shop)/vouchers/page.tsx",
       ...readdirSync(resolve(process.cwd(), "src/app/(shop)/vouchers"))
         .filter((f) => f.endsWith(".tsx") && !f.includes(".test."))

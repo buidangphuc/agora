@@ -1,9 +1,7 @@
 import { MyVouchersSection } from "@/features/voucher/MyVouchersSection";
-import { VoucherManager } from "@/features/voucher/VoucherManager";
 import { VouchersView } from "@/features/voucher/VouchersView";
 import { parseVoucherTab } from "@/features/voucher/tabs";
 import { listMyVouchers, listVouchers } from "@/lib/gateway/promotion";
-import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +22,8 @@ export default async function VouchersPage(props: {
   ]);
   const type = parseVoucherTab(searchParams.type);
 
-  // Creating vouchers is a seller-only action (backend also rejects anonymous
-  // in team-promotion). Only sellers see the manager.
-  const canManage = Boolean(getPrincipal()) && hasScope("listing.write");
-
   return (
     <section className="space-y-8 py-2">
-      {canManage && <VoucherManager initialVouchers={vouchers} />}
       {mine.ok && <MyVouchersSection vouchers={mine.vouchers} />}
       <VouchersView vouchers={vouchers} type={type} />
     </section>

@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ViewListing } from "@/lib/gateway/listings";
+import type { ViewListing, ViewStorefront } from "@/lib/gateway/listings";
 import { ShopStorefrontView, sortListings } from "./ShopStorefrontView";
 
 vi.mock("@/features/listing/ListingGrid", () => ({
@@ -112,5 +112,88 @@ describe("ShopStorefrontView", () => {
     expect(
       screen.getByRole("button", { name: "Chat Ngay" }),
     ).toBeInTheDocument();
+  });
+});
+
+function sf(over: Partial<ViewStorefront> = {}): ViewStorefront {
+  return {
+    sellerId: "s1",
+    slug: "s",
+    bannerUrl: "",
+    tagline: "",
+    featuredListingIds: [],
+    theme: "",
+    displayName: "Shop",
+    ...over,
+  };
+}
+
+const featuredTitles = () =>
+  within(screen.getByTestId("featured-listings"))
+    .getAllByRole("listitem")
+    .map((li) => li.textContent);
+
+describe("ShopStorefrontView featured block", () => {
+  it("[Featured listings appear first in the chosen order] block lists 3,1 in stored order and the grid excludes them", () => {
+    render(
+      <ShopStorefrontView
+        sellerId="s1"
+        listings={listings}
+        loggedIn
+        summary={summary}
+        storefront={sf({ featuredListingIds: ["3", "1"] })}
+      />,
+    );
+    expect(featuredTitles()).toEqual(["L3", "L1"]);
+    expect(order()).toEqual(["L2"]);
+    expect(
+      screen.getByRole("link", { name: "Tất cả sản phẩm (3)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("[No featured listings means no block] absent when the storefront has no featured ids", () => {
+    render(
+      <ShopStorefrontView
+        sellerId="s1"
+        listings={listings}
+        loggedIn
+        summary={summary}
+        storefront={sf()}
+      />,
+    );
+    expect(screen.queryByTestId("featured-listings")).toBeNull();
+    expect(order()).toEqual(["L1", "L2", "L3"]);
+  });
+
+  it("[No featured listings means no block] absent when every featured id is unavailable", () => {
+    render(
+      <ShopStorefrontView
+        sellerId="s1"
+        listings={listings}
+        loggedIn
+        summary={summary}
+        storefront={sf({ featuredListingIds: ["gone", "nope"] })}
+      />,
+    );
+    expect(screen.queryByTestId("featured-listings")).toBeNull();
+    expect(order()).toEqual(["L1", "L2", "L3"]);
+  });
+
+  it("[A storefront outage does not break the page] renders without a storefront", () => {
+    render(
+      <ShopStorefrontView
+        sellerId="s1"
+        listings={listings}
+        loggedIn
+        summary={summary}
+        storefront={null}
+      />,
+    );
+    expect(screen.queryByTestId("featured-listings")).toBeNull();
+    expect(order()).toEqual(["L1", "L2", "L3"]);
+    expect(screen.getByTestId("shop-header-card")).toHaveAttribute(
+      "data-theme",
+      "default",
+    );
   });
 });

@@ -1,4 +1,5 @@
 import {
+  GettingStartedSkeleton,
   HeaderSkeleton,
   KpiRowSkeleton,
   TableCardSkeleton,
@@ -9,6 +10,7 @@ export default function SellerLoading() {
   return (
     <div className="space-y-8" aria-busy="true" data-testid="seller-skeleton">
       <HeaderSkeleton />
+      <GettingStartedSkeleton />
       <KpiRowSkeleton />
       <div className="grid gap-6 lg:grid-cols-3 lg:items-start lg:gap-8">
         <div className="min-w-0 lg:col-span-2">

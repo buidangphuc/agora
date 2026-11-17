@@ -9,11 +9,11 @@ import (
 	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
-func readMigration0009(t *testing.T, suffix string) string {
+func readMigration0010(t *testing.T, suffix string) string {
 	t.Helper()
-	files, err := fs.Glob(store.Migrations, "migrations/0009_*."+suffix+".sql")
+	files, err := fs.Glob(store.Migrations, "migrations/0010_*."+suffix+".sql")
 	if err != nil || len(files) != 1 {
-		t.Fatalf("0009 %s migration = %v err=%v, want exactly one", suffix, files, err)
+		t.Fatalf("0010 %s migration = %v err=%v, want exactly one", suffix, files, err)
 	}
 	body, err := fs.ReadFile(store.Migrations, files[0])
 	if err != nil {
@@ -42,7 +42,7 @@ func columnsOf(t *testing.T, pool *pgxpool.Pool, table string) map[string]bool {
 }
 
 func TestMigrationEndsUnservableLegacyCampaigns(t *testing.T) {
-	pool := newPoolUpTo(t, 8)
+	pool := newPoolUpTo(t, 9)
 	ctx := t.Context()
 	if _, err := pool.Exec(ctx, `INSERT INTO ad_campaigns (id, seller_id, listing_id, budget, bid, status) VALUES
 		('zero-bid', 's1', 'l1', 5000, 0, 1),
@@ -52,8 +52,8 @@ func TestMigrationEndsUnservableLegacyCampaigns(t *testing.T) {
 		('valid-paused', 's1', 'l5', 5000, 800, 2)`); err != nil {
 		t.Fatalf("seed legacy rows: %v", err)
 	}
-	if _, err := pool.Exec(ctx, readMigration0009(t, "up")); err != nil {
-		t.Fatalf("apply 0009 up: %v", err)
+	if _, err := pool.Exec(ctx, readMigration0010(t, "up")); err != nil {
+		t.Fatalf("apply 0010 up: %v", err)
 	}
 	want := map[string]int32{"zero-bid": 3, "bid-499": 3, "budget-short": 3, "valid": 1, "valid-paused": 2}
 	for id, st := range want {
@@ -73,11 +73,11 @@ func TestMigrationEndsUnservableLegacyCampaigns(t *testing.T) {
 }
 
 func TestMigrationDownRestoresSchema(t *testing.T) {
-	pool := newPoolUpTo(t, 8)
+	pool := newPoolUpTo(t, 9)
 	ctx := t.Context()
 	before := columnsOf(t, pool, "ad_campaigns")
-	if _, err := pool.Exec(ctx, readMigration0009(t, "up")); err != nil {
-		t.Fatalf("apply 0009 up: %v", err)
+	if _, err := pool.Exec(ctx, readMigration0010(t, "up")); err != nil {
+		t.Fatalf("apply 0010 up: %v", err)
 	}
 	after := columnsOf(t, pool, "ad_campaigns")
 	for _, c := range []string{"spent", "impressions", "clicks", "category_id"} {
@@ -88,8 +88,8 @@ func TestMigrationDownRestoresSchema(t *testing.T) {
 	if len(columnsOf(t, pool, "ad_impressions")) == 0 {
 		t.Fatal("ad_impressions missing after up")
 	}
-	if _, err := pool.Exec(ctx, readMigration0009(t, "down")); err != nil {
-		t.Fatalf("apply 0009 down: %v", err)
+	if _, err := pool.Exec(ctx, readMigration0010(t, "down")); err != nil {
+		t.Fatalf("apply 0010 down: %v", err)
 	}
 	restored := columnsOf(t, pool, "ad_campaigns")
 	if len(restored) != len(before) {

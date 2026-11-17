@@ -95,7 +95,7 @@ func startCapRig(t *testing.T, owned map[string]int, maxListings int64) *capRig 
 
 func (r *capRig) owned(t *testing.T, seller string) int64 {
 	t.Helper()
-	n, err := r.repo.ListByOwner(t.Context(), seller, "", 100)
+	n, err := r.repo.ListByOwner(t.Context(), seller, store.ListingFilter{}, "", 100)
 	if err != nil {
 		t.Fatal(err)
 	}

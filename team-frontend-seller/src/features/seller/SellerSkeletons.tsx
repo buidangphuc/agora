@@ -71,3 +71,16 @@ export function FormCardSkeleton({ lines = 5 }: { lines?: number }) {
     </Card>
   );
 }
+
+/** Placeholder for the getting started card. */
+export function GettingStartedSkeleton() {
+  return (
+    <div aria-busy="true" data-testid="getting-started-skeleton">
+      <Card>
+        <CardContent>
+          <Skeleton variant="text" lines={4} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

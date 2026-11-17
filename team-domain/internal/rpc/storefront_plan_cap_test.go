@@ -27,7 +27,7 @@ func (f *sfCapEnt) Get(context.Context, string) (listing.Entitlements, error) {
 
 func sfCapHandler(featured int64) (*rpc.ListingHandler, *sfCapEnt) {
 	ent := &sfCapEnt{ent: listing.Entitlements{FeaturedListings: featured}}
-	sf := listing.NewStorefrontService(storetest.NewInMemoryStorefrontRepository()).WithEntitlements(ent)
+	sf := listing.NewStorefrontService(storetest.NewInMemoryStorefrontRepository(), "").WithEntitlements(ent)
 	h := rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).WithStorefront(sf)
 	return h, ent
 }

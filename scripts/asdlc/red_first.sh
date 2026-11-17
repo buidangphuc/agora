@@ -5,8 +5,9 @@
 #   temp worktree of base) and must FAIL (compile error counts), then at HEAD and must PASS.
 # e2e (platform-e2e/**): first commit touching e2e files must precede the first commit touching
 #   implementation files (non-test, outside platform-e2e) of the same range. Contract commits, whose
-#   implementation files are all under platform-core/packages/proto/**, carry no e2e by design and
-#   are skipped when finding that first implementation commit.
+#   implementation files are all under platform-core/packages/proto/**, <repo>/proto/platform/** or
+#   fe-platform/packages/api-client/src/generated/**, carry no e2e by design and are skipped when
+#   finding that first implementation commit.
 # exit 1: a test is green at base (written after code / not testing new behaviour) or red at head,
 #         or e2e written after implementation.
 # --only KINDS: run only these test kinds (comma list of go|python|ts); other kinds are reported SKIP.
@@ -22,7 +23,7 @@
 #   to local protoc-gen-* binaries found on PATH (plus <module>/node_modules/.bin), so runs do not hit
 #   BSR rate limits. A buf generate failure fails that module's tests as "buf generate failed", never
 #   as "red at head".
-# env: REDFIRST_PYTHON (default platform-e2e/.venv/bin/python, else python3), REDFIRST_TMP (scratch dir)
+# env: REDFIRST_PYTHON (python for modules without a usable <module>/.venv or <repo>/.venv; default python3), REDFIRST_TMP (scratch dir)
 set -uo pipefail
 
 BASE="" HEAD_REF="HEAD" DRY=0 ONLY="" ALLOW_EMPTY=0 ALLOW_DIRTY="${REDFIRST_ALLOW_DIRTY:-0}"
@@ -49,8 +50,14 @@ fi
 [ -n "$BASE" ] || { echo "cannot determine base (pass --base)" >&2; exit 2; }
 BASE=$(git rev-parse "$BASE"); HEADSHA=$(git rev-parse "$HEAD_REF")
 
-PY="${REDFIRST_PYTHON:-}"
-[ -z "$PY" ] && { [ -x "$ROOT/platform-e2e/.venv/bin/python" ] && PY="$ROOT/platform-e2e/.venv/bin/python" || PY=python3; }
+PY_DEFAULT="${REDFIRST_PYTHON:-python3}"
+py_for() {
+  local mod="$1" v
+  for v in "$ROOT/$mod/.venv/bin/python" "$ROOT/${mod%%/*}/.venv/bin/python"; do
+    if [ -x "$v" ] && "$v" -c 'import pytest' >/dev/null 2>&1; then echo "$v"; return; fi
+  done
+  echo "$PY_DEFAULT"
+}
 
 # ---- classify changed files ----
 is_go_test()  { [[ "$1" == *_test.go ]]; }
@@ -170,6 +177,10 @@ gen_proto() { # gen_proto <worktree> <moddir>: `buf generate` from buf.gen.yaml 
     # `remote: buf.build/x/y[:version]  # comment` -> `local: protoc-gen-y` (version pinned by the installed binary)
     sed -E "s#remote:[[:space:]]*${remote}(:[^[:space:]]*)?([[:space:]].*)?\$#local: ${plugin}#" "$tmpl" > "$tmpl.new" && mv "$tmpl.new" "$tmpl"
   done
+  if [ "${RED_FIRST_KEEP_REMOTE:-0}" != 1 ] && grep -qE '^[[:space:]]*-[[:space:]]*remote:' "$tmpl"; then
+    echo "red_first: note: dropping remote BSR plugins without a local binary in $mod: $(grep -E '^[[:space:]]*-[[:space:]]*remote:' "$tmpl" | sed -E 's/.*remote:[[:space:]]*//' | tr '\n' ' ')" >&2
+    awk '/^[[:space:]]*-[[:space:]]*(remote|local):/ { drop = ($0 ~ /remote:/) } /^[^[:space:]-]/ { drop = 0 } !drop' "$tmpl" > "$tmpl.new" && mv "$tmpl.new" "$tmpl"
+  fi
   if ! (cd "$wt/$mod" && PATH="$path" buf generate --template "$tmpl" >"$SCRATCH/buf.log" 2>&1); then
     echo "red_first: ERROR buf generate failed in $mod ($(basename "$wt")): $(tail -3 "$SCRATCH/buf.log" | tr '\n' ' ')" >&2
     GEN_FAIL+=("$mod"); return 1
@@ -205,6 +216,7 @@ run_test() { # run_test <worktree> <kind> <relfile> -> exit status of the test c
       (cd "$wt/$mod" && GO_SDK_REQUIRE_DOCKER=1 go test -count=1 "./$rel/" -run "^($names)\$" >"$SCRATCH/out.log" 2>&1) ;;
     py)
       mod=$(nearest_up "$wt" "$f" pyproject.toml) || mod=$(dirname "$f")
+      local PY; PY=$(py_for "$mod")
       # Services whose gRPC stubs are generated, not committed (team-ai): build them once per worktree.
       if [ -f "$wt/$mod/scripts/gen_proto.py" ] && [ ! -e "$wt/$mod/.redfirst-proto" ]; then
         (cd "$wt/$mod" && "$PY" -m scripts.gen_proto >"$SCRATCH/proto.log" 2>&1) && touch "$wt/$mod/.redfirst-proto"
@@ -258,7 +270,10 @@ if [ ${#E2E[@]} -gt 0 ]; then
   if [ ${#IMPL[@]} -eq 0 ]; then
     RESULTS+=("e2e(${#E2E[@]} files)|first-e2e=$(idx "$first_e2e")|first-impl=none|OK (no implementation files in range)")
   else
-    is_contract() { [[ "$1" == platform-core/packages/proto/* ]]; }
+    is_contract() {
+      [[ "$1" == platform-core/packages/proto/* ]] || [[ "$1" =~ ^[^/]+/proto/platform/ ]] ||
+        [[ "$1" == fe-platform/packages/api-client/src/generated/* ]]
+    }
     first_impl=""
     for c in $(git log --reverse --format=%H "$BASE..$HEADSHA" -- "${IMPL[@]}"); do
       while IFS= read -r f; do

@@ -85,3 +85,18 @@ class ListingService(BaseService):
         """BatchGetStorefronts -> {sellerId: displayName} (unknown sellers omitted)."""
         data = self.post(ep.LISTING_BATCH_GET_STOREFRONTS, {"sellerIds": seller_ids})
         return {s.get("sellerId", ""): s.get("displayName", "") for s in data.get("shops", [])}
+
+    def upsert_full_storefront(self, storefront: dict[str, Any]) -> dict[str, Any]:
+        """UpsertStorefront with a complete proto-JSON storefront body (seller token)."""
+        data = self.post(ep.LISTING_UPSERT_STOREFRONT, {"storefront": storefront})
+        return data.get("storefront") or {}
+
+    def get_image_upload_url(self, content_type: str, filename: str) -> dict[str, Any]:
+        """GetImageUploadUrl -> {uploadUrl, imageKey, publicUrl} (seller token)."""
+        return self.post(
+            ep.LISTING_GET_IMAGE_UPLOAD_URL,
+            {"contentType": content_type, "filename": filename},
+        )
+
+    def set_listing_status(self, listing_id: str, status: str) -> dict[str, Any]:
+        return self.update_listing(listing_id, status=_STATUS_ENUM.get(status, status))

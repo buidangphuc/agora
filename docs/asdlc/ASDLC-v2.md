@@ -23,7 +23,7 @@ Agentic SDLC for this polyrepo. Where a file differs from this doc, the file win
 | 9 | Operate | health, logs, alerts, runbooks | alert reaches local webhook-logger | `kubectl -n marketplace logs deploy/webhook-logger`; `incident-triager`; [runbooks/](../runbooks/) |
 | 10 | Learn | proposed `AGENTS.md` / ADR diffs from incidents and `metrics/` | human approves | `$PY scripts/asdlc/metrics.py` ([metrics/README.md](../../metrics/README.md)) |
 
-**Red-first proof** (`scripts/asdlc/red_first.sh --base <ref>`, CI job `tdd`, run per task in `feature-run`) has two modes: **unit/integration** — new or changed tests are copied onto the base (merge-base) and must FAIL there, then PASS at HEAD; **e2e** — commit order: the first commit touching the `.feature`/steps must precede the first implementation commit. Exit 1 if a test is green at base, red at head, or e2e came after the code.
+**Red-first proof** (`scripts/asdlc/red_first.sh --base <ref>`, CI job `tdd`, run per task in `feature-run`) has two modes: **unit/integration** — new or changed tests are copied onto the base (merge-base) and must FAIL there, then PASS at HEAD; **e2e** — commit order: the first commit touching the `.feature`/steps must precede the first implementation commit; contract-only commits (`platform-core/packages/proto/**`, vendored `<repo>/proto/platform/**`, generated `fe-platform/packages/api-client/src/generated/**`) are skipped when finding it. Exit 1 if a test is green at base, red at head, or e2e came after the code.
 
 ## 2. Roles
 

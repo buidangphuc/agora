@@ -1,45 +1,52 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ListingStatus } from "@/generated/platform/listing/v1/listing_pb.js";
 import { listMyListings } from "@/lib/gateway/listings";
-import { getListingsPage } from "./listingsPage";
+import * as listingsPage from "./listingsPage";
 
 vi.mock("@/lib/gateway/listings", () => ({ listMyListings: vi.fn() }));
 
-function pageOf(n: number, nextCursor: string) {
-  return {
-    items: [{ id: `l${n}` }],
-    nextCursor,
-    total: 45,
-  } as never;
-}
+const page = {
+  items: [{ id: "l1", title: "Quần jean" }],
+  nextCursor: "more-should-not-be-followed",
+  total: 2000,
+};
 
 beforeEach(() => vi.clearAllMocks());
 
-describe("getListingsPage", () => {
-  it("page 1 is a single call without a cursor", async () => {
-    vi.mocked(listMyListings).mockResolvedValueOnce(pageOf(1, "c1"));
-    const res = await getListingsPage(1);
+describe("searchMyListings", () => {
+  it("Picker opens with the first options: empty query is one PUBLISHED call of 20 without a cursor", async () => {
+    vi.mocked(listMyListings).mockResolvedValue(page as never);
+    const res = await listingsPage.searchMyListings("");
     expect(listMyListings).toHaveBeenCalledTimes(1);
-    expect(listMyListings).toHaveBeenCalledWith({ cursor: "", pageSize: 20 });
+    expect(listMyListings).toHaveBeenCalledWith({
+      statuses: [ListingStatus.PUBLISHED],
+      query: "",
+      pageSize: 20,
+    });
     expect(res.items[0].id).toBe("l1");
   });
 
-  it("page 3 walks two cursors and returns the third page", async () => {
-    vi.mocked(listMyListings)
-      .mockResolvedValueOnce(pageOf(1, "c1"))
-      .mockResolvedValueOnce(pageOf(2, "c2"))
-      .mockResolvedValueOnce(pageOf(3, ""));
-    const res = await getListingsPage(3);
-    expect(
-      vi.mocked(listMyListings).mock.calls.map((c) => c[0]?.cursor),
-    ).toEqual(["", "c1", "c2"]);
-    expect(res.items[0].id).toBe("l3");
+  it("Typing narrows the options: the typed text is sent as the server query, no pages are walked", async () => {
+    vi.mocked(listMyListings).mockResolvedValue(page as never);
+    await listingsPage.searchMyListings("quần");
+    expect(listMyListings).toHaveBeenCalledTimes(1);
+    expect(listMyListings).toHaveBeenCalledWith({
+      statuses: [ListingStatus.PUBLISHED],
+      query: "quần",
+      pageSize: 20,
+    });
   });
 
-  it("returns an empty page (with the total) beyond the last page", async () => {
-    vi.mocked(listMyListings).mockResolvedValueOnce(pageOf(1, ""));
-    const res = await getListingsPage(5);
-    expect(res).toEqual({ items: [], nextCursor: "", total: 45 });
-    expect(listMyListings).toHaveBeenCalledTimes(1);
+  it("Search fails: a gateway error propagates to the caller", async () => {
+    vi.mocked(listMyListings).mockRejectedValue(new Error("down"));
+    await expect(listingsPage.searchMyListings("x")).rejects.toThrow("down");
+  });
+});
+
+describe("listingsPage module surface", () => {
+  it("Picker opens with the first options: cursor-walking helpers are gone", () => {
+    expect("getListingsPage" in listingsPage).toBe(false);
+    expect("getAllListings" in listingsPage).toBe(false);
   });
 });

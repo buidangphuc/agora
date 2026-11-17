@@ -8,7 +8,7 @@
 import "server-only";
 
 import { Timestamp } from "@bufbuild/protobuf";
-import { ConnectError, createPromiseClient } from "@connectrpc/connect";
+import { Code, ConnectError, createPromiseClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-node";
 
 import {
@@ -20,6 +20,7 @@ import {
 import {
   type AdCampaign,
   AdCampaignStatus,
+  CampaignStatus,
   DiscountType,
   type FlashSaleCampaign,
   type Plan,
@@ -121,6 +122,10 @@ function scopeText(s: VoucherScope): string {
 function tsToString(ts?: Timestamp): string {
   if (!ts) return "";
   return new Date(Number(ts.seconds) * 1000).toLocaleDateString("vi-VN");
+}
+
+function tsToIso(ts?: Timestamp): string {
+  return ts ? new Date(tsMs(ts)).toISOString() : "";
 }
 
 function mapVoucher(v: Voucher): ViewVoucher {
@@ -499,5 +504,255 @@ export async function listSponsoredSlots(
     return res.listingIds;
   } catch {
     return [];
+  }
+}
+
+// ── Seller marketing hub (caller-scoped vouchers + flash-sale campaigns) ────
+// The seller id never travels in a request: the server derives it from the token.
+
+export type MarketingErrorCode =
+  | "denied"
+  | "not_found"
+  | "invalid"
+  | "failed_precondition"
+  | "already_exists"
+  | "unavailable";
+
+export interface MarketingFailure {
+  ok: false;
+  code: MarketingErrorCode;
+  message: string;
+}
+
+function marketingFailure(err: unknown): MarketingFailure {
+  const e = ConnectError.from(err);
+  let code: MarketingErrorCode = "unavailable";
+  switch (e.code) {
+    case Code.PermissionDenied:
+    case Code.Unauthenticated:
+      code = "denied";
+      break;
+    case Code.NotFound:
+      code = "not_found";
+      break;
+    case Code.InvalidArgument:
+      code = "invalid";
+      break;
+    case Code.FailedPrecondition:
+      code = "failed_precondition";
+      break;
+    case Code.AlreadyExists:
+      code = "already_exists";
+      break;
+  }
+  return { ok: false, code, message: e.rawMessage };
+}
+
+const MARKETING_PAGE_SIZE = 20;
+
+export interface MarketingPageInput {
+  cursor?: string;
+  pageSize?: number;
+}
+
+export type VoucherState = "active" | "scheduled" | "ended" | "deactivated";
+
+export interface MyVoucherRow {
+  id: string;
+  code: string;
+  discountType: DiscountType;
+  discountValue: number;
+  minSpend: number;
+  maxDiscount: number;
+  quota: number;
+  used: number;
+  startsAt: string;
+  endsAt: string;
+  active: boolean;
+  state: VoucherState;
+  stateText: string;
+}
+
+const VOUCHER_STATE_TEXT: Record<VoucherState, string> = {
+  active: "Đang chạy",
+  scheduled: "Sắp diễn ra",
+  ended: "Đã kết thúc",
+  deactivated: "Đã tắt",
+};
+
+function tsMs(ts?: Timestamp): number {
+  return ts ? Number(ts.seconds) * 1000 + Math.floor(ts.nanos / 1e6) : 0;
+}
+
+function voucherState(v: Voucher, now: Date): VoucherState {
+  if (!v.active) return "deactivated";
+  const t = now.getTime();
+  if (t < tsMs(v.startsAt)) return "scheduled";
+  if (t > tsMs(v.endsAt)) return "ended";
+  return "active";
+}
+
+function mapMyVoucher(v: Voucher, now: Date): MyVoucherRow {
+  const state = voucherState(v, now);
+  return {
+    id: v.id,
+    code: v.code,
+    discountType: v.discountType,
+    discountValue: Number(v.discountValue),
+    minSpend: Number(v.minSpend),
+    maxDiscount: Number(v.maxDiscount),
+    quota: Number(v.quota),
+    used: Number(v.used),
+    startsAt: tsToIso(v.startsAt),
+    endsAt: tsToIso(v.endsAt),
+    active: v.active,
+    state,
+    stateText: VOUCHER_STATE_TEXT[state],
+  };
+}
+
+export async function listMyShopVouchers(
+  input: MarketingPageInput,
+  now: Date = new Date(),
+): Promise<
+  { ok: true; items: MyVoucherRow[]; nextCursor: string } | MarketingFailure
+> {
+  try {
+    const res = await promotion().voucher.listMyShopVouchers({
+      page: {
+        cursor: input.cursor ?? "",
+        pageSize: input.pageSize ?? MARKETING_PAGE_SIZE,
+      },
+    });
+    return {
+      ok: true,
+      items: res.vouchers.map((v) => mapMyVoucher(v, now)),
+      nextCursor: res.page?.nextCursor ?? "",
+    };
+  } catch (err) {
+    return marketingFailure(err);
+  }
+}
+
+export async function deactivateMyShopVoucher(
+  voucherId: string,
+): Promise<{ ok: true; voucher: MyVoucherRow } | MarketingFailure> {
+  try {
+    const res = await promotion().voucher.deactivateMyShopVoucher({
+      voucherId,
+    });
+    if (!res.voucher) throw new ConnectError("empty response", Code.Internal);
+    return { ok: true, voucher: mapMyVoucher(res.voucher, new Date()) };
+  } catch (err) {
+    return marketingFailure(err);
+  }
+}
+
+export interface MyCampaignRow {
+  id: string;
+  listingId: string;
+  variantId: string;
+  salePrice: number;
+  stockCap: number;
+  stockSold: number;
+  soldText: string;
+  startsAt: string;
+  endsAt: string;
+  status: CampaignStatus;
+  statusText: string;
+}
+
+function campaignStatusText(s: CampaignStatus): string {
+  switch (s) {
+    case CampaignStatus.SCHEDULED:
+      return "Sắp diễn ra";
+    case CampaignStatus.ACTIVE:
+      return "Đang diễn ra";
+    case CampaignStatus.ENDED:
+      return "Đã kết thúc";
+    case CampaignStatus.CANCELLED:
+      return "Đã huỷ";
+    default:
+      return "Chưa xác định";
+  }
+}
+
+function mapMyCampaign(c: FlashSaleCampaign): MyCampaignRow {
+  return {
+    id: c.id,
+    listingId: c.listingId,
+    variantId: c.variantId,
+    salePrice: Number(c.salePrice),
+    stockCap: Number(c.stockCap),
+    stockSold: Number(c.stockSold),
+    soldText: `${Number(c.stockSold)}/${Number(c.stockCap)}`,
+    startsAt: tsToIso(c.startsAt),
+    endsAt: tsToIso(c.endsAt),
+    status: c.status,
+    statusText: campaignStatusText(c.status),
+  };
+}
+
+export async function listMyCampaigns(
+  input: MarketingPageInput & { statuses?: CampaignStatus[] },
+): Promise<
+  { ok: true; items: MyCampaignRow[]; nextCursor: string } | MarketingFailure
+> {
+  try {
+    const res = await promotion().flashSale.listMyCampaigns({
+      statuses: input.statuses ?? [],
+      page: {
+        cursor: input.cursor ?? "",
+        pageSize: input.pageSize ?? MARKETING_PAGE_SIZE,
+      },
+    });
+    return {
+      ok: true,
+      items: res.campaigns.map(mapMyCampaign),
+      nextCursor: res.page?.nextCursor ?? "",
+    };
+  } catch (err) {
+    return marketingFailure(err);
+  }
+}
+
+export interface CreateCampaignInput {
+  listingId: string;
+  salePrice: number;
+  stockCap: number;
+  startsAt: Date;
+  endsAt: Date;
+  idempotencyKey: string;
+}
+
+export async function createCampaign(
+  input: CreateCampaignInput,
+): Promise<{ ok: true; campaign: MyCampaignRow } | MarketingFailure> {
+  try {
+    const res = await promotion().flashSale.createCampaign({
+      listingId: input.listingId,
+      variantId: "",
+      salePrice: BigInt(Math.max(0, Math.round(input.salePrice))),
+      stockCap: BigInt(Math.max(0, Math.round(input.stockCap))),
+      startsAt: Timestamp.fromDate(input.startsAt),
+      endsAt: Timestamp.fromDate(input.endsAt),
+      idempotencyKey: input.idempotencyKey,
+    });
+    if (!res.campaign) throw new ConnectError("empty response", Code.Internal);
+    return { ok: true, campaign: mapMyCampaign(res.campaign) };
+  } catch (err) {
+    return marketingFailure(err);
+  }
+}
+
+export async function cancelMyCampaign(
+  campaignId: string,
+): Promise<{ ok: true; campaign: MyCampaignRow } | MarketingFailure> {
+  try {
+    const res = await promotion().flashSale.cancelMyCampaign({ campaignId });
+    if (!res.campaign) throw new ConnectError("empty response", Code.Internal);
+    return { ok: true, campaign: mapMyCampaign(res.campaign) };
+  } catch (err) {
+    return marketingFailure(err);
   }
 }

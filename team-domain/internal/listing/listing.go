@@ -116,8 +116,8 @@ func (s *ListingService) List(ctx context.Context, cursor string, pageSize int32
 }
 
 // ListMine returns a page of the owner's own listings (the seller center).
-func (s *ListingService) ListMine(ctx context.Context, ownerID, cursor string, pageSize int32) (store.Page, error) {
-	return s.repo.ListByOwner(ctx, ownerID, cursor, pageSize)
+func (s *ListingService) ListMine(ctx context.Context, ownerID string, filter store.ListingFilter, cursor string, pageSize int32) (store.Page, error) {
+	return s.repo.ListByOwner(ctx, ownerID, filter, cursor, pageSize)
 }
 
 // Create stores a new listing owned by ownerID, assigning a server-side id when

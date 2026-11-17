@@ -13,16 +13,18 @@ import (
 var ErrCartItemNotFound = errors.New("cart item not found")
 
 type CartItem struct {
-	ID          string
-	UserID      string
-	ListingID   string
-	VariantID   string
-	Quantity    int32
-	UnitPrice   int64
-	Title       string
-	VariantName string
-	ImageURL    string
-	SellerID    string
+	ID             string
+	UserID         string
+	ListingID      string
+	VariantID      string
+	Quantity       int32
+	UnitPrice      int64
+	Title          string
+	VariantName    string
+	ImageURL       string
+	SellerID       string
+	BundleID       string
+	BundleDiscount int64
 }
 
 type CartRepository interface {
@@ -44,7 +46,7 @@ func NewPostgresCartRepository(pool *pgxpool.Pool) *PostgresCartRepository {
 	return &PostgresCartRepository{pool: pool}
 }
 
-const cartColumns = `id, user_id, listing_id, variant_id, quantity, unit_price, title, variant_name, image_url, seller_id`
+const cartColumns = `id, user_id, listing_id, variant_id, quantity, unit_price, title, variant_name, image_url, seller_id, bundle_id, bundle_discount`
 
 func scanCartItem(row pgx.Row, item *CartItem) error {
 	return row.Scan(
@@ -58,6 +60,8 @@ func scanCartItem(row pgx.Row, item *CartItem) error {
 		&item.VariantName,
 		&item.ImageURL,
 		&item.SellerID,
+		&item.BundleID,
+		&item.BundleDiscount,
 	)
 }
 
@@ -90,7 +94,7 @@ func (r *PostgresCartRepository) AddItem(ctx context.Context, item CartItem) ([]
 
 	const q = `INSERT INTO cart_items (id, user_id, listing_id, variant_id, quantity, unit_price, title, variant_name, image_url, seller_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (user_id, listing_id, variant_id)
+		ON CONFLICT (user_id, listing_id, variant_id, bundle_id)
 		DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, unit_price = EXCLUDED.unit_price, title = EXCLUDED.title, variant_name = EXCLUDED.variant_name, image_url = EXCLUDED.image_url, seller_id = EXCLUDED.seller_id, updated_at = now()`
 
 	if _, err := r.pool.Exec(ctx, q, item.ID, item.UserID, item.ListingID, item.VariantID, item.Quantity, item.UnitPrice, item.Title, item.VariantName, item.ImageURL, item.SellerID); err != nil {
@@ -152,4 +156,59 @@ func (r *PostgresCartRepository) UpdateItemPrice(ctx context.Context, userID, it
 		return ErrCartItemNotFound
 	}
 	return nil
+}
+
+func (r *PostgresCartRepository) AddBundleLines(ctx context.Context, userID string, lines []CartItem) ([]CartItem, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("add bundle lines: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	const q = `INSERT INTO cart_items (id, user_id, listing_id, variant_id, quantity, unit_price, title, variant_name, image_url, seller_id, bundle_id, bundle_discount)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		ON CONFLICT (user_id, listing_id, variant_id, bundle_id)
+		DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, unit_price = EXCLUDED.unit_price, title = EXCLUDED.title, variant_name = EXCLUDED.variant_name, image_url = EXCLUDED.image_url, seller_id = EXCLUDED.seller_id, bundle_discount = EXCLUDED.bundle_discount, updated_at = now()`
+	for _, l := range lines {
+		if l.Quantity <= 0 {
+			l.Quantity = 1
+		}
+		if _, err := tx.Exec(ctx, q, uuid.NewString(), userID, l.ListingID, l.VariantID, l.Quantity, l.UnitPrice, l.Title, l.VariantName, l.ImageURL, l.SellerID, l.BundleID, l.BundleDiscount); err != nil {
+			return nil, fmt.Errorf("add bundle line: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("add bundle lines commit: %w", err)
+	}
+	return r.GetCart(ctx, userID)
+}
+
+func (r *PostgresCartRepository) DropBundleTag(ctx context.Context, userID, bundleID string) ([]CartItem, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("drop bundle tag: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	const merge = `UPDATE cart_items p SET quantity = p.quantity + b.quantity, updated_at = now()
+		FROM cart_items b
+		WHERE b.user_id = $1 AND b.bundle_id = $2
+		  AND p.user_id = b.user_id AND p.listing_id = b.listing_id AND p.variant_id = b.variant_id AND p.bundle_id = ''`
+	if _, err := tx.Exec(ctx, merge, userID, bundleID); err != nil {
+		return nil, fmt.Errorf("drop bundle tag merge: %w", err)
+	}
+	const del = `DELETE FROM cart_items b USING cart_items p
+		WHERE b.user_id = $1 AND b.bundle_id = $2
+		  AND p.user_id = b.user_id AND p.listing_id = b.listing_id AND p.variant_id = b.variant_id AND p.bundle_id = ''`
+	if _, err := tx.Exec(ctx, del, userID, bundleID); err != nil {
+		return nil, fmt.Errorf("drop bundle tag delete: %w", err)
+	}
+	const clr = `UPDATE cart_items SET bundle_id = '', bundle_discount = 0, updated_at = now() WHERE user_id = $1 AND bundle_id = $2`
+	if _, err := tx.Exec(ctx, clr, userID, bundleID); err != nil {
+		return nil, fmt.Errorf("drop bundle tag clear: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("drop bundle tag commit: %w", err)
+	}
+	return r.GetCart(ctx, userID)
 }

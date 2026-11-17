@@ -3452,3 +3452,823 @@ features:
     tags: [plan_cap, unit]
     status: not-testable
     notes: "VERIFIED BY team-domain `internal/config` `TestPromotionAddrLoaded`. Not producible end to end through the gateway (unit level)."
+  - id: bundle.create
+    title: Create a bundle of the caller's own listings
+    persona: seller
+    priority: P1
+    summary: >-
+      CreateBundle stores a bundle only for 2 to 10 distinct, existing, variant-free listings owned by
+      the caller, priced above 0 and strictly below the sum of the parts; GetBundle and
+      ListBundlesBySeller keep returning bundles stored before these rules.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateBundle, listing.v1.GetBundle, listing.v1.ListBundlesBySeller]
+    acceptance:
+      - "B1: Given a seller with two own published listings, when CreateBundle is called with a valid price, then the bundle carries seller_id of the caller and the listing ids in request order and GetBundle returns it"
+      - "B2: Given one own and one foreign listing, when CreateBundle is called, then PERMISSION_DENIED and no bundle is stored"
+      - "B3: Given one own listing and an unknown listing id, when CreateBundle is called, then PERMISSION_DENIED with the same message as for a foreign listing"
+      - "B4: Given a caller without listing.write, when CreateBundle is called, then PERMISSION_DENIED and no bundle is stored"
+      - "B5: Given exactly one listing id, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B6: Given ten own listings, when CreateBundle is called, then a bundle of 10 ids is returned; with eleven, INVALID_ARGUMENT"
+      - "B7: Given the same own listing id twice, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B8: Given a plain listing and an own listing with variants, when CreateBundle is called, then INVALID_ARGUMENT and no bundle is stored"
+      - "B9: Given listings priced 100000 and 50000, when bundle_price is 150000, then INVALID_ARGUMENT and no bundle is stored"
+      - "B10: Given listings priced 100000 and 50000, when bundle_price is 149999, then the bundle is returned with that price"
+      - "B11: Given valid listings, when bundle_price is 0 and then -1, then both fail with INVALID_ARGUMENT and no bundle is stored"
+      - "B12: Given a bundle stored before the rules whose price is at or above the sum, when requested through GetBundle and ListBundlesBySeller, then both return it unchanged"
+      - "B13: Given an unknown bundle id, when GetBundle is called, then NOT_FOUND"
+    tags: [seller]
+    status: planned
+    notes: >-
+      Scenarios in platform-e2e/tests/e2e/features/seller/bundle_integrity.feature (domain-bundle-integrity).
+      B12 seeds the legacy bundle by SQL into listing_db.bundles.
+
+  - id: bundle-integrity.b1
+    title: "B1 A seller bundles their own listings"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B1 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B1: Own listings stored in request order"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A seller bundles their own listings"
+    notes: "VERIFIED BY `team-domain/internal/listing/bundle_test.go` `TestBundleCreate_B1_OwnListingsStoredInRequestOrder`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b2
+    title: "B2 Another seller's listing is refused"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B2 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B2: Foreign listing refused"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::Another seller's listing is refused"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB2_ForeignListingPermissionDenied`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b3
+    title: "B3 An unknown listing id gives the same answer as a foreign one"
+    persona: seller
+    priority: P1
+    summary: Scenario B3 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "When a seller calls CreateBundle with one of their own listings and a listing id that does not exist"
+      - "Then the call fails with PERMISSION_DENIED carrying the same message as in B2"
+    tags: [bundle]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::An unknown listing id gives the same answer as a foreign one"
+
+  - id: bundle-integrity.b4
+    title: "B4 A caller without the listing write scope is refused"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B4 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B4: Missing write scope refused"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A caller without the listing write scope is refused"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB4_MissingWriteScopeStoresNothing`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b5
+    title: "B5 A single-listing bundle is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B5 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B5: Single listing rejected"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A single-listing bundle is rejected"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB5B6B7_CountAndDuplicateInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b6
+    title: "B6 A bundle of exactly ten listings is accepted and eleven are rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B6 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B6: Ten accepted, eleven rejected"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A bundle of exactly ten listings is accepted and eleven are rejected"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB6_TenListingsAccepted`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b7
+    title: "B7 A repeated listing id is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B7 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B7: Repeated id rejected"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A repeated listing id is rejected"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB5B6B7_CountAndDuplicateInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b8
+    title: "B8 A bundle with a variant listing is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B8 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B8: Variant listing rejected"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A bundle with a variant listing is rejected"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB8_VariantListingInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b9
+    title: "B9 A price equal to the sum of the parts is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B9 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B9: Price equal to sum rejected"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A price equal to the sum of the parts is rejected"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB9_PriceEqualToSumInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b10
+    title: "B10 One minor unit below the sum is accepted"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B10 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B10: One minor unit below sum accepted"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::One minor unit below the sum is accepted"
+    notes: "VERIFIED BY `team-domain/internal/listing/bundle_test.go` `TestBundleCreate_B10_OneMinorUnitBelowSumAccepted`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b11
+    title: "B11 A zero or negative price is rejected"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B11 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B11: Non-positive price rejected"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A zero or negative price is rejected"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB11_NonPositivePriceInvalidArgument`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b12
+    title: "B12 A bundle that predates the rules is still returned"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B12 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B12: Legacy bundle readable"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::A bundle that predates the rules is still returned"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB12_LegacyBundleStillReadable`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+  - id: bundle-integrity.b13
+    title: "B13 An unknown bundle id is not found"
+    persona: seller
+    priority: P1
+    summary: Unit-verified scenario B13 of change domain-bundle-integrity.
+    entry_route: /platform.listing.v1.ListingService/CreateBundle
+    services: [team-domain]
+    acceptance:
+      - "B13: Unknown bundle NOT_FOUND"
+    tags: [bundle, unit]
+    status: automated
+    covered_by: "seller/bundle_integrity.feature::An unknown bundle id is not found"
+    notes: "VERIFIED BY `team-domain/internal/rpc/bundle_test.go` `TestB13_UnknownBundleNotFound`. Also exercised by the e2e scenario in bundle_integrity.feature."
+
+
+  - id: my-listings-filter.s1
+    title: "A single status returns only that status"
+    persona: seller
+    priority: P1
+    summary: Scenario 1 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning 3 published, 2 draft and 1 rejected listing calls `ListMyListings` with `statuses = [PUBLISHED]`"
+      - "THEN the response holds exactly the 3 published listings and `page.total` is 3"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::A single status returns only that status"
+    notes: "e2e: domain/my_listings_filter.feature::A single status returns only that status"
+
+  - id: my-listings-filter.s2
+    title: "Several statuses are OR-ed"
+    persona: seller
+    priority: P1
+    summary: Scenario 2 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN the same seller calls `ListMyListings` with `statuses = [DRAFT, REJECTED]`"
+      - "THEN the response holds the 2 draft and the 1 rejected listing, and `page.total` is 3"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::Several statuses are OR-ed"
+    notes: "e2e: domain/my_listings_filter.feature::Several statuses are OR-ed"
+
+  - id: my-listings-filter.s3
+    title: "Empty filter keeps today's behaviour"
+    persona: seller
+    priority: P1
+    summary: Scenario 3 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` without `statuses` and without `query`"
+      - "THEN the response holds all 6 own listings ordered by id with `page.total` 6, identical to the response before this change"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::Empty filter keeps today's behaviour"
+    notes: "e2e: domain/my_listings_filter.feature::Empty filter keeps today's behaviour"
+
+  - id: my-listings-filter.s4
+    title: "An unspecified status is rejected"
+    persona: seller
+    priority: P1
+    summary: Scenario 4 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `statuses = [LISTING_STATUS_UNSPECIFIED]`"
+      - "THEN the call fails with INVALID_ARGUMENT and no listing is returned"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::An unspecified status is rejected"
+    notes: "e2e: domain/my_listings_filter.feature::An unspecified status is rejected"
+
+  - id: my-listings-filter.s5
+    title: "The DELETED status matches nothing"
+    persona: seller
+    priority: P1
+    summary: Scenario 5 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `statuses = [DELETED]`"
+      - "THEN the response holds 0 listings, `page.total` is 0 and `page.next_cursor` is empty"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::The DELETED status matches nothing"
+    notes: "e2e: domain/my_listings_filter.feature::The DELETED status matches nothing"
+
+  - id: my-listings-filter.s6
+    title: "Another seller's listings are never returned"
+    persona: seller
+    priority: P1
+    summary: Scenario 6 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN seller B, who owns no listing, calls `ListMyListings` with `statuses = [PUBLISHED]` while seller A owns 3 published listings"
+      - "THEN the response holds 0 listings and `page.total` is 0"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::Another seller's listings are never returned"
+    notes: "e2e: domain/my_listings_filter.feature::Another seller's listings are never returned"
+
+  - id: my-listings-filter.s7
+    title: "A caller without the listing.write scope is denied"
+    persona: seller
+    priority: P1
+    summary: Scenario 7 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a buyer principal without the `listing.write` scope calls `ListMyListings` with any filter"
+      - "THEN the call fails with PERMISSION_DENIED and no listing is returned"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::A caller without the listing.write scope is denied"
+    notes: "e2e: domain/my_listings_filter.feature::A caller without the listing.write scope is denied"
+
+  - id: my-listings-filter.s8
+    title: "Substring match ignores case"
+    persona: seller
+    priority: P1
+    summary: Scenario 8 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning listings titled \"Áo thun Đỏ\", \"ÁO THUN xanh\" and \"Quần jean\" calls `ListMyListings` with `query = \"áo thun\"`"
+      - "THEN the response holds the two \"áo thun\" listings and `page.total` is 2"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::Substring match ignores case"
+    notes: "e2e: domain/my_listings_filter.feature::Substring match ignores case"
+
+  - id: my-listings-filter.s9
+    title: "Query and status combine"
+    persona: seller
+    priority: P1
+    summary: Scenario 9 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN the seller owns a published and a draft listing both titled \"Áo thun\" and calls `ListMyListings` with `query = \"áo\"` and `statuses = [DRAFT]`"
+      - "THEN the response holds only the draft listing and `page.total` is 1"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::Query and status combine"
+    notes: "e2e: domain/my_listings_filter.feature::Query and status combine"
+
+  - id: my-listings-filter.s10
+    title: "LIKE wildcards match literally"
+    persona: seller
+    priority: P1
+    summary: Scenario 10 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning \"Giảm 50% áo\" and \"Giảm 500 áo\" calls `ListMyListings` with `query = \"50%\"`"
+      - "THEN the response holds only \"Giảm 50% áo\" and `page.total` is 1"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::LIKE wildcards match literally"
+    notes: "e2e: domain/my_listings_filter.feature::LIKE wildcards match literally"
+
+  - id: my-listings-filter.s11
+    title: "A query of exactly 100 runes is accepted, 101 is rejected"
+    persona: seller
+    priority: P1
+    summary: Scenario 11 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with a `query` of 100 runes, then with one of 101 runes"
+      - "THEN the first call succeeds with 0 listings and the second fails with INVALID_ARGUMENT"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::A query of exactly 100 runes is accepted, 101 is rejected"
+    notes: "e2e: domain/my_listings_filter.feature::A query of exactly 100 runes is accepted, 101 is rejected"
+
+  - id: my-listings-filter.s12
+    title: "My listings: No match returns an empty page"
+    persona: seller
+    priority: P1
+    summary: Scenario 12 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `query = \"zzzz-no-such-title\"`"
+      - "THEN the response holds 0 listings, `page.total` is 0 and `page.next_cursor` is empty"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::No match returns an empty page"
+    notes: "e2e: domain/my_listings_filter.feature::No match returns an empty page"
+
+  - id: my-listings-filter.s13
+    title: "A blank query is ignored"
+    persona: seller
+    priority: P1
+    summary: Scenario 13 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `query = \"   \"`"
+      - "THEN the response equals the response for an empty `query`"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::A blank query is ignored"
+    notes: "e2e: domain/my_listings_filter.feature::A blank query is ignored"
+
+  - id: my-listings-filter.s14
+    title: "The query text is not logged"
+    persona: seller
+    priority: P1
+    summary: Scenario 14 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller calls `ListMyListings` with `query = \"secret-needle-title\"`"
+      - "THEN no log line of `team-domain-svc` for that call contains \"secret-needle-title\""
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::The query text is not logged"
+    notes: "e2e: domain/my_listings_filter.feature::The query text is not logged"
+
+  - id: my-listings-filter.s15
+    title: "Filtered pages cover the filtered set exactly once"
+    persona: seller
+    priority: P1
+    summary: Scenario 15 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning 250 published and 50 draft listings pages `statuses = [PUBLISHED]` with `page_size = 100` following `next_cursor` until it is empty"
+      - "THEN the three pages hold 100, 100 and 50 listings, no id repeats, no draft appears, and every page reports `page.total` 250"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::Filtered pages cover the filtered set exactly once"
+    notes: "e2e: domain/my_listings_filter.feature::Filtered pages cover the filtered set exactly once"
+
+  - id: my-listings-filter.s16
+    title: "Page size above the maximum is clamped"
+    persona: seller
+    priority: P1
+    summary: Scenario 16 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning 150 listings calls `ListMyListings` with `page_size = 1000`"
+      - "THEN the response holds 100 listings and a non-empty `next_cursor`"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::Page size above the maximum is clamped"
+    notes: "e2e: domain/my_listings_filter.feature::Page size above the maximum is clamped"
+
+  - id: my-listings-filter.s17
+    title: "Filtered page latency at 2,000 listings"
+    persona: seller
+    priority: P1
+    summary: Scenario 17 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller owning 2,000 listings calls `ListMyListings` 50 times with `statuses = [PUBLISHED]`, `query = \"áo\"` and `page_size = 20`"
+      - "THEN the 95th percentile of the call durations is at most 150 ms"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::Filtered page latency at 2,000 listings"
+    notes: "e2e: domain/my_listings_filter.feature::Filtered page latency at 2,000 listings"
+
+  - id: my-listings-filter.s18
+    title: "A cursor from a different filter yields no foreign rows"
+    persona: seller
+    priority: P1
+    summary: Scenario 18 of change domain-my-listings-filter.
+    entry_route: /platform.listing.v1.ListingService/ListMyListings
+    services: [team-domain, team-gateway, team-identity]
+    acceptance:
+      - "WHEN a seller reuses a `next_cursor` obtained for `statuses = [DRAFT]` on a call with `statuses = [PUBLISHED]`"
+      - "THEN the response holds only the seller's own published listings with id greater than the cursor id"
+    tags: [seller]
+    status: automated
+    covered_by: "domain/my_listings_filter.feature::A cursor from a different filter yields no foreign rows"
+    notes: "e2e: domain/my_listings_filter.feature::A cursor from a different filter yields no foreign rows"
+
+  - id: listing.storefront-banner-upload
+    title: "Banner from the upload bucket is saved"
+    persona: seller
+    priority: P1
+    summary: >-
+      A banner uploaded via GetImageUploadUrl is accepted and returned by GetStorefront.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.GetStorefront]
+    acceptance:
+      - When a seller obtains an upload URL with GetImageUploadUrl, uploads the file, and upserts a storefront with the returned public_url as banner_url
+      - Then the call succeeds and GetStorefront returns the same banner_url
+    tags: [seller, shop]
+    status: automated
+    covered_by: "domain/storefront_customisation.feature::Banner from the upload bucket is saved"
+    notes: "change domain-storefront-customisation; e2e: domain/storefront_customisation.feature::Banner from the upload bucket is saved"
+
+  - id: listing.storefront-featured-order
+    title: "Six owned listings are saved in the given order"
+    persona: seller
+    priority: P1
+    summary: >-
+      Six owned listings are stored and returned in the given order.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.GetStorefront]
+    acceptance:
+      - When a seller owning listings A..F upserts featured_listing_ids [C, A, F, B, E, D]
+      - Then the call succeeds and GetStorefront returns the ids in order [C, A, F, B, E, D]
+    tags: [seller, shop]
+    status: automated
+    covered_by: "domain/storefront_customisation.feature::Six owned listings are saved in the given order"
+    notes: "change domain-storefront-customisation; e2e: domain/storefront_customisation.feature::Six owned listings are saved in the given order"
+
+  - id: listing.storefront-featured-foreign
+    title: A listing owned by another seller is rejected
+    persona: seller
+    priority: P1
+    summary: >-
+      Featuring another seller's listing fails with INVALID_ARGUMENT without naming the owner.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.GetStorefront]
+    acceptance:
+      - When seller S1 upserts featured_listing_ids containing a listing owned by seller S2
+      - Then the call returns INVALID_ARGUMENT, the message does not name the owner, and S1's stored featured ids are unchanged
+    tags: [seller, shop]
+    status: automated
+    covered_by: "domain/storefront_customisation.feature::A listing owned by another seller is rejected"
+    notes: "change domain-storefront-customisation; e2e: domain/storefront_customisation.feature::A listing owned by another seller is rejected"
+
+  - id: listing.storefront-featured-unpublished-read
+    title: A featured listing unpublished later is not re-validated on read
+    persona: seller
+    priority: P1
+    summary: >-
+      GetStorefront still returns stored featured ids after a featured listing is moved to draft.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.GetStorefront]
+    acceptance:
+      - When a featured listing is moved to draft after the storefront was saved and a buyer calls GetStorefront
+      - Then the response still contains the stored featured ids and the call succeeds
+    tags: [seller, shop]
+    status: automated
+    covered_by: "domain/storefront_customisation.feature::A featured listing unpublished later is not re-validated on read"
+    notes: "change domain-storefront-customisation; e2e: domain/storefront_customisation.feature::A featured listing unpublished later is not re-validated on read"
+
+  - id: listing.storefront-resend-keeps-fields
+    title: Resending current values keeps all fields
+    persona: seller
+    priority: P1
+    summary: >-
+      Changing only the tagline keeps banner, featured ids and theme.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.GetStorefront]
+    acceptance:
+      - When a seller with a stored banner, tagline, featured ids and theme upserts the same storefront with only the tagline changed
+      - Then GetStorefront returns the new tagline and the unchanged banner_url, featured ids and theme
+    tags: [seller, shop]
+    status: automated
+    covered_by: "domain/storefront_customisation.feature::Resending current values keeps all fields"
+    notes: "change domain-storefront-customisation; e2e: domain/storefront_customisation.feature::Resending current values keeps all fields"
+
+  - id: listing.storefront-customisation-valid-tagline-and-theme-are-saved
+    title: "Valid tagline and theme are saved"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Valid tagline and theme are saved"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertStoresTrimmedTaglineAndTheme`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-tagline-of-exactly-120-runes-is-accepted-boundary
+    title: "Tagline of exactly 120 runes is accepted (boundary)"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Tagline of exactly 120 runes is accepted (boundary)"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertTagline120RunesAccepted`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-tagline-over-120-runes-is-rejected
+    title: "Tagline over 120 runes is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Tagline over 120 runes is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertTagline121RunesRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-tagline-with-a-control-character-is-rejected
+    title: "Tagline with a control character is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Tagline with a control character is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertTaglineControlCharRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-unknown-theme-is-rejected
+    title: "Unknown theme is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Unknown theme is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertUnknownThemeRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-empty-theme-is-accepted-as-default
+    title: "Empty theme is accepted as default"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Empty theme is accepted as default"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertEmptyThemeAccepted`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-external-banner-url-is-rejected
+    title: "External banner URL is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "External banner URL is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertExternalBannerRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-non-http-scheme-query-string-or-fragment-in-banner-is-rejected
+    title: "Non-http scheme, query string or fragment in banner is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Non-http scheme, query string or fragment in banner is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertBannerSchemeQueryFragmentRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-banner-can-be-cleared
+    title: "Banner can be cleared"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Banner can be cleared"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertEmptyBannerClears`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-a-legacy-banner-already-stored-does-not-block-saving-other-fields
+    title: "A legacy banner already stored does not block saving other fields"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A legacy banner already stored does not block saving other fields"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertUnchangedLegacyBannerAccepted`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-a-seventh-featured-listing-is-rejected
+    title: "A seventh featured listing is rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A seventh featured listing is rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertSevenFeaturedRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-unknown-and-foreign-listing-ids-give-the-same-answer
+    title: "Unknown and foreign listing ids give the same answer"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Unknown and foreign listing ids give the same answer"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertFeaturedForeignAndUnknownSameError`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-duplicate-or-empty-featured-ids-are-rejected
+    title: "Duplicate or empty featured ids are rejected"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Duplicate or empty featured ids are rejected"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertFeaturedDuplicateOrEmptyRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-featured-lookup-uses-one-batched-read
+    title: "Featured lookup uses one batched read"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Featured lookup uses one batched read"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertFeaturedSingleBatchedLookup`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-lookup-failure-stores-nothing
+    title: "Lookup failure stores nothing"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Lookup failure stores nothing"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/listing/storefront_test.go` `TestUpsertFeaturedLookupErrorStoresNothing`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-principal-without-listing-write-is-denied
+    title: "Principal without listing.write is denied"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Principal without listing.write is denied"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/rpc/storefront_test.go` `TestUpsertStorefrontRequiresWriteScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-body-seller-id-of-another-seller-is-ignored
+    title: "Body seller_id of another seller is ignored"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Body seller_id of another seller is ignored"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/rpc/storefront_test.go` `TestUpsertStorefrontIgnoresBodySellerID`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.storefront-customisation-existing-display-name-and-slug-rules-still-apply
+    title: "Existing display name and slug rules still apply"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change domain-storefront-customisation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Existing display name and slug rules still apply"
+    tags: [seller, shop, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-domain/internal/rpc/storefront_test.go` `TestUpsertStorefrontRulesUnchangedOnSharedHandler`. Not producible end to end through the gateway (unit level)."

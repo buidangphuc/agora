@@ -159,7 +159,7 @@ echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 1 ] && echo "$OUT" | grep -q "ERROR buf generate failed in \." && echo "$OUT" | grep -q "FAIL: buf generate failed" &&
   ! echo "$OUT" | grep -q "red at head" && ok "(k) buf generate failure is explicit" || bad "(k) expected exit 1 with buf generate error, got $RC"
 
-# (l) remote BSR plugins are rewritten to local protoc-gen-* binaries on PATH; unmapped remotes stay
+# (l) remote BSR plugins are rewritten to local protoc-gen-* binaries on PATH; unmapped remotes are dropped with a note
 rm -rf "$T/l"; cp -R "$T/i" "$T/l"; cd "$T/l" || exit 1
 mkdir -p "$T/binlocal"
 cat > "$T/binlocal/buf" <<SH
@@ -175,7 +175,8 @@ commit "remote plugins"
 OUT=$(PATH="$T/binlocal:$PATH" "$RF" 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'; sed 's/^/    tmpl| /' "$T/l-template.log"
 [ $RC -eq 0 ] && grep -qx '  - local: protoc-gen-go' "$T/l-template.log" && grep -qx '  - local: protoc-gen-go-grpc' "$T/l-template.log" &&
-  grep -qx '  - local: protoc-gen-connect-go' "$T/l-template.log" && grep -q 'remote: buf.build/protocolbuffers/python' "$T/l-template.log" &&
+  grep -qx '  - local: protoc-gen-connect-go' "$T/l-template.log" && ! grep -q 'remote:' "$T/l-template.log" &&
+  echo "$OUT" | grep -q 'dropping remote BSR plugins without a local binary in .: buf.build/protocolbuffers/python' &&
   ! grep -qE 'remote: buf.build/(protocolbuffers|grpc|connectrpc)/go' "$T/l-template.log" &&
   ok "(l) remote plugins rewritten to local" || bad "(l) expected local plugins in template, got $RC"
 
@@ -202,6 +203,62 @@ mkdir -p platform-e2e/features; cp "$FX/mul.feature" platform-e2e/features/mul.f
 OUT=$("$RF" 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 1 ] && echo "$OUT" | grep -q "not after first e2e" && ok "(n) mixed contract+impl commit still caught" || bad "(n) expected exit 1 got $RC"
+
+new_repo "$T/o"
+cp "$FX/calc_new_test.go" calc_test.go; commit "test first"
+mkdir -p team-calc/proto/platform/calc/v1 fe-platform/packages/api-client/src/generated/platform/calc/v1
+printf 'syntax = "proto3";\npackage platform.calc.v1;\n' > team-calc/proto/platform/calc/v1/calc.proto
+printf 'export const x = 1;\n' > fe-platform/packages/api-client/src/generated/platform/calc/v1/calc_pb.ts
+commit "vendored contract"
+mkdir -p platform-e2e/features; cp "$FX/mul.feature" platform-e2e/features/mul.feature; commit "e2e"
+cp "$FX/calc_impl.go" calc.go; commit "impl"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 0 ] && echo "$OUT" | grep -q "first-impl=#4" &&
+  ok "(o) vendored proto + generated api-client exempt" || bad "(o) expected exit 0 with first-impl=#4, got $RC"
+
+new_repo "$T/p"
+cp "$FX/calc_new_test.go" calc_test.go; commit "test first"
+mkdir -p fe-platform/packages/api-client/src team-calc/internal/proto/platform
+printf 'export const y = 2;\n' > fe-platform/packages/api-client/src/client.ts
+printf 'syntax = "proto3";\n' > team-calc/internal/proto/platform/x.proto
+commit "hand-written client"
+mkdir -p platform-e2e/features; cp "$FX/mul.feature" platform-e2e/features/mul.feature; commit "e2e"
+cp "$FX/calc_impl.go" calc.go; commit "impl"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 1 ] && echo "$OUT" | grep -q "not after first e2e" && ok "(p) non-generated client still impl" || bad "(p) expected exit 1 got $RC"
+
+REAL=""
+for c in "${REDFIRST_PYTHON:-}" "$HERE/../../../platform-e2e/.venv/bin/python" python3; do
+  [ -n "$c" ] && "$c" -c 'import pytest' >/dev/null 2>&1 && { REAL=$(command -v "$c"); break; }
+done
+if [ -z "$REAL" ]; then
+  echo "SKIP (q)(r): no python with pytest"
+else
+  new_repo "$T/q"
+  mkdir -p svc/tests
+  printf '.venv/\n' > .gitignore
+  printf '[project]\nname = "svc"\nversion = "0"\n' > svc/pyproject.toml
+  printf 'def add(a, b):\n    return a + b\n' > svc/calc.py
+  commit "py base"
+  printf 'from calc import mul\n\n\ndef test_mul():\n    assert mul(2, 3) == 6\n' > svc/tests/test_calc.py; commit "py test first"
+  printf 'def add(a, b):\n    return a + b\n\n\ndef mul(a, b):\n    return a * b\n' > svc/calc.py; commit "py impl"
+  mkdir -p svc/.venv/bin
+  printf '#!/bin/sh\necho "$*" >> "%s"\nexec "%s" "$@"\n' "$T/q-venv.log" "$REAL" > svc/.venv/bin/python
+  printf '#!/bin/sh\necho "$*" >> "%s"\nexec "%s" "$@"\n' "$T/q-default.log" "$REAL" > "$T/default-python"
+  chmod +x svc/.venv/bin/python "$T/default-python"
+  : > "$T/q-venv.log"; : > "$T/q-default.log"
+  OUT=$(REDFIRST_PYTHON="$T/default-python" "$RF" 2>&1); RC=$?
+  echo "$OUT" | sed 's/^/    /'
+  [ $RC -eq 0 ] && grep -q -- "-m pytest" "$T/q-venv.log" && ! grep -q -- "-m pytest" "$T/q-default.log" &&
+    ok "(q) module .venv python runs its tests" || bad "(q) expected module venv python, got $RC"
+  rm -rf svc/.venv; : > "$T/q-default.log"
+  OUT=$(REDFIRST_PYTHON="$T/default-python" "$RF" 2>&1); RC=$?
+  echo "$OUT" | sed 's/^/    /'
+  [ $RC -eq 0 ] && grep -q -- "-m pytest" "$T/q-default.log" &&
+    ok "(r) no module .venv falls back to REDFIRST_PYTHON" || bad "(r) expected REDFIRST_PYTHON, got $RC"
+fi
 
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS

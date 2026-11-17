@@ -71,6 +71,15 @@ service VoucherService {
   // anonymous reject lives in the service. Returns only the caller's own
   // active, unexpired user-bound vouchers.
   rpc ListMyVouchers(ListMyVouchersRequest) returns (ListMyVouchersResponse);
+  // Seller centre: lists the vouchers of the shop of the calling principal. The
+  // shop is the principal id and is never a request field. Requires the scope
+  // `listing.write`; otherwise PERMISSION_DENIED.
+  rpc ListMyShopVouchers(ListMyShopVouchersRequest) returns (ListMyShopVouchersResponse);
+  // Seller centre: deactivates a voucher owned by the shop of the calling
+  // principal (the principal id, never a request field). Requires the scope
+  // `listing.write`; a voucher of another shop gets PERMISSION_DENIED. The call
+  // is idempotent: deactivating an inactive voucher succeeds. Calls are not audited.
+  rpc DeactivateMyShopVoucher(DeactivateMyShopVoucherRequest) returns (DeactivateMyShopVoucherResponse);
 }
 
 // Time-boxed sale price + capped stock for a listing/variant.
@@ -97,6 +106,15 @@ service FlashSaleService {
   // Errors carry google.rpc.ErrorInfo (domain promotion.platform): reasons
   // AUDIT_UNAVAILABLE, PROMOTION_UNAVAILABLE, LISTING_UNAVAILABLE.
   rpc UpdateCampaign(UpdateCampaignRequest) returns (UpdateCampaignResponse);
+  // Seller centre: lists the campaigns of the shop of the calling principal (the
+  // principal id, never a request field). Requires the scope `listing.write`;
+  // otherwise PERMISSION_DENIED. Calls are not audited.
+  rpc ListMyCampaigns(ListMyCampaignsRequest) returns (ListMyCampaignsResponse);
+  // Seller centre: cancels a campaign owned by the shop of the calling principal
+  // (the principal id, never a request field). Requires the scope
+  // `listing.write`; a campaign of another shop gets PERMISSION_DENIED. Only a
+  // SCHEDULED campaign can be cancelled; otherwise FAILED_PRECONDITION. Calls are not audited.
+  rpc CancelMyCampaign(CancelMyCampaignRequest) returns (CancelMyCampaignResponse);
   // Live remaining stock for the flash-sale banner/meter (frontend LiveFlashSaleStock).
   rpc GetFlashSaleStock(GetFlashSaleStockRequest) returns (GetFlashSaleStockResponse);
 
@@ -237,6 +255,41 @@ message ListMyVouchersResponse {
   repeated Voucher vouchers = 1;
 }
 
+message ListMyShopVouchersRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListMyShopVouchersResponse {
+  repeated Voucher vouchers = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message DeactivateMyShopVoucherRequest {
+  string voucher_id = 1;
+}
+
+message DeactivateMyShopVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message ListMyCampaignsRequest {
+  repeated CampaignStatus statuses = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListMyCampaignsResponse {
+  repeated FlashSaleCampaign campaigns = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message CancelMyCampaignRequest {
+  string campaign_id = 1;
+}
+
+message CancelMyCampaignResponse {
+  FlashSaleCampaign campaign = 1;
+}
+
 message Voucher {
   string id = 1;
   string code = 2;
@@ -364,6 +417,8 @@ message FlashSaleCampaign {
   google.protobuf.Timestamp ends_at = 8;
   CampaignStatus status = 9;
   google.protobuf.Timestamp cancelled_at = 10;
+  // server-owned: set from the principal that created the campaign, never from a request field.
+  string seller_id = 11;
 }
 
 message CreateCampaignRequest {

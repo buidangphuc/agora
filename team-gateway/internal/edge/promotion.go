@@ -504,3 +504,79 @@ func (f *SponsoredForwarder) ResumeAdCampaign(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *VoucherForwarder) ListMyShopVouchers(
+	ctx context.Context,
+	req *connect.Request[promotionv1.ListMyShopVouchersRequest],
+) (*connect.Response[promotionv1.ListMyShopVouchersResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.ListMyShopVouchersResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListMyShopVouchers(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *VoucherForwarder) DeactivateMyShopVoucher(
+	ctx context.Context,
+	req *connect.Request[promotionv1.DeactivateMyShopVoucherRequest],
+) (*connect.Response[promotionv1.DeactivateMyShopVoucherResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.DeactivateMyShopVoucherResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.DeactivateMyShopVoucher(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *FlashSaleForwarder) ListMyCampaigns(
+	ctx context.Context,
+	req *connect.Request[promotionv1.ListMyCampaignsRequest],
+) (*connect.Response[promotionv1.ListMyCampaignsResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.ListMyCampaignsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListMyCampaigns(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *FlashSaleForwarder) CancelMyCampaign(
+	ctx context.Context,
+	req *connect.Request[promotionv1.CancelMyCampaignRequest],
+) (*connect.Response[promotionv1.CancelMyCampaignResponse], error) {
+	if err := requireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	var out *promotionv1.CancelMyCampaignResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.CancelMyCampaign(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, promotionErr(err)
+	}
+	return connect.NewResponse(out), nil
+}

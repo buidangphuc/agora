@@ -49,14 +49,14 @@ func (m *mockOrderServiceRepo) ListBuyerOrders(_ context.Context, buyerID string
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) ListSellerOrders(_ context.Context, sellerID string, _ int32) ([]store.Order, error) {
+func (m *mockOrderServiceRepo) ListSellerOrders(_ context.Context, sellerID string, _ store.SellerOrdersFilter) (store.SellerOrdersResult, error) {
 	var list []store.Order
 	for _, o := range m.orders {
 		if o.SellerID == sellerID {
 			list = append(list, o)
 		}
 	}
-	return list, nil
+	return store.SellerOrdersResult{Orders: list, Total: int64(len(list))}, nil
 }
 
 func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to store.OrderStatus, from []store.OrderStatus, trackingNumber string, _ ...store.StatusOption) (store.Order, error) {

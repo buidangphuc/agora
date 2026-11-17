@@ -1,12 +1,15 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { render, screen, within } from "@testing-library/react";
 import { notFound } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import {
   getOrder,
   getShipmentTracking,
   listSellerOrders,
+  listSellerOrdersPage,
 } from "@/lib/gateway/orders";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 import SellerOrderDetailLoading from "../[id]/loading";
@@ -26,11 +29,13 @@ vi.mock("@/lib/gateway/session", () => ({
 }));
 vi.mock("@/lib/gateway/orders", () => ({
   listSellerOrders: vi.fn(),
+  listSellerOrdersPage: vi.fn(),
   getOrder: vi.fn(),
   getShipmentTracking: vi.fn(),
 }));
 vi.mock("@/features/order/actions", () => ({
   updateOrderStatusAction: vi.fn(),
+  bulkShipOrdersAction: vi.fn(),
 }));
 
 const STATUS_TEXT: Partial<Record<OrderStatus, string>> = {
@@ -92,18 +97,95 @@ async function renderList(searchParams: Record<string, string> = {}) {
   );
 }
 
+const ZERO_COUNTS = {
+  [OrderStatus.PENDING]: 0,
+  [OrderStatus.PAID]: 0,
+  [OrderStatus.SHIPPED]: 0,
+  [OrderStatus.COMPLETED]: 0,
+  [OrderStatus.CANCELLED]: 0,
+};
+
+function pageOf(
+  orders: ReturnType<typeof order>[],
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    orders,
+    nextCursor: "",
+    total: orders.length,
+    statusCounts: {
+      ...ZERO_COUNTS,
+      [OrderStatus.PENDING]: 1,
+      [OrderStatus.SHIPPED]: 2,
+      [OrderStatus.COMPLETED]: 1,
+    },
+    ...extra,
+  };
+}
+
+function lastRequest() {
+  return vi.mocked(listSellerOrdersPage).mock.calls[0][0] as {
+    statuses?: OrderStatus[];
+    query?: string;
+    cursor?: string;
+    pageSize?: number;
+  };
+}
+
 describe("/seller/orders", () => {
   beforeEach(() => {
-    vi.mocked(listSellerOrders).mockResolvedValue([
-      order("o1", OrderStatus.PENDING),
-      order("o2", OrderStatus.SHIPPED),
-      order("o3", OrderStatus.SHIPPED),
-      order("o4", OrderStatus.COMPLETED),
-    ] as never);
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf([
+        order("o1", OrderStatus.PENDING),
+        order("o2", OrderStatus.SHIPPED),
+        order("o3", OrderStatus.SHIPPED),
+        order("o4", OrderStatus.COMPLETED),
+      ]) as never,
+    );
   });
 
-  it("status tabs are links carrying counts; the active one comes from the URL", async () => {
+  it("First page of a large shop: one listSellerOrdersPage call, no full-list call, ALL badge from status_counts", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf(
+        Array.from({ length: 20 }, (_, i) =>
+          order(`ord${i + 1}`, OrderStatus.PENDING),
+        ),
+        {
+          nextCursor: "c20",
+          total: 5000,
+          statusCounts: {
+            ...ZERO_COUNTS,
+            [OrderStatus.PENDING]: 1000,
+            [OrderStatus.PAID]: 1000,
+            [OrderStatus.SHIPPED]: 1000,
+            [OrderStatus.COMPLETED]: 1000,
+            [OrderStatus.CANCELLED]: 1000,
+          },
+        },
+      ) as never,
+    );
+    await renderList();
+    expect(listSellerOrdersPage).toHaveBeenCalledTimes(1);
+    expect(listSellerOrders).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("link", { name: "Chi tiết" })).toHaveLength(20);
+    const tabs = screen.getByRole("navigation", { name: "Tabs" });
+    expect(
+      within(tabs).getByRole("link", { name: /Tất cả/ }),
+    ).toHaveTextContent("5000");
+    expect(lastRequest().pageSize).toBe(20);
+    expect(lastRequest().cursor ?? "").toBe("");
+    expect(lastRequest().statuses ?? []).toEqual([]);
+  });
+
+  it("Status tab filters on the server: the tab maps to statuses and the badge equals the SHIPPED count", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf([
+        order("o2", OrderStatus.SHIPPED),
+        order("o3", OrderStatus.SHIPPED),
+      ]) as never,
+    );
     await renderList({ status: "shipped" });
+    expect(lastRequest().statuses).toEqual([OrderStatus.SHIPPED]);
     const tabs = screen.getByRole("navigation", { name: "Tabs" });
     const active = within(tabs)
       .getAllByRole("link")
@@ -111,57 +193,145 @@ describe("/seller/orders", () => {
     expect(active).toHaveLength(1);
     expect(active[0]).toHaveTextContent("Đang giao");
     expect(active[0]).toHaveTextContent("2");
-    expect(within(tabs).getByRole("link", { name: /Tất cả/ })).toHaveAttribute(
-      "href",
-      "/seller/orders",
-    );
-    expect(
-      within(tabs).getByRole("link", { name: /Hoàn thành/ }),
-    ).toHaveAttribute("href", "/seller/orders?status=completed");
-    // Only shipped orders are listed after "reload".
-    expect(screen.getByRole("link", { name: "#o2" })).toBeInTheDocument();
+    expect(screen.getAllByText("Đang giao hàng")).toHaveLength(2);
     expect(screen.queryByRole("link", { name: "#o1" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "#o4" })).toBeNull();
   });
 
-  it("offers Chi tiết for every row and ship only for shippable orders", async () => {
-    await renderList();
-    expect(screen.getAllByRole("link", { name: "Chi tiết" })).toHaveLength(4);
-    expect(
-      screen.getAllByRole("button", { name: "Xác nhận gửi" }),
-    ).toHaveLength(1);
-    expect(screen.getAllByRole("link", { name: "#o1" })[0]).toHaveAttribute(
-      "href",
-      "/seller/orders/o1",
+  it("Status tab filters on the server: Chờ xử lý sends PENDING and PAID", async () => {
+    await renderList({ status: "pending" });
+    expect(lastRequest().statuses).toEqual([
+      OrderStatus.PENDING,
+      OrderStatus.PAID,
+    ]);
+  });
+
+  it("Badges stay stable while searching: query is sent and the ALL badge is the sum of status_counts", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf([order("ab12cd34", OrderStatus.SHIPPED)], {
+        statusCounts: {
+          ...ZERO_COUNTS,
+          [OrderStatus.PENDING]: 4,
+          [OrderStatus.PAID]: 1,
+          [OrderStatus.SHIPPED]: 1,
+          [OrderStatus.COMPLETED]: 2,
+          [OrderStatus.CANCELLED]: 3,
+        },
+      }) as never,
     );
+    await renderList({ status: "shipped", q: "ab12cd34" });
+    expect(lastRequest().query).toBe("ab12cd34");
+    expect(
+      screen.getByRole("link", { name: `#${"ab12cd34"}` }),
+    ).toBeInTheDocument();
+    const tabs = screen.getByRole("navigation", { name: "Tabs" });
+    expect(
+      within(tabs).getByRole("link", { name: /Tất cả/ }),
+    ).toHaveTextContent("11");
+    expect(
+      within(tabs).getByRole("link", { name: /Chờ xử lý/ }),
+    ).toHaveTextContent("5");
   });
 
-  it("slices ?page= server-side and links neighbours", async () => {
-    vi.mocked(listSellerOrders).mockResolvedValue(
-      Array.from({ length: 45 }, (_, i) =>
-        order(`ord${i + 1}`, OrderStatus.PENDING),
+  it("Next page uses the returned cursor: Trang sau links to next_cursor with page=2", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf(
+        Array.from({ length: 20 }, (_, i) =>
+          order(`ord${i + 1}`, OrderStatus.PENDING),
+        ),
+        { nextCursor: "c20", total: 45 },
       ) as never,
     );
-    await renderList({ page: "2" });
-    expect(screen.getByRole("link", { name: "#ord21" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "#ord40" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "#ord41" })).toBeNull();
+    await renderList();
     const nav = screen.getByRole("navigation", { name: "Phân trang" });
-    expect(within(nav).getByRole("link", { name: "Trang 2" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
     expect(
       within(nav).getByRole("link", { name: "Trang sau" }),
-    ).toHaveAttribute("href", "/seller/orders?page=3");
+    ).toHaveAttribute("href", "/seller/orders?cursor=c20&page=2");
   });
 
-  it("falls back for invalid params", async () => {
-    await renderList({ page: "abc", status: "bogus" });
+  it("Next page uses the returned cursor: page 2 requests the URL cursor and offers Trang đầu", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf(
+        Array.from({ length: 20 }, (_, i) =>
+          order(`ord${i + 21}`, OrderStatus.PENDING),
+        ),
+        { nextCursor: "c40", total: 45 },
+      ) as never,
+    );
+    await renderList({ cursor: "c20", page: "2" });
+    expect(lastRequest().cursor).toBe("c20");
+    expect(screen.getByRole("link", { name: "#ord21" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "#ord1" })).toBeNull();
+    const nav = screen.getByRole("navigation", { name: "Phân trang" });
+    expect(
+      within(nav).getByRole("link", { name: "Trang đầu" }),
+    ).toHaveAttribute("href", "/seller/orders");
+    expect(within(nav).getByText("Trang 2")).toBeInTheDocument();
+  });
+
+  it("Last page has no next link: empty next_cursor hides Trang sau and shows 1 to 20 rows", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf(
+        Array.from({ length: 5 }, (_, i) =>
+          order(`ord${i + 41}`, OrderStatus.PENDING),
+        ),
+        { nextCursor: "", total: 45 },
+      ) as never,
+    );
+    await renderList({ cursor: "c40", page: "3" });
+    expect(screen.queryByRole("link", { name: "Trang sau" })).toBeNull();
+    expect(screen.getAllByRole("link", { name: "Chi tiết" })).toHaveLength(5);
+  });
+
+  it("Query is trimmed to 100 characters: the request carries 100 characters and the page renders", async () => {
+    await renderList({ q: "z".repeat(150) });
+    expect(lastRequest().query).toHaveLength(100);
+    expect(screen.queryByText("Không tải được danh sách đơn hàng")).toBeNull();
     expect(screen.getAllByRole("link", { name: "Chi tiết" })).toHaveLength(4);
   });
 
-  it("shows Empty with a clear-filter link when a search matches nothing", async () => {
+  it("Orders page unknown cursor shows the retry state: Alert with a cursor-free Thử lại link", async () => {
+    vi.mocked(listSellerOrdersPage).mockRejectedValue(
+      new ConnectError("bad cursor", Code.InvalidArgument),
+    );
+    await renderList({ cursor: "not-a-cursor", page: "2" });
+    expect(
+      screen.getByText("Không tải được danh sách đơn hàng"),
+    ).toBeInTheDocument();
+    const retry = screen.getByRole("link", { name: "Thử lại" });
+    expect(retry).toHaveAttribute("href", "/seller/orders");
+    expect(retry.getAttribute("href")).not.toContain("cursor");
+    expect(screen.queryByRole("link", { name: "Trang sau" })).toBeNull();
+  });
+
+  it("Orders page unknown cursor shows the retry state: retry keeps the tab but drops cursor and page", async () => {
+    vi.mocked(listSellerOrdersPage).mockRejectedValue(new Error("down"));
+    await renderList({ status: "pending", cursor: "bad", page: "4" });
+    expect(screen.getByRole("link", { name: "Thử lại" })).toHaveAttribute(
+      "href",
+      "/seller/orders?status=pending",
+    );
+  });
+
+  it("Changing tab or search resets the position: tab links carry neither cursor nor page", async () => {
+    await renderList({ cursor: "c40", page: "3", q: "abc" });
+    const tabs = screen.getByRole("navigation", { name: "Tabs" });
+    const hrefs = within(tabs)
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs).toHaveLength(4);
+    for (const h of hrefs) {
+      expect(h).not.toContain("cursor");
+      expect(h).not.toContain("page");
+    }
+    expect(
+      within(tabs).getByRole("link", { name: /Hoàn thành/ }),
+    ).toHaveAttribute("href", "/seller/orders?q=abc&status=completed");
+  });
+
+  it("No match shows the empty result: Không có kết quả with Xoá bộ lọc to the bare list", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf([], { total: 0, statusCounts: ZERO_COUNTS }) as never,
+    );
     await renderList({ q: "khong-co" });
     expect(screen.getByText("Không có kết quả")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Xoá bộ lọc" })).toHaveAttribute(
@@ -170,16 +340,41 @@ describe("/seller/orders", () => {
     );
   });
 
-  it("shows an Alert with retry when the read fails, and no tab counts", async () => {
-    vi.mocked(listSellerOrders).mockRejectedValue(new Error("down"));
-    await renderList({ status: "pending" });
+  it("First page of a large shop: search box carries the new placeholder", async () => {
+    await renderList();
     expect(
-      screen.getByText("Không tải được danh sách đơn hàng"),
+      screen.getByPlaceholderText("Mã đơn hoặc tên sản phẩm"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Thử lại" })).toHaveAttribute(
-      "href",
-      "/seller/orders?status=pending",
+  });
+
+  it("A non-seller principal is denied: no row and no ListSellerOrders call", async () => {
+    vi.mocked(hasScope).mockReturnValue(false);
+    const ui = await SellerOrdersPage({
+      searchParams: Promise.resolve({}),
+    });
+    if (ui) render(ui);
+    expect(screen.queryAllByRole("link", { name: "Chi tiết" })).toHaveLength(0);
+    expect(listSellerOrdersPage).not.toHaveBeenCalled();
+    expect(listSellerOrders).not.toHaveBeenCalled();
+  });
+
+  it("Search text stays out of the server logs: neither success nor failure logs the q value", async () => {
+    const secret = "SECRET-needle-42";
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map(
+      (m) => vi.spyOn(console, m).mockImplementation(() => {}),
     );
+    await renderList({ q: secret });
+    expect(lastRequest().query).toBe(secret);
+    document.body.innerHTML = "";
+    vi.mocked(listSellerOrdersPage).mockRejectedValue(new Error("down"));
+    await renderList({ q: secret });
+    const out = spies
+      .flatMap((s) => s.mock.calls)
+      .flat()
+      .map(String)
+      .join(" ");
+    for (const s of spies) s.mockRestore();
+    expect(out).not.toContain(secret);
   });
 
   it("has no brand-filled primary button", async () => {
@@ -316,5 +511,35 @@ describe("loading skeletons", () => {
       "aria-busy",
       "true",
     );
+  });
+});
+
+describe("/seller/orders bulk ship mount", () => {
+  it("Bulk ship: only shippable rows can be selected: the page mounts checkboxes on PAID and COD rows and the bar", async () => {
+    vi.mocked(listSellerOrdersPage).mockResolvedValue(
+      pageOf([
+        order("pa1", OrderStatus.PAID),
+        order("cod1", OrderStatus.PENDING, {
+          paymentMethod: PaymentMethod.COD,
+        }),
+        order("sh1", OrderStatus.SHIPPED),
+      ]) as never,
+    );
+    await renderList();
+    expect(
+      screen.getByRole("checkbox", { name: "Chọn đơn #pa1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Chọn đơn #cod1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "Chọn đơn #sh1" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Gửi hàng loạt" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "In phiếu hàng loạt" }),
+    ).toBeDisabled();
   });
 });

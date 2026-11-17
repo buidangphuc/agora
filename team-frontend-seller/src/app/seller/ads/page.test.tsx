@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
-import { getAllListings } from "@/features/seller/listingsPage";
 import { AdCampaignStatus } from "@/generated/platform/promotion/v1/promotion_pb.js";
+import { getListing } from "@/lib/gateway/listings";
 import {
   type ViewAdCampaign,
   listMyAdCampaigns,
@@ -25,9 +25,10 @@ vi.mock("@/features/seller/actions", () => ({
   createAdCampaignAction: vi.fn(),
   pauseAdCampaignAction: vi.fn(),
   resumeAdCampaignAction: vi.fn(),
+  searchMyListingsAction: vi.fn(() => new Promise(() => {})),
 }));
-vi.mock("@/features/seller/listingsPage", () => ({
-  getAllListings: vi.fn(),
+vi.mock("@/lib/gateway/listings", () => ({
+  getListing: vi.fn(),
 }));
 vi.mock("@/lib/gateway/promotion", async (orig) => ({
   ...(await orig<typeof import("@/lib/gateway/promotion")>()),
@@ -73,9 +74,10 @@ beforeEach(() => {
     scopes: ["listing.write"],
   } as never);
   vi.mocked(hasScope).mockReturnValue(true);
-  vi.mocked(getAllListings).mockResolvedValue([
-    { id: "l1", title: "Áo thun" },
-  ] as never);
+  vi.mocked(getListing).mockResolvedValue({
+    id: "l1",
+    title: "Áo thun",
+  } as never);
 });
 
 describe("/seller/ads page", () => {

@@ -49,12 +49,12 @@ func TestInMemoryOrderRepository(t *testing.T) {
 		}
 
 		// List Seller Orders
-		sellerOrders, err := repo.ListSellerOrders(ctx, "seller_1", 0)
+		sellerRes, err := repo.ListSellerOrders(ctx, "seller_1", store.SellerOrdersFilter{})
 		if err != nil {
 			t.Fatalf("unexpected error listing seller orders: %v", err)
 		}
-		if len(sellerOrders) != 1 {
-			t.Errorf("expected 1 seller order, got %d", len(sellerOrders))
+		if len(sellerRes.Orders) != 1 {
+			t.Errorf("expected 1 seller order, got %d", len(sellerRes.Orders))
 		}
 
 		// Update Order Status
