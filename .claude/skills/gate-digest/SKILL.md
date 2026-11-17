@@ -11,7 +11,8 @@ metadata:
 # gate-digest — mechanical checks, minimal reading
 
 The check runs as code; the agent reads ~15 lines of JSON. `PY=<main tree>/platform-e2e/.venv/bin/python`,
-`G="$PY <main tree>/scripts/asdlc/gate_digest.py"`. Exit 0 pass, 1 fail, 2 tooling error.
+`G="$PY <main tree>/scripts/asdlc/gate_digest.py"`. Exit 0 pass, 1 fail, 2 tooling error. Checks run with `GATE_PYTHON`,
+else the script's own tree's `platform-e2e/.venv`, else the main checkout's.
 
 | need | command |
 |---|---|

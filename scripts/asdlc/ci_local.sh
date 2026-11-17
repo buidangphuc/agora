@@ -20,7 +20,6 @@ done
 
 PY=python3
 [ -x platform-e2e/.venv/bin/python ] && PY="$ROOT/platform-e2e/.venv/bin/python"
-export REDFIRST_PYTHON="$PY"
 BASE_SHA=$(git merge-base "$BASE" HEAD 2>/dev/null || echo "$BASE")
 
 names=(); results=()

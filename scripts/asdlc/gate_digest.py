@@ -17,7 +17,7 @@ Agents read the JSON, not the raw log. The full log is written to a file
   gate_digest.py run [--cwd DIR] -- <command...>             any command: exit + tail
 
 Exit: 0 pass, 1 fail, 2 tooling error. Env: GATE_LOG_DIR (default $TMPDIR/gate-digest),
-GATE_PYTHON (default platform-e2e/.venv/bin/python of the repo root).
+GATE_PYTHON (default platform-e2e/.venv/bin/python of the repo root, else of the main checkout).
 Known non-defects are encoded here, not left to reviewers: packet edits made only by
 `chore(plans): widen` / `Revert` commits are not write-set violations; biome errors are
 compared with the base count; skipped tests are counted and listed, never treated as passed.
@@ -61,8 +61,26 @@ def emit(res: dict) -> int:
     return {"pass": 0, "fail": 1}.get(res.get("verdict"), 2)
 
 
+def main_checkout(root: Path = ROOT) -> Path | None:
+    try:
+        common = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=root,
+                                capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return Path(common).parent if common else None
+
+
 def py() -> str:
-    return os.environ.get("GATE_PYTHON", str(ROOT / "platform-e2e/.venv/bin/python"))
+    if os.environ.get("GATE_PYTHON"):
+        return os.environ["GATE_PYTHON"]
+    venv = "platform-e2e/.venv/bin/python"
+    own = ROOT / venv
+    if own.exists():
+        return str(own)
+    main = main_checkout()
+    if main and (main / venv).exists():
+        return str(main / venv)
+    return str(own)
 
 
 # ---------------------------------------------------------------- go
