@@ -219,7 +219,7 @@ func TestShutdownStopsServerBeforeDependents(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	want := []string{"relayer", "payment-consumer", "dispute-consumer", "reservation-sweep", "lifecycle-sweep", "outbox-purge"}
+	want := []string{"relayer", "payment-consumer", "dispute-consumer", "erasure-consumer", "reservation-sweep", "lifecycle-sweep", "outbox-purge"}
 	if len(exits) != len(want)+1 {
 		t.Fatalf("components that returned = %v, want server plus %v (wrap each with the component hook under these names)", exits, want)
 	}

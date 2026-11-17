@@ -1146,3 +1146,15 @@ func (s *OrderService) PreviewCheckout(ctx context.Context, buyerID, addressID s
 	}
 	return resp, nil
 }
+
+type userObligationsStore interface {
+	UserObligations(ctx context.Context, userID string) (store.UserObligations, error)
+}
+
+func (s *OrderService) UserObligations(ctx context.Context, userID string) (store.UserObligations, error) {
+	r, ok := s.orderRepo.(userObligationsStore)
+	if !ok {
+		return store.UserObligations{}, errors.New("order repository does not support user obligations")
+	}
+	return r.UserObligations(ctx, userID)
+}

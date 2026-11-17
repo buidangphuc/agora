@@ -44,6 +44,7 @@ func strictEnv(t *testing.T, env string) {
 	t.Setenv("GA4_API_SECRET", "ga4-secret")
 	t.Setenv("GA4_MEASUREMENT_ID", "G-ABC123")
 	t.Setenv("GA4_EXPORT_DATASET", "ga4_export")
+	t.Setenv("ERASURE_TOMBSTONE_SECRET", "tombstone-secret")
 }
 
 func mustErrNaming(t *testing.T, err error, keys ...string) {
@@ -529,5 +530,83 @@ func TestGA4RelayInvalidConfigErrorDoesNotContainSecret(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "TOP-SECRET-VALUE") {
 		t.Errorf("error leaks the API secret: %v", err)
+	}
+}
+
+var erasureKeys = []string{"IDENTITY_EVENTS_TOPIC", "ERASURE_CONSUMER_GROUP", "ERASURE_DLQ_TOPIC", "ERASURE_TOMBSTONE_SECRET"}
+
+// Scenario: AUE-16 Empty erasure setting refuses boot
+func TestLoadRejectsEmptyErasureSettings(t *testing.T) {
+	for _, key := range erasureKeys {
+		t.Run(key, func(t *testing.T) {
+			localEnv(t)
+			t.Setenv(key, "")
+			_, err := config.Load()
+			mustErrNaming(t, err, key)
+		})
+	}
+	localEnv(t)
+	t.Setenv("ERASURE_CONSUMER_GROUP", "   ")
+	_, err := config.Load()
+	mustErrNaming(t, err, "ERASURE_CONSUMER_GROUP")
+}
+
+// Scenario: AUE-16 Erasure settings are declared and a local ENV loads with defaults
+func TestErasureSettingsAreDeclaredAndLoadLocally(t *testing.T) {
+	declared := map[string]bool{}
+	for _, k := range sdkconfig.DeclaredEnvKeys(config.Settings{}) {
+		declared[k] = true
+	}
+	for _, k := range erasureKeys {
+		if !declared[k] {
+			t.Errorf("%s is not declared in the config struct", k)
+		}
+	}
+	localEnv(t)
+	mustLoad(t)
+}
+
+// Scenario: AUE-17 Strict env needs the tombstone secret
+func TestLoadStrictEnvRequiresTombstoneSecret(t *testing.T) {
+	for _, env := range []string{"prod", "production", "staging"} {
+		t.Run(env, func(t *testing.T) {
+			strictEnv(t, env)
+			t.Setenv("ERASURE_TOMBSTONE_SECRET", "")
+			if err := os.Unsetenv("ERASURE_TOMBSTONE_SECRET"); err != nil {
+				t.Fatal(err)
+			}
+			_, err := config.Load()
+			mustErrNaming(t, err, "ERASURE_TOMBSTONE_SECRET")
+
+			t.Setenv("ERASURE_TOMBSTONE_SECRET", "tombstone-secret")
+			if _, err := config.Load(); err != nil {
+				t.Fatalf("strict ENV with the secret set: %v", err)
+			}
+		})
+	}
+}
+
+// Scenario: AUE-18 Env example stays in sync (the four erasure keys are listed with their defaults)
+func TestErasureEnvExampleListsTheFourKeys(t *testing.T) {
+	b, err := os.ReadFile("../../.env.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := map[string]bool{}
+	for _, l := range strings.Split(string(b), "\n") {
+		lines[strings.TrimSpace(l)] = true
+	}
+	for _, want := range []string{
+		"IDENTITY_EVENTS_TOPIC=identity.events",
+		"ERASURE_CONSUMER_GROUP=team-analytics.user-erasure",
+		"ERASURE_DLQ_TOPIC=identity.events.analytics.dlq",
+		"ERASURE_TOMBSTONE_SECRET=",
+	} {
+		if !lines[want] {
+			t.Errorf(".env.example has no line %q", want)
+		}
+	}
+	if err := sdkconfig.CheckEnvExample("../../.env.example", config.Settings{}); err != nil {
+		t.Error(err)
 	}
 }

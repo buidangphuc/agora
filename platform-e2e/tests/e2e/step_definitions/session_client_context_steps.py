@@ -16,8 +16,9 @@ from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.api.services import SessionService
-from src.core import PageFactory
 from src.constants import PageName, timeouts
+from src.constants import legal_versions as legal
+from src.core import PageFactory
 from src.pages.account_security_page import AccountSecurityPage
 from src.utils import data as fake
 from tests.e2e.flows import session_id_of
@@ -65,7 +66,7 @@ def signed_in_from(world: World, ua: str) -> None:
     _result(
         _post(
             AUTH_REGISTER,
-            {"username": username, "password": SETTINGS.seed_password, "role": "buyer"},
+            {"username": username, "password": SETTINGS.seed_password, "role": "buyer", **legal.versions()},
         )
     )
     ctx = _new_context(world, ua)

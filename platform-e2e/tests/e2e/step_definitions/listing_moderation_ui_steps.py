@@ -20,6 +20,7 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
+from src.constants import legal_versions as legal
 from src.constants import timeouts
 from src.core.base_page import goto_streamed
 from src.models import User
@@ -101,6 +102,7 @@ def _register(world: World, role: str, prefix: str) -> dict:
         "username": username,
         "password": password,
         "role": role,
+        **legal.versions(),
         "token": token,
         "id": s.subject(token),
     }

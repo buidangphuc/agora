@@ -6,6 +6,8 @@ require (
 	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.3
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/testcontainers/testcontainers-go v0.44.0
+	github.com/twmb/franz-go v1.22.1
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 )
@@ -229,7 +231,6 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
-	github.com/testcontainers/testcontainers-go v0.44.0 // indirect
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0 // indirect
 	github.com/testcontainers/testcontainers-go/modules/redpanda v0.44.0 // indirect
 	github.com/tetafro/godot v1.5.6 // indirect
@@ -239,7 +240,6 @@ require (
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/tomarrell/wrapcheck/v2 v2.13.0 // indirect
 	github.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect
-	github.com/twmb/franz-go v1.22.1 // indirect
 	github.com/twmb/franz-go/pkg/kmsg v1.14.0 // indirect
 	github.com/twmb/franz-go/plugin/kotel v1.7.1 // indirect
 	github.com/ultraware/funlen v0.2.0 // indirect

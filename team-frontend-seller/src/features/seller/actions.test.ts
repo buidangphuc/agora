@@ -95,6 +95,45 @@ describe("requestWalletPayoutAction", () => {
   });
 });
 
+describe("seller-kyc-ui: requestWalletPayoutAction error mapping", () => {
+  it("A refused payout shows the verification message: FAILED_PRECONDITION maps by code, raw text hidden", async () => {
+    vi.mocked(requestWalletPayout).mockRejectedValue(
+      new ConnectError("seller verification required", Code.FailedPrecondition),
+    );
+    const res = await requestWalletPayoutAction("s1", 5000);
+    expect(res).toEqual({
+      ok: false,
+      error: "Cần xác minh danh tính để rút tiền",
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("A refused payout shows the verification message: mapped by code, not by server text", async () => {
+    vi.mocked(requestWalletPayout).mockRejectedValue(
+      new ConnectError("something else entirely", Code.FailedPrecondition),
+    );
+    expect(await requestWalletPayoutAction("s1", 5000)).toEqual({
+      ok: false,
+      error: "Cần xác minh danh tính để rút tiền",
+    });
+  });
+
+  it("Verification outage during payout shows a retry message: UNAVAILABLE", async () => {
+    vi.mocked(requestWalletPayout).mockRejectedValue(
+      new ConnectError("kyc backend down", Code.Unavailable),
+    );
+    expect(await requestWalletPayoutAction("s1", 5000)).toEqual({
+      ok: false,
+      error: "Chưa kiểm tra được trạng thái xác minh, vui lòng thử lại sau",
+    });
+  });
+
+  it("A verified seller sees no notice and can pay out: success unchanged", async () => {
+    vi.mocked(requestWalletPayout).mockResolvedValue(null);
+    expect(await requestWalletPayoutAction("s1", 5000)).toEqual({ ok: true });
+  });
+});
+
 describe("subscribeAction", () => {
   it("revalidates plans on success", async () => {
     vi.mocked(subscribe).mockResolvedValue({ ok: true });

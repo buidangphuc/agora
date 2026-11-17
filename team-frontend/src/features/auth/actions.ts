@@ -149,7 +149,12 @@ export async function registerAction(
     validReferralCode(jar.get(REFERRAL_COOKIE)?.value) ??
     "";
 
-  const invalid = validateRegister({ username, password });
+  const invalid = validateRegister({
+    username,
+    password,
+    acceptTerms: formData.get("acceptTerms") === "on",
+    acceptPrivacy: formData.get("acceptPrivacy") === "on",
+  });
   if (Object.keys(invalid).length > 0) {
     return failure(
       username,
@@ -163,7 +168,15 @@ export async function registerAction(
   try {
     const res = await makeClients(undefined, {
       client: clientContextFrom(await headers()),
-    }).auth.register({ username, password, role, referralCode });
+    }).auth.register({
+      username,
+      password,
+      role,
+      referralCode,
+      termsVersion: process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ?? "2026-11",
+      privacyVersion:
+        process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION ?? "2026-11",
+    });
     token = res.result?.token ?? "";
     refreshToken = res.result?.refreshToken ?? "";
   } catch (err) {
@@ -171,6 +184,16 @@ export async function registerAction(
       return failure(username, "Tên đăng nhập đã tồn tại.", {
         username: "Tên đăng nhập đã tồn tại.",
       });
+    }
+    if (
+      err instanceof ConnectError &&
+      err.code === Code.InvalidArgument &&
+      /terms_version|privacy_version/.test(err.message)
+    ) {
+      return failure(
+        username,
+        "Điều khoản đã được cập nhật. Vui lòng tải lại trang và đồng ý lại.",
+      );
     }
     return failure(username, `Đăng ký lỗi: ${String(err)}`);
   }

@@ -91,7 +91,7 @@ func svcCtx(parent context.Context) context.Context {
 	return auth.WithPrincipal(parent, auth.Principal{ID: "svc-promotion", Type: auth.TypeService, Scopes: []string{"payment:write"}})
 }
 
-func sellerCtx(parent context.Context) context.Context {
+func feeSellerCtx(parent context.Context) context.Context {
 	return auth.WithPrincipal(parent, auth.Principal{ID: feeSeller, Type: auth.TypeUser, Scopes: []string{"payment:read", "payment:write", "listing.write"}})
 }
 
@@ -104,7 +104,7 @@ func feeReq(amount int64, ref string) *paymentv1.ChargeSellerFeeRequest {
 
 func (e *feeEnv) balance(ctx context.Context, t *testing.T) int64 {
 	t.Helper()
-	b, err := e.h.GetWalletBalance(sellerCtx(ctx), &paymentv1.GetWalletBalanceRequest{})
+	b, err := e.h.GetWalletBalance(feeSellerCtx(ctx), &paymentv1.GetWalletBalanceRequest{})
 	if err != nil {
 		t.Fatalf("GetWalletBalance: %v", err)
 	}
@@ -113,7 +113,7 @@ func (e *feeEnv) balance(ctx context.Context, t *testing.T) int64 {
 
 func (e *feeEnv) feeEntries(ctx context.Context, t *testing.T) []*paymentv1.WalletEntry {
 	t.Helper()
-	res, err := e.h.ListLedgerEntries(sellerCtx(ctx), &paymentv1.ListLedgerEntriesRequest{Page: &commonv1.PageRequest{PageSize: 100}})
+	res, err := e.h.ListLedgerEntries(feeSellerCtx(ctx), &paymentv1.ListLedgerEntriesRequest{Page: &commonv1.PageRequest{PageSize: 100}})
 	if err != nil {
 		t.Fatalf("ListLedgerEntries: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestChargeSellerFee(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := e.h.RequestWalletPayout(sellerCtx(base), &paymentv1.RequestWalletPayoutRequest{Amount: 101000}); err != nil {
+				if _, err := e.h.RequestWalletPayout(feeSellerCtx(base), &paymentv1.RequestWalletPayoutRequest{Amount: 101000}); err != nil {
 					t.Fatalf("payout: %v", err)
 				}
 				if got := e.balance(base, t); got != 0 {
@@ -349,7 +349,7 @@ func TestChargeSellerFeeConcurrentWithPayout(t *testing.T) {
 				}(i)
 				go func() {
 					defer wg.Done()
-					_, err := e.h.RequestWalletPayout(sellerCtx(base), &paymentv1.RequestWalletPayoutRequest{Amount: 100000})
+					_, err := e.h.RequestWalletPayout(feeSellerCtx(base), &paymentv1.RequestWalletPayoutRequest{Amount: 100000})
 					record(err)
 				}()
 			}
@@ -452,9 +452,9 @@ func TestChargeSellerFeeAuthz(t *testing.T) {
 		req  *paymentv1.ChargeSellerFeeRequest
 		want codes.Code
 	}{
-		{"A seller cannot charge a fee", sellerCtx(base), feeReq(1000, "sub:z:seller"), codes.PermissionDenied},
+		{"A seller cannot charge a fee", feeSellerCtx(base), feeReq(1000, "sub:z:seller"), codes.PermissionDenied},
 		{"An admin cannot charge a fee", auth.WithPrincipal(base, auth.Principal{ID: "admin-1", Type: auth.TypeUser, Scopes: []string{"payment:write", "admin"}}), feeReq(1000, "sub:z:admin"), codes.PermissionDenied},
-		{"A seller with an invalid request is denied before validation", sellerCtx(base), feeReq(0, ""), codes.PermissionDenied},
+		{"A seller with an invalid request is denied before validation", feeSellerCtx(base), feeReq(0, ""), codes.PermissionDenied},
 		{"An unauthenticated call is rejected", base, feeReq(1000, "sub:z:anon"), codes.Unauthenticated},
 		{"A gateway anonymous principal is rejected", auth.WithPrincipal(base, auth.Principal{ID: "anonymous", Type: auth.TypeAnonymous}), feeReq(1000, "sub:z:anon2"), codes.Unauthenticated},
 	}

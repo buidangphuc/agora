@@ -6,7 +6,7 @@
 // team-order (Go) owns this: shopping cart + order placement + order lifecycle.
 // It reserves and releases stock via gRPC to team-domain (Rule 3).
 
-import { AddBundleToCartRequest, AddBundleToCartResponse, AddToCartRequest, AddToCartResponse, CalculateShippingFeeRequest, CalculateShippingFeeResponse, CancelOrderRequest, CancelOrderResponse, ClearCartRequest, ClearCartResponse, ConfirmReceiptRequest, ConfirmReceiptResponse, CreateOrderRequest, CreateOrderResponse, CreateReturnRequestRequest, CreateReturnRequestResponse, CreateShipmentRequest, CreateShipmentResponse, ForceFailSagaRequest, ForceFailSagaResponse, GetCartRequest, GetCartResponse, GetOrderRequest, GetOrderResponse, GetReturnRequestRequest, GetReturnRequestResponse, GetSagaStateRequest, GetSagaStateResponse, GetShipmentTrackingRequest, GetShipmentTrackingResponse, HasCompletedOrderRequest, HasCompletedOrderResponse, ListBuyerOrdersRequest, ListBuyerOrdersResponse, ListOrderReturnsRequest, ListOrderReturnsResponse, ListSellerOrdersRequest, ListSellerOrdersResponse, PreviewCheckoutRequest, PreviewCheckoutResponse, RemoveFromCartRequest, RemoveFromCartResponse, ReorderRequest, ReorderResponse, UpdateCartItemRequest, UpdateCartItemResponse, UpdateOrderStatusRequest, UpdateOrderStatusResponse, UpdateReturnStatusRequest, UpdateReturnStatusResponse } from "./order_pb.js";
+import { AddBundleToCartRequest, AddBundleToCartResponse, AddToCartRequest, AddToCartResponse, CalculateShippingFeeRequest, CalculateShippingFeeResponse, CancelOrderRequest, CancelOrderResponse, ClearCartRequest, ClearCartResponse, ConfirmReceiptRequest, ConfirmReceiptResponse, CreateOrderRequest, CreateOrderResponse, CreateReturnRequestRequest, CreateReturnRequestResponse, CreateShipmentRequest, CreateShipmentResponse, ForceFailSagaRequest, ForceFailSagaResponse, GetCartRequest, GetCartResponse, GetOrderRequest, GetOrderResponse, GetReturnRequestRequest, GetReturnRequestResponse, GetSagaStateRequest, GetSagaStateResponse, GetShipmentTrackingRequest, GetShipmentTrackingResponse, GetUserObligationsRequest, GetUserObligationsResponse, HasCompletedOrderRequest, HasCompletedOrderResponse, ListBuyerOrdersRequest, ListBuyerOrdersResponse, ListOrderReturnsRequest, ListOrderReturnsResponse, ListSellerOrdersRequest, ListSellerOrdersResponse, PreviewCheckoutRequest, PreviewCheckoutResponse, RemoveFromCartRequest, RemoveFromCartResponse, ReorderRequest, ReorderResponse, UpdateCartItemRequest, UpdateCartItemResponse, UpdateOrderStatusRequest, UpdateOrderStatusResponse, UpdateReturnStatusRequest, UpdateReturnStatusResponse } from "./order_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -289,6 +289,21 @@ export const OrderService = {
       name: "HasCompletedOrder",
       I: HasCompletedOrderRequest,
       O: HasCompletedOrderResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * GetUserObligations counts the open obligations of a user (open orders as
+     * buyer and as seller, open returns) so team-identity can decide whether an
+     * account may be erased. Internal: requires a service principal holding scope
+     * `order.internal.read`; every other principal gets PERMISSION_DENIED,
+     * enforced by the service itself. NOT routed at the gateway.
+     *
+     * @generated from rpc platform.order.v1.OrderService.GetUserObligations
+     */
+    getUserObligations: {
+      name: "GetUserObligations",
+      I: GetUserObligationsRequest,
+      O: GetUserObligationsResponse,
       kind: MethodKind.Unary,
     },
   }

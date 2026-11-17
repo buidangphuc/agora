@@ -1198,3 +1198,150 @@ features:
     - unit
     status: not-testable
     notes: "VERIFIED BY `team-chat/internal/rpc` `TestPermissionDeniedLeaksNoParticipantIDs`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat.cue-the-user-s-messages-are-replaced-and-the-thread-is-kept
+    title: "The user's messages are replaced and the thread is kept"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): The user's messages are replaced and the thread is kept"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When a `UserErased` event is consumed for a buyer who sent 3 messages in a thread where the seller sent 2"
+      - "Then the buyer's 3 messages read \"Tin nhắn đã bị xóa\" with sender name \"Người dùng đã xóa\", the seller's 2 messages are unchanged and the thread still lists for the seller"
+    tags: [user-erasure, chat]
+    status: automated
+    covered_by: "chat/user_erasure.feature::The user's messages are replaced and the thread is kept"
+    notes: "content-user-erasure: e2e in chat/user_erasure.feature (green: test_chat_user_erasure.py::test_the_users_messages_are_replaced_and_the_thread_is_kept)."
+
+  - id: chat.cue-a-rich-message-payload-is-emptied
+    title: "A rich message payload is emptied"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): A rich message payload is emptied"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When a `UserErased` event is consumed for a user who sent an image message with a non-empty payload"
+      - "Then that message's payload is empty and its text is \"Tin nhắn đã bị xóa\""
+    tags: [user-erasure, chat]
+    status: automated
+    covered_by: "chat/user_erasure.feature::A rich message payload is emptied"
+    notes: "content-user-erasure: e2e in chat/user_erasure.feature (green: test_chat_user_erasure.py::test_a_rich_message_payload_is_emptied)."
+
+  - id: chat.cue-the-thread-preview-no-longer-shows-erased-text
+    title: "The thread preview no longer shows erased text"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): The thread preview no longer shows erased text"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When a `UserErased` event is consumed for the sender of the last message of a thread"
+      - "Then the thread's `last_message_text` is \"Tin nhắn đã bị xóa\" and, where the counterparty sent the last message, `last_message_text` is unchanged"
+    tags: [user-erasure, chat]
+    status: automated
+    covered_by: "chat/user_erasure.feature::The thread preview no longer shows erased text"
+    notes: "content-user-erasure: e2e in chat/user_erasure.feature (green: test_chat_user_erasure.py::test_the_thread_preview_no_longer_shows_erased_text)."
+
+  - id: chat.cue-other-users-messages-are-untouched
+    title: "Other users' messages are untouched"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): Other users' messages are untouched"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When a `UserErased` event for user A is consumed and user B sent messages in other threads"
+      - "Then every message and thread of user B is unchanged"
+    tags: [user-erasure, chat]
+    status: automated
+    covered_by: "chat/user_erasure.feature::Other users' messages are untouched"
+    notes: "content-user-erasure: e2e in chat/user_erasure.feature (green: test_chat_user_erasure.py::test_other_users_messages_are_untouched)."
+
+  - id: chat.cue-erasure-is-reachable-only-through-the-identity-topic
+    title: "Chat: Erasure is reachable only through the identity topic"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): Erasure is reachable only through the identity topic"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When a `UserErased` record is produced to a topic other than `identity.events`, or a user principal calls any team-chat RPC naming another user"
+      - "Then no message of the named user is replaced or changed"
+    tags: [user-erasure, chat]
+    status: automated
+    covered_by: "chat/user_erasure.feature::Erasure is reachable only through the identity topic"
+    notes: "content-user-erasure: e2e in chat/user_erasure.feature (green: test_chat_user_erasure.py::test_erasure_is_reachable_only_through_the_identity_topic)."
+
+  - id: chat.cue-a-replayed-event-changes-nothing
+    title: "Chat: A replayed event changes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): A replayed event changes nothing"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When the same `UserErased` event is delivered twice"
+      - "Then the second delivery returns no error and the messages equal the state after the first delivery"
+    tags: [user-erasure, chat]
+    status: automated
+    covered_by: "chat/user_erasure.feature::A replayed event changes nothing"
+    notes: "content-user-erasure: e2e in chat/user_erasure.feature (green: test_chat_user_erasure.py::test_a_replayed_event_changes_nothing)."
+
+  - id: chat.cue-a-malformed-event-goes-to-the-dlq
+    title: "Chat: A malformed event goes to the DLQ"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): A malformed event goes to the DLQ"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When a record on `identity.events` is not a valid `EventEnvelope`, or a `UserErased` payload has an empty `user_id`"
+      - "Then the record is published to `identity.events.chat.dlq` without retry and no message changes"
+    tags: [user-erasure, chat]
+    status: automated
+    covered_by: "chat/user_erasure.feature::A malformed event goes to the DLQ"
+    notes: "content-user-erasure: e2e in chat/user_erasure.feature (green: test_chat_user_erasure.py::test_a_malformed_event_goes_to_the_dlq)."
+
+  - id: chat.cue-a-store-failure-rolls-back-and-is-retried
+    title: "Chat: A store failure rolls back and is retried"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): A store failure rolls back and is retried"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When the erase transaction fails half-way because Postgres is unavailable"
+      - "Then no message or thread keeps a partial change, the record is retried up to 5 times, and the erasure completes after the database returns with the DLQ empty"
+    tags: [user-erasure, chat, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-chat/internal/store/erase_pg_test.go TestEraseRollsBackOnFailure. Not producible black box: needs a database fault, a unit-level handler or log capture."
+
+  - id: chat.cue-other-identity-events-are-ignored
+    title: "Chat: Other identity events are ignored"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): Other identity events are ignored"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When a `UserStatusChanged` event for a user is consumed"
+      - "Then no message of that user changes and nothing is published to the DLQ"
+    tags: [user-erasure, chat, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-chat/internal/events/identity_test.go TestIdentityIgnoresOtherEventTypes. Not producible black box: needs a database fault, a unit-level handler or log capture."
+
+  - id: chat.cue-message-text-and-the-erased-id-are-not-logged
+    title: "Message text and the erased id are not logged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change content-user-erasure (chat-user-erasure): Message text and the erased id are not logged"
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - "When the consumer handles a `UserErased` event"
+      - "Then the service log holds a count and a hashed id and no line contains the raw user id or any message text"
+    tags: [user-erasure, chat, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-chat/internal/events/identity_test.go TestIdentityErasureLogsNoRawUserIDOrText. Not producible black box: needs a database fault, a unit-level handler or log capture."

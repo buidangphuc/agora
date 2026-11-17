@@ -3,11 +3,16 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/mockdata"
@@ -15,13 +20,20 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-verification/internal/config"
+	"github.com/buidangphuc/team-verification/internal/events"
+	"github.com/buidangphuc/team-verification/internal/objects"
+	"github.com/buidangphuc/team-verification/internal/retention"
 	"github.com/buidangphuc/team-verification/internal/rpc"
 	"github.com/buidangphuc/team-verification/internal/store"
 	"github.com/buidangphuc/team-verification/internal/upstream"
 	"github.com/buidangphuc/team-verification/internal/verification"
 )
 
-const serviceName = "team-verification"
+const (
+	serviceName   = "team-verification"
+	kycRetention  = 90 * 24 * time.Hour
+	sweepInterval = time.Hour
+)
 
 func Run(ctx context.Context, s config.Settings) (err error) {
 	logger := logx.New(s.Runtime, serviceName)
@@ -67,7 +79,41 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	}
 	stack.Push(func(context.Context) error { return auditConn.Close() })
 
-	svc := verification.NewVerificationService(store.NewPostgresKycRepo(pool))
+	objs, err := objects.NewMinio(s.Storage)
+	if err != nil {
+		return fmt.Errorf("storage: %w", err)
+	}
+
+	pub, err := kafkax.NewProducer(s.Kafka, kgo.AllowAutoTopicCreation())
+	if err != nil {
+		return fmt.Errorf("kafka: %w", err)
+	}
+	stack.Push(func(context.Context) error { pub.Close(); return nil })
+
+	client, err := kafkax.NewConsumerClient(s.Kafka, s.Events.IdentityGroup, []string{s.Events.IdentityTopic}, kgo.AllowAutoTopicCreation())
+	if err != nil {
+		return err
+	}
+	stack.Push(func(context.Context) error { client.Close(); return nil })
+	erased := events.NewUserErasedConsumer(pool, objs, logger)
+	consumer, err := consume.NewConsumer(client, erased.Handle, pub, consume.Options{
+		DLQTopic: s.Events.IdentityDLQTopic,
+		Logger:   logger,
+	})
+	if err != nil {
+		return err
+	}
+
+	sweeper := retention.NewSweeper(pool, objs, retention.Config{Retention: kycRetention, Interval: sweepInterval}, logger)
+	sweep, err := lifecycle.Every(sweepInterval, func(ctx context.Context) error {
+		_, err := sweeper.SweepOnce(ctx, time.Now())
+		return err
+	}, lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		return err
+	}
+
+	svc := verification.NewVerificationService(store.NewPostgresKycRepo(pool), verification.WithObjects(objs))
 	h, err := rpc.NewHandler(svc, upstream.NewAuditWriter(auditConn), logger)
 	if err != nil {
 		return err
@@ -86,5 +132,5 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, grpcx.Serve(srv, grpcCfg))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, grpcCfg), sweep, consumer))
 }

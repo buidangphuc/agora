@@ -60,7 +60,7 @@ class AdminVouchersPage(BasePage):
 
     @property
     def dialog(self) -> Locator:
-        return self.page.get_by_role("dialog").filter(has_not_text="Cookie preferences")
+        return self.page.get_by_role("dialog").filter(has_not_text=re.compile("Cookie preferences|Tùy chọn cookie"))
 
     @property
     def stop_controls(self) -> Locator:

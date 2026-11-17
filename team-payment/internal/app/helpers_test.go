@@ -37,7 +37,7 @@ const (
 var strayKeys = []string{
 	"KAFKA_BROKERS", "GRPC_PORT", "GRPC_HOST", "LOG_LEVEL", "LOG_JSON", "OTEL_ENABLED",
 	"GRPC_REFLECTION_ENABLED", "SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY", "DB_MAX_CONNS",
-	"UPSTREAM_ORDER_ADDR", "UPSTREAM_AUDIT_ADDR", "LOG_KEY_FP_SECRET", "MOCK_DATA", "MOCK_PAYMENTS",
+	"UPSTREAM_ORDER_ADDR", "UPSTREAM_AUDIT_ADDR", "UPSTREAM_VERIFICATION_ADDR", "LOG_KEY_FP_SECRET", "MOCK_DATA", "MOCK_PAYMENTS",
 }
 
 func migrateEnv(t *testing.T, url string) {
@@ -224,7 +224,7 @@ func bootBinary(t *testing.T, bin string, env ...string) (*syncBuffer, int) {
 	cmd.Env = append(os.Environ(),
 		"ENV=local", "KAFKA_BROKERS="+deadBroker, "GRPC_HOST=127.0.0.1", "GRPC_PORT="+strconv.Itoa(port),
 		"LOG_LEVEL=info", "LOG_JSON=false", "OTEL_ENABLED=false",
-		"UPSTREAM_ORDER_ADDR=127.0.0.1:1", "UPSTREAM_AUDIT_ADDR=127.0.0.1:1",
+		"UPSTREAM_ORDER_ADDR=127.0.0.1:1", "UPSTREAM_AUDIT_ADDR=127.0.0.1:1", "UPSTREAM_VERIFICATION_ADDR=127.0.0.1:1",
 	)
 	cmd.Env = append(cmd.Env, env...)
 	out := &syncBuffer{}

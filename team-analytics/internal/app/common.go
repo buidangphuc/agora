@@ -31,7 +31,7 @@ func openWarehouse(ctx context.Context, s config.Settings) (warehouse.WarehouseW
 	}
 	switch s.Warehouse.Driver {
 	case config.DriverDuckDB:
-		return duckdb.Open(ctx, s.Warehouse.DuckDBPath)
+		return duckdb.Open(ctx, s.Warehouse.DuckDBPath, duckdb.WithTombstoneSecret(s.Erasure.TombstoneSecret))
 	case config.DriverBigQuery:
 		return bigquery.Open(ctx, bigquery.Config{
 			Project: s.Warehouse.BigQueryProject,

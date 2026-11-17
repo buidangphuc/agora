@@ -33,6 +33,8 @@ def compute_view(con: duckdb.DuckDBPyConnection, view: View, as_of: datetime) ->
     if set(cols) != want:
         raise ValueError(f"{view.key} returns columns {sorted(cols)}, registry declares {sorted(want)}")
     rows = [dict(zip(cols, r, strict=True)) for r in cur.fetchall()]
+    if view.entity == "user_key":
+        rows = [r for r in rows if not str(r["entity_id"]).startswith(inputs.ERASED_PREFIX)]
     for r in rows:
         r["entity_id"] = str(r["entity_id"])
     return sorted(rows, key=lambda r: r["entity_id"])
@@ -85,6 +87,9 @@ def materialize(settings: Settings, views: list[View], r, now: datetime | None =
     tmp = mp.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(manifest, indent=2))
     os.replace(tmp, mp)
+    for v in views:
+        if v.entity == "user_key":
+            online.reconcile(r, v.name, v.version, {x["entity_id"] for x in computed[v.key]})
     for v in views:
         online.write_view(r, v.name, v.version, computed[v.key], settings.ttl_seconds, meta)
     manifest["_rows"] = computed

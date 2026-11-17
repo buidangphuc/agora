@@ -39,6 +39,7 @@ type Events struct {
 	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
 	IdentityTopic string `env:"KAFKA_IDENTITY_TOPIC" default:"identity.events"`
 	IdentityGroup string `env:"KAFKA_IDENTITY_GROUP" default:"team-domain-identity"`
+	ErasureGroup  string `env:"KAFKA_ERASURE_GROUP" default:"team-domain-erasure"`
 }
 
 type Reservation struct {

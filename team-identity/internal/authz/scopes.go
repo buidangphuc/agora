@@ -85,6 +85,9 @@ const StatusActive = "active"
 // any status other than exactly "active" (restricted, unknown, empty) drops
 // listing.write. The shared role table is never mutated.
 func ScopesForUser(roles []string, status string) []string {
+	if status == "deleted" {
+		return []string{}
+	}
 	scopes := ScopesForRoles(roles)
 	if status == StatusActive {
 		return scopes
@@ -96,4 +99,19 @@ func ScopesForUser(roles []string, status string) []string {
 		}
 	}
 	return out
+}
+
+// IsUserOnlyRPC reports whether an identity RPC is principal-scoped: it needs a user principal and no
+// dedicated scope.
+func IsUserOnlyRPC(fullMethod string) bool {
+	switch fullMethod {
+	case "/platform.identity.v1.PrivacyService/RecordConsent",
+		"/platform.identity.v1.PrivacyService/ListMyConsents",
+		"/platform.identity.v1.PrivacyService/RequestAccountDeletion",
+		"/platform.identity.v1.PrivacyService/CancelAccountDeletion",
+		"/platform.identity.v1.PrivacyService/GetAccountDeletionStatus",
+		"/platform.identity.v1.PrivacyService/ExportMyData":
+		return true
+	}
+	return false
 }

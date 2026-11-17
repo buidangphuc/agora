@@ -123,3 +123,20 @@ describe("seller logout", () => {
     ).toHaveAttribute("type", "submit");
   });
 });
+
+describe("seller-kyc-ui: Nav lists the verification page", () => {
+  it("Nav lists the verification page: exactly one entry to /seller/verification", () => {
+    render(<SellerSidebar shop={shop} />);
+    const links = screen.getAllByRole("link", { name: "Xác minh danh tính" });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", "/seller/verification");
+  });
+
+  it("Nav lists the verification page: marks it current on its route", () => {
+    pathname = "/seller/verification";
+    render(<SellerSidebar shop={shop} />);
+    expect(
+      screen.getByRole("link", { name: "Xác minh danh tính" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+});

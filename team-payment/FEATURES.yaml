@@ -62,6 +62,7 @@ features:
     services: [team-payment, team-frontend]
     preconditions:
       login: seller
+      data: The seller is VERIFIED through the real KYC RPCs (payment-payout-kyc-gate); an unverified seller is refused FAILED_PRECONDITION.
     api:
       exercised: [payment.v1.RequestPayout, payment.v1.ListPayoutHistory]
     acceptance:
@@ -3264,6 +3265,640 @@ features:
     status: not-testable
     notes: "VERIFIED BY team-payment `internal/rpc` `TestWalletRPCAccess`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
+  - id: payment.pay-1-balance-hold-and-pending-payouts-are-reported
+    title: "PAY-1 Balance, hold and pending payouts are reported"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-1 Balance, hold and pending payouts are reported"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given seller S has ledger credits of 500000, of which 200000 are inside the hold window, and 2 PENDING payout debits of 50000 each"
+      - "When a SERVICE principal with scope `payment.internal.read` calls `GetPayoutObligations` for S"
+      - "Then the response is `available_balance` 200000, `held_balance` 200000 and `pending_payouts` 2"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-1 Balance, hold and pending payouts are reported"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay1_balance_hold_and_pending_payouts_are_reported)."
+
+  - id: payment.pay-2-a-buyer-with-no-wallet-reads-zeros
+    title: "PAY-2 A buyer with no wallet reads zeros"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-2 A buyer with no wallet reads zeros"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When the service calls `GetPayoutObligations` for a user with no ledger entries and no payout requests"
+      - "Then the response is OK with `available_balance` 0, `held_balance` 0, `pending_payouts` 0"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-2 A buyer with no wallet reads zeros"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay2_a_buyer_with_no_wallet_reads_zeros)."
+
+  - id: payment.pay-3-completed-and-rejected-payouts-are-not-pending
+    title: "PAY-3 Completed and rejected payouts are not pending"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-3 Completed and rejected payouts are not pending"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given S has payout requests in COMPLETED and REJECTED status only"
+      - "When the service calls `GetPayoutObligations` for S"
+      - "Then `pending_payouts` is 0"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestPayoutObligationsBalances. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.pay-4-a-negative-balance-reads-as-no-available-money
+    title: "PAY-4 A negative balance reads as no available money"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-4 A negative balance reads as no available money"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given S's ledger sum is -50000 after a refund deduction"
+      - "When the service calls `GetPayoutObligations` for S"
+      - "Then `available_balance` is 0"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestPayoutObligationsBalances. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.pay-5-another-seller-s-money-is-not-included
+    title: "PAY-5 Another seller's money is not included"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-5 Another seller's money is not included"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given S has ledger credits of 100000 outside the hold window and T has ledger credits of 900000"
+      - "When the service calls `GetPayoutObligations` for S"
+      - "Then `available_balance` is 100000 and `held_balance` is 0"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestPayoutObligationsBalances. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.pay-6-an-empty-user-id-is-rejected
+    title: "PAY-6 An empty user id is rejected"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-6 An empty user id is rejected"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When the service calls `GetPayoutObligations` with `user_id` \"\""
+      - "Then the call fails with `INVALID_ARGUMENT`"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/rpc TestGetPayoutObligationsRejectsEmptyUserID. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.pay-7-a-user-principal-is-refused
+    title: "PAY-7 A user principal is refused"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-7 A user principal is refused"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a signed-in USER principal, including a seller reading its own wallet, calls `GetPayoutObligations`"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-7 A user principal is refused"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay7_a_user_principal_is_refused)."
+
+  - id: payment.pay-8-a-service-principal-without-the-scope-is-refused
+    title: "PAY-8 A service principal without the scope is refused"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-8 A service principal without the scope is refused"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a SERVICE principal holding only `order.read` calls `GetPayoutObligations`"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-8 A service principal without the scope is refused"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay8_a_service_principal_without_the_scope_is_refused)."
+
+  - id: payment.pay-9-an-anonymous-caller-is-refused
+    title: "PAY-9 An anonymous caller is refused"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-9 An anonymous caller is refused"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a call without a principal reaches `GetPayoutObligations`"
+      - "Then the call fails with `UNAUTHENTICATED`"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-9 An anonymous caller is refused"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay9_an_anonymous_caller_is_refused)."
+
+  - id: payment.pay-10-the-gateway-does-not-route-the-rpc
+    title: "PAY-10 The gateway does not route the RPC"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-10 The gateway does not route the RPC"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a browser client calls `PaymentService/GetPayoutObligations` through the gateway"
+      - "Then the gateway answers HTTP 501 and team-payment receives no request"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/payout_obligations.feature::PAY-10 The gateway does not route the RPC"
+    notes: "commerce-user-erasure: e2e in payment/payout_obligations.feature (green: test_payout_obligations.py::test_pay10_the_gateway_does_not_route_the_rpc)."
+
+  - id: payment.pay-11-a-store-failure-never-reads-as-zero-money
+    title: "PAY-11 A store failure never reads as zero money"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PAY-11 A store failure never reads as zero money"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given the payment database is unreachable"
+      - "When the service calls `GetPayoutObligations` for S"
+      - "Then the call fails with a non-OK gRPC status and the response carries no balances"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/rpc TestGetPayoutObligationsStoreFailure. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-1-bank-details-are-masked-and-money-records-are-kept
+    title: "PER-1 Bank details are masked and money records are kept"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-1 Bank details are masked and money records are kept"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given seller S has 3 payout requests (PENDING, COMPLETED, REJECTED) with account number \"0123456789\" and account name \"NGUYEN VAN A\", and ledger entries summing to 400000"
+      - "When a `UserErased` event for S is consumed"
+      - "Then the 3 payout requests read `account_number` and `account_name` \"Đã xóa\", and their ids, `bank_code`, `amount`, `status`, `ledger_entry_id` and S's ledger sum of 400000 are unchanged"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/user_erasure.feature::PER-1 Bank details are masked and money records are kept"
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (green: test_payment_user_erasure.py::test_per1_bank_details_are_masked_and_money_records_are_kept)."
+
+  - id: payment.per-2-another-seller-s-payouts-are-untouched
+    title: "PER-2 Another seller's payouts are untouched"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-2 Another seller's payouts are untouched"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given sellers S and T each have payout requests"
+      - "When a `UserErased` event for S is consumed"
+      - "Then T's `account_number` and `account_name` are unchanged"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/user_erasure.feature::PER-2 Another seller's payouts are untouched"
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (green: test_payment_user_erasure.py::test_per2_another_sellers_payouts_are_untouched)."
+
+  - id: payment.per-3-a-redelivered-event-changes-nothing
+    title: "PER-3 A redelivered event changes nothing"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-3 A redelivered event changes nothing"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given a `UserErased` event for S was consumed"
+      - "When the same event, and then a second event with a new event id for S, are consumed"
+      - "Then both complete without error, no row differs from after the first handling, and the DLQ stays empty"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/user_erasure.feature::PER-3 A redelivered event changes nothing"
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (green: test_payment_user_erasure.py::test_per3_a_redelivered_event_changes_nothing)."
+
+  - id: payment.per-4-a-user-without-payouts-is-a-no-op
+    title: "PER-4 A user without payouts is a no-op"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-4 A user without payouts is a no-op"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a `UserErased` event for a buyer with payment transactions but no payout requests is consumed"
+      - "Then the handler completes OK and no payment transaction or ledger row changes"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestEraseSellerPayouts. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-5-a-malformed-event-is-parked-not-applied
+    title: "PER-5 A malformed event is parked, not applied"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-5 A malformed event is parked, not applied"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a `UserErased` event with an empty `user_id`, or an envelope that does not decode, is consumed"
+      - "Then no row changes and the record is written to `identity.events.payment.dlq`"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/app TestErasureConsumerParksMalformed. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-6-a-store-error-is-retried-and-leaves-no-partial-erasure
+    title: "PER-6 A store error is retried and leaves no partial erasure"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-6 A store error is retried and leaves no partial erasure"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given the payment database fails during the update"
+      - "When a `UserErased` event for S is consumed"
+      - "Then no payout request is masked until the database recovers, the record is retried, and afterwards all of S's payout requests are masked and the DLQ is empty"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/store TestEraseSellerPayoutsRollsBack. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-7-other-identity-events-are-ignored
+    title: "PER-7 Other identity events are ignored"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-7 Other identity events are ignored"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When a `UserRegistered` or `UserStatusChanged` event for S is consumed"
+      - "Then no payout request changes"
+    tags: [payment, user-erasure, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/app TestErasureConsumerIgnoresOtherEvents. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+  - id: payment.per-8-payout-history-shows-the-mask
+    title: "PER-8 Payout history shows the mask"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change commerce-user-erasure: PER-8 Payout history shows the mask"
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "Given S's data was erased"
+      - "When an admin lists S's payout history"
+      - "Then each entry shows `account_number` and `account_name` \"Đã xóa\" with its original amount and status"
+    tags: [payment, user-erasure]
+    status: automated
+    covered_by: "payment/user_erasure.feature::PER-8 Payout history shows the mask"
+    notes: "commerce-user-erasure: e2e in payment/user_erasure.feature (green: test_payment_user_erasure.py::test_per8_payout_history_shows_the_mask)."
+
+  - id: payment.payout-requires-kyc
+    title: Payouts require a VERIFIED seller
+    persona: seller
+    priority: P0
+    summary: RequestPayout and RequestWalletPayout proceed only for a VERIFIED seller and fail closed when verification cannot be read.
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose KYC status is not VERIFIED"
+      - "When the seller requests a bank or wallet payout"
+      - "Then the call fails FAILED_PRECONDITION \"seller verification required\" and no ledger or payout row is written"
+      - "And an unreadable status fails UNAVAILABLE (fail closed)"
+    tags: [payment, seller, kyc]
+    status: planned
+    covered_by: null
+    notes: "payment-payout-kyc-gate umbrella; per-scenario entries are payment.payout-kyc.*; e2e in payment/payout_kyc_gate.feature (red before implementation)."
+
+  - id: payment.payout-kyc.verified-bank
+    title: "Verified seller requests a bank payout"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verified seller requests a bank payout"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose KYC status is VERIFIED with an available balance covering the amount"
+      - "When the seller calls RequestPayout"
+      - "Then the call succeeds and ListPayoutHistory returns the new payout with the requested amount"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Verified seller requests a bank payout"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verified seller requests a bank payout (green: test_payout_kyc_gate.py::test_verified_seller_requests_a_bank_payout); @destructive; needs compose/payment-ledger.override.yaml."
+
+  - id: payment.payout-kyc.verified-wallet
+    title: "Verified seller requests a wallet payout"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verified seller requests a wallet payout"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose KYC status is VERIFIED with an available balance covering the amount"
+      - "When the seller calls RequestWalletPayout"
+      - "Then the call succeeds and ListLedgerEntries shows one pending payout entry of minus the requested amount"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Verified seller requests a wallet payout"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verified seller requests a wallet payout (green: test_payout_kyc_gate.py::test_verified_seller_requests_a_wallet_payout); @destructive; needs compose/payment-ledger.override.yaml."
+
+  - id: payment.payout-kyc.never-submitted
+    title: "Seller who never submitted is refused"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seller who never submitted is refused"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller with status NOT_SUBMITTED and a positive balance"
+      - "When the seller calls RequestPayout"
+      - "Then the call fails FAILED_PRECONDITION with message \"seller verification required\", ListPayoutHistory returns 0 payouts and the wallet balance is unchanged"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seller who never submitted is refused"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller who never submitted is refused (green: test_payout_kyc_gate.py::test_seller_who_never_submitted_is_refused)."
+
+  - id: payment.payout-kyc.pending
+    title: "Seller with a pending submission is refused"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seller with a pending submission is refused"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose latest submission is PENDING"
+      - "When the seller calls RequestWalletPayout"
+      - "Then the call fails FAILED_PRECONDITION and ListLedgerEntries contains 0 new entries"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seller with a pending submission is refused"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller with a pending submission is refused (green: test_payout_kyc_gate.py::test_seller_with_a_pending_submission_is_refused)."
+
+  - id: payment.payout-kyc.rejected
+    title: "Seller with a rejected submission is refused"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seller with a rejected submission is refused"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller whose latest submission is REJECTED"
+      - "When the seller calls RequestPayout"
+      - "Then the call fails FAILED_PRECONDITION and the wallet balance is unchanged"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seller with a rejected submission is refused"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller with a rejected submission is refused (green: test_payout_kyc_gate.py::test_seller_with_a_rejected_submission_is_refused)."
+
+  - id: payment.payout-kyc.loses-verification
+    title: "Seller who loses verification is refused on the next call"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seller who loses verification is refused on the next call"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller who completed one payout has a newer submission that is not VERIFIED"
+      - "When the seller calls RequestPayout again"
+      - "Then the second call fails FAILED_PRECONDITION and ListPayoutHistory still returns exactly 1 payout"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seller who loses verification is refused on the next call"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seller who loses verification is refused on the next call (green: test_payout_kyc_gate.py::test_seller_who_loses_verification_is_refused_on_the_next_call); @destructive; needs compose/payment-ledger.override.yaml."
+
+  - id: payment.payout-kyc.verification-unreachable
+    title: "Verification service unreachable"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verification service unreachable"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given team-verification is stopped and a VERIFIED seller exists"
+      - "When the seller calls RequestPayout"
+      - "Then the call fails UNAVAILABLE within 3 seconds and ListPayoutHistory returns 0 new payouts"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Verification service unreachable"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Verification service unreachable (green: test_payout_kyc_gate.py::test_verification_service_unreachable); @destructive; stops team-verification."
+
+  - id: payment.payout-kyc.gate-recovers
+    title: "Gate recovers after the outage"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Gate recovers after the outage"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given team-verification was stopped and is started again"
+      - "When the VERIFIED seller repeats the payout"
+      - "Then the call succeeds with no restart of team-payment"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Gate recovers after the outage"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Gate recovers after the outage (green: test_payout_kyc_gate.py::test_gate_recovers_after_the_outage); @destructive; stops team-verification; needs compose/payment-ledger.override.yaml."
+
+  - id: payment.payout-kyc.invalid-amount-before-gate
+    title: "Invalid amount is rejected before the gate"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Invalid amount is rejected before the gate"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller who is not verified"
+      - "When the seller calls RequestPayout with amount 0"
+      - "Then the call fails INVALID_ARGUMENT (not FAILED_PRECONDITION: validation runs before the gate)"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Invalid amount is rejected before the gate"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Invalid amount is rejected before the gate (green: test_payout_kyc_gate.py::test_invalid_amount_is_rejected_before_the_gate); the zero-status-calls count is unit-verified in the handler tests."
+
+  - id: payment.payout-kyc.other-wallet-before-gate
+    title: "Another seller's wallet is denied before the gate"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Another seller's wallet is denied before the gate"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a buyer and a seller who is not verified"
+      - "When the buyer calls RequestPayout with the seller's seller_id"
+      - "Then the call fails PERMISSION_DENIED"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Another seller's wallet is denied before the gate"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Another seller's wallet is denied before the gate (green: test_payout_kyc_gate.py::test_another_sellers_wallet_is_denied_before_the_gate); the zero-status-calls count is unit-verified in the handler tests."
+
+  - id: payment.payout-kyc.no-write-scope-before-gate
+    title: "Missing listing write scope is denied before the gate"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Missing listing write scope is denied before the gate"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a user token without listing.write"
+      - "When it calls RequestWalletPayout"
+      - "Then the call fails PERMISSION_DENIED"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Missing listing write scope is denied before the gate"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Missing listing write scope is denied before the gate (green: test_payout_kyc_gate.py::test_missing_listing_write_scope_is_denied_before_the_gate); the zero-status-calls count is unit-verified in the handler tests."
+
+  - id: payment.payout-kyc.status-from-principal
+    title: "Status comes from the principal not the request"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Status comes from the principal not the request"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given an unverified seller and a verified seller"
+      - "When the unverified seller calls RequestPayout with seller_id set to the verified seller's id"
+      - "Then the call fails PERMISSION_DENIED and no payout exists for either seller"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Status comes from the principal not the request"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Status comes from the principal not the request (green: test_payout_kyc_gate.py::test_status_comes_from_the_principal_not_the_request)."
+
+  - id: payment.payout-kyc.boot-needs-verification-addr
+    title: "Boot fails without the verification address"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Boot fails without the verification address"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given team-payment starts with UPSTREAM_VERIFICATION_ADDR unset or blank"
+      - "When configuration loads"
+      - "Then the process exits non-zero and its log names UPSTREAM_VERIFICATION_ADDR"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Boot fails without the verification address"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Boot fails without the verification address (green: test_payout_kyc_gate.py::test_boot_fails_without_the_verification_address); also unit-verified in team-payment/internal/config/config_test.go."
+
+  - id: payment.payout-kyc.seeded-seller-pays-out
+    title: "Seeded demo seller can pay out"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Seeded demo seller can pay out"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given the marketplace seed has run"
+      - "When a seeded shop seller requests a payout"
+      - "Then GetVerificationStatus returns VERIFIED and the call is not refused for seller verification"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Seeded demo seller can pay out"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Seeded demo seller can pay out (green: test_payout_kyc_gate.py::test_seeded_demo_seller_can_pay_out); depends on seed-marketplace.sh verifying sellers (task 1.9); payout success depends on the seeded balance."
+
+  - id: payment.payout-kyc.fresh-seller-blocked
+    title: "Freshly registered seller is blocked at rollout"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Freshly registered seller is blocked at rollout"
+    entry_route: /seller/wallet
+    services: [team-payment, team-verification, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.RequestWalletPayout, verification.v1.GetVerificationStatus]
+    acceptance:
+      - "Given a seller registered after the seed and without a submission"
+      - "When the seller calls RequestWalletPayout"
+      - "Then the call fails FAILED_PRECONDITION and GetVerificationStatus returns NOT_SUBMITTED"
+    tags: [payment, seller, kyc]
+    status: automated
+    covered_by: "payment/payout_kyc_gate.feature::Freshly registered seller is blocked at rollout"
+    notes: "payment-payout-kyc-gate: e2e in payment/payout_kyc_gate.feature::Freshly registered seller is blocked at rollout (green: test_payout_kyc_gate.py::test_freshly_registered_seller_is_blocked_at_rollout)."
+
+  - id: payment.payout-kyc.verification-deadline
+    title: "Verification call exceeds the deadline"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verification call exceeds the deadline"
+    entry_route: /
+    services: [team-payment, team-verification]
+    acceptance:
+      - "When team-verification answers GetVerificationStatus after 5 seconds"
+      - "Then the payout call fails UNAVAILABLE after at most 2.5 seconds and the call is attempted exactly once"
+    tags: [payment, kyc, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/upstream/verification_test.go TestPayoutGateSlowServerUnavailableOneAttempt. Not producible black box: needs a verification service that answers slowly; the stack has no slow-upstream tooling for team-verification."
+
+  - id: payment.payout-kyc.verification-denies-principal
+    title: "Verification rejects the service principal"
+    persona: seller
+    priority: P0
+    summary: "Scenario of change payment-payout-kyc-gate: Verification rejects the service principal"
+    entry_route: /
+    services: [team-payment, team-verification]
+    acceptance:
+      - "When team-verification answers PermissionDenied to the status call"
+      - "Then the payout call fails UNAVAILABLE with message \"verification unavailable\" and not FAILED_PRECONDITION"
+    tags: [payment, kyc, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-payment/internal/upstream/verification_test.go TestPayoutGatePermissionDeniedIsUnavailable. Not producible black box: needs team-verification to reject a valid service principal; not producible on a healthy stack."
   - id: payment-seller-fee-charge.a-fee-is-debited-from-the-wallet
     title: "A fee is debited from the wallet"
     persona: seller

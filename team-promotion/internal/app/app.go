@@ -46,6 +46,7 @@ const (
 	identityTopic      = "identity.events"
 	referralTopic      = "referral.events"
 	identityGroup      = "team-promotion-identity"
+	erasureGroup       = "team-promotion.erasure"
 	referralGroup      = "team-promotion-referral"
 	identityDLQTopic   = "identity.events.promotion.dlq"
 	referralDLQTopic   = "referral.events.promotion.dlq"
@@ -217,6 +218,11 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	if err != nil {
 		return err
 	}
+	erasureConsumer, err := newConsumer(s, &stack, pub, logger, erasureGroup, identityTopic, identityDLQTopic,
+		consumer.NewErasureHandler(pool, handlerCfg))
+	if err != nil {
+		return err
+	}
 	verdictSweeper := consumer.NewSweeper(pool, handlerCfg)
 
 	newUserPurge, err := lifecycle.Every(newUserPurgeEvery, func(ctx context.Context) error {
@@ -238,7 +244,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, outboxPurge, holdPurge, idemPurge, identityConsumer, referralConsumer, verdictSweeper, renewalSweeper, newUserPurge))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, outboxPurge, holdPurge, idemPurge, identityConsumer, referralConsumer, erasureConsumer, verdictSweeper, renewalSweeper, newUserPurge))
 }
 
 func newConsumer(s config.Settings, stack *lifecycle.Stack, dlq consume.DLQProducer, logger *slog.Logger, group, topic, dlqTopic string, handler consume.Handler) (*consume.Consumer, error) {

@@ -28,19 +28,24 @@ var ErrAlreadyReviewed = errors.New("kyc submission already reviewed")
 
 // Submission is one KYC record. reviewed_at is nil until a reviewer acts.
 type Submission struct {
-	ID         string
-	UserID     string
-	DocType    string
-	DocRef     string
-	Status     Status
-	ReviewedAt *time.Time
-	CreatedAt  time.Time
+	ID            string
+	UserID        string
+	DocType       string
+	DocRef        string
+	Status        Status
+	ReviewedAt    *time.Time
+	CreatedAt     time.Time
+	ReasonCode    string
+	SupersededAt  *time.Time
+	DocumentCount int
 }
 
 // KycRepository stores KYC submissions. One user may submit multiple times;
 // GetLatestByUser returns the most recent for status lookups. Owned by
 // team-verification.
 type KycRepository interface {
+	DocumentRepository
+	ReviewRepository
 	// Create persists a new submission (id pre-assigned by the caller/service).
 	Create(ctx context.Context, s *Submission) (*Submission, error)
 	// GetByID returns a submission by id, or ErrNotFound.
@@ -78,14 +83,14 @@ func (r *PostgresKycRepo) Create(ctx context.Context, s *Submission) (*Submissio
 
 func (r *PostgresKycRepo) GetByID(ctx context.Context, id string) (*Submission, error) {
 	return r.queryOne(ctx, `
-		SELECT id, user_id, doc_type, doc_ref, status, reviewed_at, created_at
+		SELECT id, user_id, doc_type, doc_ref, status, reviewed_at, created_at, COALESCE(reason_code, ''), superseded_at
 		FROM kyc_submissions
 		WHERE id = $1`, id)
 }
 
 func (r *PostgresKycRepo) GetLatestByUser(ctx context.Context, userID string) (*Submission, error) {
 	return r.queryOne(ctx, `
-		SELECT id, user_id, doc_type, doc_ref, status, reviewed_at, created_at
+		SELECT id, user_id, doc_type, doc_ref, status, reviewed_at, created_at, COALESCE(reason_code, ''), superseded_at
 		FROM kyc_submissions
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -99,7 +104,7 @@ func (r *PostgresKycRepo) UpdateStatus(ctx context.Context, id string, status St
 		UPDATE kyc_submissions
 		SET status = $2, reviewed_at = $3
 		WHERE id = $1 AND status = $4
-		RETURNING id, user_id, doc_type, doc_ref, status, reviewed_at, created_at`
+		RETURNING id, user_id, doc_type, doc_ref, status, reviewed_at, created_at, COALESCE(reason_code, ''), superseded_at`
 	sub, err := r.scanRow(r.pool.QueryRow(ctx, q, id, string(status), reviewedAt, string(StatusPending)))
 	if !errors.Is(err, ErrNotFound) {
 		return sub, err
@@ -117,7 +122,7 @@ func (r *PostgresKycRepo) queryOne(ctx context.Context, q, arg string) (*Submiss
 func (r *PostgresKycRepo) scanRow(row pgx.Row) (*Submission, error) {
 	var s Submission
 	var status string
-	if err := row.Scan(&s.ID, &s.UserID, &s.DocType, &s.DocRef, &status, &s.ReviewedAt, &s.CreatedAt); err != nil {
+	if err := row.Scan(&s.ID, &s.UserID, &s.DocType, &s.DocRef, &status, &s.ReviewedAt, &s.CreatedAt, &s.ReasonCode, &s.SupersededAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -132,6 +137,10 @@ func clone(s *Submission) *Submission {
 	if s.ReviewedAt != nil {
 		rt := *s.ReviewedAt
 		out.ReviewedAt = &rt
+	}
+	if s.SupersededAt != nil {
+		st := *s.SupersededAt
+		out.SupersededAt = &st
 	}
 	return &out
 }

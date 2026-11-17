@@ -40,6 +40,16 @@ export function SellerOnboarding() {
               Bằng việc tiếp tục, bạn đồng ý với điều khoản dành cho Người Bán
               và bắt đầu đăng bán sản phẩm trên nền tảng.
             </p>
+            <p>
+              <a
+                href={buyerAppUrl("/dieu-khoan-nguoi-ban")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm underline"
+              >
+                Xem điều khoản Người Bán
+              </a>
+            </p>
             {error && <Alert type="error" description={error} />}
             <Button onClick={accept} disabled={pending} isLoading={pending}>
               Đồng ý và trở thành Người Bán

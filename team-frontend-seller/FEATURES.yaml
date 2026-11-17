@@ -4798,3 +4798,431 @@ features:
     tags: [seller]
     status: automated
     covered_by: "frontend/seller_bulk_ship.feature::Bulk ship: another seller cannot ship or print a foreign order in the browser"
+
+  - id: seller.terms-consent.link-opens-seller-terms
+    title: "Terms link opens the seller terms page"
+    persona: buyer
+    priority: P2
+    summary: "Terms link opens the seller terms page"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "On /seller/new the terms link targets the buyer app /dieu-khoan-nguoi-ban in a new tab and the page returns 200"
+    tags: [seller, legal]
+    status: automated
+    covered_by: "seller/seller_terms_consent.feature::Terms link opens the seller terms page"
+
+  - id: seller.terms-consent.accepting-records-ledger-row
+    title: "Accepting seller terms records a ledger row"
+    persona: buyer
+    priority: P1
+    summary: "Accepting seller terms records a ledger row"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "After BecomeSeller succeeds ListMyConsents returns a SELLER_TERMS row with the seller terms version and source seller_onboarding"
+    tags: [seller, legal]
+    status: automated
+    covered_by: "seller/seller_terms_consent.feature::Accepting seller terms records a ledger row"
+
+  - id: seller.terms-consent.denied-writes-no-row
+    title: "Denied BecomeSeller writes no consent row"
+    persona: buyer
+    priority: P1
+    summary: "Denied BecomeSeller writes no consent row"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When BecomeSeller is denied no SELLER_TERMS row is written"
+    tags: [seller, legal]
+    status: automated
+    covered_by: "seller/seller_terms_consent.feature::Denied BecomeSeller writes no consent row"
+
+  - id: seller.terms-consent.write-failure-keeps-seller
+    title: "Consent write failure does not undo seller status"
+    persona: buyer
+    priority: P1
+    summary: "Consent write failure does not undo seller status"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the consent write fails after BecomeSeller succeeds the user is still a seller and sees no error"
+    tags: [seller, legal]
+    status: automated
+    covered_by: "seller/seller_terms_consent.feature::Consent write failure does not undo seller status"
+
+  - id: seller-kyc-ui.a-seller-who-never-submitted-sees-not-submitted-and-the-form
+    title: "A seller who never submitted sees NOT_SUBMITTED and the form"
+    persona: seller
+    priority: P1
+    summary: "A seller who never submitted sees NOT_SUBMITTED and the form"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with no submission opens `/seller/verification`"
+      - "Then the page shows the label \"Chưa gửi hồ sơ\" and the upload form, and 0 requests use a user id other than the caller's"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A seller who never submitted sees NOT_SUBMITTED and the form"
+
+  - id: seller-kyc-ui.a-pending-submission-hides-the-form
+    title: "A pending submission hides the form"
+    persona: seller
+    priority: P1
+    summary: "A pending submission hides the form"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller whose latest submission is `PENDING` opens the page"
+      - "Then the page shows \"Đang chờ duyệt\" and renders 0 file inputs"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A pending submission hides the form"
+
+  - id: seller-kyc-ui.a-verified-seller-sees-the-verified-state
+    title: "A verified seller sees the verified state"
+    persona: seller
+    priority: P1
+    summary: "A verified seller sees the verified state"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller whose latest submission is `VERIFIED` opens the page"
+      - "Then the page shows \"Đã xác minh\" and renders 0 file inputs"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A verified seller sees the verified state"
+
+  - id: seller-kyc-ui.a-rejected-submission-shows-the-reason-and-allows-resubmission
+    title: "A rejected submission shows the reason and allows resubmission"
+    persona: seller
+    priority: P1
+    summary: "A rejected submission shows the reason and allows resubmission"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller whose latest submission is `REJECTED` with `reject_reason_code` `document_unreadable` opens the page"
+      - "Then the page shows \"Bị từ chối\" with the Vietnamese text for that code and renders the upload form again"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A rejected submission shows the reason and allows resubmission"
+
+  - id: seller-kyc-ui.an-unknown-reject-reason-code-falls-back-to-a-generic-text
+    title: "An unknown reject reason code falls back to a generic text"
+    persona: seller
+    priority: P1
+    summary: "An unknown reject reason code falls back to a generic text"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the status response carries a `reject_reason_code` the UI has no text for"
+      - "Then the page shows the generic text \"Hồ sơ chưa đạt yêu cầu, vui lòng gửi lại\" and never renders the raw code"
+    tags: [seller-kyc-ui, unit]
+    status: not-testable
+    notes: "seller-kyc-ui: unit-verified, not producible end to end (the real server only emits known reason codes, so the UI fallback cannot be produced end to end). VERIFIED BY `team-frontend-seller/src/features/seller/verification/status.test.ts` `falls back to the generic text for an unknown reject reason code`."
+
+  - id: seller-kyc-ui.status-read-failure-is-shown-as-an-error-not-as-not-submitted
+    title: "Status read failure is shown as an error, not as not-submitted"
+    persona: seller
+    priority: P1
+    summary: "Status read failure is shown as an error, not as not-submitted"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `GetVerificationStatus` fails with `UNAVAILABLE`"
+      - "Then the page shows an error Alert with a \"Thử lại\" link and renders 0 upload forms"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Status read failure is shown as an error, not as not-submitted"
+
+  - id: seller-kyc-ui.a-guest-is-sent-to-login
+    title: "A guest is sent to login"
+    persona: guest
+    priority: P1
+    summary: "A guest is sent to login"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous visitor opens `/seller/verification`"
+      - "Then the response redirects to the login page with the return path `/seller/verification`"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A guest is sent to login"
+
+  - id: seller-kyc-ui.a-buyer-without-seller-scope-cannot-use-the-page
+    title: "A buyer without seller scope cannot use the page"
+    persona: seller
+    priority: P1
+    summary: "A buyer without seller scope cannot use the page"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a signed-in user without the `listing.write` scope opens `/seller/verification`"
+      - "Then the seller onboarding screen renders instead of the page and 0 verification calls are made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A buyer without seller scope cannot use the page"
+
+  - id: seller-kyc-ui.three-valid-files-are-uploaded-and-submitted
+    title: "Three valid files are uploaded and submitted"
+    persona: seller
+    priority: P1
+    summary: "Three valid files are uploaded and submitted"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects 3 valid files, ticks the consent checkbox and presses \"Gửi hồ sơ xác minh\""
+      - "Then 3 `CreateKycUploadUrl` calls, 3 `PUT` requests with matching `Content-Type` and `Content-Length`, and exactly 1 `SubmitKyc` call with 1 `doc_ref` and 2 `additional_doc_refs` occur, and the page then shows \"Đang chờ duyệt\""
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Three valid files are uploaded and submitted"
+
+  - id: seller-kyc-ui.consent-unticked-blocks-submission
+    title: "Consent unticked blocks submission"
+    persona: seller
+    priority: P1
+    summary: "Consent unticked blocks submission"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects a valid file but leaves the consent checkbox unticked"
+      - "Then the submit button is disabled and 0 `CreateKycUploadUrl` calls are made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Consent unticked blocks submission"
+
+  - id: seller-kyc-ui.a-file-over-5-mib-is-rejected-before-upload
+    title: "A file over 5 MiB is rejected before upload"
+    persona: seller
+    priority: P1
+    summary: "A file over 5 MiB is rejected before upload"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects a file of 5 MiB + 1 byte"
+      - "Then the form shows \"Tệp tối đa 5 MiB\" for that file, the submit button is disabled and 0 network calls are made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A file over 5 MiB is rejected before upload"
+
+  - id: seller-kyc-ui.a-file-of-exactly-5-mib-is-accepted
+    title: "A file of exactly 5 MiB is accepted"
+    persona: seller
+    priority: P1
+    summary: "A file of exactly 5 MiB is accepted"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects a PNG of exactly 5 MiB (5242880 bytes)"
+      - "Then the form shows no size error and submit is enabled once consent is ticked"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A file of exactly 5 MiB is accepted"
+
+  - id: seller-kyc-ui.a-wrong-file-type-or-an-empty-file-is-rejected
+    title: "A wrong file type or an empty file is rejected"
+    persona: seller
+    priority: P1
+    summary: "A wrong file type or an empty file is rejected"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects a `.gif` file or a 0-byte file"
+      - "Then the form shows \"Chỉ nhận JPG, PNG hoặc PDF\" or \"Tệp rỗng\" respectively and submit is disabled"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A wrong file type or an empty file is rejected"
+
+  - id: seller-kyc-ui.more-than-three-files-are-refused
+    title: "More than three files are refused"
+    persona: seller
+    priority: P1
+    summary: "More than three files are refused"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects 4 files"
+      - "Then the form keeps only the limit message \"Tối đa 3 tệp\", submit is disabled and 0 network calls are made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::More than three files are refused"
+
+  - id: seller-kyc-ui.a-failed-put-stops-the-submission
+    title: "A failed PUT stops the submission"
+    persona: seller
+    priority: P1
+    summary: "A failed PUT stops the submission"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the browser `PUT` of the second file fails or the presigned URL has expired"
+      - "Then `SubmitKyc` is not called, the form shows \"Tải tệp thất bại, vui lòng thử lại\" and the seller can retry without re-selecting files"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A failed PUT stops the submission"
+
+  - id: seller-kyc-ui.the-server-refuses-a-doc-ref
+    title: "The server refuses a doc_ref"
+    persona: seller
+    priority: P1
+    summary: "The server refuses a doc_ref"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `SubmitKyc` fails with `INVALID_ARGUMENT` or `PERMISSION_DENIED` because a doc_ref was not issued to the caller"
+      - "Then the form shows \"Hồ sơ không hợp lệ, vui lòng tải lại tệp\" and the status stays unchanged"
+    tags: [seller-kyc-ui, unit]
+    status: not-testable
+    notes: "seller-kyc-ui: unit-verified, not producible end to end (a doc_ref the caller was not issued cannot be sent through the browser form). VERIFIED BY `team-frontend-seller/src/features/seller/verification/actions.test.ts` `maps INVALID_ARGUMENT and PERMISSION_DENIED from SubmitKyc to the invalid documents message`."
+
+  - id: seller-kyc-ui.submit-cannot-be-sent-twice
+    title: "Submit cannot be sent twice"
+    persona: seller
+    priority: P1
+    summary: "Submit cannot be sent twice"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller double-clicks the submit button"
+      - "Then exactly 1 `SubmitKyc` call is made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Submit cannot be sent twice"
+
+  - id: seller-kyc-ui.image-bytes-and-keys-never-reach-logs-or-the-server-action-payload
+    title: "Image bytes and keys never reach logs or the server action payload"
+    persona: seller
+    priority: P1
+    summary: "Image bytes and keys never reach logs or the server action payload"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When an upload completes"
+      - "Then the Server Action requests contain only content type, size, document type and `doc_ref` strings (0 file bytes), and the page DOM contains no presigned URL or `doc_ref`"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Image bytes and keys never reach logs or the server action payload"
+
+  - id: seller-kyc-ui.nav-lists-the-verification-page
+    title: "Nav lists the verification page"
+    persona: seller
+    priority: P1
+    summary: "Nav lists the verification page"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens any `/seller` page"
+      - "Then the navigation contains exactly 1 entry \"Xác minh danh tính\" with href `/seller/verification`"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Nav lists the verification page"
+
+  - id: seller-kyc-ui.wallet-shows-a-notice-while-not-verified
+    title: "Wallet shows a notice while not verified"
+    persona: seller
+    priority: P1
+    summary: "Wallet shows a notice while not verified"
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-verification, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller whose status is not `VERIFIED` opens `/seller/wallet`"
+      - "Then the page shows the notice \"Cần xác minh danh tính để rút tiền\" with a link to `/seller/verification`"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_payout_notice.feature::Wallet shows a notice while not verified"
+
+  - id: seller-kyc-ui.a-refused-payout-shows-the-verification-message
+    title: "A refused payout shows the verification message"
+    persona: seller
+    priority: P1
+    summary: "A refused payout shows the verification message"
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-verification, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller confirms a payout and the gateway returns `FAILED_PRECONDITION` \"seller verification required\""
+      - "Then the modal shows \"Cần xác minh danh tính để rút tiền\" with a link to `/seller/verification`, the balance is unchanged and the raw server text is not shown"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_payout_notice.feature::A refused payout shows the verification message"
+
+  - id: seller-kyc-ui.verification-outage-during-payout-shows-a-retry-message
+    title: "Verification outage during payout shows a retry message"
+    persona: seller
+    priority: P1
+    summary: "Verification outage during payout shows a retry message"
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-verification, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the payout call fails with `UNAVAILABLE`"
+      - "Then the modal shows \"Chưa kiểm tra được trạng thái xác minh, vui lòng thử lại sau\" and the confirm button is enabled again"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_payout_notice.feature::Verification outage during payout shows a retry message"
+
+  - id: seller-kyc-ui.a-verified-seller-sees-no-notice-and-can-pay-out
+    title: "A verified seller sees no notice and can pay out"
+    persona: seller
+    priority: P1
+    summary: "A verified seller sees no notice and can pay out"
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-verification, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a `VERIFIED` seller with a balance above 0 opens `/seller/wallet` and confirms a payout"
+      - "Then no verification notice is rendered and the payout succeeds with the toast \"Đã tạo lệnh rút tiền\""
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_payout_notice.feature::A verified seller sees no notice and can pay out"

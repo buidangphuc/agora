@@ -2906,3 +2906,76 @@ features:
     tags: [recsys, unit]
     status: not-testable
     notes: "analytics-listing-deleted-status: VERIFIED BY platform-recsys/tests/test_candidate_attributes.py test_backfill_deleted_status_writes_visible_false. Not producible end to end: it exercises decoder or store internals that no public-edge call can reach."
+
+  - id: recsys.aue-19-recommendation-and-nearline-keys-are-removed
+    title: "AUE-19 Recommendation and nearline keys are removed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-19 Recommendation and nearline keys are removed"
+    entry_route: /
+    services: [platform-recsys]
+    acceptance:
+      - "When a `UserErased` for U arrives while Redis holds U's keys under two generations, the legacy key and both nearline keys, and Qdrant holds U's vector in the serving user collection"
+      - "Then within 60 s zero Redis keys and zero Qdrant points contain U's id, and V's keys and points are unchanged"
+    tags: [user-erasure, analytics]
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-19 Recommendation and nearline keys are removed"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue19_recommendation_and_nearline_keys_are_removed)."
+
+  - id: recsys.aue-20-redis-or-qdrant-failure-exits-without-commit
+    title: "AUE-20 Redis or Qdrant failure exits without commit"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-20 Redis or Qdrant failure exits without commit"
+    entry_route: /
+    services: [platform-recsys]
+    acceptance:
+      - "When Redis or Qdrant is unreachable while handling the event"
+      - "Then the process exits non-zero with the offset uncommitted and the restart replays the event to completion"
+    tags: [user-erasure, unit]
+    status: not-testable
+    notes: "analytics-user-erasure: VERIFIED BY platform-recsys/tests/test_erasure.py test_aue20_redis_failure_exits_without_commit_and_restart_replays. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+
+  - id: recsys.aue-21-redelivery-and-missing-keys-are-no-ops
+    title: "AUE-21 Redelivery and missing keys are no-ops"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-21 Redelivery and missing keys are no-ops"
+    entry_route: /
+    services: [platform-recsys]
+    acceptance:
+      - "When the same event is delivered twice, or arrives for a user with no keys"
+      - "Then both deliveries succeed, delete nothing further and commit the offset, with no DLQ record"
+    tags: [user-erasure, analytics]
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-21 Redelivery and missing keys are no-ops"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue21_redelivery_and_missing_keys_are_noops)."
+
+  - id: recsys.aue-22-poison-record-goes-to-the-dlq
+    title: "AUE-22 Poison record goes to the DLQ"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-22 Poison record goes to the DLQ"
+    entry_route: /
+    services: [platform-recsys]
+    acceptance:
+      - "When an undecodable record and a `UserErased` with an empty `user_id` are consumed"
+      - "Then both are published to `identity.events.recsys.dlq` and committed past, and no key is deleted"
+    tags: [user-erasure, analytics]
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-22 Poison record goes to the DLQ"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue22_poison_record_goes_to_the_dlq)."
+
+  - id: recsys.aue-23-logs-carry-no-raw-id
+    title: "AUE-23 Logs carry no raw id"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-23 Logs carry no raw id"
+    entry_route: /
+    services: [platform-recsys]
+    acceptance:
+      - "When the event for U is handled with debug logging"
+      - "Then the log output contains zero occurrences of U's id and reports deleted-key counts"
+    tags: [user-erasure, unit]
+    status: not-testable
+    notes: "analytics-user-erasure: VERIFIED BY platform-recsys/tests/test_erasure.py test_aue23_logs_carry_no_raw_id_and_report_counts. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."

@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { VerificationStatus } from "@/generated/platform/verification/v1/verification_pb.js";
 import { getStorefront, listBundlesBySeller } from "@/lib/gateway/listings";
 import { getWalletBalance, listLedgerEntries } from "@/lib/gateway/payment";
 import {
@@ -9,6 +10,7 @@ import {
   listPlans,
 } from "@/lib/gateway/promotion";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
+import { getVerificationStatus } from "@/lib/gateway/verification";
 import SellerPlansPage from "./plans/page";
 import SellerShopPage from "./shop/page";
 import SellerWalletPage from "./wallet/page";
@@ -26,6 +28,9 @@ vi.mock("@/lib/gateway/session", () => ({
 vi.mock("@/lib/gateway/payment", () => ({
   getWalletBalance: vi.fn(),
   listLedgerEntries: vi.fn(),
+}));
+vi.mock("@/lib/gateway/verification", () => ({
+  getVerificationStatus: vi.fn(),
 }));
 vi.mock("@/lib/gateway/promotion", () => ({
   listPlans: vi.fn(),
@@ -51,6 +56,14 @@ beforeEach(() => {
   });
   vi.mocked(hasScope).mockReturnValue(true);
 });
+
+function status(s: VerificationStatus) {
+  vi.mocked(getVerificationStatus).mockResolvedValue({
+    status: s,
+    badge: s === VerificationStatus.VERIFIED,
+    rejectReasonCode: "",
+  });
+}
 
 function entries(n: number) {
   return Array.from({ length: n }, (_, i) => ({
@@ -104,6 +117,45 @@ describe("/seller/wallet", () => {
     render(await SellerWalletPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Không tải được số dư ví.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Rút tiền" })).toBeNull();
+  });
+});
+
+describe("/seller/wallet verification notice (seller-kyc-ui)", () => {
+  const NOTICE = "Cần xác minh danh tính để rút tiền";
+
+  async function open() {
+    vi.mocked(getWalletBalance).mockResolvedValue(750000);
+    vi.mocked(listLedgerEntries).mockResolvedValue([]);
+    render(await SellerWalletPage({ searchParams: Promise.resolve({}) }));
+  }
+
+  it.each([
+    ["NOT_SUBMITTED", VerificationStatus.NOT_SUBMITTED],
+    ["PENDING", VerificationStatus.PENDING],
+    ["REJECTED", VerificationStatus.REJECTED],
+  ])("Wallet shows a notice while not verified: %s", async (_n, s) => {
+    status(s);
+    await open();
+    expect(screen.getByText(NOTICE)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /xác minh/i })).toHaveAttribute(
+      "href",
+      "/seller/verification",
+    );
+    expect(getVerificationStatus).toHaveBeenCalledWith("me");
+  });
+
+  it("A verified seller sees no notice and can pay out", async () => {
+    status(VerificationStatus.VERIFIED);
+    await open();
+    expect(screen.queryByText(NOTICE)).toBeNull();
+    expect(screen.getByRole("button", { name: "Rút tiền" })).toBeEnabled();
+  });
+
+  it("Wallet shows a notice while not verified: a status read failure hides the notice and keeps the wallet", async () => {
+    vi.mocked(getVerificationStatus).mockRejectedValue(new Error("down"));
+    await open();
+    expect(screen.queryByText(NOTICE)).toBeNull();
+    expect(screen.getByText("₫750.000")).toBeInTheDocument();
   });
 });
 

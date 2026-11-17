@@ -49,6 +49,7 @@ Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`,
 - `ListingChanged` with a `PUBLISHED` listing (created or updated): upsert `(seller_id, listing_id)`. `created_at` is the envelope's `occurred_at` and is kept on redelivery and later updates, so editing a listing does not bump it in the feed. A listing has one owning seller.
 - `ListingChanged` `DELETED`, or any non-published status; and `ListingStatusChanged` to a non-published status: remove the row. `ListingStatusChanged` to `PUBLISHED` is ignored (it carries no seller id; the matching `ListingChanged` upserts).
 - Delivery is at-least-once with idempotent writes. A failing record is retried with backoff (5 attempts), then parked on `<topic>.dlq`; if it cannot be parked the service exits without committing. A malformed record (bad envelope, no listing id, published without seller id) takes the same path.
+- Erasure: a second consumer reads `platform.identity.v1.UserErased` from `IDENTITY_EVENTS_TOPIC` (group `KAFKA_ERASURE_CONSUMER_GROUP`) and, in one transaction, anonymises the user's reviews, questions and answers (author id `erased`, fixed display name) and deletes their helpful votes, favorites, follows, reports, collections, view history, check-ins and loyalty account; idempotent; a malformed record goes to `<topic>.engagement.dlq` (`internal/events/identity.go`, `internal/store/erase_pg.go`).
 - A new consumer group starts from the earliest offset, which backfills the feed. The consumer runs inside the server process (`cmd/server`), not as a separate binary. Consumer logs carry keys as `key_fp` (HMAC with `LOG_KEY_FP_SECRET`), never raw ids. `internal/events` holds the envelope builder and the listing handler.
 
 ## 3. Layout and data
@@ -99,6 +100,8 @@ Loaded by `internal/config/config.go` through the SDK `config` package; `.env.ex
 | `KAFKA_CONSUMER_GROUP` | `team-engagement-feed` | Consumer group |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Topic; the DLQ is `<topic>.dlq` |
 | `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Topic the outbox relayer publishes facts to |
+| `IDENTITY_EVENTS_TOPIC` | `identity.events` | Erasure source topic (must be non-empty) |
+| `KAFKA_ERASURE_CONSUMER_GROUP` | `team-engagement-erasure` | Erasure consumer group (must be non-empty) |
 | `OUTBOX_POLL_INTERVAL` | `1s` | Outbox relay poll interval |
 | `OUTBOX_BATCH_SIZE` | `100` | Outbox relay batch size |
 | `OUTBOX_CLAIM_LOCK` | `60s` | Outbox claim lock duration |

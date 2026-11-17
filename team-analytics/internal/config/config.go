@@ -6,6 +6,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
@@ -33,6 +34,7 @@ type Settings struct {
 	Recs       Recs
 	Engagement Engagement
 	GA4        GA4
+	Erasure    Erasure
 	OTel       sdkconfig.OTel
 }
 
@@ -60,6 +62,30 @@ type Engagement struct {
 	EventsTopic   string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
 	DLQTopic      string `env:"ENGAGEMENT_DLQ_TOPIC" default:"engagement.events.analytics.dlq"`
 	ConsumerGroup string `env:"ENGAGEMENT_CONSUMER_GROUP" default:"team-analytics.engagement"`
+}
+
+// Erasure configures the identity.events consumer that purges erased users.
+type Erasure struct {
+	EventsTopic     string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events" keepempty:"true"`
+	ConsumerGroup   string `env:"ERASURE_CONSUMER_GROUP" default:"team-analytics.user-erasure" keepempty:"true"`
+	DLQTopic        string `env:"ERASURE_DLQ_TOPIC" default:"identity.events.analytics.dlq" keepempty:"true"`
+	TombstoneSecret string `env:"ERASURE_TOMBSTONE_SECRET"`
+}
+
+// ResolveFor fills the local default of an unset secret and rejects an empty
+// one otherwise (always when the environment is strict).
+func (e *Erasure) ResolveFor(rt sdkconfig.Runtime) error {
+	if strings.TrimSpace(e.TombstoneSecret) != "" {
+		return nil
+	}
+	if _, set := os.LookupEnv("ERASURE_TOMBSTONE_SECRET"); !set && !rt.IsStrict() {
+		e.TombstoneSecret = "local-dev-erasure-tombstone-secret"
+		return nil
+	}
+	if rt.IsStrict() {
+		return errors.New("ERASURE_TOMBSTONE_SECRET is required when ENV is staging or prod")
+	}
+	return errors.New("ERASURE_TOMBSTONE_SECRET must not be empty")
 }
 
 // Warehouse selects and configures the WarehouseWriter adapter.
@@ -156,6 +182,15 @@ func (s Settings) Validate() error {
 	if strings.TrimSpace(s.Engagement.EventsTopic) == "" || strings.TrimSpace(s.Engagement.DLQTopic) == "" ||
 		strings.TrimSpace(s.Engagement.ConsumerGroup) == "" {
 		return errors.New("ENGAGEMENT_EVENTS_TOPIC, ENGAGEMENT_DLQ_TOPIC and ENGAGEMENT_CONSUMER_GROUP must not be empty")
+	}
+	for key, v := range map[string]string{
+		"IDENTITY_EVENTS_TOPIC":  s.Erasure.EventsTopic,
+		"ERASURE_CONSUMER_GROUP": s.Erasure.ConsumerGroup,
+		"ERASURE_DLQ_TOPIC":      s.Erasure.DLQTopic,
+	} {
+		if strings.TrimSpace(v) == "" {
+			return fmt.Errorf("%s must not be empty", key)
+		}
 	}
 	if strings.TrimSpace(s.Kafka.ListingReplayGroup) == "" {
 		return errors.New("KAFKA_LISTING_REPLAY_GROUP must not be empty")

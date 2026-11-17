@@ -8,6 +8,7 @@ value we inject for fast browser auth.
 from __future__ import annotations
 
 from src.constants import gateway_endpoints as ep
+from src.constants import legal_versions as legal
 
 from .base_service import BaseService
 
@@ -17,7 +18,8 @@ class AuthService(BaseService):
         """Register a user; returns the JWT. Ignores AlreadyExists by re-login."""
         try:
             data = self.post(
-                ep.AUTH_REGISTER, {"username": username, "password": password, "role": role}
+                ep.AUTH_REGISTER,
+                {"username": username, "password": password, "role": role, **legal.versions()},
             )
             return _token(data)
         except Exception:  # noqa: BLE001 - account may already exist; fall back to login

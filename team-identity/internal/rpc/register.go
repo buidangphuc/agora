@@ -12,6 +12,7 @@ type Handlers struct {
 	Session *SessionHandler
 	Profile *ProfileHandler
 	Admin   *AccountAdminHandler
+	Privacy *PrivacyHandler
 }
 
 func Register(srv *grpc.Server, h Handlers) {
@@ -29,5 +30,8 @@ func Register(srv *grpc.Server, h Handlers) {
 	}
 	if h.Admin != nil {
 		identityv1.RegisterAccountAdminServiceServer(srv, h.Admin)
+	}
+	if h.Privacy != nil {
+		identityv1.RegisterPrivacyServiceServer(srv, h.Privacy)
 	}
 }

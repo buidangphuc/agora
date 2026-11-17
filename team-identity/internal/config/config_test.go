@@ -29,6 +29,7 @@ var managedKeys = []string{
 	"SESSION_SWEEP_BATCH_SIZE", "DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED",
 	"OUTBOX_MAX_ATTEMPTS", "OUTBOX_CLAIM_LOCK_SECONDS", "SESSION_SWEEP_ENABLED",
 	"UPSTREAM_CALL_TIMEOUT_SECONDS", "SHUTDOWN_GRACE_SECONDS", "MOCK_DATA",
+	"ACCOUNT_DELETION_CANCEL_WINDOW", "ACCOUNT_ERASURE_SWEEP_INTERVAL", "UPSTREAM_ORDER_ADDR", "UPSTREAM_PAYMENT_ADDR",
 }
 
 var removedKeys = []string{
@@ -109,9 +110,13 @@ func localEnv(t *testing.T) {
 	t.Setenv("GRPC_PORT", "51053")
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 	t.Setenv("UPSTREAM_AUDIT_ADDR", "audit:50061")
+	t.Setenv("UPSTREAM_ORDER_ADDR", "order:50055")
+	t.Setenv("UPSTREAM_PAYMENT_ADDR", "payment:50056")
 	t.Setenv("JWT_PRIVATE_KEY", freshPEM(t))
 	t.Setenv("JWT_KID", "k1")
 	t.Setenv("SELLER_TERMS_VERSIONS", "V1")
+	t.Setenv("LEGAL_TERMS_VERSIONS", "2026-11,2026-05")
+	t.Setenv("PRIVACY_POLICY_VERSIONS", "2026-11")
 }
 
 func strictEnv(t *testing.T, env string) {

@@ -51,6 +51,7 @@ Consumed only (it produces no events except dead-letter records). Each record va
 |---|---|---|---|
 | `listing.events` | `platform.listing.v1.ListingChanged`; `platform.listing.v1.ListingStockChanged` | `ListingChanged` self-diffs the snapshot against the stored last-seen price and stock. A price decrease notifies `PRICE_DROP` subscribers; a stock move from 0 to positive notifies `BACK_IN_STOCK` subscribers. A first-ever snapshot (no prior) never fires. `ListingStockChanged` sends the owner one `SYSTEM` low-stock notification when stock falls to `LOW_STOCK_THRESHOLD` or below, re-armed when stock rises above it (state in `listing_low_stock_state`). | `listing.events.dlq` |
 | `chat.events` | `platform.chat.v1.ChatMessage` | One `CHAT` notification to `recipient_id` (never the sender; skipped if `recipient_id` is empty). Link `/chat/{thread_id}`. | `chat.events.dlq` |
+| `identity.events` (`IDENTITY_EVENTS_TOPIC`) | `platform.identity.v1.UserErased` | Deletes the user's `notifications`, `alert_subscriptions` and `notification_prefs` rows (`internal/store/erase_pg.go`). Group `KAFKA_ERASURE_CONSUMER_GROUP`. | `identity.events.notification.dlq` |
 | `order.events` | `platform.order.v1.OrderShipped` | One `ORDER` notification to `buyer_id` with carrier and tracking code. Link `/account/orders/{order_id}`. The other order types are listed below. | `order.events.dlq` |
 
 Order-work notifications. In addition to `OrderShipped`, the `order.events` consumer turns these envelope
@@ -66,7 +67,7 @@ with no stored setting counts as enabled). Listing alerts do not check prefs.
 Idempotency: a ledger keyed by (`consumer`, `event_id`) in `processed_events`, recorded after the effect
 succeeds. Consumer names: `team-notification.listing`, `team-notification.chat`, `team-notification.order`.
 
-The consumers always start with the service. Brokers are shared by all three; topic, DLQ and group are per consumer.
+The consumers always start with the service. Brokers are shared by all four; topic, DLQ and group are per consumer.
 
 ## Data
 
@@ -111,6 +112,8 @@ is checked against `Settings` by a test.
 | `NOTIFICATION_CHAT_CONSUMER_GROUP` | `team-notification.chat` | |
 | `ORDER_EVENTS_TOPIC` / `ORDER_EVENTS_DLQ_TOPIC` | `order.events` / `order.events.dlq` | |
 | `NOTIFICATION_ORDER_CONSUMER_GROUP` | `team-notification.order` | |
+| `IDENTITY_EVENTS_TOPIC` | `identity.events` | Erasure source topic. |
+| `KAFKA_ERASURE_CONSUMER_GROUP` | `team-notification-erasure` | |
 | `LOW_STOCK_THRESHOLD` | `5` | Integer in [0, 2147483647]; anything else fails load. |
 
 ## Run locally

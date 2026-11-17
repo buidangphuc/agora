@@ -190,6 +190,21 @@ func RunWithOptions(ctx context.Context, s config.Settings, o Options) (err erro
 	if err != nil {
 		return fmt.Errorf("consumer %s: %w", s.Events.ConsumerGroup, err)
 	}
+	if s.Events.IdentityTopic == "" {
+		s.Events.IdentityTopic = "identity.events"
+	}
+	if s.Events.ErasureConsumerGroup == "" {
+		s.Events.ErasureConsumerGroup = "team-engagement-erasure"
+	}
+	identityClient, err := events.NewIdentityClient(s.Kafka, s.Events.ErasureConsumerGroup, s.Events.IdentityTopic)
+	if err != nil {
+		return fmt.Errorf("kafka: %w", err)
+	}
+	stack.Push(func(context.Context) error { identityClient.Close(); return nil })
+	erasureConsumer, err := events.NewIdentityConsumer(identityClient, repo, dlq, s.Events.IdentityTopic, fp, logger)
+	if err != nil {
+		return fmt.Errorf("consumer %s: %w", s.Events.ErasureConsumerGroup, err)
+	}
 
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace + 2*closeGrace,
@@ -198,5 +213,5 @@ func RunWithOptions(ctx context.Context, s config.Settings, o Options) (err erro
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, sweeper, consumer))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, purge, sweeper, consumer, erasureConsumer))
 }

@@ -44,7 +44,7 @@ class AdminCampaignsPage(BasePage):
 
     @property
     def dialog(self) -> Locator:
-        return self.page.get_by_role("dialog").filter(has_not_text="Cookie preferences")
+        return self.page.get_by_role("dialog").filter(has_not_text=re.compile("Cookie preferences|Tùy chọn cookie"))
 
     def row_of(self, *needles: str) -> Locator:
         pattern = re.compile("|".join(re.escape(n) for n in needles))

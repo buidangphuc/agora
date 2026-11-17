@@ -29,6 +29,14 @@ not check scopes except in `GetPublicProfiles` (`identity.read`) and `AccountAdm
 | `AuthService.PeekHandoffCode` | No principal check; the code is the credential. Returns the username and expiry without consuming the code. Any unknown, expired, redeemed or wrong-target code, an inactive account or a revoked source session is the same `UNAUTHENTICATED` (`internal/identity/handoff.go:197`). |
 | `AuthService.RedeemHandoffCode` | No principal check. Consumes the code once (same checks and the same single `UNAUTHENTICATED` as Peek), writes an `auth.handoff_redeem` audit event (fails closed) and issues a new session, token and refresh token for the target app (`internal/identity/handoff.go:161`). |
 | `AuthService.BecomeSeller` | `RequireUser` plus a live, unrevoked session from `x-principal-sid` (`UNAUTHENTICATED` otherwise). `terms_version` must equal the first `SELLER_TERMS_VERSIONS` entry (`INVALID_ARGUMENT` otherwise); a non-`ACTIVE` account is `PERMISSION_DENIED`. Adds the `seller` role, stores `seller_terms_version` and `seller_terms_accepted_at`, writes a `UserRoleGranted` outbox row and, before commit, an `auth.become_seller` audit event (metadata `terms_version`, `result=granted`) in one transaction; when team-audit is down it fails `UNAVAILABLE` with `ErrorInfo{identity.platform, AUDIT_UNAVAILABLE}` and nothing is written. A user who is already a seller gets a token with no change, no event and no audit entry. Returns a re-signed access token on the same session, no refresh token (`internal/identity/become_seller.go:47`). |
+| `AuthService.Register` (legal versions) | `terms_version` must equal the first `LEGAL_TERMS_VERSIONS` entry and `privacy_version` the first `PRIVACY_POLICY_VERSIONS` entry (`INVALID_ARGUMENT` naming the field otherwise); the user row and two `consents` rows (`TERMS`, `PRIVACY_POLICY`, source `register`) commit in one transaction (`internal/identity/auth.go`). |
+| `AuthService.Login`, `RefreshSession` (deleted account) | A `deleted` account gets the same `UNAUTHENTICATED` as wrong credentials; a refresh revokes the session and fails (`internal/identity/auth.go`, `internal/identity/refresh.go`). |
+| `PrivacyService.RecordConsent` | `RequireUser`. 1-6 records, one per purpose, `version` 1-32 chars, `source` one of `banner`, `register`, `account`, `seller_onboarding`. `TERMS` and `PRIVACY_POLICY` must be granted at the current (first) configured version, `SELLER_TERMS` at any `SELLER_TERMS_VERSIONS` entry; any violation is `INVALID_ARGUMENT`. Appends rows to `consents` (`internal/rpc/privacy.go:62`). |
+| `PrivacyService.ListMyConsents` | `RequireUser`; the caller's consent rows, newest first, page size default 20, max 100; a bad cursor is `INVALID_ARGUMENT` (`internal/rpc/privacy.go:112`). |
+| `PrivacyService.RequestAccountDeletion` | `RequireUser`; `password` required (`INVALID_ARGUMENT`), wrong password `PERMISSION_DENIED`. Asks team-order `GetUserObligations` and team-payment `GetPayoutObligations`; open orders, open returns, a wallet balance or pending payouts are `FAILED_PRECONDITION` naming the categories, an unreachable upstream is `UNAVAILABLE`. Sets `users.deletion_requested_at` and `erase_after` (now + `ACCOUNT_DELETION_CANCEL_WINDOW`) and revokes every session except the one in `x-principal-sid` (forwarded by the gateway, `team-gateway/internal/edge/privacy.go:76`); an admin caller is audited first as `account.deletion_request` (`internal/rpc/privacy.go:161`, `internal/identity/account_deletion.go`). |
+| `PrivacyService.CancelAccountDeletion` | `RequireUser`; clears a pending deletion, `FAILED_PRECONDITION` when none is pending; admin callers audited as `account.deletion_cancel` (`internal/rpc/privacy.go:199`). |
+| `PrivacyService.GetAccountDeletionStatus` | `RequireUser`; returns `pending` and `erase_after` (`internal/rpc/privacy.go:222`). |
+| `PrivacyService.ExportMyData` | `RequireUser`; returns a JSON document (account, addresses, sessions, login history, consents) as bytes; login history then sessions are halved and flagged `truncated` while it exceeds the size cap; DB network errors are `UNAVAILABLE` (`internal/rpc/export.go:147`). |
 | `AddressService.List/Create/Update/Delete/SetDefault` | `RequirePrincipal`; every query is scoped to the caller's id. |
 | `SessionService.ListSessions`, `ListLoginHistory` | `RequirePrincipal`; scoped to the caller. History page size default 20, max 100, cursor is a numeric offset. |
 | `SessionService.RevokeSession` | `RequirePrincipal`; only the caller's own session (`NOT_FOUND` otherwise). Writes a `SessionRevoked` outbox row in the same transaction. |
@@ -53,7 +61,7 @@ Token claims (`internal/token/jwt.go`): RS256, header `kid`; `sub`, `name`, `typ
 `sid` (session id, omitted if no session), `status` (`restricted` only, omitted otherwise; the seller app reads it), `iat`, `exp` (`JWT_TTL_SECONDS`). `identity.read` is not in
 any role, so no user token can carry it, and nothing in this service mints service tokens.
 
-Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), used by `SetUserStatus`, `CreateHandoffCode`, `RedeemHandoffCode` and the first `BecomeSeller` grant. Vendored contracts only: `platform.common.v1.Principal`,
+Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), used by `SetUserStatus`, `CreateHandoffCode`, `RedeemHandoffCode`, the first `BecomeSeller` grant and admin account-deletion requests. team-order `GetUserObligations` (`UPSTREAM_ORDER_ADDR`) and team-payment `GetPayoutObligations` (`UPSTREAM_PAYMENT_ADDR`) gate `RequestAccountDeletion` (`internal/upstream/obligations.go`). Vendored contracts only: `platform.common.v1.Principal`,
 `platform.events.v1.EventEnvelope`, `platform.identity.v1.*`.
 
 ## Events
@@ -64,6 +72,7 @@ Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), use
 | Produces | `identity.events` | `platform.identity.v1.UserStatusChanged` in an `EventEnvelope` (on every `SetUserStatus` call) | user id |
 | Produces | `identity.events` | `platform.identity.v1.UserRoleGranted` in an `EventEnvelope` (when `BecomeSeller` adds the `seller` role; `internal/events/publisher.go:97`) | user id |
 | Produces | `identity.events` | `platform.identity.v1.UserRegistered` in an `EventEnvelope` (one per successful `Register`, same transaction as the user row; payload `user_id`, `referral_code` (empty when none), `registered_at`; the seed admin emits none; relay logs hash `referral_code`) | user id |
+| Produces | `identity.events` | `platform.identity.v1.UserErased` in an `EventEnvelope` (one per account the erasure sweeper erases, same transaction; payload `user_id`, `roles`, `erased_at`; internal only; `internal/identity/erasure_sweeper.go:18`) | user id |
 | Consumes | none | | |
 
 `RevokeSession` inserts the outbox row in the same transaction as `sessions.revoked = true`. The
@@ -90,10 +99,14 @@ Database `identity_db`. Migrations in `internal/store/migrations/` (golang-migra
 | `0008`-`0019` | session `revoked_at` and the outbox `seq` migration and requeue (see deploy order below) |
 | `0020_handoff_codes` | `handoff_codes` (PK = SHA-256 code hash, user id, source session id, target app, expiry, `redeemed_at`) |
 | `0021_seller_terms` | adds `users.seller_terms_version`, `seller_terms_accepted_at` |
+| `0022_consents` | `consents` (user id, purpose, granted, version, source, `recorded_at`), append-only |
+| `0023_account_deletion` | adds `users.deletion_requested_at`, `erase_after`; status `deleted` allowed |
 
 Retention: `sessions` and `login_history` rows are purged by a background sweeper once older than
 `SESSION_RETENTION` (default 30d) and `LOGIN_HISTORY_RETENTION` (default 180d), in batches every
 `SESSION_SWEEP_INTERVAL`. Invalid (zero, negative, unparseable) values stop startup.
+
+Account erasure: every `ACCOUNT_ERASURE_SWEEP_INTERVAL` the erasure sweeper takes users whose `erase_after` has passed, deletes their `user_addresses`, `sessions`, `login_history`, `handoff_codes` and `password_reset_tokens` rows, blanks the password hash and roles, sets status `deleted` and enqueues `UserErased`, one transaction per user (`internal/store/account_deletion.go:119`). `consents` rows are kept.
 
 All user-owned tables reference `users(id)` with `ON DELETE CASCADE`. Migrations are never run by the
 service at boot. Run `server migrate up` (the `team-identity-migrate` job in the root compose does
@@ -146,6 +159,12 @@ and the session sweeper are always on.
 | `SELLER_TERMS_VERSIONS` | empty | Required. Comma-separated seller terms versions (`.env.example` and compose set `2026-11-02`); the first entry is current and is the only value `BecomeSeller` accepts, compared byte for byte; older entries are kept for record only. Startup fails when empty |
 | `HANDOFF_TTL_OVERRIDE` | empty | Go duration; accepted only when `ENV=test`, negative is refused (`internal/config/config.go:137`). When set, `internal/app/app.go:135` passes it to `WithHandoffTTL`; unset keeps the 60 s TTL |
 | `PASSWORD_RESET_EXPOSE_TOKEN` | `false` | Return the raw reset token from `RequestPasswordReset`. Dev/e2e only; config load fails when `ENV=prod` |
+| `LEGAL_TERMS_VERSIONS` | empty | Required. Comma-separated; the first entry is the current terms version `Register` and `RecordConsent` accept (`.env.example`: `2026-11`) |
+| `PRIVACY_POLICY_VERSIONS` | empty | Required. Same shape for the privacy policy |
+| `ACCOUNT_DELETION_CANCEL_WINDOW` | `48h` | Must be > 0; time between a deletion request and erasure |
+| `ACCOUNT_ERASURE_SWEEP_INTERVAL` | `1h` | Must be > 0 |
+| `UPSTREAM_ORDER_ADDR` | empty | Required. team-order gRPC address (obligation check) |
+| `UPSTREAM_PAYMENT_ADDR` | empty | Required. team-payment gRPC address (obligation check) |
 | `UPSTREAM_AUDIT_ADDR` | empty | Required. team-audit gRPC address; user-status changes, hand-off mint and redeem and a first seller grant fail closed when it is down |
 | `LOG_KEY_FP_SECRET` | empty | |
 | `OTEL_ENABLED` | `false` | |

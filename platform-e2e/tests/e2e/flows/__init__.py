@@ -9,6 +9,7 @@ from .auth_flow import (
 )
 from .engagement_flow import submit_product_question_via_api, toggle_favorite_via_api
 from .flipt_flow import set_checkout_flag
+from .kyc_flow import verify_seller
 from .order_events_flow import consume_order_paid_events, decode_order_paid_envelope
 from .order_flow import (
     complete_order_as_seller,
@@ -42,6 +43,7 @@ __all__ = [
     "create_shipment_via_api",
     "submit_product_question_via_api",
     "toggle_favorite_via_api",
+    "verify_seller",
     "request_seller_payout_via_api",
     "settle_seeded_order_to_seller",
     "consume_order_paid_events",

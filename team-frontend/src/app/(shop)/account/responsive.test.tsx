@@ -45,14 +45,6 @@ vi.mock("@/lib/gateway/sessions", () => ({
   ]),
   listLoginHistory: vi.fn(async () => []),
 }));
-vi.mock("@/lib/gateway/verification", async (orig) => ({
-  ...(await orig<typeof import("@/lib/gateway/verification")>()),
-  getVerificationStatus: vi.fn(async () => ({
-    status: 0,
-    statusText: "Chưa xác minh",
-    badge: false,
-  })),
-}));
 vi.mock("@/lib/gateway/referral", () => ({
   getMyReferral: vi.fn(async () => ({
     code: "",
@@ -95,7 +87,6 @@ vi.mock("@/lib/gateway/notification", () => ({
 vi.mock("@/features/address/actions", () => ({}));
 vi.mock("@/features/account/actions", () => ({}));
 vi.mock("@/features/account/referral/actions", () => ({}));
-vi.mock("@/features/account/verification/actions", () => ({}));
 vi.mock("@/features/engagement/actions", () => ({}));
 vi.mock("@/features/notification/actions", () => ({}));
 vi.mock("@/features/account/FollowedFeed", () => ({
@@ -108,7 +99,6 @@ import AddressesPage from "./addresses/page";
 import FollowingPage from "./following/page";
 import ReferralPage from "./referral/page";
 import SecurityPage from "./security/page";
-import VerificationPage from "./verification/page";
 
 import FavoritesPage from "../favorites/page";
 import NotificationsPage from "../notifications/page";
@@ -118,7 +108,6 @@ type Page = () => Promise<React.JSX.Element>;
 const SHELL_PAGES: [string, Page][] = [
   ["/account/addresses", () => AddressesPage() as never],
   ["/account/security", () => SecurityPage({}) as never],
-  ["/account/verification", () => VerificationPage() as never],
   ["/account/referral", () => ReferralPage() as never],
   ["/account/following", () => FollowingPage({}) as never],
 ];

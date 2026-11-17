@@ -14,13 +14,13 @@ domain logic** (AGENTS.md rules 1-3). Status: deployed service, part of the root
 
 ### Connect services (forwarded, one handler per service)
 
-The gateway serves 23 services; each RPC is a thin forward to the upstream below. Registered in
+The gateway serves 24 services; each RPC is a thin forward to the upstream below. Registered in
 `internal/edge/server.go`, dialed in `internal/upstream/clients.go`. Server reflection (v1 and
 v1alpha) is served only when `GRPC_REFLECTION_ENABLED=true` (default off; refused in staging/production).
 
 | Contract service(s) | Upstream (env var) |
 |---|---|
-| identity `AuthService`, `AddressService`, `SessionService`, `AccountAdminService` | team-identity (`UPSTREAM_IDENTITY_ADDR`) |
+| identity `AuthService`, `AddressService`, `SessionService`, `AccountAdminService`, `PrivacyService` | team-identity (`UPSTREAM_IDENTITY_ADDR`) |
 | listing `ListingService` | team-domain (`UPSTREAM_LISTING_ADDR`) |
 | search `SearchService` | team-search (`UPSTREAM_SEARCH_ADDR`) |
 | engagement `EngagementService` | team-engagement (`UPSTREAM_ENGAGEMENT_ADDR`) |
@@ -57,6 +57,12 @@ authenticated principal (`UNAUTHENTICATED` for anonymous); `BecomeSeller` needs 
 (`UNAUTHENTICATED` for anonymous, `PERMISSION_DENIED` otherwise); `PeekHandoffCode` (read) and
 `RedeemHandoffCode` (write) are open, the code is the credential.
 
+Identity `PrivacyService` at the edge (`internal/edge/privacy.go`): every RPC (`RecordConsent`, `ListMyConsents`, `RequestAccountDeletion`, `CancelAccountDeletion`, `GetAccountDeletionStatus`, `ExportMyData`) needs a signed-in principal (`UNAUTHENTICATED` for anonymous) and is forwarded with the verified principal; only `RequestAccountDeletion` also carries `x-principal-sid` (`outgoingWithSID`, `internal/edge/privacy.go:76`) so identity keeps the calling session.
+
+Verification extras at the edge (`internal/edge/verification.go`): `CreateKycUploadUrl` needs an
+authenticated principal (`UNAUTHENTICATED` for anonymous); `ListKycSubmissions`,
+`GetKycDocumentUrl` and `ReviewKyc` need the `admin` scope; `GetPublicBadges` is open, anonymous included.
+
 ### Authorization at the edge
 
 For every unary RPC the interceptor chain runs, outermost first: request id, auth, logging,
@@ -70,7 +76,7 @@ rate limit (`internal/edge/interceptors.go`).
 
 The gateway checks only the token against the procedure policy, not per-RPC scopes. **Scope gates live in the services**; the
 gateway forwards `x-principal-id`, `x-principal-type`, `x-principal-scopes`, `x-principal-sid` (the
-token's `sid`, when present, and only to `AuthService` `BecomeSeller`, `CreateHandoffCode`, `PeekHandoffCode` and `RedeemHandoffCode` via `outgoingWithSID`, `internal/edge/forward.go:205`) and `x-request-id`, built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
+token's `sid`, when present, and only to `AuthService` `BecomeSeller`, `CreateHandoffCode`, `PeekHandoffCode` and `RedeemHandoffCode`, and to `PrivacyService` `RequestAccountDeletion`, via `outgoingWithSID`, `internal/edge/forward.go:205`) and `x-request-id`, built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
 `x-client-ip` / `x-client-user-agent` (see `TRUSTED_PROXIES`). Inbound `x-client-*` headers are
 never copied through. The edge-level RPC gates are the `adminProcedures` map (`policy.go`): each
 listed procedure needs an authenticated principal with the `admin` scope (anonymous gets
@@ -274,7 +280,7 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 - The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
   or `/api/admin/metrics`, which read only the `Authorization` header.
 - Revocation is fail-open and per replica. Edge-side admin gating is the `adminProcedures` map
-  in `policy.go` (21 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
+  in `policy.go` (23 procedures: `ReviewKyc`, `ListKycSubmissions`, `GetKycDocumentUrl`, `ResolveDispute`, `HideReview`, `ListDisputes`, `ListReports`,
   `ResolveReport`, `QueryAuditLog`, `ModerateListing`, `ListModerationQueue`, `ForceFailSaga`,
   `AccountAdmin` `ListUsers` / `SetUserStatus`, four analytics reports, and promotion
   `DeactivateVoucher`, `UpdateVoucher`, `ListCampaigns`, `CancelCampaign`, `UpdateCampaign`).

@@ -11,6 +11,7 @@ from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.constants import gateway_endpoints as ep
+from src.constants import legal_versions as legal
 from src.utils import data as fake
 from tests.e2e.flows import wait_for_gateway
 from tests.e2e.support import pear_edge_support as pe
@@ -110,7 +111,7 @@ def _register(
 ) -> dict:
     _tap(world)
     username = username or fake.unique_username("q7reg")
-    body: dict = {"username": username, "password": get_settings().seed_password, "role": role}
+    body: dict = {"username": username, "password": get_settings().seed_password, "role": role, **legal.versions()}
     if code is not None:
         body["referralCode"] = code
     if extra:

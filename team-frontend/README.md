@@ -24,8 +24,8 @@ Route groups and page-level gates:
 
 | Group | Routes | Gate |
 |---|---|---|
-| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect; referral links set the `agora_ref` cookie and go to `/register?ref=`), `/login`, `/register`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
-| `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification}` | redirect to `/login` without a session |
+| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect; referral links set the `agora_ref` cookie and go to `/register?ref=`), `/login`, `/register`, `/cart`, `/assistant`, `/[slug]` legal pages (`(legal)/[slug]`, one per `content/legal/*.md`: `dieu-khoan-su-dung`, `chinh-sach-bao-mat`, `dieu-khoan-nguoi-ban`, `chinh-sach-doi-tra`, `giai-quyet-khieu-nai`, `hang-cam-kinh-doanh`, `quy-che-hoat-dong`; any other slug is `notFound()`) | no page-level redirect (the gateway still scopes the data) |
+| `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification,privacy}` | redirect to `/login` without a session |
 | `(shop)` | `/chat/[id]` | redirects to `/chat?thread=<id>` |
 | `(shop)/dev/ui` | UI component gallery | `notFound()` when `NODE_ENV=production` |
 | `(checkout)` | `/checkout`, `/checkout/pay/[id]` | `/checkout` redirects to `/login` if anonymous and to `/cart` if the cart is empty |
@@ -65,6 +65,8 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` | `src/lib/media.ts` |
 | `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); every link to the seller app goes through `src/lib/apps.ts`. "Kênh Người Bán" (`SellerChannelLink`) first mints a hand-off code for the seller app (`CreateHandoffCode`) and opens its `/auth/handoff`; without a usable session or on any error it falls back to `sellerEntryUrl()`, the seller `/login?next=/seller` | `src/lib/apps.ts`, `src/features/handoff/` |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` (build-time, inlined at build because `/robots.txt` is static; set it per environment as a build arg, a runtime value has no effect); public origin for canonical, Open Graph, `robots.txt` and `sitemap.xml` URLs; trailing slash removed; never taken from the `Host` header | `src/lib/seo.ts` |
+| `NEXT_PUBLIC_LEGAL_TERMS_VERSION` | `2026-11` (build arg, 1-32 chars); must equal a value in identity `LEGAL_TERMS_VERSIONS` and the `version` of `content/legal/dieu-khoan-su-dung.md` | `content/legal` |
+| `NEXT_PUBLIC_PRIVACY_POLICY_VERSION` | `2026-11` (build arg, 1-32 chars); must equal a value in identity `PRIVACY_POLICY_VERSIONS` and the `version` of `content/legal/chinh-sach-bao-mat.md` | `content/legal` |
 | `NEXT_PUBLIC_BUYER_APP_URL` | `http://localhost:3000` (build-time); this app's own origin, checked against the `Origin` of a hand-off `POST` | `src/features/handoff/config.ts` |
 | `NEXT_PUBLIC_APP_ENV` | unset; `staging` turns on GA4 `debug_mode` (build-time) | `src/lib/analytics/destinations/gtm.ts` |
 | `GA4_USER_ID_HMAC_KEY` | unset (server-only secret from Vault): `user_id` disabled, `/api/analytics/identity` returns 204 | `src/lib/analytics/ga4/userId.ts` |
@@ -118,7 +120,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 ## 7. Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (807 features: 500 `automated`, 294 `not-testable`, 13 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest. Seller and admin entries live in `team-frontend-seller/FEATURES.yaml` and `team-frontend-admin/FEATURES.yaml`.
+- Feature manifest: `FEATURES.yaml` (893 features: 555 `automated`, 332 `not-testable`, 6 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest. Seller and admin entries live in `team-frontend-seller/FEATURES.yaml` and `team-frontend-admin/FEATURES.yaml`.
 - E2E: `platform-e2e` (pytest-bdd + Playwright) drives `team-frontend:3000` through the gateway `:8080`. Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes are specified through OpenSpec (`openspec/changes/<id>`), then `FEATURES.yaml`, then platform-e2e, then `npm run check`, per the root README's ASDLC.
 

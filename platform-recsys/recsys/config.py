@@ -140,6 +140,10 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("nearline_ttl_seconds", "NEARLINE_TTL_SECONDS", "86400", _as_int),
     # 0 = run until stopped. >0 = exit 0 after this many seconds without a message (drain mode, e2e).
     ("nearline_idle_exit_seconds", "NEARLINE_IDLE_EXIT_SECONDS", "0", _as_int),
+    # ── Erasure consumer (python -m recsys.erasure) ──────────────────────────
+    ("identity_events_topic", "IDENTITY_EVENTS_TOPIC", "identity.events", _as_str),
+    ("erasure_consumer_group", "ERASURE_CONSUMER_GROUP", "platform-recsys.erasure", _as_str),
+    ("erasure_dlq_topic", "ERASURE_DLQ_TOPIC", "identity.events.recsys.dlq", _as_str),
     # ── Drift monitoring (against the generation being replaced; observational) ──
     ("drift_alert_threshold", "DRIFT_ALERT_THRESHOLD", "0.25", _as_float),
     # Optional Prometheus text file (node-exporter textfile collector) for each run's drift report.
@@ -221,6 +225,9 @@ class Settings:
     nearline_start_offset: str = "latest"
     nearline_ttl_seconds: int = 86400
     nearline_idle_exit_seconds: int = 0
+    identity_events_topic: str = "identity.events"
+    erasure_consumer_group: str = "platform-recsys.erasure"
+    erasure_dlq_topic: str = "identity.events.recsys.dlq"
     drift_alert_threshold: float = 0.25
     drift_metrics_path: str = ""
     redis_host: str = "localhost"

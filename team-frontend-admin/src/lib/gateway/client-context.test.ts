@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import type { Interceptor } from "@connectrpc/connect";
+import { describe, expect, it, vi } from "vitest";
 
 import { clientContextFrom } from "./client-context.js";
 
@@ -75,5 +76,36 @@ describe("Session client context: spoofed leftmost X-Forwarded-For is ignored (p
 
   it("Session client context: missing headers (boundary) - no headers yields an empty context", () => {
     expect(clientContextFrom(hdr({}), { TRUSTED_PROXY_HOPS: "1" })).toEqual({});
+  });
+});
+
+describe("makeClients verification client (KYC queue: Non-admin sees the 403 result)", () => {
+  it("KYC queue: Non-admin sees the 403 result - exposes a verification client whose calls carry the bearer", async () => {
+    vi.resetModules();
+    const captured: { interceptors?: Interceptor[] } = {};
+    vi.doMock("@connectrpc/connect-node", () => ({
+      createConnectTransport: (o: { interceptors: Interceptor[] }) => {
+        captured.interceptors = o.interceptors;
+        return {};
+      },
+    }));
+    const { makeClients } = await import("./client.js");
+    const clients = makeClients("admin-token") as unknown as Record<
+      string,
+      Record<string, unknown>
+    >;
+    expect(typeof clients.verification?.listKycSubmissions).toBe("function");
+    expect(typeof clients.verification?.getKycDocumentUrl).toBe("function");
+    expect(typeof clients.verification?.reviewKyc).toBe("function");
+
+    const req = { header: new Headers() };
+    const next = vi.fn(async (r: unknown) => r);
+    let chain = next as unknown as (r: unknown) => Promise<unknown>;
+    for (const i of [...(captured.interceptors ?? [])].reverse()) {
+      chain = (i as (n: typeof chain) => typeof chain)(chain);
+    }
+    await chain(req);
+    expect(req.header.get("authorization")).toBe("bearer admin-token");
+    vi.doUnmock("@connectrpc/connect-node");
   });
 });
