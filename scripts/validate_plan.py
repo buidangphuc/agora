@@ -6,10 +6,14 @@ Checks:
   2. Task packets parse (wave number, write-set section present, verify command present)
   3. Write-sets are disjoint WITHIN each wave (the core invariant)
   4. No packet writes a file that another same-wave packet reads-only via glob overlap warning
+  5. Same-wave packets may share MARKER_ONLY_FILES (platform-e2e/pyproject.toml): a warning, and
+     --audit then accepts only pytest marker additions there
 
 Also supports post-implementation audit:
   --audit <task-packet> : compare `git diff --name-only <base>` against the packet's
   write-set; exits non-zero if the agent touched files outside its declared ownership.
+  Widened entries ("- path (widened at build, ...)", or "widened (...):" headers with nested
+  "- path — reason" bullets) count as write-set paths.
 
 Usage:
   python validate_plan.py plan/
@@ -23,6 +27,45 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 PACKET_RE = re.compile(r"wave(\d+)-task(\d+)-(.+)\.md$")
+
+
+WIDENED_HEADER_RE = re.compile(r"widened\b(\s*\([^)]*\))?\s*:?$", re.I)
+MARKER_ONLY_FILES = frozenset({"platform-e2e/pyproject.toml"})
+
+
+def parse_write_entry(line: str):
+    m = re.match(r"^\s*[-*]\s+(.*\S)\s*$", line)
+    if not m:
+        return None
+    text = m.group(1)
+    if WIDENED_HEADER_RE.match(text):
+        return None
+    if text.startswith("`"):
+        entry = text[1:].split("`", 1)[0]
+    else:
+        head = text.split("(", 1)[0].split()
+        entry = head[0] if head else ""
+    return entry.strip().strip("`") or None
+
+
+def pytest_marker_only_change(old_text: str, new_text: str) -> bool:
+    import tomllib
+    try:
+        old, new = tomllib.loads(old_text), tomllib.loads(new_text)
+    except tomllib.TOMLDecodeError:
+        return False
+
+    def split(doc):
+        ini = doc.get("tool", {}).get("pytest", {}).get("ini_options", {})
+        markers = ini.get("markers", [])
+        rest = {**doc, "tool": {**doc.get("tool", {}), "pytest": {
+            **doc.get("tool", {}).get("pytest", {}),
+            "ini_options": {k: v for k, v in ini.items() if k != "markers"}}}}
+        return markers, rest
+
+    old_markers, old_rest = split(old)
+    new_markers, new_rest = split(new)
+    return old_rest == new_rest and all(mk in new_markers for mk in old_markers)
 
 
 def parse_packet(path: Path):
@@ -39,14 +82,7 @@ def parse_packet(path: Path):
         return sm.group(1) if sm else None
 
     ws_body = section(r"Write-set")
-    writes = []
-    if ws_body:
-        for line in ws_body.splitlines():
-            line = line.strip()
-            if line.startswith("-"):
-                entry = line.lstrip("- ").split("(")[0].strip().strip("`")
-                if entry:
-                    writes.append(entry)
+    writes = [e for e in (parse_write_entry(l) for l in (ws_body or "").splitlines()) if e]
     has_verify = section(r"Verify") is not None
     return {"path": path, "wave": wave, "slug": m.group(3),
             "writes": writes, "has_verify": has_verify}
@@ -111,7 +147,11 @@ def validate(plan_dir: Path) -> int:
             for j in range(i + 1, len(ps)):
                 for wa in ps[i]["writes"]:
                     for wb in ps[j]["writes"]:
-                        if overlap(wa, wb):
+                        if wa == wb and wa in MARKER_ONLY_FILES:
+                            warnings.append(
+                                f"wave {wave} shares '{wa}' ({ps[i]['slug']}, {ps[j]['slug']}): "
+                                "allowed for pytest-marker-only edits, --audit enforces it")
+                        elif overlap(wa, wb):
                             errors.append(
                                 f"wave {wave} CONFLICT: '{wa}' ({ps[i]['slug']}) vs "
                                 f"'{wb}' ({ps[j]['slug']}) — write-sets must be disjoint")
@@ -127,6 +167,14 @@ def validate(plan_dir: Path) -> int:
     return 1 if errors else 0
 
 
+def _marker_only_since(base: str, path: str) -> bool:
+    old = subprocess.run(["git", "show", f"{base}:{path}"], capture_output=True, text=True)
+    new = Path(path)
+    if old.returncode != 0 or not new.exists():
+        return False
+    return pytest_marker_only_change(old.stdout, new.read_text(encoding="utf-8"))
+
+
 def audit(packet_path: Path, base: str) -> int:
     p = parse_packet(packet_path)
     if not p:
@@ -135,8 +183,22 @@ def audit(packet_path: Path, base: str) -> int:
     out = subprocess.run(["git", "diff", "--name-only", base],
                          capture_output=True, text=True, check=True).stdout
     changed = [l.strip() for l in out.splitlines() if l.strip()]
-    violations = [f for f in changed
-                  if not any(overlap(f, w) for w in p["writes"])]
+    shared = set()
+    for sib in (parse_packet(f) for f in sorted(packet_path.parent.glob("wave*-task*.md"))):
+        if sib and sib["wave"] == p["wave"] and sib["path"].resolve() != packet_path.resolve():
+            shared |= MARKER_ONLY_FILES & set(sib["writes"])
+    violations, notes = [], []
+    for f in changed:
+        owned = any(overlap(f, w) for w in p["writes"])
+        if f in MARKER_ONLY_FILES and (f in shared or not owned):
+            if _marker_only_since(base, f):
+                notes.append(f)
+                continue
+            violations.append(f"{f} (only pytest marker additions allowed in a shared or unowned {f})")
+        elif not owned:
+            violations.append(f)
+    for n in notes:
+        print(f"ℹ️  {n}: pytest-marker-only edit tolerated")
     if violations:
         print(f"❌ {packet_path.name}: agent wrote OUTSIDE its write-set:")
         for v in violations:
