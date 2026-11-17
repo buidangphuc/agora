@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -9,6 +10,9 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
+import urllib.request
+import uuid
 from pathlib import Path
 
 import yaml
@@ -21,6 +25,8 @@ MAIN_TAG = "local"
 MAIN_OVERLAYS = ["platform-e2e/compose/order-inventory.override.yaml", "platform-e2e/compose/rag-off.override.yaml"]
 FEATURE_OVERLAYS = list(MAIN_OVERLAYS)
 ENTRY = ["team-gateway"]
+TEST_RUNNERS = {"platform-e2e"}
+BASE_REF = "origin/main"
 MAIN_INFRA = ["postgres", "redpanda", "redis"]
 NOT_DEPS = {"TRUSTED_PROXIES", "CORS_ORIGINS", "JAEGER_UI_URL"}
 OPTIONAL_HOSTS = {"otel-collector", "jaeger", "prometheus", "grafana", "kafka-ui"}
@@ -30,7 +36,16 @@ FRONTEND_ARGS = {
     "team-frontend-seller": {"NEXT_PUBLIC_GATEWAY_URL": "gw", "NEXT_PUBLIC_MEDIA_BASE_URL": "media", "NEXT_PUBLIC_BUYER_APP_URL": "buyer"},
     "team-frontend-admin": {"NEXT_PUBLIC_GATEWAY_URL": "gw"},
 }
-IMAGE_RE = re.compile(r"^(team-[a-z-]+|platform-[a-z-]+|agora-[a-z-]+|tei-fake|modelserve-router)$")
+IMAGE_RE = re.compile(r"^(team-[a-z0-9-]+|platform-[a-z0-9-]+|agora-[a-z0-9-]+|tei-fake|modelserve-router)$")
+CODE_DEFAULTS = {
+    "team-domain": {"STORAGE_ENDPOINT": "localhost:9000", "STORAGE_PUBLIC_BASE_URL": "http://localhost:9000/listing-images"},
+}
+RPK_BROKERS = "127.0.0.1:9092"
+UP_RETRY_WAIT = 10
+RECSYS_SERVICES = ["platform-recsys", "mlflow"]
+OWNER_EXTRAS = {"platform-recsys": RECSYS_SERVICES}
+E2E_EXTRAS = {"*rgp*": RECSYS_SERVICES, "*recsys*": RECSYS_SERVICES, "*recommend*": RECSYS_SERVICES}
+E2E_REF = re.compile(r"platform-e2e/tests/e2e/[\w./-]+")
 
 
 class Tagged:
@@ -90,6 +105,14 @@ def compose(st, *args, check=True, capture=False):
     return run(["docker", "compose", "-p", st["project"], *compose_files(st), *args], cwd=st["src"], check=check, capture=capture)
 
 
+def compose_up(st, services, retry_wait=UP_RETRY_WAIT):
+    if compose(st, "up", "-d", "--no-build", *services, check=False).returncode == 0:
+        return
+    print(f"agora-env: compose up failed, retrying once in {retry_wait}s", file=sys.stderr)
+    time.sleep(retry_wait)
+    compose(st, "up", "-d", "--no-build", *services)
+
+
 def config(src, overlays):
     files = [a for f in ["docker-compose.yaml", *overlays] for a in ("-f", f)]
     raw = out(["docker", "compose", *files, "--profile", "*", "config", "--format", "json"], cwd=src)
@@ -135,10 +158,16 @@ def hosts(services):
     return h
 
 
-def deps_of(name, svc, hostmap, with_optional):
+def publishers(services):
+    return {int(str(p["published"]).split("-")[0]): name
+            for name, s in services.items() for p in (s.get("ports") or []) if p.get("published")}
+
+
+def deps_of(name, svc, hostmap, with_optional, published=None):
     found = set((svc.get("depends_on") or {}).keys())
     names = sorted(hostmap, key=len, reverse=True)
-    for k, v in (svc.get("environment") or {}).items():
+    env = {**CODE_DEFAULTS.get(name, {}), **(svc.get("environment") or {})}
+    for k, v in env.items():
         if k in NOT_DEPS or v is None:
             continue
         if name == "team-gateway" and GATEWAY_FANOUT.match(k):
@@ -146,6 +175,9 @@ def deps_of(name, svc, hostmap, with_optional):
         for h in names:
             if re.search(rf"(?<![\w.-]){re.escape(h)}(?=[:/,]|$)", str(v)):
                 found.add(hostmap[h])
+        for port in re.findall(r"(?<![\w.-])(?:localhost|127\.0\.0\.1):(\d+)", str(v)):
+            if int(port) in (published or {}):
+                found.add(published[int(port)])
     if not with_optional:
         found -= OPTIONAL_HOSTS
     found.discard(name)
@@ -154,13 +186,16 @@ def deps_of(name, svc, hostmap, with_optional):
 
 def closure(services, start, with_optional=False):
     hostmap = hosts(services)
+    published = publishers(services)
     seen, todo = set(), list(start)
     while todo:
         n = todo.pop()
         if n in seen or n not in services:
             continue
         seen.add(n)
-        todo.extend(deps_of(n, services[n], hostmap, with_optional) - seen)
+        todo.extend(deps_of(n, services[n], hostmap, with_optional, published) - seen)
+        if f"{n}-init" in services:
+            todo.append(f"{n}-init")
     return seen
 
 
@@ -169,10 +204,64 @@ def owners_from_slices(path):
     return sorted({s["owner"] for s in doc.get("slices", []) if s.get("owner") and s["owner"] != "platform-core"})
 
 
-def resolve_builders(services, names):
+def slice_e2e_refs(src, sid):
+    if not sid:
+        return set()
+    dirs = [Path(src) / "openspec" / "changes" / sid, *(Path(src) / "openspec" / "changes" / "archive").glob(f"*-{sid}")]
+    return {m for d in dirs for f in d.rglob("*.md") for m in E2E_REF.findall(f.read_text())}
+
+
+def slice_extras(path, src):
+    extra = set()
+    for s in yaml.safe_load(Path(path).read_text()).get("slices", []):
+        extra.update(OWNER_EXTRAS.get(s.get("owner"), []))
+        keys = {s.get("id", ""), *s.get("e2e", []), *slice_e2e_refs(src, s.get("id", ""))}
+        for pat, svcs in E2E_EXTRAS.items():
+            if any(fnmatch.fnmatch(k, pat) for k in keys):
+                extra.update(svcs)
+    return extra
+
+
+def merge_overlays(prev, extra):
+    merged = []
+    for o in [*(FEATURE_OVERLAYS if prev is None else prev), *(extra or [])]:
+        if o not in merged:
+            merged.append(o)
+    return merged
+
+
+def changed_builders(services, src, files):
+    owners = set()
+    for n, s in services.items():
+        d = build_dir(src, s) if s.get("build") and n not in TEST_RUNNERS else None
+        if d and any(f.startswith(d + "/") for f in files):
+            owners.add(n)
+    if any(f.startswith("platform-core/packages/proto/") for f in files):
+        owners.update(n for n, s in services.items() if s.get("build") and (Path(src) / (build_dir(src, s) or "-") / "buf.gen.yaml").exists())
+    return owners
+
+
+def one_per_image(services, names, src):
+    by_image = {}
+    for n in sorted(names, key=lambda n: (build_dir(src, services[n]) != n, n)):
+        by_image.setdefault(base_image(services[n]), n)
+    return sorted(by_image.values())
+
+
+def branch_changed_files(src, ref=BASE_REF):
+    mb = run(["git", "merge-base", ref, "HEAD"], cwd=src, check=False, capture=True)
+    if mb.returncode != 0:
+        print(f"agora-env: no merge-base with {ref} in {src}; building only --slices/--services", file=sys.stderr)
+        return []
+    tracked = out(["git", "diff", "--name-only", mb.stdout.strip()], cwd=src).split()
+    untracked = out(["git", "ls-files", "--others", "--exclude-standard"], cwd=src).split()
+    return sorted(set(tracked) | set(untracked))
+
+
+def resolve_builders(services, names, src):
     by_dir = {}
     for n, s in services.items():
-        d = build_dir(REPO, s) if s.get("build") else None
+        d = build_dir(src, s) if s.get("build") else None
         if d:
             by_dir.setdefault(d, []).append(n)
     res = set()
@@ -240,8 +329,11 @@ def make_override(env, services, owners, pm):
                 f"127.0.0.1:{pm[int(str(p['published']).split('-')[0])]}:{p['target']}"
                 for p in s["ports"] if p.get("published")
             ])
-        env_vals = {k: rewrite_local(str(v), pm) for k, v in (s.get("environment") or {}).items() if v is not None}
-        changed = {k: v for k, v in env_vals.items() if v != str(s["environment"][k])}
+        declared = {k: str(v) for k, v in (s.get("environment") or {}).items() if v is not None}
+        current = {**{k: v for k, v in CODE_DEFAULTS.get(name, {}).items() if k not in (s.get("environment") or {})}, **declared}
+        changed = {k: rewrite_local(v, pm) for k, v in current.items() if rewrite_local(v, pm) != v}
+        if name == "redpanda":
+            changed["RPK_BROKERS"] = RPK_BROKERS
         if changed:
             o["environment"] = changed
         if name == "redpanda" and s.get("command"):
@@ -327,6 +419,114 @@ def check_images(services, run_set, owners, env):
         sys.exit(f"agora-env: main images missing for env {env}: {', '.join(sorted(set(missing)))} (run `promote` or add them as owners)")
 
 
+RECSYS_SEED_CLUSTERS = 6
+RECSYS_SEED_ITEMS = 40
+RECSYS_SEED_USERS = 120
+RECSYS_SEED_PER_USER = 8
+RECSYS_SEED_ROUND_GAP = 1.2
+RECSYS_EXPORT_WAIT = 420
+RECSYS_EXPORT_FILE = "/data/tracking_events.parquet"
+PUBLISHED_LISTINGS = "select id from listings where status = 'published' order by created_at, id limit {n}"
+
+
+def recsys_seed_listings(real, n=RECSYS_SEED_CLUSTERS * RECSYS_SEED_ITEMS):
+    picked = list(real[:n])
+    return picked + [str(uuid.uuid5(uuid.NAMESPACE_URL, f"agora-env/recsys-seed/{i}")) for i in range(n - len(picked))]
+
+
+def recsys_seed_rounds(listings, run_id, users=RECSYS_SEED_USERS):
+    clusters = [listings[i::RECSYS_SEED_CLUSTERS] for i in range(RECSYS_SEED_CLUSTERS)]
+    rounds = [[] for _ in range(RECSYS_SEED_PER_USER)]
+    for u in range(users):
+        c = clusters[u % RECSYS_SEED_CLUSTERS]
+        step = max(1, len(c) * RECSYS_SEED_CLUSTERS // users)
+        shift = (u // RECSYS_SEED_CLUSTERS) * step % len(c)
+        anon = f"envseed-{run_id}-{u}"
+        for j, lid in enumerate((c[shift:] + c[:shift])[:RECSYS_SEED_PER_USER]):
+            kinds = ["view"] + (["click"] if j < 3 else []) + (["add_to_cart"] if j == 0 else [])
+            rounds[j] += [{"type": k, "listingId": lid, "sessionId": f"{anon}-s", "anonymousId": anon,
+                           "path": f"/listing/{lid}"} for k in kinds]
+    return rounds
+
+
+def recsys_seed_beacons(listings, run_id, users=RECSYS_SEED_USERS):
+    return [b for r in recsys_seed_rounds(listings, run_id, users) for b in r]
+
+
+def post_track(url, beacons):
+    req = urllib.request.Request(f"{url}/api/track", data=json.dumps(beacons).encode(), method="POST", headers={
+        "Content-Type": "application/json", "Cookie": f"agora_consent=v=1&a=1&m=0&p=1&ts={int(time.time())}"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read() or b"{}").get("accepted", 0)
+
+
+def wait_http(url, timeout=120):
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            with urllib.request.urlopen(url, timeout=5):
+                return True
+        except (urllib.error.URLError, OSError):
+            time.sleep(2)
+    return False
+
+
+def seed_recsys(st):
+    url = f"http://127.0.0.1:{st['ports'].get('8080', 8080)}"
+    if not wait_http(f"{url}/healthz"):
+        print(f"agora-env: recsys seed skipped: gateway {url} not healthy", file=sys.stderr)
+        return None
+    res = compose(st, "exec", "-T", "postgres", "psql", "-U", "listing_svc", "-d", "listing_db", "-tAc",
+                  PUBLISHED_LISTINGS.format(n=RECSYS_SEED_CLUSTERS * RECSYS_SEED_ITEMS), check=False, capture=True)
+    real = [x.strip() for x in res.stdout.splitlines() if x.strip()] if res.returncode == 0 else []
+    listings = recsys_seed_listings(real)
+    run_id = uuid.uuid4().hex[:8]
+    rounds = recsys_seed_rounds(listings, run_id)
+    total = sum(len(r) for r in rounds)
+    accepted = 0
+    try:
+        for n, beacons in enumerate(rounds):
+            if n:
+                time.sleep(RECSYS_SEED_ROUND_GAP)
+            for i in range(0, len(beacons), 60):
+                accepted += post_track(url, beacons[i:i + 60])
+    except (urllib.error.URLError, OSError) as e:
+        print(f"agora-env: recsys seed failed after {accepted} events: {e}", file=sys.stderr)
+        return None
+    pub = min(len(real), len(listings))
+    print(f"recsys seed: {accepted}/{total} consented interaction events from {RECSYS_SEED_USERS} visitors on {len(listings)} listings ({pub} published, {len(listings) - pub} synthetic)")
+    return run_id if accepted == total else None
+
+
+def seeded_in_export(st, services, run_id):
+    img = image_ref(st, services, "featurestore-job") if "featurestore-job" in services else f"platform-featurestore:{MAIN_TAG}"
+    q = (f"import duckdb; print(duckdb.execute(\"select count(distinct anonymous_id) from read_parquet('{RECSYS_EXPORT_FILE}') "
+         f"where anonymous_id like 'envseed-{run_id}-%'\").fetchone()[0])")
+    res = run(["docker", "run", "--rm", "-v", f"{st['project']}_analytics_data:/data:ro", "--entrypoint", "python", img, "-c", q],
+              check=False, capture=True)
+    if res.returncode != 0:
+        return None
+    try:
+        return int(res.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+
+
+def wait_recsys_export(st, services, run_id, timeout=RECSYS_EXPORT_WAIT, poll=15):
+    end = time.time() + timeout
+    print(f"waiting up to {timeout}s for the analytics Parquet export (every 300s) to hold the recsys seed ...")
+    while True:
+        n = seeded_in_export(st, services, run_id)
+        if n is not None and n >= RECSYS_SEED_USERS:
+            print(f"recsys seed exported: {n} visitors in {RECSYS_EXPORT_FILE}")
+            return True
+        if time.time() >= end:
+            print(f"agora-env: recsys seed not in the analytics export after {timeout}s (seen {n}); "
+                  f"retry later with `agora_env.py wait-seed {st['env']}`", file=sys.stderr)
+            return False
+        time.sleep(poll)
+
+
 def write_dc_wrapper(st):
     d = state_dir(st["env"])
     d.mkdir(parents=True, exist_ok=True)
@@ -337,19 +537,22 @@ def write_dc_wrapper(st):
     return w
 
 
-def cmd_plan(a):
+def cmd_plan(a, overlays=None):
     src = Path(a.src or REPO).resolve()
-    services = config(src, FEATURE_OVERLAYS)
+    services = config(src, overlays or FEATURE_OVERLAYS)
     names = list(a.services or [])
     if a.slices:
         names += owners_from_slices(a.slices)
-    if not names:
-        sys.exit("agora-env: give --slices or --services")
-    owners = resolve_builders(services, names)
+    changed = changed_builders(services, src, branch_changed_files(src))
+    if not names and not changed:
+        sys.exit(f"agora-env: give --slices or --services (no service differs from {BASE_REF})")
+    owners = one_per_image(services, (set(resolve_builders(services, names, src)) | changed) - TEST_RUNNERS, src)
     start = set(ENTRY) | set(owners) | set(a.with_ or [])
+    if a.slices:
+        start |= slice_extras(a.slices, src)
     for o in owners:
         start.update(image_users(services, o))
-    run_set = sorted(closure(services, start, a.with_optional))
+    run_set = sorted(closure(services, start - TEST_RUNNERS, a.with_optional) - TEST_RUNNERS)
     return src, services, owners, run_set
 
 
@@ -363,8 +566,9 @@ def cmd_up(a):
     env = slug(a.env)
     if env == MAIN:
         sys.exit("agora-env: main is updated with `promote`")
-    src, services, owners, run_set = cmd_plan(a)
     prev = json.loads((state_dir(env) / "state.json").read_text()) if (state_dir(env) / "state.json").exists() else {}
+    overlays = merge_overlays(prev.get("overlays"), a.overlay)
+    src, services, owners, run_set = cmd_plan(a, overlays)
     slot = prev.get("slot")
     if slot is None:
         taken = {json.loads(p.read_text()).get("slot") for p in STATE_ROOT.glob("*/state.json")}
@@ -373,7 +577,9 @@ def cmd_up(a):
     branch = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=src).strip()
     st = {"env": env, "project": env, "src": str(src), "branch": a.branch or branch, "slot": slot,
           "owners": sorted(set(prev.get("owners", [])) | set(owners)), "services": sorted(set(prev.get("services", [])) | set(run_set)),
-          "overlays": FEATURE_OVERLAYS + (a.overlay or []), "ports": {str(k): v for k, v in pm.items()}}
+          "overlays": overlays, "ports": {str(k): v for k, v in pm.items()}}
+    if prev.get("recsys_seeded"):
+        st["recsys_seeded"] = prev["recsys_seeded"]
     if not prev:
         busy = listening_ports() & set(pm.values())
         if busy:
@@ -385,11 +591,27 @@ def cmd_up(a):
     write_dc_wrapper(st)
     check_images(services, st["services"], st["owners"], env)
     old = [] if a.no_build else build(st, services, owners)
-    compose(st, "up", "-d", "--no-build", *st["services"])
+    compose_up(st, st["services"])
     if "team-gateway" in st["services"]:
         compose(st, "restart", "team-gateway", capture=True)
     drop_unused(old)
+    if "platform-recsys" in st["services"] and not st.get("recsys_seeded"):
+        run_id = seed_recsys(st)
+        if run_id:
+            st["recsys_seeded"] = run_id
+            save_state(st)
+            if a.seed_wait:
+                wait_recsys_export(st, services, run_id, a.seed_wait)
     print(f"env {env} up: project {env}, gateway http://localhost:{pm.get(8080)}, frontend http://localhost:{pm.get(3000)}")
+
+
+def cmd_wait_seed(a):
+    st = load_state(slug(a.env))
+    run_id = st.get("recsys_seeded")
+    if not isinstance(run_id, str):
+        sys.exit(f"agora-env: env {st['env']} has no recorded recsys seed run (up seeds it when platform-recsys is in the env)")
+    services = config(st["src"], st.get("overlays", []))
+    sys.exit(0 if wait_recsys_export(st, services, run_id, a.timeout) else 1)
 
 
 def container(st, services, name):
@@ -424,16 +646,20 @@ def e2e_exports(st):
         "ANALYTICS_VOLUME": f"{P}_analytics_data", "FSM_ANALYTICS_VOLUME": f"{P}_analytics_data",
         "FEATURESTORE_VOLUME": f"{P}_featurestore_data",
     }
+    e.update({"KYC_S3_ENDPOINT": f"http://localhost:{port(9000)}", "AUE_REDIS_PORT": str(port(6379)),
+              "GA4_RELAY_GRPC_ADDR": f"localhost:{port(50059)}", "MODELSERVE_URL": f"http://localhost:{port(18100)}",
+              "TEI_FAKE_URL": f"http://localhost:{port(18110)}", "SEARCH_BOOT_OPENSEARCH_URL": f"http://host.docker.internal:{port(9200)}"})
     if st["env"] != MAIN:
         e["FSM_REDIS_PORT"] = str(port(6379))
     c = lambda n: container(st, services, n)
-    for k in ("POSTGRES", "PLP_POSTGRES", "OIC_INV_POSTGRES", "AUDIT_POSTGRES"):
+    for k in ("POSTGRES", "PLP_POSTGRES", "OIC_INV_POSTGRES", "AUDIT_POSTGRES", "KYC_POSTGRES", "BCO_POSTGRES", "BDL_POSTGRES"):
         e[f"{k}_CONTAINER"] = c("postgres")
     for k in ("REDPANDA", "PLP_REDPANDA"):
         e[f"{k}_CONTAINER"] = c("redpanda")
     e.update({"REDIS_CONTAINER": c("redis"), "JAEGER_CONTAINER": c("jaeger"), "MS_ROUTER_CONTAINER": c("modelserve-router"),
-              "MLFLOW_CONTAINER": c("mlflow"), "GA4_RELAY_CONTAINER": c("ga4-relay"), "TEAM_ANALYTICS_CONTAINER": c("team-analytics")})
-    for short in ("gateway", "identity", "domain", "payment", "frontend", "audit", "ai", "notification", "search"):
+              "MLFLOW_CONTAINER": c("mlflow"), "GA4_RELAY_CONTAINER": c("ga4-relay"), "TEAM_ANALYTICS_CONTAINER": c("team-analytics"),
+              "FLIPT_CONTAINER": c("flipt"), "KYC_MINIO_CONTAINER": c("minio"), "SELLER_CONTAINER": c("team-frontend-seller")})
+    for short in ("gateway", "identity", "domain", "payment", "frontend", "audit", "ai", "notification", "search", "order", "verification"):
         e[f"{short.upper()}_CONTAINER"] = c(f"team-{short}")
     img = lambda n: image_ref(st, services, n)
     e.update({"IDENTITY_IMAGE": img("team-identity"), "IDENTITY_BOOT_IMAGE": img("team-identity"), "GATEWAY_BOOT_IMAGE": img("team-gateway"),
@@ -471,7 +697,11 @@ def cmd_e2e(a):
     if not py:
         sys.exit("agora-env: no platform-e2e venv found (set AGORA_E2E_PYTHON)")
     env = {**os.environ, **e2e_exports(st)}
-    sys.exit(subprocess.run([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", *args], cwd=wt / "platform-e2e", env=env).returncode)
+    sys.exit(subprocess.run([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", *e2e_paths(args)], cwd=wt / "platform-e2e", env=env).returncode)
+
+
+def e2e_paths(args):
+    return [x.removeprefix("platform-e2e/") for x in args]
 
 
 def cmd_dc(a):
@@ -548,14 +778,8 @@ def cmd_promote(a):
           "overlays": prev.get("overlays", MAIN_OVERLAYS) if not a.overlay else MAIN_OVERLAYS + a.overlay, "ports": {}, "owners": []}
     services = config(src, st["overlays"])
     files = changed_files(old, new)
-    owners = set()
-    for n, s in services.items():
-        d = build_dir(src, s) if s.get("build") else None
-        if d and any(f.startswith(d + "/") for f in files):
-            owners.add(n)
-    owners.update(resolve_builders(services, a.services or []))
-    if any(f.startswith("platform-core/packages/proto/") for f in files):
-        owners.update(n for n, s in services.items() if s.get("build") and (Path(src) / (build_dir(src, s) or "-") / "buf.gen.yaml").exists())
+    owners = changed_builders(services, src, files)
+    owners.update(resolve_builders(services, a.services or [], src))
     existing = set(out(["docker", "ps", "-a", "--filter", f"label=com.docker.compose.project={MAIN_PROJECT}", "--format", '{{.Label "com.docker.compose.service"}}']).split())
     running = set(out(["docker", "ps", "--filter", f"label=com.docker.compose.project={MAIN_PROJECT}", "--format", '{{.Label "com.docker.compose.service"}}']).split())
     owners = deployed_owners(services, owners, existing, lambda img: image_id(f"{img}:{MAIN_TAG}") is not None, src)
@@ -818,14 +1042,14 @@ def cmd_preview_status(a):
         print(f"{app['metadata']['name']:<40} {st.get('sync', {}).get('status', '?'):<10} {st.get('health', {}).get('status', '?')}")
 
 
-def main():
+def parser():
     ap = argparse.ArgumentParser(prog="agora_env.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def scope(p):
         p.add_argument("--slices")
         p.add_argument("--services", type=lambda s: [x for x in s.split(",") if x])
-        p.add_argument("--with", dest="with_", type=lambda s: [x for x in s.split(",") if x])
+        p.add_argument("--with", dest="with_", action="extend", type=lambda s: [x for x in s.split(",") if x])
         p.add_argument("--with-optional", action="store_true")
         p.add_argument("--src")
 
@@ -838,7 +1062,12 @@ def main():
     p.add_argument("--branch")
     p.add_argument("--overlay", action="append")
     p.add_argument("--no-build", action="store_true")
+    p.add_argument("--seed-wait", type=int, default=RECSYS_EXPORT_WAIT)
     p.set_defaults(fn=cmd_up)
+    p = sub.add_parser("wait-seed")
+    p.add_argument("env")
+    p.add_argument("--timeout", type=int, default=RECSYS_EXPORT_WAIT)
+    p.set_defaults(fn=cmd_wait_seed)
     p = sub.add_parser("e2e-env")
     p.add_argument("env")
     p.set_defaults(fn=cmd_e2e_env)
@@ -889,7 +1118,11 @@ def main():
     p = sub.add_parser("ls")
     p.add_argument("--porcelain", action="store_true")
     p.set_defaults(fn=cmd_ls)
-    a = ap.parse_args()
+    return ap
+
+
+def main():
+    a = parser().parse_args()
     a.fn(a)
 
 

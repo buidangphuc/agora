@@ -5,9 +5,9 @@ name: services-ci
 on:
   push:
     branches: [main]
-    paths: ["team-ai/**", "platform-recsys/**", "platform-modelserve/**", "platform-finetune/**", "platform-core/packages/py-modelregistry/**", ".github/workflows/services-ci.yml"]
+    paths: ["team-ai/**", "platform-recsys/**", "platform-modelserve/**", "platform-finetune/**", "platform-forecast/**", "platform-core/packages/py-modelregistry/**", ".github/workflows/services-ci.yml"]
   pull_request:
-    paths: ["team-ai/**", "platform-recsys/**", "platform-modelserve/**", "platform-finetune/**", "platform-core/packages/py-modelregistry/**", ".github/workflows/services-ci.yml"]
+    paths: ["team-ai/**", "platform-recsys/**", "platform-modelserve/**", "platform-finetune/**", "platform-forecast/**", "platform-core/packages/py-modelregistry/**", ".github/workflows/services-ci.yml"]
   workflow_dispatch:
 
 permissions:
@@ -129,6 +129,27 @@ jobs:
       - name: Install (dev + cpu extras)
         run: uv pip install --system -e '.[dev,cpu]' 'mlflow>=3.14,<3.15'
       - name: Run offline tests
+        run: python -m pytest tests -q
+
+  platform-forecast:
+    name: platform-forecast Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: platform-forecast
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: platform-forecast/pyproject.toml
+      - name: Install (dev extra)
+        run: uv pip install --system -e '.[dev]'
+      - name: Run tests
         run: python -m pytest tests -q
 
   platform-modelserve:
