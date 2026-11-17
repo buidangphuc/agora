@@ -134,3 +134,12 @@ def test_conflict_same_requirement(tree):
         "## MODIFIED Requirements\n\n### Requirement: Payout holdback\nx\n\n#### Scenario: Other\n- ok\n")
     edit_slices(tree, lambda s: s["payout-seller-ui"].update(owner="team-payment"))
     assert "conflict" in rules(tree)
+
+
+def test_archived_change_dir_is_resolved(tree):
+    ch = tree / "openspec/changes"
+    (ch / "archive").mkdir()
+    shutil.move(ch / "payout-holdback", ch / "archive/2026-11-17-payout-holdback")
+    v, order = run(tree)
+    assert v == []
+    assert order == ["payout-contract", "payout-holdback", "payout-seller-ui"]
