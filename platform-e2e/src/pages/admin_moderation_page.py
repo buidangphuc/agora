@@ -50,7 +50,7 @@ class AdminModerationPage(BasePage):
     @property
     def dialog(self) -> Locator:
         # Exclude the cookie-consent banner, which is also role=dialog.
-        return self.page.get_by_role("dialog").filter(has_not_text="Cookie preferences")
+        return self.page.get_by_role("dialog").filter(has_not_text=re.compile("Cookie preferences|Tùy chọn cookie"))
 
     def rows_of(self, text: str) -> Locator:
         return self.page.locator("tbody tr").filter(has_text=text)

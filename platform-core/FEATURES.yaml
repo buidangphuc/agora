@@ -5407,6 +5407,22 @@ features:
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestEveryRejectsNonPositiveInterval"
 
+  - id: go-sdk.a-non-positive-interval-is-rejected
+    title: "A non-positive interval is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When New gets an interval of zero or less"
+    - "Then it returns an error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestNewRejectsNonPositiveInterval"
+
   - id: go-sdk.the-targeting-key-comes-from-the-principal
     title: "The targeting key comes from the principal"
     persona: guest
@@ -5918,22 +5934,6 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestMessagingGroupOverrides, TestMessagingGroupDefaults and TestDrainDelay"
-
-  - id: go-sdk.a-non-positive-interval-is-rejected
-    title: "A non-positive interval is rejected"
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - "When New gets an interval of zero or less"
-    - "Then it returns an error"
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: "Platform library behaviour with no user journey; verified by TestNewRejectsNonPositiveInterval"
 
   - id: go-sdk.components-and-closers-share-one-grace-period
     title: "Components and closers share one grace period"
@@ -9443,801 +9443,6 @@ features:
     status: not-testable
     notes: "discovery-followups-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/followups_consumer_copies_test.sh` 'buf lint and breaking pass' (tasks 2.1)"
 
-  - id: aidata.contract-exposure-value-present-at-22
-    title: "Exposure value present at 22"
-    persona: guest
-    priority: P2
-    summary: "Exposure value present at 22"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Exposure value present at 22 (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExposureEventTypeIsTwentyTwo' (tasks 2.1)"
-
-  - id: aidata.contract-existing-event-types-keep-their-numbers
-    title: "Existing event types keep their numbers"
-    persona: guest
-    priority: P2
-    summary: "Existing event types keep their numbers"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Existing event types keep their numbers (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExistingEventTypesUnchanged' (tasks 2.1)"
-
-  - id: aidata.contract-exposure-properties-are-documented-as-allowlisted
-    title: "Exposure properties are documented as allowlisted"
-    persona: guest
-    priority: P2
-    summary: "Exposure properties are documented as allowlisted"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Exposure properties are documented as allowlisted (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExposureDocumented' (tasks 2.1)"
-
-  - id: aidata.contract-old-consumer-meets-the-new-event-type
-    title: "Old consumer meets the new event type"
-    persona: guest
-    priority: P2
-    summary: "Old consumer meets the new event type"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Old consumer meets the new event type (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_OldSchemaParsesExposure' (tasks 2.1)"
-
-  - id: aidata.contract-undefined-event-number-is-not-a-defined-value
-    title: "Undefined event number is not a defined value"
-    persona: guest
-    priority: P2
-    summary: "Undefined event number is not a defined value"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Undefined event number is not a defined value (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_NoUndefinedEventNumbers' (tasks 2.1)"
-
-  - id: aidata.contract-generated-at-present-at-8
-    title: "generated_at present at 8"
-    persona: guest
-    priority: P2
-    summary: "generated_at present at 8"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "generated_at present at 8 (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ForecastGeneratedAtShape' (tasks 2.1)"
-
-  - id: aidata.contract-unset-run-time-on-a-cold-start-is-distinct-from-a-set-one
-    title: "Unset run time on a cold start is distinct from a set one"
-    persona: guest
-    priority: P2
-    summary: "Unset run time on a cold start is distinct from a set one"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Unset run time on a cold start is distinct from a set one (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_GeneratedAtPresenceRoundTrip' (tasks 2.1)"
-
-  - id: aidata.contract-cold-start-semantics-are-documented
-    title: "Cold-start semantics are documented"
-    persona: guest
-    priority: P2
-    summary: "Cold-start semantics are documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Cold-start semantics are documented (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_GeneratedAtDocumented' (tasks 2.1)"
-
-  - id: aidata.contract-forecast-fields-1-to-7-are-not-renumbered
-    title: "Forecast fields 1 to 7 are not renumbered"
-    persona: guest
-    priority: P2
-    summary: "Forecast fields 1 to 7 are not renumbered"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Forecast fields 1 to 7 are not renumbered (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ForecastExistingFieldsUnchanged' (tasks 2.1)"
-
-  - id: aidata.contract-three-rpcs-present-with-their-message-types
-    title: "Three RPCs present with their message types"
-    persona: guest
-    priority: P2
-    summary: "Three RPCs present with their message types"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Three RPCs present with their message types (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportRpcsShape' (tasks 2.1)"
-
-  - id: aidata.contract-message-fields-sit-at-the-specified-numbers
-    title: "Message fields sit at the specified numbers"
-    persona: guest
-    priority: P2
-    summary: "Message fields sit at the specified numbers"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Message fields sit at the specified numbers (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportMessagesShape' (tasks 2.1)"
-
-  - id: aidata.contract-existing-query-surface-is-untouched
-    title: "Existing query surface is untouched"
-    persona: guest
-    priority: P2
-    summary: "Existing query surface is untouched"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Existing query surface is untouched (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExistingQuerySurfaceUntouched' (tasks 2.1)"
-
-  - id: aidata.contract-admin-only-and-aggregate-only-are-documented
-    title: "Admin-only and aggregate-only are documented"
-    persona: guest
-    priority: P2
-    summary: "Admin-only and aggregate-only are documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Admin-only and aggregate-only are documented (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportRpcsDocumentedAdminOnly' (tasks 2.1)"
-
-  - id: aidata.contract-window-and-interval-semantics-are-documented
-    title: "Window and interval semantics are documented"
-    persona: guest
-    priority: P2
-    summary: "Window and interval semantics are documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Window and interval semantics are documented (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportSemanticsDocumented' (tasks 2.1)"
-
-  - id: aidata.contract-empty-report-is-a-valid-response
-    title: "Empty report is a valid response"
-    persona: guest
-    priority: P2
-    summary: "Empty report is a valid response"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Empty report is a valid response (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_EmptyReportsRoundTrip' (tasks 2.1)"
-
-  - id: aidata.contract-wire-compatible-both-ways
-    title: "Wire compatible both ways"
-    persona: guest
-    priority: P2
-    summary: "Wire compatible both ways"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Wire compatible both ways (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_WireCompatible' (tasks 2.1)"
-
-  - id: aidata.contract-the-report-messages-carry-no-personal-data
-    title: "The report messages carry no personal data"
-    persona: guest
-    priority: P2
-    summary: "The report messages carry no personal data"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "The report messages carry no personal data (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportsCarryNoPersonalData' (tasks 2.1)"
-
-  - id: aidata.contract-provenance-fields-present-at-the-specified-numbers
-    title: "Provenance fields present at the specified numbers"
-    persona: guest
-    priority: P2
-    summary: "Provenance fields present at the specified numbers"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Provenance fields present at the specified numbers (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ProvenanceFieldsShape' (tasks 2.1)"
-
-  - id: aidata.contract-existing-ai-surface-is-untouched
-    title: "Existing AI surface is untouched"
-    persona: guest
-    priority: P2
-    summary: "Existing AI surface is untouched"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Existing AI surface is untouched (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ExistingAiSurfaceUntouched' (tasks 2.1)"
-
-  - id: aidata.contract-provenance-format-is-documented
-    title: "Provenance format is documented"
-    persona: guest
-    priority: P2
-    summary: "Provenance format is documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Provenance format is documented (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ProvenanceDocumented' (tasks 2.1)"
-
-  - id: aidata.contract-old-client-reads-a-new-response
-    title: "Old client reads a new response"
-    persona: guest
-    priority: P2
-    summary: "Old client reads a new response"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Old client reads a new response (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_WireCompatible' (tasks 2.1)"
-
-  - id: aidata.contract-unset-provenance-is-an-empty-string-never-a-placeholder
-    title: "Unset provenance is an empty string, never a placeholder"
-    persona: guest
-    priority: P2
-    summary: "Unset provenance is an empty string, never a placeholder"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Unset provenance is an empty string, never a placeholder (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_UnsetProvenanceIsEmpty' (tasks 2.1)"
-
-  - id: aidata.contract-copies-match-the-source
-    title: "Copies match the source"
-    persona: guest
-    priority: P2
-    summary: "Copies match the source"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Copies match the source (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'copies-match' (tasks 2.1)"
-
-  - id: aidata.contract-drifted-or-missing-copy-is-rejected
-    title: "Drifted or missing copy is rejected"
-    persona: guest
-    priority: P2
-    summary: "Drifted or missing copy is rejected"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Drifted or missing copy is rejected (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'drift-rejected' (tasks 2.1)"
-
-  - id: aidata.contract-renumbering-is-rejected
-    title: "Renumbering is rejected"
-    persona: guest
-    priority: P2
-    summary: "Renumbering is rejected"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Renumbering is rejected (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'breaking-rejected' (tasks 2.1)"
-
-  - id: aidata.contract-consumer-protos-still-build-and-lint
-    title: "Consumer protos still build and lint"
-    persona: guest
-    priority: P2
-    summary: "Consumer protos still build and lint"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Consumer protos still build and lint (unit-verified)"
-    tags: [docs-ai-data-contract, unit]
-    status: not-testable
-    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'lint-and-build' (tasks 2.1)"
-
-  - id: sellercentre.contract-seller-promotion-rpcs-exist
-    title: "Seller centre contract: Seller promotion RPCs exist"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Seller promotion RPCs exist"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Seller promotion RPCs exist (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_SellerPromotionRPCsExist`."
-
-  - id: sellercentre.contract-flashsalecampaign-carries-seller-id
-    title: "Seller centre contract: FlashSaleCampaign carries seller_id"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: FlashSaleCampaign carries seller_id"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: FlashSaleCampaign carries seller_id (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_FlashSaleCampaignCarriesSellerID`."
-
-  - id: sellercentre.contract-seller-promotion-authz-and-preconditions-are-documented
-    title: "Seller centre contract: Seller promotion authz and preconditions are documented"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Seller promotion authz and preconditions are documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Seller promotion authz and preconditions are documented (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_SellerPromotionAuthzAndPreconditionsDocumented`."
-
-  - id: sellercentre.contract-missing-authz-note-is-caught
-    title: "Seller centre contract: Missing authz note is caught"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Missing authz note is caught"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Missing authz note is caught (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_MissingAuthzNoteIsCaught`."
-
-  - id: sellercentre.contract-campaign-and-voucher-lists-round-trip
-    title: "Seller centre contract: Campaign and voucher lists round-trip"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Campaign and voucher lists round-trip"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Campaign and voucher lists round-trip (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_CampaignAndVoucherListsRoundTrip`."
-
-  - id: sellercentre.contract-old-readers-skip-seller-id
-    title: "Seller centre contract: Old readers skip seller_id"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Old readers skip seller_id"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Old readers skip seller_id (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_OldReadersSkipSellerID`."
-
-  - id: sellercentre.contract-addbundletocart-rpc-exists
-    title: "Seller centre contract: AddBundleToCart RPC exists"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: AddBundleToCart RPC exists"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: AddBundleToCart RPC exists (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_AddBundleToCartRPCExists`."
-
-  - id: sellercentre.contract-bundle-fields-have-fixed-numbers
-    title: "Seller centre contract: Bundle fields have fixed numbers"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Bundle fields have fixed numbers"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Bundle fields have fixed numbers (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_BundleFieldsHaveFixedNumbers`."
-
-  - id: sellercentre.contract-addbundletocart-failures-are-documented
-    title: "Seller centre contract: AddBundleToCart failures are documented"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: AddBundleToCart failures are documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: AddBundleToCart failures are documented (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_AddBundleToCartFailuresAreDocumented`."
-
-  - id: sellercentre.contract-bundle-fields-are-documented-server-owned
-    title: "Seller centre contract: Bundle fields are documented server-owned"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Bundle fields are documented server-owned"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Bundle fields are documented server-owned (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_BundleFieldsAreDocumentedServerOwned`."
-
-  - id: sellercentre.contract-cart-with-bundle-lines-round-trips
-    title: "Seller centre contract: Cart with bundle lines round-trips"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Cart with bundle lines round-trips"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Cart with bundle lines round-trips (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_CartWithBundleLinesRoundTrips`."
-
-  - id: sellercentre.contract-old-readers-skip-bundle-fields
-    title: "Seller centre contract: Old readers skip bundle fields"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Old readers skip bundle fields"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Old readers skip bundle fields (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_OldReadersSkipBundleFields`."
-
-  - id: sellercentre.contract-listsellerorders-fields-have-fixed-numbers
-    title: "Seller centre contract: ListSellerOrders fields have fixed numbers"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: ListSellerOrders fields have fixed numbers"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: ListSellerOrders fields have fixed numbers (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_ListSellerOrdersFieldsHaveFixedNumbers`."
-
-  - id: sellercentre.contract-listsellerorders-semantics-are-documented
-    title: "Seller centre contract: ListSellerOrders semantics are documented"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: ListSellerOrders semantics are documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: ListSellerOrders semantics are documented (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_ListSellerOrdersSemanticsAreDocumented`."
-
-  - id: sellercentre.contract-unpaged-request-keeps-the-old-wire-form
-    title: "Seller centre contract: Unpaged request keeps the old wire form"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Unpaged request keeps the old wire form"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Unpaged request keeps the old wire form (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_UnpagedRequestKeepsTheOldWireForm`."
-
-  - id: sellercentre.contract-paged-response-round-trips
-    title: "Seller centre contract: Paged response round-trips"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Paged response round-trips"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Paged response round-trips (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_PagedResponseRoundTrips`."
-
-  - id: sellercentre.contract-listmylistings-filter-fields-exist
-    title: "Seller centre contract: ListMyListings filter fields exist"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: ListMyListings filter fields exist"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: ListMyListings filter fields exist (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_ListMyListingsFilterFieldsExist`."
-
-  - id: sellercentre.contract-listmylistings-filter-semantics-are-documented
-    title: "Seller centre contract: ListMyListings filter semantics are documented"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: ListMyListings filter semantics are documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: ListMyListings filter semantics are documented (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_ListMyListingsFilterSemanticsAreDocumented`."
-
-  - id: sellercentre.contract-empty-filter-request-keeps-the-old-wire-form
-    title: "Seller centre contract: Empty filter request keeps the old wire form"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Empty filter request keeps the old wire form"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Empty filter request keeps the old wire form (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_EmptyFilterRequestKeepsTheOldWireForm`."
-
-  - id: sellercentre.contract-storefront-fields-are-unchanged
-    title: "Seller centre contract: Storefront fields are unchanged"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Storefront fields are unchanged"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Storefront fields are unchanged (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_StorefrontFieldsAreUnchanged`."
-
-  - id: sellercentre.contract-storefront-rules-are-documented
-    title: "Seller centre contract: Storefront rules are documented"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Storefront rules are documented"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Storefront rules are documented (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_StorefrontRulesAreDocumented`."
-
-  - id: sellercentre.contract-change-is-backward-compatible
-    title: "Seller centre contract: Change is backward compatible"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Change is backward compatible"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Change is backward compatible (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf breaking vs $BASE_REF`."
-
-  - id: sellercentre.contract-wire-breaking-edit-is-rejected
-    title: "Seller centre contract: Wire-breaking edit is rejected"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Wire-breaking edit is rejected"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Wire-breaking edit is rejected (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `renum`."
-
-  - id: sellercentre.contract-new-contract-in-every-generated-language
-    title: "Seller centre contract: New contract in every generated language"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: New contract in every generated language"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: New contract in every generated language (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `gen_has`."
-
-  - id: sellercentre.contract-copies-match-the-source
-    title: "Seller centre contract: Copies match the source"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Copies match the source"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Copies match the source (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `check_copies`."
-
-  - id: sellercentre.contract-drifted-or-missing-copy-is-rejected
-    title: "Seller centre contract: Drifted or missing copy is rejected"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Drifted or missing copy is rejected"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Drifted or missing copy is rejected (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `drifted and missing copy rejected and named`."
-
-  - id: sellercentre.contract-consumer-copies-lint
-    title: "Seller centre contract: Consumer copies lint"
-    persona: guest
-    priority: P2
-    summary: "Seller centre contract: Consumer copies lint"
-    entry_route: /
-    services: [platform-core]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Seller centre contract: Consumer copies lint (unit-verified)"
-    tags: [seller-centre-contract, unit]
-    status: not-testable
-    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf lint $r`."
-
   - id: monetization.contract-breakdown-fields-present-at-9-to-12
     title: "Breakdown fields present at 9 to 12"
     persona: guest
@@ -10762,3 +9967,1473 @@ features:
     tags: [monetization-contract, unit]
     status: not-testable
     notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` checks `buf lint` and `buf breaking vs $BASE_REF`. monetization-contract: not producible end to end."
+
+  - id: sellercentre.contract-seller-promotion-rpcs-exist
+    title: "Seller centre contract: Seller promotion RPCs exist"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Seller promotion RPCs exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Seller promotion RPCs exist (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_SellerPromotionRPCsExist`."
+
+  - id: sellercentre.contract-flashsalecampaign-carries-seller-id
+    title: "Seller centre contract: FlashSaleCampaign carries seller_id"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: FlashSaleCampaign carries seller_id"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: FlashSaleCampaign carries seller_id (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_FlashSaleCampaignCarriesSellerID`."
+
+  - id: sellercentre.contract-seller-promotion-authz-and-preconditions-are-documented
+    title: "Seller centre contract: Seller promotion authz and preconditions are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Seller promotion authz and preconditions are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Seller promotion authz and preconditions are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_SellerPromotionAuthzAndPreconditionsDocumented`."
+
+  - id: sellercentre.contract-missing-authz-note-is-caught
+    title: "Seller centre contract: Missing authz note is caught"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Missing authz note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Missing authz note is caught (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_MissingAuthzNoteIsCaught`."
+
+  - id: sellercentre.contract-campaign-and-voucher-lists-round-trip
+    title: "Seller centre contract: Campaign and voucher lists round-trip"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Campaign and voucher lists round-trip"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Campaign and voucher lists round-trip (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_CampaignAndVoucherListsRoundTrip`."
+
+  - id: sellercentre.contract-old-readers-skip-seller-id
+    title: "Seller centre contract: Old readers skip seller_id"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Old readers skip seller_id"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Old readers skip seller_id (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/sellercentre_compat_test.go` `TestSellerCentre_OldReadersSkipSellerID`."
+
+  - id: sellercentre.contract-addbundletocart-rpc-exists
+    title: "Seller centre contract: AddBundleToCart RPC exists"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: AddBundleToCart RPC exists"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: AddBundleToCart RPC exists (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_AddBundleToCartRPCExists`."
+
+  - id: sellercentre.contract-bundle-fields-have-fixed-numbers
+    title: "Seller centre contract: Bundle fields have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Bundle fields have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Bundle fields have fixed numbers (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_BundleFieldsHaveFixedNumbers`."
+
+  - id: sellercentre.contract-addbundletocart-failures-are-documented
+    title: "Seller centre contract: AddBundleToCart failures are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: AddBundleToCart failures are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: AddBundleToCart failures are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_AddBundleToCartFailuresAreDocumented`."
+
+  - id: sellercentre.contract-bundle-fields-are-documented-server-owned
+    title: "Seller centre contract: Bundle fields are documented server-owned"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Bundle fields are documented server-owned"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Bundle fields are documented server-owned (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_BundleFieldsAreDocumentedServerOwned`."
+
+  - id: sellercentre.contract-cart-with-bundle-lines-round-trips
+    title: "Seller centre contract: Cart with bundle lines round-trips"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Cart with bundle lines round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Cart with bundle lines round-trips (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_CartWithBundleLinesRoundTrips`."
+
+  - id: sellercentre.contract-old-readers-skip-bundle-fields
+    title: "Seller centre contract: Old readers skip bundle fields"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Old readers skip bundle fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Old readers skip bundle fields (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_OldReadersSkipBundleFields`."
+
+  - id: sellercentre.contract-listsellerorders-fields-have-fixed-numbers
+    title: "Seller centre contract: ListSellerOrders fields have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: ListSellerOrders fields have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: ListSellerOrders fields have fixed numbers (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_ListSellerOrdersFieldsHaveFixedNumbers`."
+
+  - id: sellercentre.contract-listsellerorders-semantics-are-documented
+    title: "Seller centre contract: ListSellerOrders semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: ListSellerOrders semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: ListSellerOrders semantics are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_ListSellerOrdersSemanticsAreDocumented`."
+
+  - id: sellercentre.contract-unpaged-request-keeps-the-old-wire-form
+    title: "Seller centre contract: Unpaged request keeps the old wire form"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Unpaged request keeps the old wire form"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Unpaged request keeps the old wire form (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_UnpagedRequestKeepsTheOldWireForm`."
+
+  - id: sellercentre.contract-paged-response-round-trips
+    title: "Seller centre contract: Paged response round-trips"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Paged response round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Paged response round-trips (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/order/v1/sellercentre_compat_test.go` `TestSellerCentreContract_PagedResponseRoundTrips`."
+
+  - id: sellercentre.contract-listmylistings-filter-fields-exist
+    title: "Seller centre contract: ListMyListings filter fields exist"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: ListMyListings filter fields exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: ListMyListings filter fields exist (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_ListMyListingsFilterFieldsExist`."
+
+  - id: sellercentre.contract-listmylistings-filter-semantics-are-documented
+    title: "Seller centre contract: ListMyListings filter semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: ListMyListings filter semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: ListMyListings filter semantics are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_ListMyListingsFilterSemanticsAreDocumented`."
+
+  - id: sellercentre.contract-empty-filter-request-keeps-the-old-wire-form
+    title: "Seller centre contract: Empty filter request keeps the old wire form"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Empty filter request keeps the old wire form"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Empty filter request keeps the old wire form (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_EmptyFilterRequestKeepsTheOldWireForm`."
+
+  - id: sellercentre.contract-storefront-fields-are-unchanged
+    title: "Seller centre contract: Storefront fields are unchanged"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Storefront fields are unchanged"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Storefront fields are unchanged (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_StorefrontFieldsAreUnchanged`."
+
+  - id: sellercentre.contract-storefront-rules-are-documented
+    title: "Seller centre contract: Storefront rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Storefront rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Storefront rules are documented (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/platform/listing/v1/sellercentre_compat_test.go` `TestSellerCentre_StorefrontRulesAreDocumented`."
+
+  - id: sellercentre.contract-change-is-backward-compatible
+    title: "Seller centre contract: Change is backward compatible"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Change is backward compatible"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Change is backward compatible (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf breaking vs $BASE_REF`."
+
+  - id: sellercentre.contract-wire-breaking-edit-is-rejected
+    title: "Seller centre contract: Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Wire-breaking edit is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Wire-breaking edit is rejected (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `renum`."
+
+  - id: sellercentre.contract-new-contract-in-every-generated-language
+    title: "Seller centre contract: New contract in every generated language"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: New contract in every generated language"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: New contract in every generated language (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `gen_has`."
+
+  - id: sellercentre.contract-copies-match-the-source
+    title: "Seller centre contract: Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Copies match the source (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `check_copies`."
+
+  - id: sellercentre.contract-drifted-or-missing-copy-is-rejected
+    title: "Seller centre contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Drifted or missing copy is rejected (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `drifted and missing copy rejected and named`."
+
+  - id: sellercentre.contract-consumer-copies-lint
+    title: "Seller centre contract: Consumer copies lint"
+    persona: guest
+    priority: P2
+    summary: "Seller centre contract: Consumer copies lint"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Seller centre contract: Consumer copies lint (unit-verified)"
+    tags: [seller-centre-contract, unit]
+    status: not-testable
+    notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf lint $r`."
+
+  - id: trust-legal-contract.registerrequest-carries-both-legal-versions
+    title: "Trust legal contract: RegisterRequest carries both legal versions"
+    persona: guest
+    priority: P2
+    summary: "RegisterRequest carries both legal versions"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "RegisterRequest carries both legal versions (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_RegisterRequestCarriesBothLegalVersions"
+
+  - id: trust-legal-contract.userstatus-gains-deleted-without-moving-values
+    title: "Trust legal contract: UserStatus gains DELETED without moving values"
+    persona: guest
+    priority: P2
+    summary: "UserStatus gains DELETED without moving values"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "UserStatus gains DELETED without moving values (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserStatusGainsDeletedWithoutMovingValues"
+
+  - id: trust-legal-contract.privacyservice-has-six-rpcs-and-fixed-messages
+    title: "Trust legal contract: PrivacyService has six RPCs and fixed messages"
+    persona: guest
+    priority: P2
+    summary: "PrivacyService has six RPCs and fixed messages"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "PrivacyService has six RPCs and fixed messages (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_PrivacyServiceHasSixRPCsAndFixedMessages"
+
+  - id: trust-legal-contract.consentpurpose-has-fixed-names-and-numbers
+    title: "Trust legal contract: ConsentPurpose has fixed names and numbers"
+    persona: guest
+    priority: P2
+    summary: "ConsentPurpose has fixed names and numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "ConsentPurpose has fixed names and numbers (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ConsentPurposeHasFixedNamesAndNumbers"
+
+  - id: trust-legal-contract.consentrecord-round-trips-with-a-32-character-version
+    title: "Trust legal contract: ConsentRecord round-trips with a 32-character version"
+    persona: guest
+    priority: P2
+    summary: "ConsentRecord round-trips with a 32-character version"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "ConsentRecord round-trips with a 32-character version (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ConsentRecordRoundTripsWith32CharVersion"
+
+  - id: trust-legal-contract.exportmydata-response-round-trips-a-1-mib-payload
+    title: "Trust legal contract: ExportMyData response round-trips a 1 MiB payload"
+    persona: guest
+    priority: P2
+    summary: "ExportMyData response round-trips a 1 MiB payload"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "ExportMyData response round-trips a 1 MiB payload (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ExportMyDataResponseRoundTrips1MiB"
+
+  - id: trust-legal-contract.old-readers-skip-the-register-versions
+    title: "Trust legal contract: Old readers skip the register versions"
+    persona: guest
+    priority: P2
+    summary: "Old readers skip the register versions"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old readers skip the register versions (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_OldReadersSkipRegisterVersions"
+
+  - id: trust-legal-contract.old-readers-parse-an-unknown-status-as-a-number
+    title: "Trust legal contract: Old readers parse an unknown status as a number"
+    persona: guest
+    priority: P2
+    summary: "Old readers parse an unknown status as a number"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old readers parse an unknown status as a number (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_OldReadersParseUnknownStatusAsNumber"
+
+  - id: trust-legal-contract.privacy-principal-rules-are-documented
+    title: "Trust legal contract: Privacy principal rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Privacy principal rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Privacy principal rules are documented (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_PrivacyPrincipalRulesAreDocumented"
+
+  - id: trust-legal-contract.register-and-deleted-semantics-are-documented
+    title: "Trust legal contract: Register and DELETED semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Register and DELETED semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Register and DELETED semantics are documented (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_RegisterAndDeletedSemanticsAreDocumented"
+
+  - id: trust-legal-contract.missing-principal-note-is-caught
+    title: "Trust legal contract: Missing principal note is caught"
+    persona: guest
+    priority: P2
+    summary: "Missing principal note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing principal note is caught (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_MissingPrincipalNoteIsCaught"
+
+  - id: trust-legal-contract.usererased-message-is-fixed
+    title: "Trust legal contract: UserErased message is fixed"
+    persona: guest
+    priority: P2
+    summary: "UserErased message is fixed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "UserErased message is fixed (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedMessageIsFixed"
+
+  - id: trust-legal-contract.usererased-round-trips-with-several-roles
+    title: "Trust legal contract: UserErased round-trips with several roles"
+    persona: guest
+    priority: P2
+    summary: "UserErased round-trips with several roles"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "UserErased round-trips with several roles (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedRoundTripsWithSeveralRoles"
+
+  - id: trust-legal-contract.usererased-without-roles-round-trips
+    title: "Trust legal contract: UserErased without roles round-trips"
+    persona: guest
+    priority: P2
+    summary: "UserErased without roles round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "UserErased without roles round-trips (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedWithoutRolesRoundTrips"
+
+  - id: trust-legal-contract.usererased-semantics-are-documented
+    title: "Trust legal contract: UserErased semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "UserErased semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "UserErased semantics are documented (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedSemanticsAreDocumented"
+
+  - id: trust-legal-contract.usererased-is-documented-as-not-exposed-to-any-principal-at-the-edge
+    title: "Trust legal contract: UserErased is documented as not exposed to any principal at the edge"
+    persona: guest
+    priority: P2
+    summary: "UserErased is documented as not exposed to any principal at the edge"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "UserErased is documented as not exposed to any principal at the edge (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_UserErasedIsNotExposedAtTheEdge"
+
+  - id: trust-legal-contract.missing-idempotency-note-is-caught
+    title: "Trust legal contract: Missing idempotency note is caught"
+    persona: guest
+    priority: P2
+    summary: "Missing idempotency note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing idempotency note is caught (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_MissingIdempotencyNoteIsCaught"
+
+  - id: trust-legal-contract.getuserobligations-exists-with-fixed-messages
+    title: "Trust legal contract: GetUserObligations exists with fixed messages"
+    persona: guest
+    priority: P2
+    summary: "GetUserObligations exists with fixed messages"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "GetUserObligations exists with fixed messages (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_GetUserObligationsExistsWithFixedMessages"
+
+  - id: trust-legal-contract.getpayoutobligations-exists-with-fixed-messages
+    title: "Trust legal contract: GetPayoutObligations exists with fixed messages"
+    persona: guest
+    priority: P2
+    summary: "GetPayoutObligations exists with fixed messages"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "GetPayoutObligations exists with fixed messages (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_GetPayoutObligationsExistsWithFixedMessages"
+
+  - id: trust-legal-contract.obligation-responses-round-trip-extreme-values
+    title: "Trust legal contract: Obligation responses round-trip extreme values"
+    persona: guest
+    priority: P2
+    summary: "Obligation responses round-trip extreme values"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Obligation responses round-trip extreme values (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ObligationResponsesRoundTripExtremeValues"
+
+  - id: trust-legal-contract.obligation-rpcs-are-documented-as-internal
+    title: "Trust legal contract: Obligation RPCs are documented as internal"
+    persona: guest
+    priority: P2
+    summary: "Obligation RPCs are documented as internal"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Obligation RPCs are documented as internal (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ObligationRPCsAreDocumentedAsInternal"
+
+  - id: trust-legal-contract.payout-gate-wording-is-documented
+    title: "Trust legal contract: Payout gate wording is documented"
+    persona: guest
+    priority: P2
+    summary: "Payout gate wording is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Payout gate wording is documented (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_PayoutGateWordingIsDocumented"
+
+  - id: trust-legal-contract.payout-request-fields-are-unchanged
+    title: "Trust legal contract: Payout request fields are unchanged"
+    persona: guest
+    priority: P2
+    summary: "Payout request fields are unchanged"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Payout request fields are unchanged (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_PayoutRequestFieldsAreUnchanged"
+
+  - id: trust-legal-contract.missing-internal-note-is-caught
+    title: "Trust legal contract: Missing internal note is caught"
+    persona: guest
+    priority: P2
+    summary: "Missing internal note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing internal note is caught (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_MissingInternalNoteIsCaught"
+
+  - id: trust-legal-contract.not-submitted-joins-the-status-enum
+    title: "Trust legal contract: NOT_SUBMITTED joins the status enum"
+    persona: guest
+    priority: P2
+    summary: "NOT_SUBMITTED joins the status enum"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "NOT_SUBMITTED joins the status enum (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_NotSubmittedJoinsTheStatusEnum"
+
+  - id: trust-legal-contract.verification-service-lists-four-new-rpcs
+    title: "Trust legal contract: Verification service lists four new RPCs"
+    persona: guest
+    priority: P2
+    summary: "Verification service lists four new RPCs"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Verification service lists four new RPCs (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_VerificationServiceListsFourNewRPCs"
+
+  - id: trust-legal-contract.kyc-messages-have-fixed-fields
+    title: "Trust legal contract: KYC messages have fixed fields"
+    persona: guest
+    priority: P2
+    summary: "KYC messages have fixed fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "KYC messages have fixed fields (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_KycMessagesHaveFixedFields"
+
+  - id: trust-legal-contract.existing-kyc-messages-only-gain-fields
+    title: "Trust legal contract: Existing KYC messages only gain fields"
+    persona: guest
+    priority: P2
+    summary: "Existing KYC messages only gain fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing KYC messages only gain fields (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_ExistingKycMessagesOnlyGainFields"
+
+  - id: trust-legal-contract.kycsubmission-round-trips-with-unset-review-time
+    title: "Trust legal contract: KycSubmission round-trips with unset review time"
+    persona: guest
+    priority: P2
+    summary: "KycSubmission round-trips with unset review time"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "KycSubmission round-trips with unset review time (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_KycSubmissionRoundTripsWithUnsetReviewTime"
+
+  - id: trust-legal-contract.status-response-round-trips-not-submitted-and-a-long-reason-code
+    title: "Trust legal contract: Status response round-trips NOT_SUBMITTED and a long reason code"
+    persona: guest
+    priority: P2
+    summary: "Status response round-trips NOT_SUBMITTED and a long reason code"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Status response round-trips NOT_SUBMITTED and a long reason code (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_StatusResponseRoundTripsNotSubmittedAndLongReasonCode"
+
+  - id: trust-legal-contract.old-readers-skip-kyc-additions-and-tolerate-status-4
+    title: "Trust legal contract: Old readers skip KYC additions and tolerate status 4"
+    persona: guest
+    priority: P2
+    summary: "Old readers skip KYC additions and tolerate status 4"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old readers skip KYC additions and tolerate status 4 (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_OldReadersSkipKycAdditionsAndTolerateStatus4"
+
+  - id: trust-legal-contract.kyc-access-rules-are-documented
+    title: "Trust legal contract: KYC access rules are documented"
+    persona: guest
+    priority: P2
+    summary: "KYC access rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "KYC access rules are documented (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_KycAccessRulesAreDocumented"
+
+  - id: trust-legal-contract.missing-audit-first-note-is-caught
+    title: "Trust legal contract: Missing audit-first note is caught"
+    persona: guest
+    priority: P2
+    summary: "Missing audit-first note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing audit-first note is caught (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_MissingAuditFirstNoteIsCaught"
+
+  - id: trust-legal-contract.catalogue-header-counts-26-actions
+    title: "Trust legal contract: Catalogue header counts 26 actions"
+    persona: guest
+    priority: P2
+    summary: "Catalogue header counts 26 actions"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Catalogue header counts 26 actions (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegalContract_AuditCatalogueCounts26"
+
+  - id: trust-legal-contract.stale-catalogue-header-is-rejected
+    title: "Trust legal contract: Stale catalogue header is rejected"
+    persona: guest
+    priority: P2
+    summary: "Stale catalogue header is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Stale catalogue header is rejected (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegalContract_AuditCatalogueCounts26"
+
+  - id: trust-legal-contract.audit-request-fields-are-unchanged
+    title: "Trust legal contract: Audit request fields are unchanged"
+    persona: guest
+    priority: P2
+    summary: "Audit request fields are unchanged"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Audit request fields are unchanged (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY TestTrustLegal_AuditRequestFieldsAreUnchanged"
+
+  - id: trust-legal-contract.change-is-backward-compatible
+    title: "Trust legal contract: Change is backward compatible"
+    persona: guest
+    priority: P2
+    summary: "Change is backward compatible"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Change is backward compatible (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY make -C platform-core lint-proto breaking"
+
+  - id: trust-legal-contract.wire-breaking-edit-is-rejected
+    title: "Trust legal contract: Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    summary: "Wire-breaking edit is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Wire-breaking edit is rejected (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY make -C platform-core breaking on a mutated scratch copy"
+
+  - id: trust-legal-contract.lint-passes
+    title: "Trust legal contract: Lint passes"
+    persona: guest
+    priority: P2
+    summary: "Lint passes"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Lint passes (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY make -C platform-core lint-proto"
+
+  - id: trust-legal-contract.copies-match-the-source
+    title: "Trust legal contract: Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Copies match the source (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY trust_legal_consumer_copies_test.sh copies match"
+
+  - id: trust-legal-contract.drifted-or-missing-copy-is-rejected
+    title: "Trust legal contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Drifted or missing copy is rejected (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY trust_legal_consumer_copies_test.sh drifted and missing copy rejected"
+
+  - id: trust-legal-contract.consumer-protos-build
+    title: "Trust legal contract: Consumer protos build"
+    persona: guest
+    priority: P2
+    summary: "Consumer protos build"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Consumer protos build (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY trust_legal_consumer_copies_test.sh buf build"
+
+  - id: trust-legal-contract.new-contract-in-every-generated-language
+    title: "Trust legal contract: New contract in every generated language"
+    persona: guest
+    priority: P2
+    summary: "New contract in every generated language"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "New contract in every generated language (contract-verified)"
+    tags: [trust-legal-contract, contract]
+    status: not-testable
+    notes: "trust-legal-contract: pure contract, not producible end to end. VERIFIED BY grep over generated Go, Python, JVM and TS output"
+
+  - id: core.aue-33-end-to-end-across-the-stores
+    title: "AUE-33 End to end across the stores"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-33 End to end across the stores"
+    entry_route: /
+    services: [platform-core]
+    acceptance:
+      - "When a `UserErased` for a seeded user is produced, then one Parquet export cycle and one `materialize` run complete"
+      - "Then the warehouse, Parquet files, Redis (recs, nearline, featurestore, chat session) and Qdrant contain zero occurrences of the user id and the three DLQ topics have zero records"
+    tags: [user-erasure, analytics]
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-33 End to end across the stores"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue33_end_to_end_across_the_stores)."
+
+  - id: core.aue-34-a-missing-dlq-topic-stops-the-consumer
+    title: "AUE-34 A missing DLQ topic stops the consumer"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-34 A missing DLQ topic stops the consumer"
+    entry_route: /
+    services: [platform-core]
+    acceptance:
+      - "When a consumer starts and its DLQ topic is absent"
+      - "Then the topic-init job has created it before the consumer service becomes healthy, otherwise the service exits non-zero rather than running without a DLQ"
+    tags: [user-erasure, analytics]
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-34 A missing DLQ topic stops the consumer"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue34_a_missing_dlq_topic_stops_the_consumer)."
+
+  - id: aidata.contract-exposure-value-present-at-22
+    title: "Exposure value present at 22"
+    persona: guest
+    priority: P2
+    summary: "Exposure value present at 22"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Exposure value present at 22 (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExposureEventTypeIsTwentyTwo' (tasks 2.1)"
+
+  - id: aidata.contract-existing-event-types-keep-their-numbers
+    title: "Existing event types keep their numbers"
+    persona: guest
+    priority: P2
+    summary: "Existing event types keep their numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing event types keep their numbers (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExistingEventTypesUnchanged' (tasks 2.1)"
+
+  - id: aidata.contract-exposure-properties-are-documented-as-allowlisted
+    title: "Exposure properties are documented as allowlisted"
+    persona: guest
+    priority: P2
+    summary: "Exposure properties are documented as allowlisted"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Exposure properties are documented as allowlisted (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExposureDocumented' (tasks 2.1)"
+
+  - id: aidata.contract-old-consumer-meets-the-new-event-type
+    title: "Old consumer meets the new event type"
+    persona: guest
+    priority: P2
+    summary: "Old consumer meets the new event type"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old consumer meets the new event type (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_OldSchemaParsesExposure' (tasks 2.1)"
+
+  - id: aidata.contract-undefined-event-number-is-not-a-defined-value
+    title: "Undefined event number is not a defined value"
+    persona: guest
+    priority: P2
+    summary: "Undefined event number is not a defined value"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Undefined event number is not a defined value (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_NoUndefinedEventNumbers' (tasks 2.1)"
+
+  - id: aidata.contract-generated-at-present-at-8
+    title: "generated_at present at 8"
+    persona: guest
+    priority: P2
+    summary: "generated_at present at 8"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "generated_at present at 8 (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ForecastGeneratedAtShape' (tasks 2.1)"
+
+  - id: aidata.contract-unset-run-time-on-a-cold-start-is-distinct-from-a-set-one
+    title: "Unset run time on a cold start is distinct from a set one"
+    persona: guest
+    priority: P2
+    summary: "Unset run time on a cold start is distinct from a set one"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unset run time on a cold start is distinct from a set one (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_GeneratedAtPresenceRoundTrip' (tasks 2.1)"
+
+  - id: aidata.contract-cold-start-semantics-are-documented
+    title: "Cold-start semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Cold-start semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Cold-start semantics are documented (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_GeneratedAtDocumented' (tasks 2.1)"
+
+  - id: aidata.contract-forecast-fields-1-to-7-are-not-renumbered
+    title: "Forecast fields 1 to 7 are not renumbered"
+    persona: guest
+    priority: P2
+    summary: "Forecast fields 1 to 7 are not renumbered"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Forecast fields 1 to 7 are not renumbered (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ForecastExistingFieldsUnchanged' (tasks 2.1)"
+
+  - id: aidata.contract-three-rpcs-present-with-their-message-types
+    title: "Three RPCs present with their message types"
+    persona: guest
+    priority: P2
+    summary: "Three RPCs present with their message types"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Three RPCs present with their message types (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportRpcsShape' (tasks 2.1)"
+
+  - id: aidata.contract-message-fields-sit-at-the-specified-numbers
+    title: "Message fields sit at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Message fields sit at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Message fields sit at the specified numbers (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportMessagesShape' (tasks 2.1)"
+
+  - id: aidata.contract-existing-query-surface-is-untouched
+    title: "Existing query surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing query surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing query surface is untouched (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ExistingQuerySurfaceUntouched' (tasks 2.1)"
+
+  - id: aidata.contract-admin-only-and-aggregate-only-are-documented
+    title: "Admin-only and aggregate-only are documented"
+    persona: guest
+    priority: P2
+    summary: "Admin-only and aggregate-only are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Admin-only and aggregate-only are documented (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportRpcsDocumentedAdminOnly' (tasks 2.1)"
+
+  - id: aidata.contract-window-and-interval-semantics-are-documented
+    title: "Window and interval semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Window and interval semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Window and interval semantics are documented (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportSemanticsDocumented' (tasks 2.1)"
+
+  - id: aidata.contract-empty-report-is-a-valid-response
+    title: "Empty report is a valid response"
+    persona: guest
+    priority: P2
+    summary: "Empty report is a valid response"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Empty report is a valid response (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_EmptyReportsRoundTrip' (tasks 2.1)"
+
+  - id: aidata.contract-wire-compatible-both-ways
+    title: "Wire compatible both ways"
+    persona: guest
+    priority: P2
+    summary: "Wire compatible both ways"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Wire compatible both ways (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_WireCompatible' (tasks 2.1)"
+
+  - id: aidata.contract-the-report-messages-carry-no-personal-data
+    title: "The report messages carry no personal data"
+    persona: guest
+    priority: P2
+    summary: "The report messages carry no personal data"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The report messages carry no personal data (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/analytics/v1/aidata_compat_test.go` 'TestAiData_ReportsCarryNoPersonalData' (tasks 2.1)"
+
+  - id: aidata.contract-provenance-fields-present-at-the-specified-numbers
+    title: "Provenance fields present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Provenance fields present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Provenance fields present at the specified numbers (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ProvenanceFieldsShape' (tasks 2.1)"
+
+  - id: aidata.contract-existing-ai-surface-is-untouched
+    title: "Existing AI surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing AI surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing AI surface is untouched (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ExistingAiSurfaceUntouched' (tasks 2.1)"
+
+  - id: aidata.contract-provenance-format-is-documented
+    title: "Provenance format is documented"
+    persona: guest
+    priority: P2
+    summary: "Provenance format is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Provenance format is documented (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_ProvenanceDocumented' (tasks 2.1)"
+
+  - id: aidata.contract-old-client-reads-a-new-response
+    title: "Old client reads a new response"
+    persona: guest
+    priority: P2
+    summary: "Old client reads a new response"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old client reads a new response (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_WireCompatible' (tasks 2.1)"
+
+  - id: aidata.contract-unset-provenance-is-an-empty-string-never-a-placeholder
+    title: "Unset provenance is an empty string, never a placeholder"
+    persona: guest
+    priority: P2
+    summary: "Unset provenance is an empty string, never a placeholder"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unset provenance is an empty string, never a placeholder (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/platform/ai/v1/aidata_compat_test.go` 'TestAiData_UnsetProvenanceIsEmpty' (tasks 2.1)"
+
+  - id: aidata.contract-copies-match-the-source
+    title: "Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Copies match the source (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'copies-match' (tasks 2.1)"
+
+  - id: aidata.contract-drifted-or-missing-copy-is-rejected
+    title: "Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Drifted or missing copy is rejected (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'drift-rejected' (tasks 2.1)"
+
+  - id: aidata.contract-renumbering-is-rejected
+    title: "Renumbering is rejected"
+    persona: guest
+    priority: P2
+    summary: "Renumbering is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Renumbering is rejected (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'breaking-rejected' (tasks 2.1)"
+
+  - id: aidata.contract-consumer-protos-still-build-and-lint
+    title: "Consumer protos still build and lint"
+    persona: guest
+    priority: P2
+    summary: "Consumer protos still build and lint"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Consumer protos still build and lint (unit-verified)"
+    tags: [docs-ai-data-contract, unit]
+    status: not-testable
+    notes: "docs-ai-data-contract: pure contract, not producible end to end. Verified by: `platform-core/packages/proto/aidata_consumer_copies_test.sh` 'lint-and-build' (tasks 2.1)"

@@ -22,6 +22,8 @@ var managedKeys = []string{
 	"SHUTDOWN_DRAIN_DELAY", "GRPC_REFLECTION_ENABLED", "DATABASE_URL", "DB_MAX_CONNS",
 	"DATABASE_ENABLED", "OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME",
 	"UPSTREAM_AUDIT_ADDR", "UPSTREAM_CALL_TIMEOUT_SECONDS", "UPSTREAM_CALL_TIMEOUT", "MOCK_DATA",
+	"STORAGE_ENDPOINT", "STORAGE_BUCKET", "STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY", "STORAGE_REGION",
+	"STORAGE_USE_SSL", "KAFKA_BROKERS", "KAFKA_IDENTITY_TOPIC", "KAFKA_IDENTITY_GROUP", "KAFKA_IDENTITY_DLQ_TOPIC",
 }
 
 func cleanEnv(t *testing.T) {
@@ -41,6 +43,11 @@ func baseEnv(t *testing.T, env string) {
 	t.Setenv("GRPC_PORT", "50064")
 	t.Setenv("DATABASE_URL", testDSN)
 	t.Setenv("UPSTREAM_AUDIT_ADDR", auditAddr)
+	t.Setenv("STORAGE_ENDPOINT", "minio:9000")
+	t.Setenv("STORAGE_BUCKET", "kyc-documents")
+	t.Setenv("STORAGE_ACCESS_KEY", "kyc-access")
+	t.Setenv("STORAGE_SECRET_KEY", "kyc-secret")
+	t.Setenv("KAFKA_BROKERS", "kafka:9092")
 }
 
 func wantErrNaming(t *testing.T, err error, key string) {

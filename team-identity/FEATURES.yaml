@@ -3651,6 +3651,20 @@ features:
     tags: [auth, handoff, unit]
     status: not-testable
     notes: "VERIFIED BY team-gateway internal/edge TestOutgoingForwardsSidOnlyToAllowlist (outgoing gRPC metadata is not observable through the gateway). Not producible end to end on the shared local stack (needs fault injection, a clock, process config or unit-level access)."
+  - id: handoff.session-id-is-forwarded-to-requestaccountdeletion
+    title: "Session id is forwarded to RequestAccountDeletion"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change identity-account-deletion (sso-handoff)."
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session id is forwarded to RequestAccountDeletion"
+    tags: [auth, privacy, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge TestIdentityAccountDeletionRequestForwardsSessionID (outgoing gRPC metadata is not observable through the gateway); the end-to-end effect is covered by the identity-account-deletion scenario that keeps the caller's session."
   - id: handoff.session-id-is-never-forwarded-elsewhere
     title: "Session id is never forwarded elsewhere"
     persona: buyer
@@ -5133,3 +5147,1229 @@ features:
     tags: [auth, unit]
     status: not-testable
     notes: "identity-user-registered: VERIFIED BY team-identity `internal/events` TestBuildUserRegisteredEnvelopeStableEventID. Not producible end to end: the relay cannot be made to publish one row twice black box."
+
+  # identity-legal-consent
+
+  - id: identity.register_consent
+    title: "Register with the current versions stores two consent records"
+    persona: buyer
+    priority: P1
+    summary: "Register with the current versions stores two consent records (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Register with the current versions stores two consent records"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Register with the current versions stores two consent records"
+
+  - id: identity.legal-consent-register-without-versions-is-rejected
+    title: "Register without versions is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Register without versions is rejected (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Register without versions is rejected"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Register without versions is rejected"
+
+  - id: identity.legal-consent-register-with-a-stale-version-is-rejected
+    title: "Register with a stale version is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Register with a stale version is rejected (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Register with a stale version is rejected"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Register with a stale version is rejected"
+
+  - id: identity.legal-consent-consent-insert-failure-rolls-back-the-account
+    title: "Consent insert failure rolls back the account"
+    persona: buyer
+    priority: P1
+    summary: "Consent insert failure rolls back the account (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Consent insert failure rolls back the account"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Consent insert failure rolls back the account"
+
+  - id: identity.legal-consent-registration-needs-no-prior-authentication
+    title: "Registration needs no prior authentication"
+    persona: buyer
+    priority: P1
+    summary: "Registration needs no prior authentication (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Registration needs no prior authentication"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Registration needs no prior authentication"
+
+  - id: identity.legal-consent-boot-fails-without-a-configured-version
+    title: "Boot fails without a configured version"
+    persona: buyer
+    priority: P1
+    summary: "Boot fails without a configured version (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: Boot fails without a configured version"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Boot fails without a configured version"
+
+  - id: identity.legal-consent-first-entry-is-the-current-version
+    title: "First entry is the current version"
+    persona: buyer
+    priority: P1
+    summary: "First entry is the current version (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "See spec scenario: First entry is the current version"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::First entry is the current version"
+
+  - id: identity.legal-consent-banner-choice-stores-one-row-per-changed-purpose
+    title: "Banner choice stores one row per changed purpose"
+    persona: buyer
+    priority: P1
+    summary: "Banner choice stores one row per changed purpose (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Banner choice stores one row per changed purpose"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Banner choice stores one row per changed purpose"
+
+  - id: identity.legal-consent-re-accepting-a-new-terms-version-appends-a-row
+    title: "Re-accepting a new Terms version appends a row"
+    persona: buyer
+    priority: P1
+    summary: "Re-accepting a new Terms version appends a row (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Re-accepting a new Terms version appends a row"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Re-accepting a new Terms version appends a row"
+
+  - id: identity.legal-consent-invalid-records-are-rejected-without-partial-writes
+    title: "Invalid records are rejected without partial writes"
+    persona: buyer
+    priority: P1
+    summary: "Invalid records are rejected without partial writes (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Invalid records are rejected without partial writes"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Invalid records are rejected without partial writes"
+
+  - id: identity.legal-consent-stale-or-withdrawn-legal-acceptance-is-rejected
+    title: "Stale or withdrawn legal acceptance is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Stale or withdrawn legal acceptance is rejected (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Stale or withdrawn legal acceptance is rejected"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Stale or withdrawn legal acceptance is rejected"
+
+  - id: identity.legal-consent-client-time-and-user-id-are-ignored
+    title: "Client time and user id are ignored"
+    persona: buyer
+    priority: P1
+    summary: "Client time and user id are ignored (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Client time and user id are ignored"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Client time and user id are ignored"
+
+  - id: identity.legal-consent-anonymous-and-service-principals-cannot-record-consent
+    title: "Anonymous and service principals cannot record consent"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous and service principals cannot record consent (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent]
+    acceptance:
+      - "See spec scenario: Anonymous and service principals cannot record consent"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Anonymous and service principals cannot record consent"
+
+  - id: identity.consent_ledger
+    title: "History is newest first and paged"
+    persona: buyer
+    priority: P1
+    summary: "History is newest first and paged (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: History is newest first and paged"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::History is newest first and paged"
+
+  - id: identity.legal-consent-a-user-never-sees-another-user-s-records
+    title: "A user never sees another user's records"
+    persona: buyer
+    priority: P1
+    summary: "A user never sees another user's records (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: A user never sees another user's records"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::A user never sees another user's records"
+
+  - id: identity.legal-consent-page-size-is-clamped-and-bad-cursors-are-rejected
+    title: "Page size is clamped and bad cursors are rejected"
+    persona: buyer
+    priority: P1
+    summary: "Page size is clamped and bad cursors are rejected (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Page size is clamped and bad cursors are rejected"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Page size is clamped and bad cursors are rejected"
+
+  - id: identity.legal-consent-anonymous-caller-cannot-list
+    title: "Anonymous caller cannot list"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous caller cannot list (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Anonymous caller cannot list"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Anonymous caller cannot list"
+
+  - id: identity.legal-consent-a-user-with-no-records-gets-an-empty-list
+    title: "A user with no records gets an empty list"
+    persona: buyer
+    priority: P1
+    summary: "A user with no records gets an empty list (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: A user with no records gets an empty list"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::A user with no records gets an empty list"
+
+  - id: identity.legal-consent-consent-is-reachable-through-the-gateway
+    title: "Consent is reachable through the gateway"
+    persona: buyer
+    priority: P1
+    summary: "Consent is reachable through the gateway (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent, identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Consent is reachable through the gateway"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Consent is reachable through the gateway"
+
+  - id: identity.legal-consent-anonymous-edge-call-is-refused
+    title: "Anonymous edge call is refused"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous edge call is refused (change identity-legal-consent)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.PrivacyService.RecordConsent, identity.v1.PrivacyService.ListMyConsents]
+    acceptance:
+      - "See spec scenario: Anonymous edge call is refused"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/legal_consent.feature::Anonymous edge call is refused"
+
+  # identity-account-deletion
+  - id: identity.account-deletion-buyer-with-no-obligations-schedules-deletion
+    title: "Buyer with no obligations schedules deletion"
+    persona: buyer
+    priority: P1
+    summary: "Buyer with no obligations schedules deletion (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Buyer with no obligations schedules deletion"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Buyer with no obligations schedules deletion"
+
+  - id: identity.account-deletion-wrong-password-schedules-nothing
+    title: "Wrong password schedules nothing"
+    persona: buyer
+    priority: P1
+    summary: "Wrong password schedules nothing (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Wrong password schedules nothing"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Wrong password schedules nothing"
+
+  - id: identity.account-deletion-empty-password-is-rejected
+    title: "Empty password is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Empty password is rejected (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Empty password is rejected"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Empty password is rejected"
+
+  - id: identity.account-deletion-anonymous-caller-is-unauthenticated
+    title: "Account deletion: Anonymous caller is unauthenticated"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous caller is unauthenticated (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Anonymous caller is unauthenticated"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Anonymous caller is unauthenticated"
+
+  - id: identity.account-deletion-service-principal-is-denied
+    title: "Service principal is denied"
+    persona: buyer
+    priority: P1
+    summary: "Service principal is denied (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Service principal is denied"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Service principal is denied"
+
+  - id: identity.account-deletion-repeated-request-keeps-the-first-deadline
+    title: "Repeated request keeps the first deadline"
+    persona: buyer
+    priority: P1
+    summary: "Repeated request keeps the first deadline (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Repeated request keeps the first deadline"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Repeated request keeps the first deadline"
+
+  - id: identity.account-deletion-open-order-blocks-deletion
+    title: "Open order blocks deletion"
+    persona: buyer
+    priority: P1
+    summary: "Open order blocks deletion (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Open order blocks deletion"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_obligations.feature::Open order blocks deletion"
+
+  - id: identity.account-deletion-non-zero-wallet-balance-blocks-deletion
+    title: "Non-zero wallet balance blocks deletion"
+    persona: buyer
+    priority: P1
+    summary: "Non-zero wallet balance blocks deletion (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Non-zero wallet balance blocks deletion"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_obligations.feature::Non-zero wallet balance blocks deletion"
+
+  - id: identity.account-deletion-pending-payout-blocks-deletion
+    title: "Pending payout blocks deletion"
+    persona: buyer
+    priority: P2
+    summary: "Pending payout blocks deletion (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Pending payout blocks deletion (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-account-deletion: VERIFIED BY team-identity `internal/rpc` TestRequestAccountDeletionPendingPayoutBlocks. Not producible end to end: needs a payout in flight with zero balances, which the payout hold window makes unproducible black box."
+
+  - id: identity.account-deletion-obligations-are-checked-for-the-caller-only
+    title: "Obligations are checked for the caller only"
+    persona: buyer
+    priority: P1
+    summary: "Obligations are checked for the caller only (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Obligations are checked for the caller only"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_obligations.feature::Obligations are checked for the caller only"
+
+  - id: identity.account-deletion-zero-obligations-on-every-counter-allows-deletion
+    title: "Zero obligations on every counter allows deletion"
+    persona: buyer
+    priority: P1
+    summary: "Zero obligations on every counter allows deletion (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Zero obligations on every counter allows deletion"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_obligations.feature::Zero obligations on every counter allows deletion"
+
+  - id: identity.account-deletion-payment-service-unreachable-fails-closed
+    title: "Payment service unreachable fails closed"
+    persona: buyer
+    priority: P2
+    summary: "Payment service unreachable fails closed (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Payment service unreachable fails closed (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-account-deletion: VERIFIED BY team-identity `internal/rpc` TestRequestAccountDeletionPaymentTimeoutFailsClosed. Not producible end to end: needs team-payment to time out after 2 s, not just be down."
+
+  - id: identity.account-deletion-order-service-unreachable-fails-closed
+    title: "Order service unreachable fails closed"
+    persona: buyer
+    priority: P2
+    summary: "Order service unreachable fails closed (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Order service unreachable fails closed (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-account-deletion: VERIFIED BY team-identity `internal/rpc` TestRequestAccountDeletionOrderErrorFailsClosed. Not producible end to end: needs team-order to return an error while payment is reachable, and the unused-result check is internal."
+
+  - id: identity.account-deletion-other-sessions-are-revoked-current-stays
+    title: "Other sessions are revoked, current stays"
+    persona: buyer
+    priority: P1
+    summary: "Other sessions are revoked, current stays (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Other sessions are revoked, current stays"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_sessions.feature::Other sessions are revoked, current stays"
+
+  - id: identity.account-deletion-failed-scheduling-revokes-nothing
+    title: "Failed scheduling revokes nothing"
+    persona: buyer
+    priority: P1
+    summary: "Failed scheduling revokes nothing (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Failed scheduling revokes nothing"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_sessions.feature::Failed scheduling revokes nothing"
+
+  - id: identity.account-deletion-cancel-within-the-window
+    title: "Cancel within the window"
+    persona: buyer
+    priority: P1
+    summary: "Cancel within the window (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Cancel within the window"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Cancel within the window"
+
+  - id: identity.account-deletion-cancel-with-nothing-pending-is-rejected
+    title: "Cancel with nothing pending is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Cancel with nothing pending is rejected (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Cancel with nothing pending is rejected"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Cancel with nothing pending is rejected"
+
+  - id: identity.account-deletion-anonymous-cancel-is-unauthenticated
+    title: "Anonymous cancel is unauthenticated"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous cancel is unauthenticated (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Anonymous cancel is unauthenticated"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Anonymous cancel is unauthenticated"
+
+  - id: identity.account-deletion-a-user-cannot-cancel-another-user-s-deletion
+    title: "A user cannot cancel another user's deletion"
+    persona: buyer
+    priority: P1
+    summary: "A user cannot cancel another user's deletion (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: A user cannot cancel another user's deletion"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::A user cannot cancel another user's deletion"
+
+  - id: identity.account-deletion-status-with-nothing-pending
+    title: "Status with nothing pending"
+    persona: buyer
+    priority: P1
+    summary: "Status with nothing pending (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Status with nothing pending"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Status with nothing pending"
+
+  - id: identity.account-deletion-status-with-pending-deletion
+    title: "Status with pending deletion"
+    persona: buyer
+    priority: P1
+    summary: "Status with pending deletion (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Status with pending deletion"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Status with pending deletion"
+
+  - id: identity.account-deletion-anonymous-status-is-unauthenticated
+    title: "Anonymous status is unauthenticated"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous status is unauthenticated (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Anonymous status is unauthenticated"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Anonymous status is unauthenticated"
+
+  - id: identity.account-deletion-due-account-is-erased
+    title: "Due account is erased"
+    persona: buyer
+    priority: P1
+    summary: "Due account is erased (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Due account is erased"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Due account is erased"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
+
+  - id: identity.account-deletion-usererased-is-written-in-the-same-transaction
+    title: "UserErased is written in the same transaction"
+    persona: buyer
+    priority: P1
+    summary: "UserErased is written in the same transaction (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: UserErased is written in the same transaction"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::UserErased is written in the same transaction"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml). The rollback clause (nothing remains when the transaction rolls back) is unit-verified, not part of this scenario."
+
+  - id: identity.account-deletion-consent-and-seller-terms-proof-survive-erasure
+    title: "Consent and seller-terms proof survive erasure"
+    persona: buyer
+    priority: P1
+    summary: "Consent and seller-terms proof survive erasure (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Consent and seller-terms proof survive erasure"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Consent and seller-terms proof survive erasure"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
+
+  - id: identity.account-deletion-account-not-yet-due-is-untouched
+    title: "Account not yet due is untouched"
+    persona: buyer
+    priority: P1
+    summary: "Account not yet due is untouched (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Account not yet due is untouched"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Account not yet due is untouched"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
+
+  - id: identity.account-deletion-cancelled-account-is-untouched
+    title: "Cancelled account is untouched"
+    persona: buyer
+    priority: P1
+    summary: "Cancelled account is untouched (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Cancelled account is untouched"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Cancelled account is untouched"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
+
+  - id: identity.account-deletion-sweep-is-idempotent
+    title: "Sweep is idempotent"
+    persona: buyer
+    priority: P1
+    summary: "Sweep is idempotent (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Sweep is idempotent"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Sweep is idempotent"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
+
+  - id: identity.account-deletion-erasure-completes-within-72-h-of-the-request
+    title: "Erasure completes within 72 h of the request"
+    persona: buyer
+    priority: P1
+    summary: "Erasure completes within 72 h of the request (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Erasure completes within 72 h of the request"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Erasure completes within 72 h of the request"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
+
+  - id: identity.account-deletion-one-failing-account-does-not-stop-the-batch
+    title: "One failing account does not stop the batch"
+    persona: buyer
+    priority: P2
+    summary: "One failing account does not stop the batch (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "One failing account does not stop the batch (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-account-deletion: VERIFIED BY team-identity `internal/identity` TestEraserOneFailingAccountDoesNotStopBatch. Not producible end to end: needs a database fault injected for one account."
+
+  - id: identity.account-deletion-login-to-an-erased-account-fails
+    title: "Login to an erased account fails"
+    persona: buyer
+    priority: P1
+    summary: "Login to an erased account fails (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Login to an erased account fails"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Login to an erased account fails"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
+
+  - id: identity.account-deletion-former-username-is-not-reusable-by-lookup
+    title: "Former username is not reusable by lookup"
+    persona: buyer
+    priority: P1
+    summary: "Former username is not reusable by lookup (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Former username is not reusable by lookup"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_erasure.feature::Former username is not reusable by lookup"
+    notes: "Runs on the short-window stack (compose/account-deletion.override.yaml)."
+
+  - id: identity.account-deletion-pending-deletion-does-not-block-sign-in
+    title: "Pending deletion does not block sign-in"
+    persona: buyer
+    priority: P1
+    summary: "Pending deletion does not block sign-in (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Pending deletion does not block sign-in"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_request.feature::Pending deletion does not block sign-in"
+
+  - id: identity.account-deletion-signed-in-user-reaches-the-rpc
+    title: "Signed-in user reaches the RPC"
+    persona: buyer
+    priority: P1
+    summary: "Signed-in user reaches the RPC (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Signed-in user reaches the RPC"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_gateway.feature::Signed-in user reaches the RPC"
+
+  - id: identity.account-deletion-anonymous-request-is-rejected-at-the-edge
+    title: "Anonymous deletion request is rejected at the edge"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous deletion request is rejected at the edge (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Anonymous deletion request is rejected at the edge"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_gateway.feature::Anonymous deletion request is rejected at the edge"
+
+  - id: identity.account-deletion-internal-obligation-rpcs-are-not-exposed
+    title: "Internal obligation RPCs are not exposed"
+    persona: buyer
+    priority: P1
+    summary: "Internal obligation RPCs are not exposed (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.RequestAccountDeletion, identity.v1.PrivacyService.CancelAccountDeletion, identity.v1.PrivacyService.GetAccountDeletionStatus]
+    acceptance:
+      - "See spec scenario: Internal obligation RPCs are not exposed"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/account_deletion_gateway.feature::Internal obligation RPCs are not exposed"
+
+  - id: identity.account-deletion-erasure-logs-counts-only
+    title: "Erasure logs counts only"
+    persona: buyer
+    priority: P2
+    summary: "Erasure logs counts only (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Erasure logs counts only (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-account-deletion: VERIFIED BY team-identity `internal/identity` TestErasureLogsCountsOnly. Not producible end to end: needs captured log output inside the service."
+
+  - id: identity.account-deletion-a-failed-erasure-logs-no-personal-data
+    title: "A failed erasure logs no personal data"
+    persona: buyer
+    priority: P2
+    summary: "A failed erasure logs no personal data (change identity-account-deletion)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A failed erasure logs no personal data (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-account-deletion: VERIFIED BY team-identity `internal/identity` TestFailedErasureLogsNoPersonalData. Not producible end to end: needs a database fault and captured log output inside the service."
+
+  # identity-data-export
+  - id: identity.data-export-export-lists-every-identity-held-record-of-the-caller
+    title: "E1 Export lists every identity-held record of the caller"
+    persona: buyer
+    priority: P1
+    summary: "Export lists every identity-held record of the caller (E1, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E1: Export lists every identity-held record of the caller"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/data_export.feature::Export lists every identity-held record of the caller"
+
+  - id: identity.data-export-export-never-contains-credentials
+    title: "E2 Export never contains credentials"
+    persona: buyer
+    priority: P1
+    summary: "Export never contains credentials (E2, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E2: Export never contains credentials"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/data_export.feature::Export never contains credentials"
+
+  - id: identity.data-export-consents-are-listed-newest-first-with-deletion-state
+    title: "E3 Consents are listed newest first with deletion state"
+    persona: buyer
+    priority: P1
+    summary: "Consents are listed newest first with deletion state (E3, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E3: Consents are listed newest first with deletion state"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/data_export.feature::Consents are listed newest first with deletion state"
+
+  - id: identity.data-export-a-user-with-no-addresses-and-no-deletion-gets-empty-collections
+    title: "E4 A user with no addresses and no deletion gets empty collections"
+    persona: buyer
+    priority: P1
+    summary: "A user with no addresses and no deletion gets empty collections (E4, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A user with no addresses and no deletion gets empty collections (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E4: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataEmptyAccount. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-anonymous-caller-is-refused
+    title: "E5 Anonymous caller is refused"
+    persona: buyer
+    priority: P1
+    summary: "Anonymous caller is refused (E5, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E5: Anonymous caller is refused"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/data_export.feature::Anonymous caller is refused"
+
+  - id: identity.data-export-service-principal-is-refused
+    title: "E6 Service principal is refused"
+    persona: buyer
+    priority: P1
+    summary: "Service principal is refused (E6, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Service principal is refused (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E6: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataServicePrincipalDenied. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-one-user-never-sees-another-user-s-data
+    title: "E7 One user never sees another user's data"
+    persona: buyer
+    priority: P1
+    summary: "One user never sees another user's data (E7, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E7: One user never sees another user's data"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/data_export.feature::One user never sees another user's data"
+
+  - id: identity.data-export-a-user-with-a-pending-deletion-can-still-export
+    title: "E8 A user with a pending deletion can still export"
+    persona: buyer
+    priority: P1
+    summary: "A user with a pending deletion can still export (E8, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A user with a pending deletion can still export (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E8: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataAllowedWhileDeletionPending. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-login-history-over-the-cap-is-truncated-and-flagged
+    title: "E9 Login history over the cap is truncated and flagged"
+    persona: buyer
+    priority: P1
+    summary: "Login history over the cap is truncated and flagged (E9, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E9: Login history over the cap is truncated and flagged"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/data_export.feature::Login history over the cap is truncated and flagged"
+
+  - id: identity.data-export-exactly-1000-login-events-are-not-truncated
+    title: "E10 Exactly 1000 login events are not truncated"
+    persona: buyer
+    priority: P1
+    summary: "Exactly 1000 login events are not truncated (E10, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Exactly 1000 login events are not truncated (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E10: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataCapBoundary. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-oversized-document-is-shrunk-below-1-mib
+    title: "E11 Oversized document is shrunk below 1 MiB"
+    persona: buyer
+    priority: P1
+    summary: "Oversized document is shrunk below 1 MiB (E11, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Oversized document is shrunk below 1 MiB (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E11: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataShrinksOversizedDocument. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-latency-for-the-reference-account
+    title: "E12 Latency for the reference account"
+    persona: buyer
+    priority: P1
+    summary: "Latency for the reference account (E12, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Latency for the reference account (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E12: VERIFIED BY team-identity `team-identity/internal/store/export_pg_test.go` TestExportMyDataLatencyP95. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-a-database-error-returns-no-partial-file
+    title: "E13 A database error returns no partial file"
+    persona: buyer
+    priority: P1
+    summary: "A database error returns no partial file (E13, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A database error returns no partial file (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E13: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataDatabaseErrorReturnsNoData. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."
+
+  - id: identity.data-export-the-edge-response-is-not-cacheable
+    title: "E14 The edge response is not cacheable"
+    persona: buyer
+    priority: P1
+    summary: "The edge response is not cacheable (E14, change identity-data-export)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.PrivacyService.ExportMyData]
+    acceptance:
+      - "E14: The edge response is not cacheable"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "identity/data_export.feature::The edge response is not cacheable"
+
+  - id: identity.data-export-logs-carry-no-personal-data
+    title: "E15 Logs carry no personal data"
+    persona: buyer
+    priority: P1
+    summary: "Logs carry no personal data (E15, change identity-data-export)"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Logs carry no personal data (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-data-export E15: VERIFIED BY team-identity `team-identity/internal/rpc/export_test.go` TestExportMyDataLogsNoPersonalData. Not producible end to end: needs fault injection, log capture, a service principal, or a load/size shape the gateway stack cannot set up."

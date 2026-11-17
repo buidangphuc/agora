@@ -78,7 +78,9 @@ type AuthService struct {
 	handoff    HandoffRepository
 	handoffTTL time.Duration
 
-	sellerTerms []string
+	sellerTerms     []string
+	termsVersions   []string
+	privacyVersions []string
 }
 
 // WithClock injects the time source (default time.Now).
@@ -145,10 +147,38 @@ func (s *AuthService) GetMyAccount(ctx context.Context, userID string) (store.Us
 	return s.repo.GetByID(ctx, userID)
 }
 
+type consentRegistrar interface {
+	CreateRegisteredWithConsents(ctx context.Context, u store.User, referralCode string, consents []store.ConsentInput, enqueue store.RegisteredEnqueueFn) (store.User, error)
+}
+
+// FieldError is an invalid-input error that names the offending request field.
+type FieldError struct{ Field string }
+
+func (e *FieldError) Error() string { return "invalid " + e.Field }
+
+func (e *FieldError) Unwrap() error { return ErrInvalidInput }
+
+// WithLegalVersions sets the accepted legal versions; the first entry of each list is the current version.
+func (s *AuthService) WithLegalVersions(terms, privacy []string) *AuthService {
+	s.termsVersions = append([]string(nil), terms...)
+	s.privacyVersions = append([]string(nil), privacy...)
+	return s
+}
+
 func (s *AuthService) RegisterWithReferral(ctx context.Context, username, password, role, referralCode string) (AuthResult, error) {
+	return s.RegisterWithConsent(ctx, username, password, role, referralCode, "", "")
+}
+
+func (s *AuthService) RegisterWithConsent(ctx context.Context, username, password, role, referralCode, termsVersion, privacyVersion string) (AuthResult, error) {
 	username = strings.TrimSpace(username)
 	if username == "" || len(password) < 4 {
 		return AuthResult{}, ErrInvalidInput
+	}
+	if len(s.termsVersions) > 0 && termsVersion != s.termsVersions[0] {
+		return AuthResult{}, &FieldError{Field: "terms_version"}
+	}
+	if len(s.privacyVersions) > 0 && privacyVersion != s.privacyVersions[0] {
+		return AuthResult{}, &FieldError{Field: "privacy_version"}
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -160,7 +190,16 @@ func (s *AuthService) RegisterWithReferral(ctx context.Context, username, passwo
 		PasswordHash: string(hash),
 		Roles:        []string{authz.NormalizeRole(role)},
 	}
-	created, err := s.repo.CreateRegistered(ctx, u, normalizeReferralCode(referralCode), s.registeredEvent(ctx))
+	var created store.User
+	cr, hasConsents := s.repo.(consentRegistrar)
+	if hasConsents && len(s.termsVersions) > 0 && len(s.privacyVersions) > 0 {
+		created, err = cr.CreateRegisteredWithConsents(ctx, u, normalizeReferralCode(referralCode), []store.ConsentInput{
+			{Purpose: "TERMS", Granted: true, Version: termsVersion, Source: "register"},
+			{Purpose: "PRIVACY_POLICY", Granted: true, Version: privacyVersion, Source: "register"},
+		}, s.registeredEvent(ctx))
+	} else {
+		created, err = s.repo.CreateRegistered(ctx, u, normalizeReferralCode(referralCode), s.registeredEvent(ctx))
+	}
 	if err != nil {
 		return AuthResult{}, err
 	}
@@ -202,6 +241,9 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 	u, err = s.liftIfExpired(ctx, u)
 	if err != nil {
 		return AuthResult{}, err
+	}
+	if u.Status == store.StatusDeleted {
+		return AuthResult{}, ErrInvalidCredentials
 	}
 	if u.Status == store.StatusSuspended || u.Status == store.StatusBanned {
 		s.recordLogin(ctx, u.ID, false)

@@ -890,3 +890,60 @@ features:
     tags: [featurestore, unit]
     status: not-testable
     notes: "analytics-listing-deleted-status: VERIFIED BY platform-featurestore/tests/test_materialize.py test_committed_lock_matches_registry. Not producible end to end: it exercises decoder or store internals that no public-edge call can reach."
+
+  - id: featurestore.aue-24-a-user-erased-upstream-disappears-from-the-online-store
+    title: "AUE-24 A user erased upstream disappears from the online store"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-24 A user erased upstream disappears from the online store"
+    entry_route: /
+    services: [platform-featurestore]
+    acceptance:
+      - "When `materialize` runs on inputs where U's rows were re-keyed to `erased:<hex>` and Redis DB 2 still holds `fs:user_activity:v2:<U>` and `fs:user_preferences:v1:<U>` from the previous run"
+      - "Then both keys are gone, no key with entity `erased:<hex>` exists, other users' keys are present, and the parity gate passes"
+    tags: [user-erasure, analytics]
+    status: automated
+    covered_by: "analytics/user_erasure_stores.feature::AUE-24 A user erased upstream disappears from the online store"
+    notes: "analytics-user-erasure: e2e in analytics/user_erasure_stores.feature (green: test_analytics_user_erasure_stores.py::test_aue24_a_user_erased_upstream_disappears_from_the_online_store)."
+
+  - id: featurestore.aue-25-pseudonymised-rows-do-not-become-features-or-training-rows
+    title: "AUE-25 Pseudonymised rows do not become features or training rows"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-25 Pseudonymised rows do not become features or training rows"
+    entry_route: /
+    services: [platform-featurestore]
+    acceptance:
+      - "When `materialize` and `dataset` run on inputs containing rows with `user_key` = `erased:<hex>`"
+      - "Then the offline `user_activity`, `user_preferences` and `als_interactions` outputs contain zero rows for that key and `paid_orders_30d` counts nobody for `buyer_id` = `erased:<hex>`"
+    tags: [user-erasure, unit]
+    status: not-testable
+    notes: "analytics-user-erasure: VERIFIED BY platform-featurestore/tests/test_erasure_inputs.py test_pseudonymised_rows_excluded_from_views_and_dataset_AUE_25. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+
+  - id: featurestore.aue-26-item-views-and-registry-hashes-are-unchanged
+    title: "AUE-26 Item views and registry hashes are unchanged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-26 Item views and registry hashes are unchanged"
+    entry_route: /
+    services: [platform-featurestore]
+    acceptance:
+      - "When `materialize` runs and `registry/features.lock` is verified"
+      - "Then the item views' online keys are not deleted by the reconcile and the lock check passes without a hash change"
+    tags: [user-erasure, unit]
+    status: not-testable
+    notes: "analytics-user-erasure: VERIFIED BY platform-featurestore/tests/test_erasure_inputs.py test_item_views_and_registry_hashes_unchanged_AUE_26. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."
+
+  - id: featurestore.aue-27-a-redis-failure-during-the-reconcile-fails-the-run
+    title: "AUE-27 A Redis failure during the reconcile fails the run"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change analytics-user-erasure (ml-stores-erasure): AUE-27 A Redis failure during the reconcile fails the run"
+    entry_route: /
+    services: [platform-featurestore]
+    acceptance:
+      - "When Redis errors while deleting stale user keys"
+      - "Then `materialize` exits non-zero and does not write the `current` and `meta` pointers"
+    tags: [user-erasure, unit]
+    status: not-testable
+    notes: "analytics-user-erasure: VERIFIED BY platform-featurestore/tests/test_erasure_reconcile.py test_redis_failure_during_reconcile_fails_run_AUE_27. Not producible end to end: needs fault injection, debug logs or internals that no public-edge call can reach."

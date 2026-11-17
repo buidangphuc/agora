@@ -33,6 +33,7 @@ import httpx
 
 from config.settings import get_settings
 from src.constants import gateway_endpoints as ep
+from src.constants import legal_versions as legal
 from tests.e2e.flows.tracking_flow import _fields, consume_tracking_events
 
 PASSWORD = "Sup3r-secret-pass!"
@@ -81,7 +82,7 @@ def register_buyer() -> tuple[str, str]:
     username = f"e2e-tii-{uuid.uuid4().hex[:12]}"
     resp = httpx.post(
         f"{gateway_url()}{ep.AUTH_REGISTER}",
-        json={"username": username, "password": PASSWORD, "role": "buyer"},
+        json={"username": username, "password": PASSWORD, "role": "buyer", **legal.versions()},
         timeout=30,
     )
     resp.raise_for_status()

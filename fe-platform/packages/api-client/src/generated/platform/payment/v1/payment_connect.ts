@@ -6,7 +6,7 @@
 // team-payment (Go) owns this: mock payment transactions & seller wallets (Phase 5).
 // Financially sensitive => MOCK ONLY (no real money movement).
 
-import { ChargeSellerFeeRequest, ChargeSellerFeeResponse, CreatePaymentRequest, CreatePaymentResponse, GetOrderSettlementRequest, GetOrderSettlementResponse, GetPaymentRequest, GetPaymentResponse, GetSellerWalletRequest, GetSellerWalletResponse, GetWalletBalanceRequest, GetWalletBalanceResponse, ListLedgerEntriesRequest, ListLedgerEntriesResponse, ListPayoutHistoryRequest, ListPayoutHistoryResponse, ProcessMockPaymentRequest, ProcessMockPaymentResponse, RefundPaymentRequest, RefundPaymentResponse, RequestPayoutRequest, RequestPayoutResponse, RequestWalletPayoutRequest, RequestWalletPayoutResponse } from "./payment_pb.js";
+import { ChargeSellerFeeRequest, ChargeSellerFeeResponse, CreatePaymentRequest, CreatePaymentResponse, GetOrderSettlementRequest, GetOrderSettlementResponse, GetPaymentRequest, GetPaymentResponse, GetPayoutObligationsRequest, GetPayoutObligationsResponse, GetSellerWalletRequest, GetSellerWalletResponse, GetWalletBalanceRequest, GetWalletBalanceResponse, ListLedgerEntriesRequest, ListLedgerEntriesResponse, ListPayoutHistoryRequest, ListPayoutHistoryResponse, ProcessMockPaymentRequest, ProcessMockPaymentResponse, RefundPaymentRequest, RefundPaymentResponse, RequestPayoutRequest, RequestPayoutResponse, RequestWalletPayoutRequest, RequestWalletPayoutResponse } from "./payment_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -52,6 +52,11 @@ export const PaymentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Gate: seller verification required. The call succeeds only when the seller's
+     * verification status is VERIFIED; otherwise FAILED_PRECONDITION. When the
+     * verification service cannot be reached the call fails closed with
+     * UNAVAILABLE.
+     *
      * @generated from rpc platform.payment.v1.PaymentService.RequestPayout
      */
     requestPayout: {
@@ -101,6 +106,10 @@ export const PaymentService = {
     /**
      * RequestWalletPayout books a payout ledger entry for the seller. Named to
      * avoid colliding with the existing bank-detail RequestPayout RPC above.
+     * Gate: seller verification required. The call succeeds only when the seller's
+     * verification status is VERIFIED; otherwise FAILED_PRECONDITION. When the
+     * verification service cannot be reached the call fails closed with
+     * UNAVAILABLE.
      *
      * @generated from rpc platform.payment.v1.PaymentService.RequestWalletPayout
      */
@@ -108,6 +117,22 @@ export const PaymentService = {
       name: "RequestWalletPayout",
       I: RequestWalletPayoutRequest,
       O: RequestWalletPayoutResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * GetPayoutObligations reports the money a user still has in flight
+     * (available and held balance, pending payouts) so team-identity can decide
+     * whether an account may be erased. Internal: requires a service principal
+     * holding scope `payment.internal.read`; every other principal gets
+     * PERMISSION_DENIED, enforced by the service itself. NOT routed at the
+     * gateway.
+     *
+     * @generated from rpc platform.payment.v1.PaymentService.GetPayoutObligations
+     */
+    getPayoutObligations: {
+      name: "GetPayoutObligations",
+      I: GetPayoutObligationsRequest,
+      O: GetPayoutObligationsResponse,
       kind: MethodKind.Unary,
     },
     /**

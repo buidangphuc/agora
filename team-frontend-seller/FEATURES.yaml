@@ -2094,474 +2094,842 @@ features:
     status: not-testable
     notes: "VERIFIED BY `team-frontend-seller/src/app/titleSuffix.test.ts` `no hand-written suffix in page titles`. Asserts internal calls or build-time scans that no HTTP response exposes."
 
-  - id: seller.forecast-card.seller-with-history-sees-the-forecast
-    title: "Seller with history sees the forecast"
+  - id: seller-fee-breakdown-ui.breakdown-of-a-settled-order
+    title: "Breakdown of a settled order"
     persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
     preconditions:
       login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "When a logged-in seller with at least 14 days of paid order lines on listing L and a forecast run after them opens `/seller/analytics`"
-      - "Then the card lists L with 14 rows of date, p10, p50 and p90, a line \"Điểm đặt hàng lại: N đơn vị\" equal to the RPC `suggested_reorder_point` rounded up, the RPC `model_version` string and the `generated_at` date as `dd/mm/yyyy`"
-    tags: [seller, forecast]
+      - "Breakdown of a settled order"
+    tags: [seller, fintech]
     status: automated
-    covered_by: "seller/seller_forecast_card.feature::Seller with history sees the forecast"
-    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Seller with history sees the forecast passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Breakdown of a settled order"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: seller.forecast-card.values-are-rendered-exactly-as-served
-    title: "Values are rendered exactly as served"
+  - id: seller-fee-breakdown-ui.breakdown-after-a-partial-refund
+    title: "Breakdown after a partial refund"
     persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
     preconditions:
       login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "When the gateway returns a forecast whose p10, p50 and p90 are 1.0, 2.5 and 4.0 for a date"
-      - "Then that date row shows 1.0, 2.5 and 4.0 and no value is recomputed, smoothed or clamped by the frontend"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `renders served quantiles unchanged`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.card-covers-only-the-top-five-listings-of-the-range
-    title: "Card covers only the top five listings of the range"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the seller has paid revenue on 7 listings in the selected range"
-      - "Then the card shows exactly 5 listing sections, ordered by revenue descending, and `getDemandForecast` is called exactly 5 times"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `forecasts only the top five listings of the range`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.range-tab-selects-the-candidate-listings
-    title: "Range tab selects the candidate listings"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the seller selects the \"30 ngày\" range tab"
-      - "Then the URL contains `range=30d` and the revenue breakdown used to pick listings is requested with a `from` 30 days before `to`"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `range tab scopes the listing pick`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.forecast-request-is-fixed-at-fourteen-days
-    title: "Forecast request is fixed at fourteen days"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When `getDemandForecast` is called by the page"
-      - "Then the RPC request has `horizon_days=14` and the `seller_id` of the session principal"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `requests a 14 day horizon for the principal`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.gateway-rejects-the-forecast-call-without-a-token
-    title: "Gateway rejects the forecast call without a token"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When `getDemandForecast` is called with a session token that the gateway rejects with `Unauthenticated`"
-      - "Then the wrapper rejects with that error and the card shows \"Dự báo tạm thời không khả dụng\" without numbers"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `rejects on Unauthenticated`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.listing-without-a-forecast-key
-    title: "Listing without a forecast key"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a seller has paid orders on listing L but the forecast job wrote no key for L, so the RPC returns `is_cold_start=true` with no points"
-      - "Then L's section reads \"Chưa đủ dữ liệu để dự báo\" and contains no digit-bearing forecast cell, no reorder point and no model version"
-    tags: [seller, forecast]
+      - "Breakdown after a partial refund"
+    tags: [seller, fintech]
     status: automated
-    covered_by: "seller/seller_forecast_card.feature::Listing without a forecast key"
-    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Listing without a forecast key passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Breakdown after a partial refund"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: seller.forecast-card.cold-start-with-stray-points-is-not-rendered
-    title: "Cold start with stray points is not rendered"
+  - id: seller-fee-breakdown-ui.unsettled-order-shows-the-not-settled-state
+    title: "Unsettled order shows the not-settled state"
     persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
     preconditions:
       login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "When a response has `is_cold_start=true` and a non-empty `daily_forecasts` list"
-      - "Then the section shows only \"Chưa đủ dữ liệu để dự báo\" and none of the points"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `cold start never renders points`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.warm-response-with-no-points-is-an-error-state
-    title: "Warm response with no points is an error state"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a response has `is_cold_start=false` and zero `daily_forecasts`"
-      - "Then the section reads \"Dự báo tạm thời không khả dụng\" and shows no numbers"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `empty warm response is treated as an error`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.store-unavailable
-    title: "Store unavailable"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When team-analytics cannot read the forecast store and `GetDemandForecast` returns `Unavailable` for every listing"
-      - "Then every listing section reads \"Dự báo tạm thời không khả dụng\", no forecast number is shown, and the page responds 200"
-    tags: [seller, forecast]
+      - "Unsettled order shows the not-settled state"
+    tags: [seller, fintech]
     status: automated
-    covered_by: "seller/seller_forecast_card.feature::Store unavailable"
-    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Store unavailable passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Unsettled order shows the not-settled state"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: seller.forecast-card.one-listing-fails-others-render
-    title: "One listing fails, others render"
+  - id: seller-fee-breakdown-ui.another-sellers-order-is-not-found-and-nothing-is-fetched
+    title: "Another seller's order is not found and nothing is fetched"
     persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
     preconditions:
       login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "When the call for the second of three listings rejects and the other two succeed"
-      - "Then the second section shows \"Dự báo tạm thời không khả dụng\" and the other two show their forecasts"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `one failed forecast does not hide the others`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.forecast-failure-leaves-funnel-and-revenue-intact
-    title: "Forecast failure leaves funnel and revenue intact"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When every forecast call rejects while the funnel and revenue reads succeed"
-      - "Then the KPI row, the funnel block and the revenue table render with their data and no funnel or revenue Alert appears"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `forecast failure does not touch funnel and revenue`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.wrapper-surfaces-failure-instead-of-zeros
-    title: "Wrapper surfaces failure instead of zeros"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the gateway call in `getDemandForecast` throws a `ConnectError` with code `Unavailable`"
-      - "Then the wrapper rejects with that error and returns no view object"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `rejects on Unavailable`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.revenue-read-fails
-    title: "Revenue read fails"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the revenue breakdown used to pick listings fails"
-      - "Then the card shows an `Alert` \"Dự báo tạm thời không khả dụng\" with a \"Thử lại\" link to the same URL and no forecast call is made"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `revenue failure shows the forecast alert`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.new-seller-without-orders
-    title: "New seller without orders"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a seller with no paid orders in the range opens `/seller/analytics`"
-      - "Then the card shows \"Chưa có đơn hàng để dự báo\" and zero forecast calls are made"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `no revenue means an empty forecast card`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.top-sku-without-a-listing-id-is-skipped
-    title: "Top SKU without a listing id is skipped"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a top SKU row has an empty `listing_id`"
-      - "Then no forecast call is made for it and no section is shown for it"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `skips SKU rows without a listing id`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.query-string-cannot-select-another-seller
-    title: "Query string cannot select another seller"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a seller opens `/seller/analytics?range=30d&sellerId=other&listingId=other-1`"
-      - "Then every `GetDemandForecast` request carries the principal's own `seller_id` and none carries `other` or `other-1`"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `ignores seller and listing ids from the URL`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.guest-is-redirected
-    title: "Guest is redirected"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a request without a session opens `/seller/analytics`"
-      - "Then the response redirects to login and no `GetDemandForecast` call is made"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `guest triggers no forecast call`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.buyer-without-seller-scope-is-denied
-    title: "Buyer without seller scope is denied"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a logged-in principal without scope `listing.write` opens `/seller/analytics`"
-      - "Then the page renders nothing and no `GetDemandForecast` call is made"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `no listing.write scope triggers no forecast call`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.gateway-rejects-a-foreign-seller-id
-    title: "Gateway rejects a foreign seller id"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
-    entry_route: /seller/analytics
-    services: [team-frontend-seller, team-gateway, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a seller session calls `GetDemandForecast` through the gateway with another seller's id"
-      - "Then the call is denied with `PermissionDenied` and no forecast is returned"
-    tags: [seller, forecast]
+      - "Another seller's order is not found and nothing is fetched"
+    tags: [seller, fintech]
     status: automated
-    covered_by: "seller/seller_forecast_card.feature::Gateway rejects a foreign seller id"
-    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Gateway rejects a foreign seller id passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Another seller's order is not found and nothing is fetched"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: seller.forecast-card.shown-beacon-carries-provenance
-    title: "Shown beacon carries provenance"
+  - id: seller-fee-breakdown-ui.guest-cannot-see-the-breakdown
+    title: "Guest cannot see the breakdown"
     persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/orders/{id}
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
     preconditions:
       login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "When the seller generates a Magic Listing suggestion and team-ai returns `request_id` R and `model_version` M"
-      - "Then one `ai_interaction` beacon with `properties` `{surface: \"magic_listing\", action: \"shown\"}` is queued with `impressionId` R and `modelVersion` M"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `shown beacon carries request id and model version`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.accepted-beacon-reuses-the-same-provenance
-    title: "Accepted beacon reuses the same provenance"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the seller applies a field of the suggestion shown with `request_id` R and `model_version` M"
-      - "Then the `accepted` beacon carries `impressionId` R and `modelVersion` M and the listing id when the form has one"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `accepted beacon reuses the shown provenance`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.create-form-has-no-listing-yet
-    title: "Create form has no listing yet"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a suggestion is generated on the create form where no listing id exists"
-      - "Then the beacon item has an empty `itemId` and still carries `impressionId` and `modelVersion`"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `provenance without a listing id`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.beacon-properties-stay-allowlisted
-    title: "Beacon properties stay allowlisted"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When provenance is attached to a beacon"
-      - "Then `properties` contains exactly the keys `surface` and `action` and none of the suggestion text, `request_id` or `model_version`"
-    tags: [seller, forecast, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `provenance never enters properties`. Unit level; not producible end to end."
-
-  - id: seller.forecast-card.provenance-reaches-the-warehouse
-    title: "Provenance reaches the warehouse"
-    persona: seller
-    priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a seller generates a Magic Listing suggestion on the stack with team-ai on the mock backend"
-      - "Then the stored `ai_interaction` event has `model_version` equal to the response `model_version` and a non-empty `impression_id`"
-    tags: [seller, forecast]
+      - "Guest cannot see the breakdown"
+    tags: [seller, fintech]
     status: automated
-    covered_by: "seller/seller_forecast_card.feature::Provenance reaches the warehouse"
-    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Provenance reaches the warehouse passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Guest cannot see the breakdown"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: seller.forecast-card.older-team-ai-returns-no-provenance
-    title: "Older team-ai returns no provenance"
+  - id: seller-fee-breakdown-ui.commission-rows-are-labelled
+    title: "Commission rows are labelled"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-fee-breakdown-ui."
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer, listing and voucher through the gateway.
+    api:
+      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "Commission rows are labelled"
+    tags: [seller, fintech]
+    status: automated
+    covered_by: "frontend/seller_fee_breakdown_ui.feature::Commission rows are labelled"
+    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-fee-breakdown-ui.zero-commission-is-shown-not-hidden
+    title: "Zero commission is shown, not hidden"
     persona: seller
     priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the response has commission 0 and commission_rate_bps 0 (an order settled before commission existed)"
+      - "Then the card shows commission \"₫0\" with rate \"0%\" and net equal to credited"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `Zero commission is shown, not hidden: renders 0% and a zero amount`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.settlement-service-failure-degrades-only-the-card
+    title: "Settlement service failure degrades only the card"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When `GetOrderSettlement` fails with UNAVAILABLE or exceeds the 2 s timeout while the order itself loads"
+      - "Then the card shows an error alert \"Không tải được đối soát thanh toán\" with a \"Thử lại\" link, the order items, totals and tabs still render, and the page responds 200"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/orders/[id]/page.test.tsx` `settlement error degrades only the card`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.large-amounts-keep-integer-precision
+    title: "Large amounts keep integer precision"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the response holds credited 9 007 199 254 740 000 (below 2^53) and commission 450 359 962 737 000"
+      - "Then the card renders both exactly as formatted integer VND with no fractional digit"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/payment.test.ts` `maps int64 settlement amounts without rounding`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.every-known-type-has-a-label
+    title: "Every known type has a label"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When the label function receives each of the seven known type strings"
+      - "Then it returns the Vietnamese label listed above for each, and none returns the raw string"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `labels every known type`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.unknown-or-empty-type-falls-back
+    title: "Unknown or empty type falls back"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When a ledger entry has type \"FUTURE_TYPE\" or an empty type"
+      - "Then the cell shows \"FUTURE_TYPE\" or \"—\" respectively and the page does not error"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `falls back for unknown and empty types`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.ledger-load-failure-keeps-the-existing-error-state
+    title: "Ledger load failure keeps the existing error state"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When `ListLedgerEntries` fails while the wallet page loads"
+      - "Then the page shows \"Không tải được lịch sử giao dịch\" with \"Thử lại\" and no label is rendered from stale data"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `ledger error keeps the retry state`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: seller-fee-breakdown-ui.guest-cannot-see-the-ledger
+    title: "Guest cannot see the ledger"
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
+    entry_route: /seller
+    services: [team-frontend-seller]
+    acceptance:
+      - "When a visitor without a session requests `/seller/wallet`"
+      - "Then the visitor is redirected to login and the response contains no ledger rows"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `guest is redirected to login`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
+
+  - id: uisl.seller-plan-ui-paid-plan-prices-show-as-whole-vnd-per-term
+    title: "Paid plan prices show as whole VND per term"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Paid plan prices show as whole VND per term"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
     preconditions:
       login: seller
     acceptance:
-      - "When `MagicListing` returns empty `request_id` and `model_version`"
-      - "Then the beacon has no `impressionId` and no `modelVersion` key and the suggestion is still shown"
-    tags: [seller, forecast, unit]
+      - "When a seller opens `/seller/plans` and the catalog has PRO 199000 and PREMIUM 499000 with term_days 30"
+      - "Then the PRO card shows `₫199.000/ 30 ngày` and the PREMIUM card shows `₫499.000/ 30 ngày` and no card shows a price above `₫499.000`"
+    tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `empty provenance is omitted`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `renders prices per term in whole VND`"
 
-  - id: seller.forecast-card.tracker-failure-never-breaks-the-action
-    title: "Tracker failure never breaks the action"
+  - id: uisl.seller-plan-ui-active-pro-seller-sees-period-end-and-renewal-state
+    title: "Active PRO seller sees period end and renewal state"
     persona: seller
     priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    summary: "Change seller-plan-ui: Active PRO seller sees period end and renewal state"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
     preconditions:
       login: seller
     acceptance:
-      - "When queuing the beacon throws"
-      - "Then the suggestion is still shown and \"Áp dụng\" still fills the form"
-    tags: [seller, forecast, unit]
+      - "When a seller whose subscription is PRO with current_period_end 2026-12-13T10:00:00+07:00 and auto_renew true opens `/seller/plans`"
+      - "Then the PRO card shows the `Gói hiện tại` Tag with a disabled button, the text `Hết hạn ngày 13/12/2026` and `Tự động gia hạn: Bật`"
+    tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `tracker failure does not break the assist`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `shows period end and renewal for the current paid plan`"
 
-  - id: seller.forecast-card.ai-failure-sends-no-beacon
-    title: "AI failure sends no beacon"
+  - id: uisl.seller-plan-ui-free-seller-has-no-period
+    title: "FREE seller has no period"
     persona: seller
     priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    summary: "Change seller-plan-ui: FREE seller has no period"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
     preconditions:
       login: seller
     acceptance:
-      - "When `magicListingAction` fails"
-      - "Then no `shown` beacon is queued and the error Alert with \"Thử lại\" is shown"
-    tags: [seller, forecast, unit]
+      - "When a seller for whom `GetMySubscription` returns no subscription opens `/seller/plans`"
+      - "Then the FREE card is the current plan with its caps (max_listings 10) and no `Hết hạn ngày` text is rendered anywhere"
+    tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `failed suggestion sends no beacon`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `treats a missing subscription as FREE`"
 
-  - id: seller.forecast-card.suggestion-never-overwrites-the-form-on-its-own
-    title: "Suggestion never overwrites the form on its own"
+  - id: uisl.seller-plan-ui-subscription-read-failure-disables-the-buttons
+    title: "Subscription read failure disables the buttons"
     persona: seller
     priority: P2
-    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
-    entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
+    summary: "Change seller-plan-ui: Subscription read failure disables the buttons"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
     preconditions:
       login: seller
     acceptance:
-      - "When a suggestion with provenance arrives while the seller has typed their own title"
-      - "Then no form field changes until the seller activates \"Áp dụng\""
-    tags: [seller, forecast, unit]
+      - "When `GetMySubscription` fails with UNAVAILABLE"
+      - "Then the page lists the plans, shows an error Alert `Không tải được gói hiện tại. Thử lại sau.`, no card has the `Gói hiện tại` Tag and every subscribe and cancel button has `aria-disabled=\"true\"`"
+    tags: [unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `never overwrites the form on its own`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `fails closed when the subscription cannot be read`"
+
+  - id: uisl.seller-plan-ui-seller-without-the-listing-scope-sees-nothing
+    title: "Seller without the listing scope sees nothing"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Seller without the listing scope sees nothing"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a principal without `listing.write` requests `/seller/plans`"
+      - "Then the page renders nothing and none of the three plan reads is issued; a request with no principal redirects to login"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend-seller `src/app/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`, `no principal calls redirectGuestToLogin with the page's own path` (the `/seller/plans` case). seller-plan-ui: not producible end to end."
+
+  - id: uisl.seller-plan-ui-upgrade-confirm-dialog-states-price-and-no-proration
+    title: "Upgrade confirm dialog states price and no proration"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Upgrade confirm dialog states price and no proration"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a FREE seller activates the PRO `Nâng cấp` button"
+      - "Then a dialog shows `₫199.000`, the wallet-debit wording and the immediate-upgrade text, and `Subscribe` has not been called until the seller confirms"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `upgrade dialog states price before any write`"
+
+  - id: uisl.seller-plan-ui-confirmed-upgrade-calls-subscribe-once-and-refreshes
+    title: "Confirmed upgrade calls Subscribe once and refreshes"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Confirmed upgrade calls Subscribe once and refreshes"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller confirms and then double-clicks the confirm button while the call is pending"
+      - "Then `Subscribe` is called exactly once with the PRO plan id, a success toast `Đã đăng ký gói` appears and `/seller/plans` is revalidated"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `confirm calls subscribe once`"
+
+  - id: uisl.seller-plan-ui-downgrade-dialog-names-the-period-end
+    title: "Downgrade dialog names the period end"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Downgrade dialog names the period end"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a PRO seller with current_period_end 2026-12-13 activates the FREE or lower-tier `Hạ gói` button"
+      - "Then the dialog shows `Hạ gói có hiệu lực từ ngày 13/12/2026 (hết chu kỳ hiện tại).` and no upgrade wording"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `downgrade dialog names the period end`"
+
+  - id: uisl.seller-plan-ui-subscribe-denied-by-the-gateway-shows-an-error-and-no-change
+    title: "Subscribe denied by the gateway shows an error and no change"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Subscribe denied by the gateway shows an error and no change"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `Subscribe` fails with PERMISSION_DENIED or UNAUTHENTICATED"
+      - "Then an error toast `Đăng ký gói thất bại.` appears, the current plan card is unchanged and no success toast is shown"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `denied subscribe shows an error and no change`"
+
+  - id: uisl.seller-plan-ui-insufficient-balance-is-explained-and-nothing-changes
+    title: "Insufficient balance is explained and nothing changes"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Insufficient balance is explained and nothing changes"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `Subscribe` fails with FAILED_PRECONDITION because the balance of 100000 VND is below the PRO price 199000"
+      - "Then the seller sees `Số dư có thể rút không đủ để trả gói này.` with a `Xem ví` link to `/seller/wallet`, an error toast appears and after reload the current plan is still FREE"
+    tags: [seller, promo]
+    status: automated
+    covered_by: "seller/seller_plans.feature::Insufficient balance is explained and nothing changes"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: uisl.seller-plan-ui-paying-subscription-end-to-end
+    title: "Paying subscription end to end"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Paying subscription end to end"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with a withdrawable balance of at least 199000 VND confirms the PRO upgrade"
+      - "Then after reload PRO is the current plan with `Hết hạn ngày` 30 days ahead, and the wallet ledger shows one subscription debit of 199000"
+    tags: [seller, promo]
+    status: automated
+    covered_by: "seller/seller_plans.feature::Paying subscription end to end"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: uisl.seller-plan-ui-cancel-button-only-for-renewing-paid-plans
+    title: "Cancel button only for renewing paid plans"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cancel button only for renewing paid plans"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the page renders for a PRO seller with auto_renew true, then for a PRO seller with auto_renew false, then for a FREE seller"
+      - "Then `Hủy gia hạn` is present only in the first render, and the second shows `Sẽ chuyển về Miễn phí ngày 13/12/2026`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `renders only while auto renew is on`"
+
+  - id: uisl.seller-plan-ui-confirmed-cancel-calls-cancelsubscription-once
+    title: "Confirmed cancel calls CancelSubscription once"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Confirmed cancel calls CancelSubscription once"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller confirms the cancel dialog"
+      - "Then `CancelSubscription` is called once with an empty request, a success toast `Đã hủy gia hạn` appears and the page revalidates"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `confirm cancels once`"
+
+  - id: uisl.seller-plan-ui-cancel-denied-by-the-gateway-shows-an-error
+    title: "Cancel denied by the gateway shows an error"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cancel denied by the gateway shows an error"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `CancelSubscription` fails with PERMISSION_DENIED or NOT_FOUND"
+      - "Then an error toast `Hủy gia hạn thất bại.` appears and the card is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `denied cancel shows an error`"
+
+  - id: uisl.seller-plan-ui-cancel-failure-leaves-the-state-unchanged
+    title: "Cancel failure leaves the state unchanged"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cancel failure leaves the state unchanged"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `CancelSubscription` fails with UNAVAILABLE"
+      - "Then an error toast `Hủy gia hạn thất bại.` appears and the card still shows `Tự động gia hạn: Bật`"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `cancel failure keeps renewal on`"
+
+  - id: uisl.seller-plan-ui-cancelling-keeps-the-plan-until-period-end
+    title: "Cancelling keeps the plan until period end"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cancelling keeps the plan until period end"
+    entry_route: /seller/plans
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a PRO seller cancels auto-renew in the running stack and reloads `/seller/plans`"
+      - "Then PRO is still the current plan, `Tự động gia hạn: Tắt` and `Sẽ chuyển về Miễn phí ngày` show, and no refund entry appears in the wallet"
+    tags: [seller, promo]
+    status: automated
+    covered_by: "seller/seller_plans.feature::Cancelling keeps the plan until period end"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: uisl.seller-plan-ui-cap-refusal-shows-the-upgrade-link
+    title: "Cap refusal shows the upgrade link"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Cap refusal shows the upgrade link"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createListing` rejects with RESOURCE_EXHAUSTED and reason `PLAN_LISTING_LIMIT`"
+      - "Then the returned state has ok false, the cap message and `upgradeUrl` `/seller/plans`, and the form shows the Alert and a `Nâng cấp gói` link with `href=\"/seller/plans\"` while the title field still holds the typed value"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `plan listing limit returns an upgrade url`"
+
+  - id: uisl.seller-plan-ui-other-resource-exhaustion-shows-no-upgrade-link
+    title: "Other resource exhaustion shows no upgrade link"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Other resource exhaustion shows no upgrade link"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createListing` rejects with RESOURCE_EXHAUSTED and reason `RATE_LIMITED`"
+      - "Then the returned state has no `upgradeUrl` and the form shows no `Nâng cấp gói` link"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `other resource exhausted has no upgrade url`"
+
+  - id: uisl.seller-plan-ui-permission-denied-on-create-is-not-shown-as-a-cap
+    title: "Permission denied on create is not shown as a cap"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Permission denied on create is not shown as a cap"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createListing` rejects with PERMISSION_DENIED"
+      - "Then the returned state has no `upgradeUrl` and the form shows no `Nâng cấp gói` link"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `permission denied has no upgrade url`"
+
+  - id: uisl.seller-plan-ui-plan-unavailable-is-not-shown-as-a-cap
+    title: "Plan unavailable is not shown as a cap"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Plan unavailable is not shown as a cap"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createListing` rejects with UNAVAILABLE"
+      - "Then the form shows the generic failure message and no `Nâng cấp gói` link"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `unavailable has no upgrade url`"
+
+  - id: uisl.seller-plan-ui-eleventh-listing-on-free-shows-the-upgrade-cta
+    title: "Eleventh listing on FREE shows the upgrade CTA"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Eleventh listing on FREE shows the upgrade CTA"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a FREE seller who owns 10 listings submits a new listing in the running stack"
+      - "Then the form shows `Bạn đã đạt giới hạn số tin đăng của gói hiện tại.` and a `Nâng cấp gói` link that opens `/seller/plans`, and the seller's listing count stays 10"
+    tags: [seller, promo]
+    status: automated
+    covered_by: "seller/create-listing.feature::Eleventh listing on FREE shows the upgrade CTA"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: uisl.seller-plan-ui-boundary-the-tenth-listing-is-accepted
+    title: "Boundary, the tenth listing is accepted"
+    persona: seller
+    priority: P2
+    summary: "Change seller-plan-ui: Boundary, the tenth listing is accepted"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a FREE seller who owns 9 listings submits a valid new listing in the running stack"
+      - "Then the listing is created and no `Nâng cấp gói` link is shown"
+    tags: [seller, promo]
+    status: automated
+    covered_by: "seller/create-listing.feature::Boundary, the tenth listing is accepted"
+    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-ads-ui.campaigns-persist-after-reload
+    title: "Campaigns persist after reload"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a seller who created a campaign with budget 50 000 and bid 1 000 reloads `/seller/ads`"
+      - "Then the table shows one row with \"₫1.000\" bid, \"₫50.000\" budget, \"₫0\" spent, \"₫50.000\" remaining, 0 impressions, 0 clicks and \"Đang chạy\""
+    tags: [seller, promo, ads]
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Campaigns persist after reload"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-ads-ui.spend-and-counters-come-from-the-service
+    title: "Spend and counters come from the service"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When a buyer's click has charged the campaign once at bid 1 000 and the seller opens `/seller/ads`"
+      - "Then the row shows \"₫1.000\" spent, \"₫49.000\" remaining, 1 click and at least 1 impression"
+    tags: [seller, promo, ads]
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Spend and counters come from the service"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-ads-ui.seller-with-no-campaign-sees-an-empty-state
+    title: "Seller with no campaign sees an empty state"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with no campaigns opens `/seller/ads`"
+      - "Then the table shows \"Chưa có chiến dịch nào\" and the create form is still rendered"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `renders empty state`. Unit level; not producible end to end."
+
+  - id: seller-ads-ui.campaigns-are-paged-at-20
+    title: "Campaigns are paged at 20"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller has 21 campaigns and opens `/seller/ads` and then `/seller/ads?page=2`"
+      - "Then the first page shows 20 rows and the second shows 1 row"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/ads/page.test.tsx` `pages campaigns at 20`. Unit level; not producible end to end."
+
+  - id: seller-ads-ui.list-failure-degrades-only-the-list
+    title: "List failure degrades only the list"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `ListMyAdCampaigns` fails with UNAVAILABLE or exceeds the 2 s timeout"
+      - "Then the list shows an error alert \"Không tải được chiến dịch\" with a \"Thử lại\" link, the create form renders, and the page responds 200"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/ads/page.test.tsx` `list error degrades only the list`. Unit level; not producible end to end."
+
+  - id: seller-ads-ui.guest-and-non-seller-are-not-authorized-to-open-the-page
+    title: "Guest and non-seller are not authorized to open the page"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When an unauthenticated guest (401) opens `/seller/ads`, and separately a signed-in buyer without `listing.write` opens it"
+      - "Then the guest is redirected to the login page with `/seller/ads` as the return path, the buyer sees no campaign data, and no `ListMyAdCampaigns` call is made for either"
+    tags: [seller, promo, ads]
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Guest and non-seller are not authorized to open the page"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-ads-ui.pause-an-active-campaign
+    title: "Pause an active campaign"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When the seller activates \"Tạm dừng\" on an ACTIVE campaign"
+      - "Then the row status becomes \"Tạm dừng\" and the button becomes \"Tiếp tục\", still so after reload, and the campaign is no longer served to buyers"
+    tags: [seller, promo, ads]
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Pause an active campaign"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-ads-ui.resume-a-paused-campaign
+    title: "Resume a paused campaign"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When the seller activates \"Tiếp tục\" on a PAUSED campaign whose remaining budget is at least its bid"
+      - "Then the row status becomes \"Đang chạy\" and the button becomes \"Tạm dừng\", still so after reload"
+    tags: [seller, promo, ads]
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Resume a paused campaign"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-ads-ui.budget-exhausted-campaign-cannot-resume
+    title: "Budget-exhausted campaign cannot resume"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a campaign has spent so that remaining budget (₫400) is below its bid (₫500 or more) and the seller opens `/seller/ads`"
+      - "Then the row shows \"Hết ngân sách\" and the resume button is disabled, and if the action is still forced the error toast reads \"Ngân sách còn lại thấp hơn giá thầu, không thể tiếp tục chạy.\" and the status is unchanged"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/actions.test.ts` `resume maps FAILED_PRECONDITION to the budget message`. Unit level; not producible end to end."
+
+  - id: seller-ads-ui.ended-campaign-has-no-action
+    title: "Ended campaign has no action"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a campaign has status ENDED"
+      - "Then its row shows \"Đã kết thúc\" and neither \"Tạm dừng\" nor \"Tiếp tục\" is rendered"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `ended row has no action`. Unit level; not producible end to end."
+
+  - id: seller-ads-ui.double-click-issues-one-call
+    title: "Double click issues one call"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller double-clicks \"Tạm dừng\""
+      - "Then the button is disabled after the first click and exactly one `PauseAdCampaign` call is made"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `double click pauses once`. Unit level; not producible end to end."
+
+  - id: seller-ads-ui.another-sellers-campaign-is-not-found
+    title: "Another seller's campaign is not found"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When seller B submits Pause or Resume with the id of seller A's campaign"
+      - "Then the action returns `ok: false` with \"Không tìm thấy chiến dịch.\", A's campaign is unchanged, and B's list does not contain it"
+    tags: [seller, promo, ads]
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Another seller's campaign is not found"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-ads-ui.bid-below-minimum-is-rejected
+    title: "Bid below minimum is rejected"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller submits a campaign with bid 499"
+      - "Then the field error \"Giá thầu tối thiểu là ₫500.\" is shown and no `CreateAdCampaign` call is made"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects bid below 500`. Unit level; not producible end to end."
+
+  - id: seller-ads-ui.bid-of-exactly-500-is-accepted
+    title: "Bid of exactly 500 is accepted"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+      data: Registers its own seller, listing and campaign through the gateway.
+    api:
+      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
+    acceptance:
+      - "When the seller submits a campaign with bid 500 and budget 5 000"
+      - "Then the campaign is created and appears in the list as \"Đang chạy\" with \"₫500\" bid"
+    tags: [seller, promo, ads]
+    status: automated
+    covered_by: "frontend/seller_ads_ui.feature::Bid of exactly 500 is accepted"
+    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: seller-ads-ui.ad-form-budget-below-the-bid-is-rejected
+    title: "Ad form: budget below the bid is rejected"
+    persona: seller
+    priority: P1
+    summary: "Scenario of change seller-ads-ui."
+    entry_route: /seller/ads
+    services: [team-frontend-seller, team-gateway, team-promotion]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller submits bid 1 000 and budget 800"
+      - "Then the field error \"Ngân sách phải lớn hơn hoặc bằng giá thầu.\" is shown and no call is made"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects budget below bid`. Unit level; not producible end to end."
 
   - id: seller-shop-customisation-ui.the-form-is-pre-filled-from-the-storefront
     title: "Seller shop UI: the form is pre-filled from the storefront"
@@ -4453,839 +4821,899 @@ features:
     status: automated
     covered_by: "frontend/seller_bulk_ship.feature::Bulk ship: another seller cannot ship or print a foreign order in the browser"
 
-  - id: seller-fee-breakdown-ui.breakdown-of-a-settled-order
-    title: "Breakdown of a settled order"
+  - id: seller.terms-consent.link-opens-seller-terms
+    title: "Terms link opens the seller terms page"
+    persona: buyer
+    priority: P2
+    summary: "Terms link opens the seller terms page"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "On /seller/new the terms link targets the buyer app /dieu-khoan-nguoi-ban in a new tab and the page returns 200"
+    tags: [seller, legal]
+    status: automated
+    covered_by: "seller/seller_terms_consent.feature::Terms link opens the seller terms page"
+
+  - id: seller.terms-consent.accepting-records-ledger-row
+    title: "Accepting seller terms records a ledger row"
+    persona: buyer
+    priority: P1
+    summary: "Accepting seller terms records a ledger row"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "After BecomeSeller succeeds ListMyConsents returns a SELLER_TERMS row with the seller terms version and source seller_onboarding"
+    tags: [seller, legal]
+    status: automated
+    covered_by: "seller/seller_terms_consent.feature::Accepting seller terms records a ledger row"
+
+  - id: seller.terms-consent.denied-writes-no-row
+    title: "Denied BecomeSeller writes no consent row"
+    persona: buyer
+    priority: P1
+    summary: "Denied BecomeSeller writes no consent row"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When BecomeSeller is denied no SELLER_TERMS row is written"
+    tags: [seller, legal]
+    status: automated
+    covered_by: "seller/seller_terms_consent.feature::Denied BecomeSeller writes no consent row"
+
+  - id: seller.terms-consent.write-failure-keeps-seller
+    title: "Consent write failure does not undo seller status"
+    persona: buyer
+    priority: P1
+    summary: "Consent write failure does not undo seller status"
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the consent write fails after BecomeSeller succeeds the user is still a seller and sees no error"
+    tags: [seller, legal]
+    status: automated
+    covered_by: "seller/seller_terms_consent.feature::Consent write failure does not undo seller status"
+
+  - id: seller-kyc-ui.a-seller-who-never-submitted-sees-not-submitted-and-the-form
+    title: "A seller who never submitted sees NOT_SUBMITTED and the form"
     persona: seller
     priority: P1
-    summary: "Scenario of change seller-fee-breakdown-ui."
-    entry_route: /seller/orders/{id}
-    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    summary: "A seller who never submitted sees NOT_SUBMITTED and the form"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
     preconditions:
       login: seller
-      data: Registers its own seller, buyer, listing and voucher through the gateway.
-    api:
-      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "Breakdown of a settled order"
-    tags: [seller, fintech]
+      - "When a seller with no submission opens `/seller/verification`"
+      - "Then the page shows the label \"Chưa gửi hồ sơ\" and the upload form, and 0 requests use a user id other than the caller's"
+    tags: [seller-kyc-ui]
     status: automated
-    covered_by: "frontend/seller_fee_breakdown_ui.feature::Breakdown of a settled order"
-    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "seller/kyc_upload.feature::A seller who never submitted sees NOT_SUBMITTED and the form"
 
-  - id: seller-fee-breakdown-ui.breakdown-after-a-partial-refund
-    title: "Breakdown after a partial refund"
+  - id: seller-kyc-ui.a-pending-submission-hides-the-form
+    title: "A pending submission hides the form"
     persona: seller
     priority: P1
-    summary: "Scenario of change seller-fee-breakdown-ui."
-    entry_route: /seller/orders/{id}
-    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    summary: "A pending submission hides the form"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
     preconditions:
       login: seller
-      data: Registers its own seller, buyer, listing and voucher through the gateway.
-    api:
-      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "Breakdown after a partial refund"
-    tags: [seller, fintech]
+      - "When a seller whose latest submission is `PENDING` opens the page"
+      - "Then the page shows \"Đang chờ duyệt\" and renders 0 file inputs"
+    tags: [seller-kyc-ui]
     status: automated
-    covered_by: "frontend/seller_fee_breakdown_ui.feature::Breakdown after a partial refund"
-    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "seller/kyc_upload.feature::A pending submission hides the form"
 
-  - id: seller-fee-breakdown-ui.unsettled-order-shows-the-not-settled-state
-    title: "Unsettled order shows the not-settled state"
+  - id: seller-kyc-ui.a-verified-seller-sees-the-verified-state
+    title: "A verified seller sees the verified state"
     persona: seller
     priority: P1
-    summary: "Scenario of change seller-fee-breakdown-ui."
-    entry_route: /seller/orders/{id}
-    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    summary: "A verified seller sees the verified state"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
     preconditions:
       login: seller
-      data: Registers its own seller, buyer, listing and voucher through the gateway.
-    api:
-      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "Unsettled order shows the not-settled state"
-    tags: [seller, fintech]
+      - "When a seller whose latest submission is `VERIFIED` opens the page"
+      - "Then the page shows \"Đã xác minh\" and renders 0 file inputs"
+    tags: [seller-kyc-ui]
     status: automated
-    covered_by: "frontend/seller_fee_breakdown_ui.feature::Unsettled order shows the not-settled state"
-    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "seller/kyc_upload.feature::A verified seller sees the verified state"
 
-  - id: seller-fee-breakdown-ui.another-sellers-order-is-not-found-and-nothing-is-fetched
-    title: "Another seller's order is not found and nothing is fetched"
+  - id: seller-kyc-ui.a-rejected-submission-shows-the-reason-and-allows-resubmission
+    title: "A rejected submission shows the reason and allows resubmission"
     persona: seller
     priority: P1
-    summary: "Scenario of change seller-fee-breakdown-ui."
-    entry_route: /seller/orders/{id}
-    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    summary: "A rejected submission shows the reason and allows resubmission"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
     preconditions:
       login: seller
-      data: Registers its own seller, buyer, listing and voucher through the gateway.
-    api:
-      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "Another seller's order is not found and nothing is fetched"
-    tags: [seller, fintech]
+      - "When a seller whose latest submission is `REJECTED` with `reject_reason_code` `document_unreadable` opens the page"
+      - "Then the page shows \"Bị từ chối\" with the Vietnamese text for that code and renders the upload form again"
+    tags: [seller-kyc-ui]
     status: automated
-    covered_by: "frontend/seller_fee_breakdown_ui.feature::Another seller's order is not found and nothing is fetched"
-    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "seller/kyc_upload.feature::A rejected submission shows the reason and allows resubmission"
 
-  - id: seller-fee-breakdown-ui.guest-cannot-see-the-breakdown
-    title: "Guest cannot see the breakdown"
+  - id: seller-kyc-ui.an-unknown-reject-reason-code-falls-back-to-a-generic-text
+    title: "An unknown reject reason code falls back to a generic text"
     persona: seller
     priority: P1
-    summary: "Scenario of change seller-fee-breakdown-ui."
-    entry_route: /seller/orders/{id}
-    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    summary: "An unknown reject reason code falls back to a generic text"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
     preconditions:
       login: seller
-      data: Registers its own seller, buyer, listing and voucher through the gateway.
-    api:
-      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "Guest cannot see the breakdown"
-    tags: [seller, fintech]
-    status: automated
-    covered_by: "frontend/seller_fee_breakdown_ui.feature::Guest cannot see the breakdown"
-    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+      - "When the status response carries a `reject_reason_code` the UI has no text for"
+      - "Then the page shows the generic text \"Hồ sơ chưa đạt yêu cầu, vui lòng gửi lại\" and never renders the raw code"
+    tags: [seller-kyc-ui, unit]
+    status: not-testable
+    notes: "seller-kyc-ui: unit-verified, not producible end to end (the real server only emits known reason codes, so the UI fallback cannot be produced end to end). VERIFIED BY `team-frontend-seller/src/features/seller/verification/status.test.ts` `falls back to the generic text for an unknown reject reason code`."
 
-  - id: seller-fee-breakdown-ui.commission-rows-are-labelled
-    title: "Commission rows are labelled"
+  - id: seller-kyc-ui.status-read-failure-is-shown-as-an-error-not-as-not-submitted
+    title: "Status read failure is shown as an error, not as not-submitted"
     persona: seller
     priority: P1
-    summary: "Scenario of change seller-fee-breakdown-ui."
+    summary: "Status read failure is shown as an error, not as not-submitted"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `GetVerificationStatus` fails with `UNAVAILABLE`"
+      - "Then the page shows an error Alert with a \"Thử lại\" link and renders 0 upload forms"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Status read failure is shown as an error, not as not-submitted"
+
+  - id: seller-kyc-ui.a-guest-is-sent-to-login
+    title: "A guest is sent to login"
+    persona: guest
+    priority: P1
+    summary: "A guest is sent to login"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous visitor opens `/seller/verification`"
+      - "Then the response redirects to the login page with the return path `/seller/verification`"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A guest is sent to login"
+
+  - id: seller-kyc-ui.a-buyer-without-seller-scope-cannot-use-the-page
+    title: "A buyer without seller scope cannot use the page"
+    persona: seller
+    priority: P1
+    summary: "A buyer without seller scope cannot use the page"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a signed-in user without the `listing.write` scope opens `/seller/verification`"
+      - "Then the seller onboarding screen renders instead of the page and 0 verification calls are made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A buyer without seller scope cannot use the page"
+
+  - id: seller-kyc-ui.three-valid-files-are-uploaded-and-submitted
+    title: "Three valid files are uploaded and submitted"
+    persona: seller
+    priority: P1
+    summary: "Three valid files are uploaded and submitted"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects 3 valid files, ticks the consent checkbox and presses \"Gửi hồ sơ xác minh\""
+      - "Then 3 `CreateKycUploadUrl` calls, 3 `PUT` requests with matching `Content-Type` and `Content-Length`, and exactly 1 `SubmitKyc` call with 1 `doc_ref` and 2 `additional_doc_refs` occur, and the page then shows \"Đang chờ duyệt\""
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Three valid files are uploaded and submitted"
+
+  - id: seller-kyc-ui.consent-unticked-blocks-submission
+    title: "Consent unticked blocks submission"
+    persona: seller
+    priority: P1
+    summary: "Consent unticked blocks submission"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects a valid file but leaves the consent checkbox unticked"
+      - "Then the submit button is disabled and 0 `CreateKycUploadUrl` calls are made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Consent unticked blocks submission"
+
+  - id: seller-kyc-ui.a-file-over-5-mib-is-rejected-before-upload
+    title: "A file over 5 MiB is rejected before upload"
+    persona: seller
+    priority: P1
+    summary: "A file over 5 MiB is rejected before upload"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects a file of 5 MiB + 1 byte"
+      - "Then the form shows \"Tệp tối đa 5 MiB\" for that file, the submit button is disabled and 0 network calls are made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A file over 5 MiB is rejected before upload"
+
+  - id: seller-kyc-ui.a-file-of-exactly-5-mib-is-accepted
+    title: "A file of exactly 5 MiB is accepted"
+    persona: seller
+    priority: P1
+    summary: "A file of exactly 5 MiB is accepted"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects a PNG of exactly 5 MiB (5242880 bytes)"
+      - "Then the form shows no size error and submit is enabled once consent is ticked"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A file of exactly 5 MiB is accepted"
+
+  - id: seller-kyc-ui.a-wrong-file-type-or-an-empty-file-is-rejected
+    title: "A wrong file type or an empty file is rejected"
+    persona: seller
+    priority: P1
+    summary: "A wrong file type or an empty file is rejected"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects a `.gif` file or a 0-byte file"
+      - "Then the form shows \"Chỉ nhận JPG, PNG hoặc PDF\" or \"Tệp rỗng\" respectively and submit is disabled"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A wrong file type or an empty file is rejected"
+
+  - id: seller-kyc-ui.more-than-three-files-are-refused
+    title: "More than three files are refused"
+    persona: seller
+    priority: P1
+    summary: "More than three files are refused"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller selects 4 files"
+      - "Then the form keeps only the limit message \"Tối đa 3 tệp\", submit is disabled and 0 network calls are made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::More than three files are refused"
+
+  - id: seller-kyc-ui.a-failed-put-stops-the-submission
+    title: "A failed PUT stops the submission"
+    persona: seller
+    priority: P1
+    summary: "A failed PUT stops the submission"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the browser `PUT` of the second file fails or the presigned URL has expired"
+      - "Then `SubmitKyc` is not called, the form shows \"Tải tệp thất bại, vui lòng thử lại\" and the seller can retry without re-selecting files"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::A failed PUT stops the submission"
+
+  - id: seller-kyc-ui.the-server-refuses-a-doc-ref
+    title: "The server refuses a doc_ref"
+    persona: seller
+    priority: P1
+    summary: "The server refuses a doc_ref"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `SubmitKyc` fails with `INVALID_ARGUMENT` or `PERMISSION_DENIED` because a doc_ref was not issued to the caller"
+      - "Then the form shows \"Hồ sơ không hợp lệ, vui lòng tải lại tệp\" and the status stays unchanged"
+    tags: [seller-kyc-ui, unit]
+    status: not-testable
+    notes: "seller-kyc-ui: unit-verified, not producible end to end (a doc_ref the caller was not issued cannot be sent through the browser form). VERIFIED BY `team-frontend-seller/src/features/seller/verification/actions.test.ts` `maps INVALID_ARGUMENT and PERMISSION_DENIED from SubmitKyc to the invalid documents message`."
+
+  - id: seller-kyc-ui.submit-cannot-be-sent-twice
+    title: "Submit cannot be sent twice"
+    persona: seller
+    priority: P1
+    summary: "Submit cannot be sent twice"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller double-clicks the submit button"
+      - "Then exactly 1 `SubmitKyc` call is made"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Submit cannot be sent twice"
+
+  - id: seller-kyc-ui.image-bytes-and-keys-never-reach-logs-or-the-server-action-payload
+    title: "Image bytes and keys never reach logs or the server action payload"
+    persona: seller
+    priority: P1
+    summary: "Image bytes and keys never reach logs or the server action payload"
+    entry_route: /seller/verification
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When an upload completes"
+      - "Then the Server Action requests contain only content type, size, document type and `doc_ref` strings (0 file bytes), and the page DOM contains no presigned URL or `doc_ref`"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Image bytes and keys never reach logs or the server action payload"
+
+  - id: seller-kyc-ui.nav-lists-the-verification-page
+    title: "Nav lists the verification page"
+    persona: seller
+    priority: P1
+    summary: "Nav lists the verification page"
+    entry_route: /seller
+    services: [team-frontend-seller, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens any `/seller` page"
+      - "Then the navigation contains exactly 1 entry \"Xác minh danh tính\" with href `/seller/verification`"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_upload.feature::Nav lists the verification page"
+
+  - id: seller-kyc-ui.wallet-shows-a-notice-while-not-verified
+    title: "Wallet shows a notice while not verified"
+    persona: seller
+    priority: P1
+    summary: "Wallet shows a notice while not verified"
     entry_route: /seller/wallet
-    services: [team-frontend-seller, team-gateway, team-payment, team-order]
+    services: [team-frontend-seller, team-gateway, team-verification, team-payment]
     preconditions:
       login: seller
-      data: Registers its own seller, buyer, listing and voucher through the gateway.
-    api:
-      exercised: [payment.v1.GetOrderSettlement, payment.v1.ListLedgerEntries]
     acceptance:
-      - "Commission rows are labelled"
-    tags: [seller, fintech]
+      - "When a seller whose status is not `VERIFIED` opens `/seller/wallet`"
+      - "Then the page shows the notice \"Cần xác minh danh tính để rút tiền\" with a link to `/seller/verification`"
+    tags: [seller-kyc-ui]
     status: automated
-    covered_by: "frontend/seller_fee_breakdown_ui.feature::Commission rows are labelled"
-    notes: "Change seller-fee-breakdown-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "seller/kyc_payout_notice.feature::Wallet shows a notice while not verified"
 
-  - id: seller-fee-breakdown-ui.zero-commission-is-shown-not-hidden
-    title: "Zero commission is shown, not hidden"
+  - id: seller-kyc-ui.a-refused-payout-shows-the-verification-message
+    title: "A refused payout shows the verification message"
     persona: seller
-    priority: P2
-    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
-    entry_route: /seller
-    services: [team-frontend-seller]
-    acceptance:
-      - "When the response has commission 0 and commission_rate_bps 0 (an order settled before commission existed)"
-      - "Then the card shows commission \"₫0\" with rate \"0%\" and net equal to credited"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/OrderSettlementCard.test.tsx` `Zero commission is shown, not hidden: renders 0% and a zero amount`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
-
-  - id: seller-fee-breakdown-ui.settlement-service-failure-degrades-only-the-card
-    title: "Settlement service failure degrades only the card"
-    persona: seller
-    priority: P2
-    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
-    entry_route: /seller
-    services: [team-frontend-seller]
-    acceptance:
-      - "When `GetOrderSettlement` fails with UNAVAILABLE or exceeds the 2 s timeout while the order itself loads"
-      - "Then the card shows an error alert \"Không tải được đối soát thanh toán\" with a \"Thử lại\" link, the order items, totals and tabs still render, and the page responds 200"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/orders/[id]/page.test.tsx` `settlement error degrades only the card`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
-
-  - id: seller-fee-breakdown-ui.large-amounts-keep-integer-precision
-    title: "Large amounts keep integer precision"
-    persona: seller
-    priority: P2
-    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
-    entry_route: /seller
-    services: [team-frontend-seller]
-    acceptance:
-      - "When the response holds credited 9 007 199 254 740 000 (below 2^53) and commission 450 359 962 737 000"
-      - "Then the card renders both exactly as formatted integer VND with no fractional digit"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/payment.test.ts` `maps int64 settlement amounts without rounding`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
-
-  - id: seller-fee-breakdown-ui.every-known-type-has-a-label
-    title: "Every known type has a label"
-    persona: seller
-    priority: P2
-    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
-    entry_route: /seller
-    services: [team-frontend-seller]
-    acceptance:
-      - "When the label function receives each of the seven known type strings"
-      - "Then it returns the Vietnamese label listed above for each, and none returns the raw string"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `labels every known type`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
-
-  - id: seller-fee-breakdown-ui.unknown-or-empty-type-falls-back
-    title: "Unknown or empty type falls back"
-    persona: seller
-    priority: P2
-    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
-    entry_route: /seller
-    services: [team-frontend-seller]
-    acceptance:
-      - "When a ledger entry has type \"FUTURE_TYPE\" or an empty type"
-      - "Then the cell shows \"FUTURE_TYPE\" or \"—\" respectively and the page does not error"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ledgerLabels.test.ts` `falls back for unknown and empty types`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
-
-  - id: seller-fee-breakdown-ui.ledger-load-failure-keeps-the-existing-error-state
-    title: "Ledger load failure keeps the existing error state"
-    persona: seller
-    priority: P2
-    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
-    entry_route: /seller
-    services: [team-frontend-seller]
-    acceptance:
-      - "When `ListLedgerEntries` fails while the wallet page loads"
-      - "Then the page shows \"Không tải được lịch sử giao dịch\" with \"Thử lại\" and no label is rendered from stale data"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `ledger error keeps the retry state`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
-
-  - id: seller-fee-breakdown-ui.guest-cannot-see-the-ledger
-    title: "Guest cannot see the ledger"
-    persona: seller
-    priority: P2
-    summary: Unit-verified scenario of change seller-fee-breakdown-ui.
-    entry_route: /seller
-    services: [team-frontend-seller]
-    acceptance:
-      - "When a visitor without a session requests `/seller/wallet`"
-      - "Then the visitor is redirected to login and the response contains no ledger rows"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/wallet/wallet.test.tsx` `guest is redirected to login`. Not producible end to end through the gateway (component, mapper or injected-failure level)."
-
-  - id: uisl.seller-plan-ui-paid-plan-prices-show-as-whole-vnd-per-term
-    title: "Paid plan prices show as whole VND per term"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Paid plan prices show as whole VND per term"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    priority: P1
+    summary: "A refused payout shows the verification message"
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-verification, team-payment]
     preconditions:
       login: seller
     acceptance:
-      - "When a seller opens `/seller/plans` and the catalog has PRO 199000 and PREMIUM 499000 with term_days 30"
-      - "Then the PRO card shows `₫199.000/ 30 ngày` and the PREMIUM card shows `₫499.000/ 30 ngày` and no card shows a price above `₫499.000`"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `renders prices per term in whole VND`"
+      - "When a seller confirms a payout and the gateway returns `FAILED_PRECONDITION` \"seller verification required\""
+      - "Then the modal shows \"Cần xác minh danh tính để rút tiền\" with a link to `/seller/verification`, the balance is unchanged and the raw server text is not shown"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_payout_notice.feature::A refused payout shows the verification message"
 
-  - id: uisl.seller-plan-ui-active-pro-seller-sees-period-end-and-renewal-state
-    title: "Active PRO seller sees period end and renewal state"
+  - id: seller-kyc-ui.verification-outage-during-payout-shows-a-retry-message
+    title: "Verification outage during payout shows a retry message"
     persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Active PRO seller sees period end and renewal state"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    priority: P1
+    summary: "Verification outage during payout shows a retry message"
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-verification, team-payment]
     preconditions:
       login: seller
     acceptance:
-      - "When a seller whose subscription is PRO with current_period_end 2026-12-13T10:00:00+07:00 and auto_renew true opens `/seller/plans`"
-      - "Then the PRO card shows the `Gói hiện tại` Tag with a disabled button, the text `Hết hạn ngày 13/12/2026` and `Tự động gia hạn: Bật`"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `shows period end and renewal for the current paid plan`"
+      - "When the payout call fails with `UNAVAILABLE`"
+      - "Then the modal shows \"Chưa kiểm tra được trạng thái xác minh, vui lòng thử lại sau\" and the confirm button is enabled again"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_payout_notice.feature::Verification outage during payout shows a retry message"
 
-  - id: uisl.seller-plan-ui-free-seller-has-no-period
-    title: "FREE seller has no period"
+  - id: seller-kyc-ui.a-verified-seller-sees-no-notice-and-can-pay-out
+    title: "A verified seller sees no notice and can pay out"
     persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: FREE seller has no period"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    priority: P1
+    summary: "A verified seller sees no notice and can pay out"
+    entry_route: /seller/wallet
+    services: [team-frontend-seller, team-gateway, team-verification, team-payment]
     preconditions:
       login: seller
     acceptance:
-      - "When a seller for whom `GetMySubscription` returns no subscription opens `/seller/plans`"
-      - "Then the FREE card is the current plan with its caps (max_listings 10) and no `Hết hạn ngày` text is rendered anywhere"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `treats a missing subscription as FREE`"
+      - "When a `VERIFIED` seller with a balance above 0 opens `/seller/wallet` and confirms a payout"
+      - "Then no verification notice is rendered and the payout succeeds with the toast \"Đã tạo lệnh rút tiền\""
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "seller/kyc_payout_notice.feature::A verified seller sees no notice and can pay out"
 
-  - id: uisl.seller-plan-ui-subscription-read-failure-disables-the-buttons
-    title: "Subscription read failure disables the buttons"
+  - id: seller.forecast-card.seller-with-history-sees-the-forecast
+    title: "Seller with history sees the forecast"
     persona: seller
     priority: P2
-    summary: "Change seller-plan-ui: Subscription read failure disables the buttons"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When `GetMySubscription` fails with UNAVAILABLE"
-      - "Then the page lists the plans, shows an error Alert `Không tải được gói hiện tại. Thử lại sau.`, no card has the `Gói hiện tại` Tag and every subscribe and cancel button has `aria-disabled=\"true\"`"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/plans/page.test.tsx` `fails closed when the subscription cannot be read`"
+      - "When a logged-in seller with at least 14 days of paid order lines on listing L and a forecast run after them opens `/seller/analytics`"
+      - "Then the card lists L with 14 rows of date, p10, p50 and p90, a line \"Điểm đặt hàng lại: N đơn vị\" equal to the RPC `suggested_reorder_point` rounded up, the RPC `model_version` string and the `generated_at` date as `dd/mm/yyyy`"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Seller with history sees the forecast"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Seller with history sees the forecast passed on env docs-ai-data (2026-11-16)"
 
-  - id: uisl.seller-plan-ui-seller-without-the-listing-scope-sees-nothing
-    title: "Seller without the listing scope sees nothing"
+  - id: seller.forecast-card.values-are-rendered-exactly-as-served
+    title: "Values are rendered exactly as served"
     persona: seller
     priority: P2
-    summary: "Change seller-plan-ui: Seller without the listing scope sees nothing"
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the gateway returns a forecast whose p10, p50 and p90 are 1.0, 2.5 and 4.0 for a date"
+      - "Then that date row shows 1.0, 2.5 and 4.0 and no value is recomputed, smoothed or clamped by the frontend"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `renders served quantiles unchanged`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.card-covers-only-the-top-five-listings-of-the-range
+    title: "Card covers only the top five listings of the range"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller has paid revenue on 7 listings in the selected range"
+      - "Then the card shows exactly 5 listing sections, ordered by revenue descending, and `getDemandForecast` is called exactly 5 times"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `forecasts only the top five listings of the range`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.range-tab-selects-the-candidate-listings
+    title: "Range tab selects the candidate listings"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller selects the \"30 ngày\" range tab"
+      - "Then the URL contains `range=30d` and the revenue breakdown used to pick listings is requested with a `from` 30 days before `to`"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `range tab scopes the listing pick`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.forecast-request-is-fixed-at-fourteen-days
+    title: "Forecast request is fixed at fourteen days"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `getDemandForecast` is called by the page"
+      - "Then the RPC request has `horizon_days=14` and the `seller_id` of the session principal"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `requests a 14 day horizon for the principal`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.gateway-rejects-the-forecast-call-without-a-token
+    title: "Gateway rejects the forecast call without a token"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `getDemandForecast` is called with a session token that the gateway rejects with `Unauthenticated`"
+      - "Then the wrapper rejects with that error and the card shows \"Dự báo tạm thời không khả dụng\" without numbers"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `rejects on Unauthenticated`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.listing-without-a-forecast-key
+    title: "Listing without a forecast key"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller has paid orders on listing L but the forecast job wrote no key for L, so the RPC returns `is_cold_start=true` with no points"
+      - "Then L's section reads \"Chưa đủ dữ liệu để dự báo\" and contains no digit-bearing forecast cell, no reorder point and no model version"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Listing without a forecast key"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Listing without a forecast key passed on env docs-ai-data (2026-11-16)"
+
+  - id: seller.forecast-card.cold-start-with-stray-points-is-not-rendered
+    title: "Cold start with stray points is not rendered"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a response has `is_cold_start=true` and a non-empty `daily_forecasts` list"
+      - "Then the section shows only \"Chưa đủ dữ liệu để dự báo\" and none of the points"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `cold start never renders points`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.warm-response-with-no-points-is-an-error-state
+    title: "Warm response with no points is an error state"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a response has `is_cold_start=false` and zero `daily_forecasts`"
+      - "Then the section reads \"Dự báo tạm thời không khả dụng\" and shows no numbers"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/ForecastCard.test.tsx` `empty warm response is treated as an error`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.store-unavailable
+    title: "Store unavailable"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When team-analytics cannot read the forecast store and `GetDemandForecast` returns `Unavailable` for every listing"
+      - "Then every listing section reads \"Dự báo tạm thời không khả dụng\", no forecast number is shown, and the page responds 200"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Store unavailable"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Store unavailable passed on env docs-ai-data (2026-11-16)"
+
+  - id: seller.forecast-card.one-listing-fails-others-render
+    title: "One listing fails, others render"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the call for the second of three listings rejects and the other two succeed"
+      - "Then the second section shows \"Dự báo tạm thời không khả dụng\" and the other two show their forecasts"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `one failed forecast does not hide the others`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.forecast-failure-leaves-funnel-and-revenue-intact
+    title: "Forecast failure leaves funnel and revenue intact"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When every forecast call rejects while the funnel and revenue reads succeed"
+      - "Then the KPI row, the funnel block and the revenue table render with their data and no funnel or revenue Alert appears"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `forecast failure does not touch funnel and revenue`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.wrapper-surfaces-failure-instead-of-zeros
+    title: "Wrapper surfaces failure instead of zeros"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the gateway call in `getDemandForecast` throws a `ConnectError` with code `Unavailable`"
+      - "Then the wrapper rejects with that error and returns no view object"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/gateway/analytics.test.ts` `rejects on Unavailable`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.revenue-read-fails
+    title: "Revenue read fails"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the revenue breakdown used to pick listings fails"
+      - "Then the card shows an `Alert` \"Dự báo tạm thời không khả dụng\" with a \"Thử lại\" link to the same URL and no forecast call is made"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `revenue failure shows the forecast alert`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.new-seller-without-orders
+    title: "New seller without orders"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with no paid orders in the range opens `/seller/analytics`"
+      - "Then the card shows \"Chưa có đơn hàng để dự báo\" and zero forecast calls are made"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `no revenue means an empty forecast card`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.top-sku-without-a-listing-id-is-skipped
+    title: "Top SKU without a listing id is skipped"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a top SKU row has an empty `listing_id`"
+      - "Then no forecast call is made for it and no section is shown for it"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `skips SKU rows without a listing id`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.query-string-cannot-select-another-seller
+    title: "Query string cannot select another seller"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens `/seller/analytics?range=30d&sellerId=other&listingId=other-1`"
+      - "Then every `GetDemandForecast` request carries the principal's own `seller_id` and none carries `other` or `other-1`"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `ignores seller and listing ids from the URL`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.guest-is-redirected
+    title: "Guest is redirected"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a request without a session opens `/seller/analytics`"
+      - "Then the response redirects to login and no `GetDemandForecast` call is made"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `guest triggers no forecast call`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.buyer-without-seller-scope-is-denied
+    title: "Buyer without seller scope is denied"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a logged-in principal without scope `listing.write` opens `/seller/analytics`"
+      - "Then the page renders nothing and no `GetDemandForecast` call is made"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/analytics/analytics.test.tsx` `no listing.write scope triggers no forecast call`. Unit level; not producible end to end."
+
+  - id: seller.forecast-card.gateway-rejects-a-foreign-seller-id
+    title: "Gateway rejects a foreign seller id"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-demand-forecast-card."
+    entry_route: /seller/analytics
+    services: [team-frontend-seller, team-gateway, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller session calls `GetDemandForecast` through the gateway with another seller's id"
+      - "Then the call is denied with `PermissionDenied` and no forecast is returned"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Gateway rejects a foreign seller id"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Gateway rejects a foreign seller id passed on env docs-ai-data (2026-11-16)"
+
+  - id: seller.forecast-card.shown-beacon-carries-provenance
+    title: "Shown beacon carries provenance"
+    persona: seller
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
     entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When a principal without `listing.write` requests `/seller/plans`"
-      - "Then the page renders nothing and none of the three plan reads is issued; a request with no principal redirects to login"
-    tags: [unit]
+      - "When the seller generates a Magic Listing suggestion and team-ai returns `request_id` R and `model_version` M"
+      - "Then one `ai_interaction` beacon with `properties` `{surface: \"magic_listing\", action: \"shown\"}` is queued with `impressionId` R and `modelVersion` M"
+    tags: [seller, forecast, unit]
     status: not-testable
-    notes: "VERIFIED BY team-frontend-seller `src/app/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`, `no principal calls redirectGuestToLogin with the page's own path` (the `/seller/plans` case). seller-plan-ui: not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `shown beacon carries request id and model version`. Unit level; not producible end to end."
 
-  - id: uisl.seller-plan-ui-upgrade-confirm-dialog-states-price-and-no-proration
-    title: "Upgrade confirm dialog states price and no proration"
+  - id: seller.forecast-card.accepted-beacon-reuses-the-same-provenance
+    title: "Accepted beacon reuses the same provenance"
     persona: seller
     priority: P2
-    summary: "Change seller-plan-ui: Upgrade confirm dialog states price and no proration"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a FREE seller activates the PRO `Nâng cấp` button"
-      - "Then a dialog shows `₫199.000`, the wallet-debit wording and the immediate-upgrade text, and `Subscribe` has not been called until the seller confirms"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `upgrade dialog states price before any write`"
-
-  - id: uisl.seller-plan-ui-confirmed-upgrade-calls-subscribe-once-and-refreshes
-    title: "Confirmed upgrade calls Subscribe once and refreshes"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Confirmed upgrade calls Subscribe once and refreshes"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the seller confirms and then double-clicks the confirm button while the call is pending"
-      - "Then `Subscribe` is called exactly once with the PRO plan id, a success toast `Đã đăng ký gói` appears and `/seller/plans` is revalidated"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `confirm calls subscribe once`"
-
-  - id: uisl.seller-plan-ui-downgrade-dialog-names-the-period-end
-    title: "Downgrade dialog names the period end"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Downgrade dialog names the period end"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a PRO seller with current_period_end 2026-12-13 activates the FREE or lower-tier `Hạ gói` button"
-      - "Then the dialog shows `Hạ gói có hiệu lực từ ngày 13/12/2026 (hết chu kỳ hiện tại).` and no upgrade wording"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `downgrade dialog names the period end`"
-
-  - id: uisl.seller-plan-ui-subscribe-denied-by-the-gateway-shows-an-error-and-no-change
-    title: "Subscribe denied by the gateway shows an error and no change"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Subscribe denied by the gateway shows an error and no change"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When `Subscribe` fails with PERMISSION_DENIED or UNAUTHENTICATED"
-      - "Then an error toast `Đăng ký gói thất bại.` appears, the current plan card is unchanged and no success toast is shown"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SubscribeButton.test.tsx` `denied subscribe shows an error and no change`"
-
-  - id: uisl.seller-plan-ui-insufficient-balance-is-explained-and-nothing-changes
-    title: "Insufficient balance is explained and nothing changes"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Insufficient balance is explained and nothing changes"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When `Subscribe` fails with FAILED_PRECONDITION because the balance of 100000 VND is below the PRO price 199000"
-      - "Then the seller sees `Số dư có thể rút không đủ để trả gói này.` with a `Xem ví` link to `/seller/wallet`, an error toast appears and after reload the current plan is still FREE"
-    tags: [seller, promo]
-    status: automated
-    covered_by: "seller/seller_plans.feature::Insufficient balance is explained and nothing changes"
-    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: uisl.seller-plan-ui-paying-subscription-end-to-end
-    title: "Paying subscription end to end"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Paying subscription end to end"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a seller with a withdrawable balance of at least 199000 VND confirms the PRO upgrade"
-      - "Then after reload PRO is the current plan with `Hết hạn ngày` 30 days ahead, and the wallet ledger shows one subscription debit of 199000"
-    tags: [seller, promo]
-    status: automated
-    covered_by: "seller/seller_plans.feature::Paying subscription end to end"
-    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: uisl.seller-plan-ui-cancel-button-only-for-renewing-paid-plans
-    title: "Cancel button only for renewing paid plans"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Cancel button only for renewing paid plans"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the page renders for a PRO seller with auto_renew true, then for a PRO seller with auto_renew false, then for a FREE seller"
-      - "Then `Hủy gia hạn` is present only in the first render, and the second shows `Sẽ chuyển về Miễn phí ngày 13/12/2026`"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `renders only while auto renew is on`"
-
-  - id: uisl.seller-plan-ui-confirmed-cancel-calls-cancelsubscription-once
-    title: "Confirmed cancel calls CancelSubscription once"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Confirmed cancel calls CancelSubscription once"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the seller confirms the cancel dialog"
-      - "Then `CancelSubscription` is called once with an empty request, a success toast `Đã hủy gia hạn` appears and the page revalidates"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `confirm cancels once`"
-
-  - id: uisl.seller-plan-ui-cancel-denied-by-the-gateway-shows-an-error
-    title: "Cancel denied by the gateway shows an error"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Cancel denied by the gateway shows an error"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When `CancelSubscription` fails with PERMISSION_DENIED or NOT_FOUND"
-      - "Then an error toast `Hủy gia hạn thất bại.` appears and the card is unchanged"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `denied cancel shows an error`"
-
-  - id: uisl.seller-plan-ui-cancel-failure-leaves-the-state-unchanged
-    title: "Cancel failure leaves the state unchanged"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Cancel failure leaves the state unchanged"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When `CancelSubscription` fails with UNAVAILABLE"
-      - "Then an error toast `Hủy gia hạn thất bại.` appears and the card still shows `Tự động gia hạn: Bật`"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/CancelSubscriptionButton.test.tsx` `cancel failure keeps renewal on`"
-
-  - id: uisl.seller-plan-ui-cancelling-keeps-the-plan-until-period-end
-    title: "Cancelling keeps the plan until period end"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Cancelling keeps the plan until period end"
-    entry_route: /seller/plans
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a PRO seller cancels auto-renew in the running stack and reloads `/seller/plans`"
-      - "Then PRO is still the current plan, `Tự động gia hạn: Tắt` and `Sẽ chuyển về Miễn phí ngày` show, and no refund entry appears in the wallet"
-    tags: [seller, promo]
-    status: automated
-    covered_by: "seller/seller_plans.feature::Cancelling keeps the plan until period end"
-    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: uisl.seller-plan-ui-cap-refusal-shows-the-upgrade-link
-    title: "Cap refusal shows the upgrade link"
-    persona: seller
-    priority: P2
-    summary: "Change seller-plan-ui: Cap refusal shows the upgrade link"
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
     entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When `createListing` rejects with RESOURCE_EXHAUSTED and reason `PLAN_LISTING_LIMIT`"
-      - "Then the returned state has ok false, the cap message and `upgradeUrl` `/seller/plans`, and the form shows the Alert and a `Nâng cấp gói` link with `href=\"/seller/plans\"` while the title field still holds the typed value"
-    tags: [unit]
+      - "When the seller applies a field of the suggestion shown with `request_id` R and `model_version` M"
+      - "Then the `accepted` beacon carries `impressionId` R and `modelVersion` M and the listing id when the form has one"
+    tags: [seller, forecast, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `plan listing limit returns an upgrade url`"
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `accepted beacon reuses the shown provenance`. Unit level; not producible end to end."
 
-  - id: uisl.seller-plan-ui-other-resource-exhaustion-shows-no-upgrade-link
-    title: "Other resource exhaustion shows no upgrade link"
+  - id: seller.forecast-card.create-form-has-no-listing-yet
+    title: "Create form has no listing yet"
     persona: seller
     priority: P2
-    summary: "Change seller-plan-ui: Other resource exhaustion shows no upgrade link"
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
     entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When `createListing` rejects with RESOURCE_EXHAUSTED and reason `RATE_LIMITED`"
-      - "Then the returned state has no `upgradeUrl` and the form shows no `Nâng cấp gói` link"
-    tags: [unit]
+      - "When a suggestion is generated on the create form where no listing id exists"
+      - "Then the beacon item has an empty `itemId` and still carries `impressionId` and `modelVersion`"
+    tags: [seller, forecast, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `other resource exhausted has no upgrade url`"
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `provenance without a listing id`. Unit level; not producible end to end."
 
-  - id: uisl.seller-plan-ui-permission-denied-on-create-is-not-shown-as-a-cap
-    title: "Permission denied on create is not shown as a cap"
+  - id: seller.forecast-card.beacon-properties-stay-allowlisted
+    title: "Beacon properties stay allowlisted"
     persona: seller
     priority: P2
-    summary: "Change seller-plan-ui: Permission denied on create is not shown as a cap"
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
     entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When `createListing` rejects with PERMISSION_DENIED"
-      - "Then the returned state has no `upgradeUrl` and the form shows no `Nâng cấp gói` link"
-    tags: [unit]
+      - "When provenance is attached to a beacon"
+      - "Then `properties` contains exactly the keys `surface` and `action` and none of the suggestion text, `request_id` or `model_version`"
+    tags: [seller, forecast, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `permission denied has no upgrade url`"
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `provenance never enters properties`. Unit level; not producible end to end."
 
-  - id: uisl.seller-plan-ui-plan-unavailable-is-not-shown-as-a-cap
-    title: "Plan unavailable is not shown as a cap"
+  - id: seller.forecast-card.provenance-reaches-the-warehouse
+    title: "Provenance reaches the warehouse"
     persona: seller
     priority: P2
-    summary: "Change seller-plan-ui: Plan unavailable is not shown as a cap"
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
     entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When `createListing` rejects with UNAVAILABLE"
-      - "Then the form shows the generic failure message and no `Nâng cấp gói` link"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `unavailable has no upgrade url`"
+      - "When a seller generates a Magic Listing suggestion on the stack with team-ai on the mock backend"
+      - "Then the stored `ai_interaction` event has `model_version` equal to the response `model_version` and a non-empty `impression_id`"
+    tags: [seller, forecast]
+    status: automated
+    covered_by: "seller/seller_forecast_card.feature::Provenance reaches the warehouse"
+    notes: "seller-forecast-card: e2e seller/seller_forecast_card.feature::Provenance reaches the warehouse passed on env docs-ai-data (2026-11-16)"
 
-  - id: uisl.seller-plan-ui-eleventh-listing-on-free-shows-the-upgrade-cta
-    title: "Eleventh listing on FREE shows the upgrade CTA"
+  - id: seller.forecast-card.older-team-ai-returns-no-provenance
+    title: "Older team-ai returns no provenance"
     persona: seller
     priority: P2
-    summary: "Change seller-plan-ui: Eleventh listing on FREE shows the upgrade CTA"
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
     entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When a FREE seller who owns 10 listings submits a new listing in the running stack"
-      - "Then the form shows `Bạn đã đạt giới hạn số tin đăng của gói hiện tại.` and a `Nâng cấp gói` link that opens `/seller/plans`, and the seller's listing count stays 10"
-    tags: [seller, promo]
-    status: automated
-    covered_by: "seller/create-listing.feature::Eleventh listing on FREE shows the upgrade CTA"
-    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
+      - "When `MagicListing` returns empty `request_id` and `model_version`"
+      - "Then the beacon has no `impressionId` and no `modelVersion` key and the suggestion is still shown"
+    tags: [seller, forecast, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend-seller/src/lib/analytics/ai.test.ts` `empty provenance is omitted`. Unit level; not producible end to end."
 
-  - id: uisl.seller-plan-ui-boundary-the-tenth-listing-is-accepted
-    title: "Boundary, the tenth listing is accepted"
+  - id: seller.forecast-card.tracker-failure-never-breaks-the-action
+    title: "Tracker failure never breaks the action"
     persona: seller
     priority: P2
-    summary: "Change seller-plan-ui: Boundary, the tenth listing is accepted"
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
     entry_route: /seller/new
-    services: [team-frontend-seller, team-gateway, team-promotion, team-payment]
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When a FREE seller who owns 9 listings submits a valid new listing in the running stack"
-      - "Then the listing is created and no `Nâng cấp gói` link is shown"
-    tags: [seller, promo]
-    status: automated
-    covered_by: "seller/create-listing.feature::Boundary, the tenth listing is accepted"
-    notes: "Change seller-plan-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: seller-ads-ui.campaigns-persist-after-reload
-    title: "Campaigns persist after reload"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-      data: Registers its own seller, listing and campaign through the gateway.
-    api:
-      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
-    acceptance:
-      - "When a seller who created a campaign with budget 50 000 and bid 1 000 reloads `/seller/ads`"
-      - "Then the table shows one row with \"₫1.000\" bid, \"₫50.000\" budget, \"₫0\" spent, \"₫50.000\" remaining, 0 impressions, 0 clicks and \"Đang chạy\""
-    tags: [seller, promo, ads]
-    status: automated
-    covered_by: "frontend/seller_ads_ui.feature::Campaigns persist after reload"
-    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: seller-ads-ui.spend-and-counters-come-from-the-service
-    title: "Spend and counters come from the service"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-      data: Registers its own seller, listing and campaign through the gateway.
-    api:
-      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
-    acceptance:
-      - "When a buyer's click has charged the campaign once at bid 1 000 and the seller opens `/seller/ads`"
-      - "Then the row shows \"₫1.000\" spent, \"₫49.000\" remaining, 1 click and at least 1 impression"
-    tags: [seller, promo, ads]
-    status: automated
-    covered_by: "frontend/seller_ads_ui.feature::Spend and counters come from the service"
-    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: seller-ads-ui.seller-with-no-campaign-sees-an-empty-state
-    title: "Seller with no campaign sees an empty state"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a seller with no campaigns opens `/seller/ads`"
-      - "Then the table shows \"Chưa có chiến dịch nào\" and the create form is still rendered"
-    tags: [unit]
+      - "When queuing the beacon throws"
+      - "Then the suggestion is still shown and \"Áp dụng\" still fills the form"
+    tags: [seller, forecast, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `renders empty state`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `tracker failure does not break the assist`. Unit level; not producible end to end."
 
-  - id: seller-ads-ui.campaigns-are-paged-at-20
-    title: "Campaigns are paged at 20"
+  - id: seller.forecast-card.ai-failure-sends-no-beacon
+    title: "AI failure sends no beacon"
     persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When a seller has 21 campaigns and opens `/seller/ads` and then `/seller/ads?page=2`"
-      - "Then the first page shows 20 rows and the second shows 1 row"
-    tags: [unit]
+      - "When `magicListingAction` fails"
+      - "Then no `shown` beacon is queued and the error Alert with \"Thử lại\" is shown"
+    tags: [seller, forecast, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/ads/page.test.tsx` `pages campaigns at 20`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `failed suggestion sends no beacon`. Unit level; not producible end to end."
 
-  - id: seller-ads-ui.list-failure-degrades-only-the-list
-    title: "List failure degrades only the list"
+  - id: seller.forecast-card.suggestion-never-overwrites-the-form-on-its-own
+    title: "Suggestion never overwrites the form on its own"
     persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
+    priority: P2
+    summary: "Change seller-forecast-card, capability seller-magic-listing-provenance."
+    entry_route: /seller/new
+    services: [team-frontend-seller, team-gateway, team-ai, team-analytics]
     preconditions:
       login: seller
     acceptance:
-      - "When `ListMyAdCampaigns` fails with UNAVAILABLE or exceeds the 2 s timeout"
-      - "Then the list shows an error alert \"Không tải được chiến dịch\" with a \"Thử lại\" link, the create form renders, and the page responds 200"
-    tags: [unit]
+      - "When a suggestion with provenance arrives while the seller has typed their own title"
+      - "Then no form field changes until the seller activates \"Áp dụng\""
+    tags: [seller, forecast, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/ads/page.test.tsx` `list error degrades only the list`. Unit level; not producible end to end."
-
-  - id: seller-ads-ui.guest-and-non-seller-are-not-authorized-to-open-the-page
-    title: "Guest and non-seller are not authorized to open the page"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-      data: Registers its own seller, listing and campaign through the gateway.
-    api:
-      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
-    acceptance:
-      - "When an unauthenticated guest (401) opens `/seller/ads`, and separately a signed-in buyer without `listing.write` opens it"
-      - "Then the guest is redirected to the login page with `/seller/ads` as the return path, the buyer sees no campaign data, and no `ListMyAdCampaigns` call is made for either"
-    tags: [seller, promo, ads]
-    status: automated
-    covered_by: "frontend/seller_ads_ui.feature::Guest and non-seller are not authorized to open the page"
-    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: seller-ads-ui.pause-an-active-campaign
-    title: "Pause an active campaign"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-      data: Registers its own seller, listing and campaign through the gateway.
-    api:
-      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
-    acceptance:
-      - "When the seller activates \"Tạm dừng\" on an ACTIVE campaign"
-      - "Then the row status becomes \"Tạm dừng\" and the button becomes \"Tiếp tục\", still so after reload, and the campaign is no longer served to buyers"
-    tags: [seller, promo, ads]
-    status: automated
-    covered_by: "frontend/seller_ads_ui.feature::Pause an active campaign"
-    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: seller-ads-ui.resume-a-paused-campaign
-    title: "Resume a paused campaign"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-      data: Registers its own seller, listing and campaign through the gateway.
-    api:
-      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
-    acceptance:
-      - "When the seller activates \"Tiếp tục\" on a PAUSED campaign whose remaining budget is at least its bid"
-      - "Then the row status becomes \"Đang chạy\" and the button becomes \"Tạm dừng\", still so after reload"
-    tags: [seller, promo, ads]
-    status: automated
-    covered_by: "frontend/seller_ads_ui.feature::Resume a paused campaign"
-    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: seller-ads-ui.budget-exhausted-campaign-cannot-resume
-    title: "Budget-exhausted campaign cannot resume"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a campaign has spent so that remaining budget (₫400) is below its bid (₫500 or more) and the seller opens `/seller/ads`"
-      - "Then the row shows \"Hết ngân sách\" and the resume button is disabled, and if the action is still forced the error toast reads \"Ngân sách còn lại thấp hơn giá thầu, không thể tiếp tục chạy.\" and the status is unchanged"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/actions.test.ts` `resume maps FAILED_PRECONDITION to the budget message`. Unit level; not producible end to end."
-
-  - id: seller-ads-ui.ended-campaign-has-no-action
-    title: "Ended campaign has no action"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When a campaign has status ENDED"
-      - "Then its row shows \"Đã kết thúc\" and neither \"Tạm dừng\" nor \"Tiếp tục\" is rendered"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `ended row has no action`. Unit level; not producible end to end."
-
-  - id: seller-ads-ui.double-click-issues-one-call
-    title: "Double click issues one call"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the seller double-clicks \"Tạm dừng\""
-      - "Then the button is disabled after the first click and exactly one `PauseAdCampaign` call is made"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/AdCampaignTable.test.tsx` `double click pauses once`. Unit level; not producible end to end."
-
-  - id: seller-ads-ui.another-sellers-campaign-is-not-found
-    title: "Another seller's campaign is not found"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-      data: Registers its own seller, listing and campaign through the gateway.
-    api:
-      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
-    acceptance:
-      - "When seller B submits Pause or Resume with the id of seller A's campaign"
-      - "Then the action returns `ok: false` with \"Không tìm thấy chiến dịch.\", A's campaign is unchanged, and B's list does not contain it"
-    tags: [seller, promo, ads]
-    status: automated
-    covered_by: "frontend/seller_ads_ui.feature::Another seller's campaign is not found"
-    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: seller-ads-ui.bid-below-minimum-is-rejected
-    title: "Bid below minimum is rejected"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the seller submits a campaign with bid 499"
-      - "Then the field error \"Giá thầu tối thiểu là ₫500.\" is shown and no `CreateAdCampaign` call is made"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects bid below 500`. Unit level; not producible end to end."
-
-  - id: seller-ads-ui.bid-of-exactly-500-is-accepted
-    title: "Bid of exactly 500 is accepted"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-      data: Registers its own seller, listing and campaign through the gateway.
-    api:
-      exercised: [promotion.v1.SponsoredService.ListMyAdCampaigns, promotion.v1.SponsoredService.PauseAdCampaign, promotion.v1.SponsoredService.ResumeAdCampaign, promotion.v1.SponsoredService.CreateAdCampaign]
-    acceptance:
-      - "When the seller submits a campaign with bid 500 and budget 5 000"
-      - "Then the campaign is created and appears in the list as \"Đang chạy\" with \"₫500\" bid"
-    tags: [seller, promo, ads]
-    status: automated
-    covered_by: "frontend/seller_ads_ui.feature::Bid of exactly 500 is accepted"
-    notes: "Change seller-ads-ui; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: seller-ads-ui.ad-form-budget-below-the-bid-is-rejected
-    title: "Ad form: budget below the bid is rejected"
-    persona: seller
-    priority: P1
-    summary: "Scenario of change seller-ads-ui."
-    entry_route: /seller/ads
-    services: [team-frontend-seller, team-gateway, team-promotion]
-    preconditions:
-      login: seller
-    acceptance:
-      - "When the seller submits bid 1 000 and budget 800"
-      - "Then the field error \"Ngân sách phải lớn hơn hoặc bằng giá thầu.\" is shown and no call is made"
-    tags: [unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/SellerForms.test.tsx` `rejects budget below bid`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `never overwrites the form on its own`. Unit level; not producible end to end."

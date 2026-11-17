@@ -10,6 +10,10 @@ type OTel struct {
 
 type Events struct {
 	ChatTopic string `env:"KAFKA_CHAT_TOPIC" default:"chat.events"`
+
+	IdentityTopic        string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
+	ErasureConsumerGroup string `env:"KAFKA_ERASURE_CONSUMER_GROUP" default:"team-chat-erasure"`
+	LogKeyFPSecret       string `env:"LOG_KEY_FP_SECRET"`
 }
 
 type Settings struct {

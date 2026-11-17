@@ -8,7 +8,7 @@
 // the edge and turns into a platform.common.v1.Principal (ADR-0003). Downstream
 // services never see credentials — only the resolved Principal.
 
-import { BecomeSellerRequest, BecomeSellerResponse, ChangePasswordRequest, ChangePasswordResponse, CreateAddressRequest, CreateAddressResponse, CreateHandoffCodeRequest, CreateHandoffCodeResponse, DeleteAddressRequest, DeleteAddressResponse, GetMyAccountRequest, GetMyAccountResponse, GetPublicProfilesRequest, GetPublicProfilesResponse, ListAddressesRequest, ListAddressesResponse, ListLoginHistoryRequest, ListLoginHistoryResponse, ListSessionsRequest, ListSessionsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, PeekHandoffCodeRequest, PeekHandoffCodeResponse, RedeemHandoffCodeRequest, RedeemHandoffCodeResponse, RefreshSessionRequest, RefreshSessionResponse, RegisterRequest, RegisterResponse, RequestPasswordResetRequest, RequestPasswordResetResponse, ResetPasswordRequest, ResetPasswordResponse, RevokeSessionRequest, RevokeSessionResponse, SetDefaultAddressRequest, SetDefaultAddressResponse, SetUserStatusRequest, SetUserStatusResponse, UpdateAddressRequest, UpdateAddressResponse } from "./identity_pb.js";
+import { BecomeSellerRequest, BecomeSellerResponse, CancelAccountDeletionRequest, CancelAccountDeletionResponse, ChangePasswordRequest, ChangePasswordResponse, CreateAddressRequest, CreateAddressResponse, CreateHandoffCodeRequest, CreateHandoffCodeResponse, DeleteAddressRequest, DeleteAddressResponse, ExportMyDataRequest, ExportMyDataResponse, GetAccountDeletionStatusRequest, GetAccountDeletionStatusResponse, GetMyAccountRequest, GetMyAccountResponse, GetPublicProfilesRequest, GetPublicProfilesResponse, ListAddressesRequest, ListAddressesResponse, ListLoginHistoryRequest, ListLoginHistoryResponse, ListMyConsentsRequest, ListMyConsentsResponse, ListSessionsRequest, ListSessionsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, PeekHandoffCodeRequest, PeekHandoffCodeResponse, RecordConsentRequest, RecordConsentResponse, RedeemHandoffCodeRequest, RedeemHandoffCodeResponse, RefreshSessionRequest, RefreshSessionResponse, RegisterRequest, RegisterResponse, RequestAccountDeletionRequest, RequestAccountDeletionResponse, RequestPasswordResetRequest, RequestPasswordResetResponse, ResetPasswordRequest, ResetPasswordResponse, RevokeSessionRequest, RevokeSessionResponse, SetDefaultAddressRequest, SetDefaultAddressResponse, SetUserStatusRequest, SetUserStatusResponse, UpdateAddressRequest, UpdateAddressResponse } from "./identity_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -334,6 +334,79 @@ export const AccountAdminService = {
       name: "SetUserStatus",
       I: SetUserStatusRequest,
       O: SetUserStatusResponse,
+      kind: MethodKind.Unary,
+    },
+  }
+} as const;
+
+/**
+ * PrivacyService is principal-scoped: it requires a USER principal. An
+ * anonymous caller gets UNAUTHENTICATED and a service principal gets
+ * PERMISSION_DENIED; no request field selects another user.
+ *
+ * @generated from service platform.identity.v1.PrivacyService
+ */
+export const PrivacyService = {
+  typeName: "platform.identity.v1.PrivacyService",
+  methods: {
+    /**
+     * @generated from rpc platform.identity.v1.PrivacyService.RecordConsent
+     */
+    recordConsent: {
+      name: "RecordConsent",
+      I: RecordConsentRequest,
+      O: RecordConsentResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc platform.identity.v1.PrivacyService.ListMyConsents
+     */
+    listMyConsents: {
+      name: "ListMyConsents",
+      I: ListMyConsentsRequest,
+      O: ListMyConsentsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * RequestAccountDeletion requires the caller's current password; a wrong
+     * password is PERMISSION_DENIED. FAILED_PRECONDITION when a deletion is
+     * already pending or the account cannot be deleted.
+     *
+     * @generated from rpc platform.identity.v1.PrivacyService.RequestAccountDeletion
+     */
+    requestAccountDeletion: {
+      name: "RequestAccountDeletion",
+      I: RequestAccountDeletionRequest,
+      O: RequestAccountDeletionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc platform.identity.v1.PrivacyService.CancelAccountDeletion
+     */
+    cancelAccountDeletion: {
+      name: "CancelAccountDeletion",
+      I: CancelAccountDeletionRequest,
+      O: CancelAccountDeletionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc platform.identity.v1.PrivacyService.GetAccountDeletionStatus
+     */
+    getAccountDeletionStatus: {
+      name: "GetAccountDeletionStatus",
+      I: GetAccountDeletionStatusRequest,
+      O: GetAccountDeletionStatusResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * ExportMyData returns the caller's data as one payload of at most 1 MiB.
+     *
+     * @generated from rpc platform.identity.v1.PrivacyService.ExportMyData
+     */
+    exportMyData: {
+      name: "ExportMyData",
+      I: ExportMyDataRequest,
+      O: ExportMyDataResponse,
       kind: MethodKind.Unary,
     },
   }

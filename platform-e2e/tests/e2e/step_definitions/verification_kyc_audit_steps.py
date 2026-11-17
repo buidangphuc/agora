@@ -36,7 +36,7 @@ def admin_rejects_seller(world: World) -> None:
     admin_token = world.state.current_user.token
     _x(world)["kyc_admin_token"] = admin_token
     _x(world)["kyc_resp"] = VerificationService(token=admin_token).review_kyc_response(
-        _x(world)["kyc_id"], "reject"
+        _x(world)["kyc_id"], "reject", "document_unreadable"
     )
 
 

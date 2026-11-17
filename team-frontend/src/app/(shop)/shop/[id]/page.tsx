@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { Tag } from "@/components/ui/Tag";
 import { parseSort } from "@/features/listing/pdp";
 import { BundleCard } from "@/features/shop/BundleCard";
 import { ShopStorefrontView } from "@/features/shop/ShopStorefrontView";
@@ -8,6 +9,7 @@ import { getListing, listBundlesBySeller } from "@/lib/gateway/listings";
 import { getShopRatingSummary } from "@/lib/gateway/reviews";
 import { searchListings } from "@/lib/gateway/search";
 import { getPrincipal } from "@/lib/gateway/session";
+import { getPublicBadges } from "@/lib/gateway/verification";
 import { pageMetadata } from "@/lib/seo";
 
 import { loadStorefront } from "./data";
@@ -35,15 +37,18 @@ export default async function ShopPage(props: {
   const searchParams = await props.searchParams;
   const params = await props.params;
   const me = getPrincipal();
-  const [shop, following, storefront, bundles, summary] = await Promise.all([
-    // Only this seller's published listings: the search service filters by seller_id
-    // (ListListings has no seller filter, and its first page holds other shops' items).
-    searchListings("", { sellerId: params.id }).catch(() => ({ items: [] })),
-    me ? isFollowing(params.id) : Promise.resolve(false),
-    loadStorefront(params.id),
-    listBundlesBySeller(params.id),
-    getShopRatingSummary(params.id),
-  ]);
+  const [shop, following, storefront, bundles, summary, badges] =
+    await Promise.all([
+      // Only this seller's published listings: the search service filters by seller_id
+      // (ListListings has no seller filter, and its first page holds other shops' items).
+      searchListings("", { sellerId: params.id }).catch(() => ({ items: [] })),
+      me ? isFollowing(params.id) : Promise.resolve(false),
+      loadStorefront(params.id),
+      listBundlesBySeller(params.id),
+      getShopRatingSummary(params.id),
+      getPublicBadges([params.id]).catch(() => new Map<string, boolean>()),
+    ]);
+  const verified = badges.get(params.id) === true;
 
   const listed = new Set(shop.items.map((l) => l.id));
   const missing = [...new Set(storefront?.featuredListingIds ?? [])].filter(
@@ -55,6 +60,7 @@ export default async function ShopPage(props: {
 
   return (
     <section className="py-2">
+      {verified && <Tag color="success">Đã xác minh</Tag>}
       <ShopStorefrontView
         sellerId={params.id}
         listings={shop.items}

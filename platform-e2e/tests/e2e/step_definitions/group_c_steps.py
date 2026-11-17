@@ -13,6 +13,7 @@ from tests.e2e.flows import (
     login_via_api,
     settle_seeded_order_to_seller,
 )
+from tests.e2e.flows.kyc_flow import verify_seller
 from tests.e2e.support import review_order_support as ros
 from tests.e2e.support.plp_support import wait_past_window
 from tests.e2e.support.world import World
@@ -179,6 +180,7 @@ def seller_has_positive_wallet_balance(world: World) -> None:
 @when("the seller requests a payout")
 def seller_requests_payout(world: World) -> None:
     seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
+    verify_seller(seller.token)
     world.service_factory.set_token(seller.token)
     res = world.service_factory.payment.request_payout(
         seller_id="",  # the caller's own wallet; the user id, never the username

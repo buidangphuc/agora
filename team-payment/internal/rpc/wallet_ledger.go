@@ -93,6 +93,9 @@ func (h *Handler) RequestWalletPayout(ctx context.Context, req *paymentv1.Reques
 	if req.GetAmount() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
 	}
+	if err := h.payout.Require(ctx, sellerID); err != nil {
+		return nil, err
+	}
 	entry, err := h.svc.RequestWalletPayout(ctx, sellerID, req.GetAmount())
 	if err != nil {
 		return nil, h.fail(ctx, err)

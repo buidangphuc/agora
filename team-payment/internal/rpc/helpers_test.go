@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"sync"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -86,9 +87,40 @@ func (f writerFunc) WriteAuditEvent(ctx context.Context, ev auditx.Event) error 
 
 var permissiveAudit auditx.Writer = writerFunc(func(context.Context, auditx.Event) error { return nil })
 
+type recordingGate struct {
+	mu    sync.Mutex
+	calls []string
+	errFn func(sellerID string) error
+}
+
+func (g *recordingGate) Require(_ context.Context, sellerID string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.calls = append(g.calls, sellerID)
+	if g.errFn != nil {
+		return g.errFn(sellerID)
+	}
+	return nil
+}
+
+func (g *recordingGate) Check(ctx context.Context, sellerID string) error {
+	return g.Require(ctx, sellerID)
+}
+
+func (g *recordingGate) seen() []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return append([]string(nil), g.calls...)
+}
+
 func newHandlerLogged(t testing.TB, svc *payment.Service, w auditx.Writer, logger *slog.Logger) *rpc.Handler {
 	t.Helper()
-	h, err := rpc.NewHandler(svc, auditx.NewGate(w, logger), logger)
+	return newHandlerGated(t, svc, w, logger, &recordingGate{})
+}
+
+func newHandlerGated(t testing.TB, svc *payment.Service, w auditx.Writer, logger *slog.Logger, pg rpc.PayoutGate) *rpc.Handler {
+	t.Helper()
+	h, err := rpc.NewHandler(svc, auditx.NewGate(w, logger), pg, logger)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}

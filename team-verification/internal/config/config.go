@@ -45,6 +45,46 @@ func (a Audit) Validate() error {
 	return nil
 }
 
+type Storage struct {
+	Endpoint  string `env:"STORAGE_ENDPOINT"`
+	Bucket    string `env:"STORAGE_BUCKET"`
+	AccessKey string `env:"STORAGE_ACCESS_KEY"`
+	SecretKey string `env:"STORAGE_SECRET_KEY"`
+	Region    string `env:"STORAGE_REGION" default:"us-east-1"`
+	UseSSL    bool   `env:"STORAGE_USE_SSL" default:"false"`
+
+	PublicEndpoint string `env:"STORAGE_PUBLIC_ENDPOINT"`
+}
+
+func (s Storage) ResolveFor(rt sdkconfig.Runtime) error {
+	var errs []error
+	for _, f := range []struct{ key, val string }{
+		{"STORAGE_ENDPOINT", s.Endpoint},
+		{"STORAGE_BUCKET", s.Bucket},
+		{"STORAGE_ACCESS_KEY", s.AccessKey},
+		{"STORAGE_SECRET_KEY", s.SecretKey},
+	} {
+		if strings.TrimSpace(f.val) == "" {
+			errs = append(errs, errors.New(f.key+" is required"))
+		}
+	}
+	if rt.IsStrict() {
+		if s.AccessKey == "minioadmin" {
+			errs = append(errs, errors.New("STORAGE_ACCESS_KEY must not be the minioadmin default when ENV is staging or prod"))
+		}
+		if s.SecretKey == "minioadmin" {
+			errs = append(errs, errors.New("STORAGE_SECRET_KEY must not be the minioadmin default when ENV is staging or prod"))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+type Events struct {
+	IdentityTopic    string `env:"KAFKA_IDENTITY_TOPIC" default:"identity.events"`
+	IdentityDLQTopic string `env:"KAFKA_IDENTITY_DLQ_TOPIC" default:"identity.events.team-verification.dlq"`
+	IdentityGroup    string `env:"KAFKA_IDENTITY_GROUP" default:"team-verification-identity"`
+}
+
 type Settings struct {
 	sdkconfig.Runtime
 	Listener
@@ -52,6 +92,9 @@ type Settings struct {
 	OTel     sdkconfig.OTel
 	Audit    Audit
 	MockData sdkconfig.MockData
+	Kafka    sdkconfig.Kafka
+	Storage  Storage
+	Events   Events
 }
 
 func (s Settings) Validate() error {

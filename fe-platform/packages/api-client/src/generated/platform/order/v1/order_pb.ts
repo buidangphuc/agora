@@ -1327,6 +1327,92 @@ export class PreviewCheckoutResponse extends Message<PreviewCheckoutResponse> {
 }
 
 /**
+ * @generated from message platform.order.v1.GetUserObligationsRequest
+ */
+export class GetUserObligationsRequest extends Message<GetUserObligationsRequest> {
+  /**
+   * @generated from field: string user_id = 1;
+   */
+  userId = "";
+
+  constructor(data?: PartialMessage<GetUserObligationsRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.order.v1.GetUserObligationsRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetUserObligationsRequest {
+    return new GetUserObligationsRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetUserObligationsRequest {
+    return new GetUserObligationsRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetUserObligationsRequest {
+    return new GetUserObligationsRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetUserObligationsRequest | PlainMessage<GetUserObligationsRequest> | undefined, b: GetUserObligationsRequest | PlainMessage<GetUserObligationsRequest> | undefined): boolean {
+    return proto3.util.equals(GetUserObligationsRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.order.v1.GetUserObligationsResponse
+ */
+export class GetUserObligationsResponse extends Message<GetUserObligationsResponse> {
+  /**
+   * @generated from field: int32 open_buyer_orders = 1;
+   */
+  openBuyerOrders = 0;
+
+  /**
+   * @generated from field: int32 open_seller_orders = 2;
+   */
+  openSellerOrders = 0;
+
+  /**
+   * @generated from field: int32 open_returns = 3;
+   */
+  openReturns = 0;
+
+  constructor(data?: PartialMessage<GetUserObligationsResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.order.v1.GetUserObligationsResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "open_buyer_orders", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 2, name: "open_seller_orders", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "open_returns", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetUserObligationsResponse {
+    return new GetUserObligationsResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetUserObligationsResponse {
+    return new GetUserObligationsResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetUserObligationsResponse {
+    return new GetUserObligationsResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetUserObligationsResponse | PlainMessage<GetUserObligationsResponse> | undefined, b: GetUserObligationsResponse | PlainMessage<GetUserObligationsResponse> | undefined): boolean {
+    return proto3.util.equals(GetUserObligationsResponse, a, b);
+  }
+}
+
+/**
  * @generated from message platform.order.v1.HasCompletedOrderRequest
  */
 export class HasCompletedOrderRequest extends Message<HasCompletedOrderRequest> {

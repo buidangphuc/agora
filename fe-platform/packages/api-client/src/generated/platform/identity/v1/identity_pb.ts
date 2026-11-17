@@ -66,6 +66,14 @@ export enum UserStatus {
    * @generated from enum value: USER_STATUS_BANNED = 4;
    */
   BANNED = 4,
+
+  /**
+   * Account erased by the erasure sweeper. A DELETED user is treated as an
+   * unknown user: login, refresh and lookups behave as for an id that does not exist.
+   *
+   * @generated from enum value: USER_STATUS_DELETED = 5;
+   */
+  DELETED = 5,
 }
 // Retrieve enum metadata with: proto3.getEnumType(UserStatus)
 proto3.util.setEnumType(UserStatus, "platform.identity.v1.UserStatus", [
@@ -74,6 +82,57 @@ proto3.util.setEnumType(UserStatus, "platform.identity.v1.UserStatus", [
   { no: 2, name: "USER_STATUS_RESTRICTED" },
   { no: 3, name: "USER_STATUS_SUSPENDED" },
   { no: 4, name: "USER_STATUS_BANNED" },
+  { no: 5, name: "USER_STATUS_DELETED" },
+]);
+
+/**
+ * @generated from enum platform.identity.v1.ConsentPurpose
+ */
+export enum ConsentPurpose {
+  /**
+   * @generated from enum value: CONSENT_PURPOSE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: CONSENT_PURPOSE_ANALYTICS = 1;
+   */
+  ANALYTICS = 1,
+
+  /**
+   * @generated from enum value: CONSENT_PURPOSE_MARKETING = 2;
+   */
+  MARKETING = 2,
+
+  /**
+   * @generated from enum value: CONSENT_PURPOSE_PERSONALIZATION = 3;
+   */
+  PERSONALIZATION = 3,
+
+  /**
+   * @generated from enum value: CONSENT_PURPOSE_TERMS = 4;
+   */
+  TERMS = 4,
+
+  /**
+   * @generated from enum value: CONSENT_PURPOSE_PRIVACY_POLICY = 5;
+   */
+  PRIVACY_POLICY = 5,
+
+  /**
+   * @generated from enum value: CONSENT_PURPOSE_SELLER_TERMS = 6;
+   */
+  SELLER_TERMS = 6,
+}
+// Retrieve enum metadata with: proto3.getEnumType(ConsentPurpose)
+proto3.util.setEnumType(ConsentPurpose, "platform.identity.v1.ConsentPurpose", [
+  { no: 0, name: "CONSENT_PURPOSE_UNSPECIFIED" },
+  { no: 1, name: "CONSENT_PURPOSE_ANALYTICS" },
+  { no: 2, name: "CONSENT_PURPOSE_MARKETING" },
+  { no: 3, name: "CONSENT_PURPOSE_PERSONALIZATION" },
+  { no: 4, name: "CONSENT_PURPOSE_TERMS" },
+  { no: 5, name: "CONSENT_PURPOSE_PRIVACY_POLICY" },
+  { no: 6, name: "CONSENT_PURPOSE_SELLER_TERMS" },
 ]);
 
 /**
@@ -428,6 +487,22 @@ export class RegisterRequest extends Message<RegisterRequest> {
    */
   referralCode = "";
 
+  /**
+   * Legal terms version the user accepted. Must equal the current configured
+   * version, otherwise Register fails with INVALID_ARGUMENT.
+   *
+   * @generated from field: string terms_version = 5;
+   */
+  termsVersion = "";
+
+  /**
+   * Privacy policy version the user accepted. Must equal the current configured
+   * version, otherwise Register fails with INVALID_ARGUMENT.
+   *
+   * @generated from field: string privacy_version = 6;
+   */
+  privacyVersion = "";
+
   constructor(data?: PartialMessage<RegisterRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -440,6 +515,8 @@ export class RegisterRequest extends Message<RegisterRequest> {
     { no: 2, name: "password", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "role", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "referral_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "terms_version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "privacy_version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RegisterRequest {
@@ -2541,6 +2618,560 @@ export class UserRegistered extends Message<UserRegistered> {
 
   static equals(a: UserRegistered | PlainMessage<UserRegistered> | undefined, b: UserRegistered | PlainMessage<UserRegistered> | undefined): boolean {
     return proto3.util.equals(UserRegistered, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.ConsentRecord
+ */
+export class ConsentRecord extends Message<ConsentRecord> {
+  /**
+   * @generated from field: platform.identity.v1.ConsentPurpose purpose = 1;
+   */
+  purpose = ConsentPurpose.UNSPECIFIED;
+
+  /**
+   * @generated from field: bool granted = 2;
+   */
+  granted = false;
+
+  /**
+   * @generated from field: string version = 3;
+   */
+  version = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp recorded_at = 4;
+   */
+  recordedAt?: Timestamp;
+
+  /**
+   * @generated from field: string source = 5;
+   */
+  source = "";
+
+  constructor(data?: PartialMessage<ConsentRecord>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.ConsentRecord";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "purpose", kind: "enum", T: proto3.getEnumType(ConsentPurpose) },
+    { no: 2, name: "granted", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "recorded_at", kind: "message", T: Timestamp },
+    { no: 5, name: "source", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ConsentRecord {
+    return new ConsentRecord().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ConsentRecord {
+    return new ConsentRecord().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ConsentRecord {
+    return new ConsentRecord().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ConsentRecord | PlainMessage<ConsentRecord> | undefined, b: ConsentRecord | PlainMessage<ConsentRecord> | undefined): boolean {
+    return proto3.util.equals(ConsentRecord, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.RecordConsentRequest
+ */
+export class RecordConsentRequest extends Message<RecordConsentRequest> {
+  /**
+   * @generated from field: repeated platform.identity.v1.ConsentRecord records = 1;
+   */
+  records: ConsentRecord[] = [];
+
+  constructor(data?: PartialMessage<RecordConsentRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.RecordConsentRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "records", kind: "message", T: ConsentRecord, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RecordConsentRequest {
+    return new RecordConsentRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RecordConsentRequest {
+    return new RecordConsentRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RecordConsentRequest {
+    return new RecordConsentRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RecordConsentRequest | PlainMessage<RecordConsentRequest> | undefined, b: RecordConsentRequest | PlainMessage<RecordConsentRequest> | undefined): boolean {
+    return proto3.util.equals(RecordConsentRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.RecordConsentResponse
+ */
+export class RecordConsentResponse extends Message<RecordConsentResponse> {
+  constructor(data?: PartialMessage<RecordConsentResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.RecordConsentResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RecordConsentResponse {
+    return new RecordConsentResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RecordConsentResponse {
+    return new RecordConsentResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RecordConsentResponse {
+    return new RecordConsentResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RecordConsentResponse | PlainMessage<RecordConsentResponse> | undefined, b: RecordConsentResponse | PlainMessage<RecordConsentResponse> | undefined): boolean {
+    return proto3.util.equals(RecordConsentResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.ListMyConsentsRequest
+ */
+export class ListMyConsentsRequest extends Message<ListMyConsentsRequest> {
+  /**
+   * @generated from field: platform.common.v1.PageRequest page = 1;
+   */
+  page?: PageRequest;
+
+  constructor(data?: PartialMessage<ListMyConsentsRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.ListMyConsentsRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "page", kind: "message", T: PageRequest },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListMyConsentsRequest {
+    return new ListMyConsentsRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListMyConsentsRequest {
+    return new ListMyConsentsRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListMyConsentsRequest {
+    return new ListMyConsentsRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListMyConsentsRequest | PlainMessage<ListMyConsentsRequest> | undefined, b: ListMyConsentsRequest | PlainMessage<ListMyConsentsRequest> | undefined): boolean {
+    return proto3.util.equals(ListMyConsentsRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.ListMyConsentsResponse
+ */
+export class ListMyConsentsResponse extends Message<ListMyConsentsResponse> {
+  /**
+   * @generated from field: repeated platform.identity.v1.ConsentRecord records = 1;
+   */
+  records: ConsentRecord[] = [];
+
+  /**
+   * @generated from field: platform.common.v1.PageResponse page = 2;
+   */
+  page?: PageResponse;
+
+  constructor(data?: PartialMessage<ListMyConsentsResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.ListMyConsentsResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "records", kind: "message", T: ConsentRecord, repeated: true },
+    { no: 2, name: "page", kind: "message", T: PageResponse },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListMyConsentsResponse {
+    return new ListMyConsentsResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListMyConsentsResponse {
+    return new ListMyConsentsResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListMyConsentsResponse {
+    return new ListMyConsentsResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListMyConsentsResponse | PlainMessage<ListMyConsentsResponse> | undefined, b: ListMyConsentsResponse | PlainMessage<ListMyConsentsResponse> | undefined): boolean {
+    return proto3.util.equals(ListMyConsentsResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.RequestAccountDeletionRequest
+ */
+export class RequestAccountDeletionRequest extends Message<RequestAccountDeletionRequest> {
+  /**
+   * @generated from field: string password = 1;
+   */
+  password = "";
+
+  constructor(data?: PartialMessage<RequestAccountDeletionRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.RequestAccountDeletionRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "password", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RequestAccountDeletionRequest {
+    return new RequestAccountDeletionRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RequestAccountDeletionRequest {
+    return new RequestAccountDeletionRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RequestAccountDeletionRequest {
+    return new RequestAccountDeletionRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RequestAccountDeletionRequest | PlainMessage<RequestAccountDeletionRequest> | undefined, b: RequestAccountDeletionRequest | PlainMessage<RequestAccountDeletionRequest> | undefined): boolean {
+    return proto3.util.equals(RequestAccountDeletionRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.RequestAccountDeletionResponse
+ */
+export class RequestAccountDeletionResponse extends Message<RequestAccountDeletionResponse> {
+  /**
+   * @generated from field: google.protobuf.Timestamp erase_after = 1;
+   */
+  eraseAfter?: Timestamp;
+
+  constructor(data?: PartialMessage<RequestAccountDeletionResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.RequestAccountDeletionResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "erase_after", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RequestAccountDeletionResponse {
+    return new RequestAccountDeletionResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RequestAccountDeletionResponse {
+    return new RequestAccountDeletionResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RequestAccountDeletionResponse {
+    return new RequestAccountDeletionResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RequestAccountDeletionResponse | PlainMessage<RequestAccountDeletionResponse> | undefined, b: RequestAccountDeletionResponse | PlainMessage<RequestAccountDeletionResponse> | undefined): boolean {
+    return proto3.util.equals(RequestAccountDeletionResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.CancelAccountDeletionRequest
+ */
+export class CancelAccountDeletionRequest extends Message<CancelAccountDeletionRequest> {
+  constructor(data?: PartialMessage<CancelAccountDeletionRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.CancelAccountDeletionRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CancelAccountDeletionRequest {
+    return new CancelAccountDeletionRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CancelAccountDeletionRequest {
+    return new CancelAccountDeletionRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CancelAccountDeletionRequest {
+    return new CancelAccountDeletionRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CancelAccountDeletionRequest | PlainMessage<CancelAccountDeletionRequest> | undefined, b: CancelAccountDeletionRequest | PlainMessage<CancelAccountDeletionRequest> | undefined): boolean {
+    return proto3.util.equals(CancelAccountDeletionRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.CancelAccountDeletionResponse
+ */
+export class CancelAccountDeletionResponse extends Message<CancelAccountDeletionResponse> {
+  constructor(data?: PartialMessage<CancelAccountDeletionResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.CancelAccountDeletionResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CancelAccountDeletionResponse {
+    return new CancelAccountDeletionResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CancelAccountDeletionResponse {
+    return new CancelAccountDeletionResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CancelAccountDeletionResponse {
+    return new CancelAccountDeletionResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CancelAccountDeletionResponse | PlainMessage<CancelAccountDeletionResponse> | undefined, b: CancelAccountDeletionResponse | PlainMessage<CancelAccountDeletionResponse> | undefined): boolean {
+    return proto3.util.equals(CancelAccountDeletionResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.GetAccountDeletionStatusRequest
+ */
+export class GetAccountDeletionStatusRequest extends Message<GetAccountDeletionStatusRequest> {
+  constructor(data?: PartialMessage<GetAccountDeletionStatusRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.GetAccountDeletionStatusRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetAccountDeletionStatusRequest {
+    return new GetAccountDeletionStatusRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetAccountDeletionStatusRequest {
+    return new GetAccountDeletionStatusRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetAccountDeletionStatusRequest {
+    return new GetAccountDeletionStatusRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetAccountDeletionStatusRequest | PlainMessage<GetAccountDeletionStatusRequest> | undefined, b: GetAccountDeletionStatusRequest | PlainMessage<GetAccountDeletionStatusRequest> | undefined): boolean {
+    return proto3.util.equals(GetAccountDeletionStatusRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.GetAccountDeletionStatusResponse
+ */
+export class GetAccountDeletionStatusResponse extends Message<GetAccountDeletionStatusResponse> {
+  /**
+   * @generated from field: bool pending = 1;
+   */
+  pending = false;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp erase_after = 2;
+   */
+  eraseAfter?: Timestamp;
+
+  constructor(data?: PartialMessage<GetAccountDeletionStatusResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.GetAccountDeletionStatusResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "pending", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 2, name: "erase_after", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetAccountDeletionStatusResponse {
+    return new GetAccountDeletionStatusResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetAccountDeletionStatusResponse {
+    return new GetAccountDeletionStatusResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetAccountDeletionStatusResponse {
+    return new GetAccountDeletionStatusResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetAccountDeletionStatusResponse | PlainMessage<GetAccountDeletionStatusResponse> | undefined, b: GetAccountDeletionStatusResponse | PlainMessage<GetAccountDeletionStatusResponse> | undefined): boolean {
+    return proto3.util.equals(GetAccountDeletionStatusResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.ExportMyDataRequest
+ */
+export class ExportMyDataRequest extends Message<ExportMyDataRequest> {
+  constructor(data?: PartialMessage<ExportMyDataRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.ExportMyDataRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ExportMyDataRequest {
+    return new ExportMyDataRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ExportMyDataRequest {
+    return new ExportMyDataRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ExportMyDataRequest {
+    return new ExportMyDataRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ExportMyDataRequest | PlainMessage<ExportMyDataRequest> | undefined, b: ExportMyDataRequest | PlainMessage<ExportMyDataRequest> | undefined): boolean {
+    return proto3.util.equals(ExportMyDataRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message platform.identity.v1.ExportMyDataResponse
+ */
+export class ExportMyDataResponse extends Message<ExportMyDataResponse> {
+  /**
+   * @generated from field: bytes data = 1;
+   */
+  data = new Uint8Array(0);
+
+  /**
+   * @generated from field: string content_type = 2;
+   */
+  contentType = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp generated_at = 3;
+   */
+  generatedAt?: Timestamp;
+
+  constructor(data?: PartialMessage<ExportMyDataResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.ExportMyDataResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "data", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 2, name: "content_type", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "generated_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ExportMyDataResponse {
+    return new ExportMyDataResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ExportMyDataResponse {
+    return new ExportMyDataResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ExportMyDataResponse {
+    return new ExportMyDataResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ExportMyDataResponse | PlainMessage<ExportMyDataResponse> | undefined, b: ExportMyDataResponse | PlainMessage<ExportMyDataResponse> | undefined): boolean {
+    return proto3.util.equals(ExportMyDataResponse, a, b);
+  }
+}
+
+/**
+ * UserErased is an internal-only event (never exposed at the gateway)
+ * published on Kafka topic `identity.events` (key = user id, wrapped in
+ * platform.events.v1.EventEnvelope with type "platform.identity.v1.UserErased")
+ * through the identity outbox in the same transaction as the erasure. roles
+ * are the roles the user held. Consumers must be idempotent on the event id.
+ *
+ * @generated from message platform.identity.v1.UserErased
+ */
+export class UserErased extends Message<UserErased> {
+  /**
+   * @generated from field: string user_id = 1;
+   */
+  userId = "";
+
+  /**
+   * @generated from field: repeated string roles = 2;
+   */
+  roles: string[] = [];
+
+  /**
+   * @generated from field: google.protobuf.Timestamp erased_at = 3;
+   */
+  erasedAt?: Timestamp;
+
+  constructor(data?: PartialMessage<UserErased>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "platform.identity.v1.UserErased";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "roles", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 3, name: "erased_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UserErased {
+    return new UserErased().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UserErased {
+    return new UserErased().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UserErased {
+    return new UserErased().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UserErased | PlainMessage<UserErased> | undefined, b: UserErased | PlainMessage<UserErased> | undefined): boolean {
+    return proto3.util.equals(UserErased, a, b);
   }
 }
 

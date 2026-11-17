@@ -23,8 +23,29 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create referral.events referral.events.dlq referral.identity.dlq referral.order.dlq payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq identity.events.promotion.dlq identity.events.order.dlq identity.events.payment.dlq identity.events.referral.dlq identity.events.engagement.dlq identity.events.chat.dlq identity.events.team-domain.dlq identity.events.notification.dlq referral.events.promotion.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq search-indexer.listing.events.dlq search-indexer.order.events.dlq search-indexer.engagement.events.dlq identity.events.analytics.dlq identity.events.recsys.dlq identity.events.team-ai.dlq identity.events.team-verification.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
+
+  minio:
+    environment:
+      MINIO_KMS_SECRET_KEY: "kyc-local-key:zaULdpMcZP89w0FUarNio8xrIvjkGPbt7I0hJzDILAY="
+
+  kyc-minio-init:
+    image: bitnamilegacy/minio-client:2025.5.21-debian-12-r4
+    container_name: kyc-minio-init
+    restart: "no"
+    environment:
+      MC_CONFIG_DIR: /tmp/.mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/kyc-documents &&
+      mc anonymous set none local/kyc-documents &&
+      mc encrypt set sse-s3 local/kyc-documents
+      "
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
   # platform-core/infra owns postgres for the original services (postgres…
@@ -207,6 +228,8 @@ services:
       - JWT_KID=dev-2026
       - JWKS_HTTP_PORT=50063
       - SELLER_TERMS_VERSIONS=2026-11-02
+      - LEGAL_TERMS_VERSIONS=2026-11
+      - PRIVACY_POLICY_VERSIONS=2026-11
       - GRPC_PORT=50053
       - ENV=local
       # SessionRevoked outbox relayer (ADR-0003 addendum): RevokeSession writes the
@@ -224,6 +247,10 @@ services:
       - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-admin-dev-password-123}
       # SetUserStatus audits through team-audit and fails closed without it.
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
+      - UPSTREAM_ORDER_ADDR=team-order-svc:50055
+      - UPSTREAM_PAYMENT_ADDR=team-payment-svc:50056
+      - ACCOUNT_DELETION_CANCEL_WINDOW=${ACCOUNT_DELETION_CANCEL_WINDOW:-48h}
+      - ACCOUNT_ERASURE_SWEEP_INTERVAL=${ACCOUNT_ERASURE_SWEEP_INTERVAL:-1h}
       - GRPC_REFLECTION_ENABLED=true
 
   team-domain:
@@ -247,6 +274,7 @@ services:
       - UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061
       - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
       - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_ERASURE_GROUP=team-domain-erasure
       - GRPC_PORT=50051
       - ENV=local
       - GRPC_REFLECTION_ENABLED=true
@@ -319,6 +347,8 @@ services:
       - KAFKA_LISTING_TOPIC=listing.events
       # Engagement fact events: outbox relayer publishes to engagement.events (efe D4).
       - ENGAGEMENT_EVENTS_TOPIC=engagement.events
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - KAFKA_ERASURE_CONSUMER_GROUP=team-engagement-erasure
       - OUTBOX_POLL_INTERVAL=500ms
       - GRPC_PORT=50054
       - ENV=local
@@ -351,6 +381,8 @@ services:
       - ORDER_PAYMENT_CONSUMER_GROUP=team-order.payment
       - PAYMENT_EVENTS_DLQ_TOPIC=payment.events.dlq
       - ENGAGEMENT_EVENTS_DLQ_TOPIC=engagement.events.order.dlq
+      - ORDER_ERASURE_CONSUMER_GROUP=team-order.erasure
+      - ORDER_ERASURE_DLQ_TOPIC=identity.events.order.dlq
       # order.events outbox relayer (ADR-0013): publishes OrderPaidEvent (line
       # items) written in the same tx as the PAID transition. Same OUTBOX_* names
       # as team-domain.
@@ -409,12 +441,15 @@ services:
     depends_on:
       team-payment-migrate:
         condition: service_completed_successfully
+      team-verification:
+        condition: service_started
       redpanda-init:
         condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_URL=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
+      - UPSTREAM_VERIFICATION_ADDR=team-verification-svc:50064
       # Transactional-outbox relayer (AD4): settle writes payment=PAID + a
       # PaymentSettled outbox row in one tx; the relayer drains it to
       # payment.events. Keys read by internal/bootstrap/kafka.go::kafkaConfigFromEnv.
@@ -427,6 +462,8 @@ services:
       - ORDER_EVENTS_TOPIC=order.events
       - PAYMENT_SETTLEMENT_CONSUMER_GROUP=team-payment.settlement
       - PAYMENT_SETTLEMENT_DLQ_TOPIC=order.events.payment-settlement.dlq
+      - PAYMENT_ERASURE_CONSUMER_GROUP=team-payment.erasure
+      - PAYMENT_ERASURE_DLQ_TOPIC=identity.events.payment.dlq
       - GRPC_PORT=50056
       - ENV=local
       # local/e2e only: enables ProcessMockPayment (refused at boot in staging/prod)
@@ -449,6 +486,8 @@ services:
       # chat.events producer: ChatMessage (with recipient_id) feeds team-notification
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_CHAT_TOPIC=chat.events
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - KAFKA_ERASURE_CONSUMER_GROUP=team-chat-erasure
       # chat.events outbox relayer: SendMessage writes the event in the message tx
       # (chat_outbox_events) and the relayer publishes it, so a Kafka hiccup delays
       # but never loses a notification. Same OUTBOX_* names as team-order.
@@ -488,6 +527,8 @@ services:
       - ORDER_EVENTS_TOPIC=order.events
       - NOTIFICATION_ORDER_CONSUMER_GROUP=team-notification.order
       - ORDER_EVENTS_DLQ_TOPIC=order.events.dlq
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - KAFKA_ERASURE_CONSUMER_GROUP=team-notification-erasure
       # Chat sender names: shop display name from team-domain, user display name from
       # team-identity (service principal; any failure falls back to a neutral label).
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
@@ -518,6 +559,8 @@ services:
       - REFERRAL_ORDER_CONSUMER_GROUP=team-referral-order
       - REFERRAL_IDENTITY_DLQ_TOPIC=referral.identity.dlq
       - REFERRAL_ORDER_DLQ_TOPIC=referral.order.dlq
+      - REFERRAL_ERASURE_CONSUMER_GROUP=team-referral-erasure
+      - REFERRAL_ERASURE_DLQ_TOPIC=identity.events.referral.dlq
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
       - OUTBOX_CLAIM_LOCK=60s
@@ -540,9 +583,22 @@ services:
     depends_on:
       team-verification-migrate:
         condition: service_completed_successfully
+      kyc-minio-init:
+        condition: service_completed_successfully
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_URL=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
+      - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_BUCKET=kyc-documents
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=minioadmin
+      - STORAGE_REGION=us-east-1
+      - STORAGE_USE_SSL=false
+      - STORAGE_PUBLIC_ENDPOINT=http://localhost:9000
       - GRPC_PORT=50064
       - ENV=local
       - GRPC_REFLECTION_ENABLED=true
@@ -655,10 +711,15 @@ services:
         condition: service_healthy
       redpanda:
         condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - ENVIRONMENT=local
       - GRPC_HOST=0.0.0.0
       - GRPC_PORT=50060
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - ERASURE_CONSUMER_GROUP=team-ai.user-erasure
+      - ERASURE_DLQ_TOPIC=identity.events.team-ai.dlq
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       # Internal tag routes (/api/v1/ai/tags/*, tag-routes-authz): a service key (scope ai.classify) for
@@ -759,6 +820,32 @@ services:
         condition: service_started
       redpanda:
         condition: service_healthy
+
+  platform-recsys-erasure:
+    build:
+      context: .
+      dockerfile: platform-recsys/Dockerfile
+    image: platform-recsys:local
+    container_name: platform-recsys-erasure
+    entrypoint: ["python", "-m", "recsys.erasure"]
+    restart: unless-stopped
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - ERASURE_CONSUMER_GROUP=platform-recsys.erasure
+      - ERASURE_DLQ_TOPIC=identity.events.recsys.dlq
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QDRANT_URL=http://qdrant:6333
+    depends_on:
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
 
   platform-recsys:
     build:
@@ -880,10 +967,16 @@ services:
       dockerfile: Dockerfile
     image: team-analytics:local
     container_name: team-analytics-svc
+    depends_on:
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - ENV=local
       - GRPC_PORT=50059
       - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - ERASURE_CONSUMER_GROUP=team-analytics.user-erasure
+      - ERASURE_DLQ_TOPIC=identity.events.analytics.dlq
       - KAFKA_CONSUMER_GROUP=team-analytics
       - KAFKA_ANALYTICS_TOPIC=analytics.events
       - WAREHOUSE_DRIVER=duckdb
@@ -926,6 +1019,9 @@ services:
     build:
       context: ./team-frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_LEGAL_TERMS_VERSION: "2026-11"
+        NEXT_PUBLIC_PRIVACY_POLICY_VERSION: "2026-11"
     image: team-frontend:local
     container_name: team-frontend-svc
     environment:

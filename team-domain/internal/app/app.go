@@ -41,6 +41,8 @@ const (
 	outboxTable        = "outbox_events"
 	publishedRetention = 7 * 24 * time.Hour
 	closeGrace         = 2 * time.Second
+
+	defaultErasureGroup = "team-domain-erasure"
 )
 
 var (
@@ -170,6 +172,25 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		return err
 	}
 
+	erasureGroup := s.Events.ErasureGroup
+	if erasureGroup == "" {
+		erasureGroup = defaultErasureGroup
+	}
+	erasureClient, err := kafkax.NewConsumerClient(s.Kafka, erasureGroup, []string{s.Events.IdentityTopic}, kgo.AllowAutoTopicCreation())
+	if err != nil {
+		return err
+	}
+	stack.Push(func(context.Context) error { erasureClient.Close(); return nil })
+	erasure := events.NewErasureConsumer(store.NewPgTxWriter(pool, outStore), logger)
+	erasureConsumer, err := consume.NewConsumer(erasureClient, erasure.Handle, wrapDLQ(pub), consume.Options{
+		DLQTopic: s.Events.IdentityTopic + ".team-domain.dlq",
+		KeyFP:    fp,
+		Logger:   logger,
+	})
+	if err != nil {
+		return err
+	}
+
 	relay := lifecycle.Func(func(ctx context.Context) error {
 		err := relayer.Run(ctx)
 		drainCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), closeGrace)
@@ -195,5 +216,5 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relay, sweep, purge, consumer))
+	}, health, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relay, sweep, purge, consumer, erasureConsumer))
 }

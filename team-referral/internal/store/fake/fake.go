@@ -388,3 +388,15 @@ func cloneReward(rw *store.Reward) store.Reward {
 	}
 	return out
 }
+
+func (r *InMemoryReferralRepo) EraseUser(_ context.Context, userID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if code, ok := r.codeByUser[userID]; ok {
+		delete(r.userByCode, code)
+		delete(r.codeByUser, userID)
+	}
+	delete(r.accounts, userID)
+	delete(r.buyers, userID)
+	return nil
+}

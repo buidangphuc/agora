@@ -16,6 +16,9 @@ class MessagingSettingsMixin(BaseModel):
     LISTING_INDEXER_GROUP: str = Field(default="team-ai-indexer", min_length=1)
     LISTING_INDEXER_MAX_ATTEMPTS: int = Field(default=5, gt=0)
     LISTING_INDEXER_BASE_BACKOFF_SECONDS: float = Field(default=0.1, ge=0)
+    ERASURE_TOPIC: str = Field(default="identity.events", min_length=1)
+    ERASURE_GROUP: str = Field(default="team-ai.user-erasure", min_length=1)
+    ERASURE_DLQ_TOPIC: str = Field(default="identity.events.team-ai.dlq", min_length=1)
 
     @model_validator(mode="after")
     def _rag_needs_kafka_brokers(self) -> MessagingSettingsMixin:

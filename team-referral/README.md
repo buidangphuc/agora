@@ -37,6 +37,7 @@ Consumed (envelope `platform.events.v1.EventEnvelope`, durable consumer groups, 
 |---|---|---|
 | `identity.events` | `platform.identity.v1.UserRegistered` | Stores the registration time; a non-empty `referral_code` creates an `ATTRIBUTED` referral or a rejection. DLQ `referral.identity.dlq`. |
 | `order.events` | `platform.order.v1.OrderCompleted` | Stores the buyer's completed-order fact; the first completed order of an `ATTRIBUTED` referral creates a `PENDING` reward with `release_at = return_window_ends_at`, or marks the referral `CAPPED`. DLQ `referral.order.dlq`. |
+| `identity.events` | `platform.identity.v1.UserErased` | Own group `team-referral-erasure`, DLQ `identity.events.referral.dlq`. In one transaction deletes the user's `referral_codes`, `referral_accounts` and `referral_buyer_orders` rows (the code stops resolving); `referrals` and `referral_rewards` stay as the ledger. Idempotent; a user without data is a no-op; malformed events are parked. The `UserRegistered` consumer skips this type. |
 | `order.events` | `platform.order.v1.ReturnRequested` | Voids a `PENDING` reward of that order and returns the referral to `ATTRIBUTED`. |
 
 Produced through the `referral_outbox_events` outbox relayer on `referral.events`, keyed by referee id,
@@ -74,6 +75,8 @@ Settings are loaded by `internal/config` through go-sdk `pkg/config` (go-sdk at 
 
 | Variable | Default | Notes |
 |---|---|---|
+| `REFERRAL_ERASURE_CONSUMER_GROUP` | `team-referral-erasure` | `UserErased` consumer group on `identity.events`. |
+| `REFERRAL_ERASURE_DLQ_TOPIC` | `identity.events.referral.dlq` | Dead-letter topic of the erasure consumer. |
 | `ENV` | `local` | Required. Deployment environment. |
 | `LOG_LEVEL` | `info` | Log level. |
 | `LOG_JSON` | `true` | JSON logs. |

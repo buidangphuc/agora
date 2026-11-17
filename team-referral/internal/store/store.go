@@ -120,6 +120,7 @@ type ReferralRepository interface {
 	Redeem(ctx context.Context, in RedeemInput) error
 	ReleaseDue(ctx context.Context, in ReleaseInput) (int, error)
 	PurgeProcessedEvents(ctx context.Context, before time.Time) (int64, error)
+	EraseUser(ctx context.Context, userID string) error
 }
 
 func NewCode() string {

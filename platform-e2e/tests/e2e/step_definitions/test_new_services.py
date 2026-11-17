@@ -11,13 +11,12 @@ from __future__ import annotations
 
 import os
 import subprocess
-import uuid
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from src.api.services.base_service import GatewayError
 from src.api.services.auth_service import AuthService
+from src.api.services.base_service import GatewayError
 from src.api.services.referral_service import ReferralService
 from src.api.services.sharing_service import SharingService
 from src.api.services.verification_service import VerificationService
@@ -121,10 +120,10 @@ def resolved_click_count_one(ctx: dict) -> None:
 # ── Verification ──────────────────────────────────────────────────────────
 @when("the buyer submits a KYC document")
 def submit_kyc(ctx: dict) -> None:
-    resp = VerificationService(token=ctx["token"]).submit_kyc(
-        doc_type="national_id", doc_ref=f"kyc-ref-{uuid.uuid4().hex[:8]}"
-    )
-    ctx["kyc_submit"] = resp
+    from tests.e2e.support import kyc_documents_support as kyc
+
+    sub_id, _, _ = kyc.submit_with_uploads(VerificationService(token=ctx["token"]), 1)
+    ctx["kyc_submit"] = {"id": sub_id}
 
 
 @then("the verification status is PENDING")

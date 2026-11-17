@@ -1348,3 +1348,122 @@ features:
   - referral-service
   status: automated
   covered_by: "referral/referral_reward.feature::The daily cap defers rewards"
+
+- id: referral.ref-1-code-account-and-first-order-rows-are-deleted-and-the-ledger-is-kept
+  title: "REF-1 Code, account and first-order rows are deleted and the ledger is kept"
+  persona: buyer
+  priority: P1
+  summary: "Scenario of change commerce-user-erasure: REF-1 Code, account and first-order rows are deleted and the ledger is kept"
+  entry_route: /
+  services: [team-referral]
+  acceptance:
+    - "Given user U has a referral code, a `referral_accounts` row, a `referral_buyer_orders` row, 2 referral attributions as referrer and 3 reward rows totalling 150 coins"
+    - "When a `UserErased` event for U is consumed"
+    - "Then U's code, account and first-order rows are gone, and the 2 attributions and the 3 reward rows (ids, amounts, status) are unchanged"
+  tags: [order, user-erasure]
+  status: automated
+  covered_by: "referral/user_erasure.feature::REF-1 Code, account and first-order rows are deleted and the ledger is kept"
+  notes: "commerce-user-erasure: e2e in referral/user_erasure.feature (green: test_referral_user_erasure.py::test_ref1_code_account_and_firstorder_rows_are_deleted_and_the_ledger_is_kept)."
+
+- id: referral.ref-2-a-deleted-code-no-longer-resolves
+  title: "REF-2 A deleted code no longer resolves"
+  persona: buyer
+  priority: P1
+  summary: "Scenario of change commerce-user-erasure: REF-2 A deleted code no longer resolves"
+  entry_route: /
+  services: [team-referral]
+  acceptance:
+    - "Given U's referral code was `ABC123` before erasure"
+    - "When a new user registers with code `ABC123` after U's erasure is consumed"
+    - "Then the referral is not attributed to U and no `referrals` row is added for that code"
+  tags: [order, user-erasure]
+  status: automated
+  covered_by: "referral/user_erasure.feature::REF-2 A deleted code no longer resolves"
+  notes: "commerce-user-erasure: e2e in referral/user_erasure.feature (green: test_referral_user_erasure.py::test_ref2_a_deleted_code_no_longer_resolves)."
+
+- id: referral.ref-3-another-user-s-referral-data-is-untouched
+  title: "REF-3 Another user's referral data is untouched"
+  persona: buyer
+  priority: P1
+  summary: "Scenario of change commerce-user-erasure: REF-3 Another user's referral data is untouched"
+  entry_route: /
+  services: [team-referral]
+  acceptance:
+    - "Given user W has a referral code, account row and first-order row"
+    - "When a `UserErased` event for U is consumed"
+    - "Then W's three rows are unchanged"
+  tags: [referral, user-erasure, unit]
+  status: not-testable
+  notes: "VERIFIED BY team-referral/internal/store TestEraseUser. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+- id: referral.ref-4-a-redelivered-event-changes-nothing
+  title: "REF-4 A redelivered event changes nothing"
+  persona: buyer
+  priority: P1
+  summary: "Scenario of change commerce-user-erasure: REF-4 A redelivered event changes nothing"
+  entry_route: /
+  services: [team-referral]
+  acceptance:
+    - "Given a `UserErased` event for U was consumed"
+    - "When the same event, and then a second event with a new event id for U, are consumed"
+    - "Then both complete without error, no row differs from after the first handling, and the DLQ stays empty"
+  tags: [referral, user-erasure, unit]
+  status: not-testable
+  notes: "VERIFIED BY team-referral/internal/store TestEraseUserIdempotent. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+- id: referral.ref-5-a-user-with-no-referral-data-is-a-no-op
+  title: "REF-5 A user with no referral data is a no-op"
+  persona: buyer
+  priority: P1
+  summary: "Scenario of change commerce-user-erasure: REF-5 A user with no referral data is a no-op"
+  entry_route: /
+  services: [team-referral]
+  acceptance:
+    - "When a `UserErased` event for a user with no referral rows is consumed"
+    - "Then the handler completes OK and no row changes"
+  tags: [referral, user-erasure, unit]
+  status: not-testable
+  notes: "VERIFIED BY team-referral/internal/store TestEraseUser. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+- id: referral.ref-6-a-malformed-event-is-parked-not-applied
+  title: "REF-6 A malformed event is parked, not applied"
+  persona: buyer
+  priority: P1
+  summary: "Scenario of change commerce-user-erasure: REF-6 A malformed event is parked, not applied"
+  entry_route: /
+  services: [team-referral]
+  acceptance:
+    - "When a `UserErased` event with an empty `user_id`, or an envelope that does not decode, is consumed"
+    - "Then no row changes and the record is written to `identity.events.referral.dlq`"
+  tags: [referral, user-erasure, unit]
+  status: not-testable
+  notes: "VERIFIED BY team-referral/internal/consumer TestErasureConsumerParksMalformed. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+- id: referral.ref-7-a-store-error-is-retried-and-leaves-no-partial-erasure
+  title: "REF-7 A store error is retried and leaves no partial erasure"
+  persona: buyer
+  priority: P1
+  summary: "Scenario of change commerce-user-erasure: REF-7 A store error is retried and leaves no partial erasure"
+  entry_route: /
+  services: [team-referral]
+  acceptance:
+    - "Given the referral database fails after the code delete but before the commit"
+    - "When a `UserErased` event for U is consumed"
+    - "Then the transaction rolls back (code still present), the record is retried, and after recovery all three rows are deleted and the DLQ is empty"
+  tags: [referral, user-erasure, unit]
+  status: not-testable
+  notes: "VERIFIED BY team-referral/internal/store TestEraseUserRollsBack. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."
+
+- id: referral.ref-8-the-existing-consumers-ignore-the-new-event
+  title: "REF-8 The existing consumers ignore the new event"
+  persona: buyer
+  priority: P1
+  summary: "Scenario of change commerce-user-erasure: REF-8 The existing consumers ignore the new event"
+  entry_route: /
+  services: [team-referral]
+  acceptance:
+    - "When a `UserErased` event reaches the existing `UserRegistered` identity consumer group"
+    - "Then it is skipped without error and without writing a `referral_accounts` row"
+  tags: [referral, user-erasure, unit]
+  status: not-testable
+  notes: "VERIFIED BY team-referral/internal/consumer TestIdentityConsumerSkipsUserErased. Not producible black box: needs injected store faults, a database, captured logs or Kafka records the public edge cannot reach."

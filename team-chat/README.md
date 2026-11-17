@@ -38,7 +38,7 @@ Consumes: nothing. There are no upstream RPCs or data dependencies (see Known ga
 | Direction | Topic | Type | Key | Notes |
 |---|---|---|---|---|
 | Produces | `KAFKA_CHAT_TOPIC` (default `chat.events`) | `platform.chat.v1.ChatMessage` inside `platform.events.v1.EventEnvelope` | `thread_id` | One per stored message. The payload also carries `recipient_id` (the other participant) and `seller_id`, populated only on events. |
-| Consumes | none | | | |
+| Consumes | `IDENTITY_EVENTS_TOPIC` (default `identity.events`), group `KAFKA_ERASURE_CONSUMER_GROUP` (default `team-chat-erasure`) | `platform.identity.v1.UserErased` | user id | Other types are skipped. Replaces the user's sent message text and sender name with fixed placeholders, clears `payload` and the thread preview where the user sent the last message, in one transaction; idempotent. A malformed record goes to `<topic>.chat.dlq` (`internal/events/identity.go`, `internal/store/erase_pg.go`). |
 
 How it is published (ADR-0002, outbox pattern as in ADR-0009):
 
@@ -95,6 +95,9 @@ Loaded by the go-sdk config (`internal/config/config.go`); `.env.example` mirror
 | `DATABASE_URL`, `DB_MAX_CONNS` | Postgres (`chat_db`) |
 | `KAFKA_BROKERS` | Comma-separated seeds |
 | `KAFKA_CHAT_TOPIC` | Event topic, default `chat.events` |
+| `IDENTITY_EVENTS_TOPIC` | Erasure source topic, default `identity.events` |
+| `KAFKA_ERASURE_CONSUMER_GROUP` | Erasure consumer group, default `team-chat-erasure` |
+| `LOG_KEY_FP_SECRET` | HMAC secret for `key_fp` log fields of the erasure consumer |
 | `OUTBOX_POLL_INTERVAL`, `OUTBOX_BATCH_SIZE`, `OUTBOX_CLAIM_LOCK` | Relayer tuning |
 | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | Tracing |
 

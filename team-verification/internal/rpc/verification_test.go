@@ -3,6 +3,7 @@ package rpc_test
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -13,6 +14,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	verificationv1 "github.com/buidangphuc/team-verification/generated/platform/verification/v1"
+	"github.com/buidangphuc/team-verification/internal/objects"
 	"github.com/buidangphuc/team-verification/internal/rpc"
 	"github.com/buidangphuc/team-verification/internal/store"
 	"github.com/buidangphuc/team-verification/internal/store/storetest"
@@ -21,11 +23,20 @@ import (
 
 func buildHandler(t testing.TB, repo store.KycRepository, w auditx.Writer, logger *slog.Logger) *rpc.Handler {
 	t.Helper()
-	h, err := rpc.NewHandler(verification.NewVerificationService(repo), w, logger)
+	objs := objects.NewFake()
+	h, err := rpc.NewHandler(verification.NewVerificationService(repo, verification.WithObjects(objs)), w, logger)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
+	handlerObjects.Store(h, objs)
 	return h
+}
+
+var handlerObjects sync.Map
+
+func objectsOf(h *rpc.Handler) *objects.Fake {
+	v, _ := handlerObjects.Load(h)
+	return v.(*objects.Fake)
 }
 
 func quiet() *slog.Logger { return slog.New(slog.DiscardHandler) }
@@ -73,7 +84,12 @@ func wantMessage(t *testing.T, err error, want string) {
 
 func submit(ctx context.Context, t *testing.T, h *rpc.Handler) string {
 	t.Helper()
-	sub, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "mock-ref"})
+	up, err := h.CreateKycUploadUrl(ctx, &verificationv1.CreateKycUploadUrlRequest{ContentType: "image/jpeg", SizeBytes: 1024})
+	if err != nil {
+		t.Fatalf("CreateKycUploadUrl: %v", err)
+	}
+	objectsOf(h).Put(up.GetDocRef(), "image/jpeg", 1024)
+	sub, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: up.GetDocRef()})
 	if err != nil {
 		t.Fatalf("SubmitKyc: %v", err)
 	}
@@ -175,7 +191,7 @@ func TestBuyerCannotReview(t *testing.T) {
 func TestAdminCanReviewSomeoneElse(t *testing.T) {
 	h := newHandler()
 	id := submit(buyer("alice"), t, h)
-	rev, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
+	rev, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject", ReasonCode: "document_expired"})
 	if err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -234,7 +250,7 @@ func TestReviewIsFinal(t *testing.T) {
 	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("first review: %v", err)
 	}
-	_, err := h.ReviewKyc(admin("admin_2"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
+	_, err := h.ReviewKyc(admin("admin_2"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject", ReasonCode: "document_expired"})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("second review: want FailedPrecondition, got %v", err)
 	}

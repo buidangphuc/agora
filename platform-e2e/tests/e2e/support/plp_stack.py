@@ -181,7 +181,7 @@ def rpk(*args: str, check: bool = True, timeout: int = 60) -> subprocess.Complet
 
 def group_exists(group: str = SETTLEMENT_GROUP) -> bool:
     out = rpk("group", "list", check=False).stdout
-    return any(line.split()[-1:] == [group] for line in out.splitlines())
+    return any(group in line.split()[:2] for line in out.splitlines())
 
 
 def group_lag(group: str = SETTLEMENT_GROUP) -> int | None:

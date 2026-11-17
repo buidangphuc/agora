@@ -15,6 +15,8 @@ const maxHoldDays = 3650
 type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR"`
 	AuditAddr string `env:"UPSTREAM_AUDIT_ADDR"`
+
+	VerificationAddr string `env:"UPSTREAM_VERIFICATION_ADDR"`
 }
 
 func (u Upstream) ResolveFor(sdkconfig.Runtime) error {
@@ -25,6 +27,9 @@ func (u Upstream) ResolveFor(sdkconfig.Runtime) error {
 	if strings.TrimSpace(u.AuditAddr) == "" {
 		errs = append(errs, errors.New("UPSTREAM_AUDIT_ADDR is required"))
 	}
+	if strings.TrimSpace(u.VerificationAddr) == "" {
+		errs = append(errs, errors.New("UPSTREAM_VERIFICATION_ADDR is required"))
+	}
 	return errors.Join(errs...)
 }
 
@@ -33,6 +38,8 @@ type Events struct {
 	OrderTopic    string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
 	ConsumerGroup string `env:"PAYMENT_SETTLEMENT_CONSUMER_GROUP" default:"team-payment.settlement"`
 	DLQTopic      string `env:"PAYMENT_SETTLEMENT_DLQ_TOPIC" default:"order.events.payment-settlement.dlq"`
+	ErasureGroup  string `env:"PAYMENT_ERASURE_CONSUMER_GROUP" default:"team-payment.erasure"`
+	ErasureDLQ    string `env:"PAYMENT_ERASURE_DLQ_TOPIC" default:"identity.events.payment.dlq"`
 }
 
 type Payout struct {

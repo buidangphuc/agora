@@ -26,6 +26,7 @@ class BootstrapAddon(Protocol):
 
 def default_resource_addons() -> tuple[BootstrapAddon, ...]:
     from app.bootstrap.addons.assistant import AssistantAddon
+    from app.bootstrap.addons.erasure import ErasureAddon
     from app.bootstrap.addons.listing_indexer import ListingIndexerAddon
     from app.bootstrap.addons.quota import QuotaAddon
     from app.bootstrap.addons.rag import RagAddon
@@ -43,4 +44,5 @@ def default_resource_addons() -> tuple[BootstrapAddon, ...]:
         TaxonomyAddon(),
         RecommendationAddon(),
         AssistantAddon(),
+        ErasureAddon(),
     )

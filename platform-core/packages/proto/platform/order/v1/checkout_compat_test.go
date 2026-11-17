@@ -140,7 +140,7 @@ func TestCheckoutContract_PreviewCheckoutExistsOnOrderService(t *testing.T) {
 	for _, m := range svc.Method {
 		got[m.Name] = m
 	}
-	names := append(append([]string{}, existingOrderRPCs...), "ConfirmReceipt", "HasCompletedOrder")
+	names := append(append([]string{}, existingOrderRPCs...), "ConfirmReceipt", "HasCompletedOrder", "GetUserObligations")
 	for _, n := range names {
 		m, ok := got[n]
 		if !ok {
@@ -158,8 +158,8 @@ func TestCheckoutContract_PreviewCheckoutExistsOnOrderService(t *testing.T) {
 	if p.InputType != orderPkg+"PreviewCheckoutRequest" || p.OutputType != orderPkg+"PreviewCheckoutResponse" {
 		t.Errorf("PreviewCheckout = %s -> %s", p.InputType, p.OutputType)
 	}
-	if len(svc.Method) != len(names)+2 {
-		t.Errorf("OrderService has %d RPCs, want exactly %d", len(svc.Method), len(names)+2)
+	if len(svc.Method) != len(names)+1 {
+		t.Errorf("OrderService has %d RPCs, want exactly %d", len(svc.Method), len(names)+1)
 	}
 }
 

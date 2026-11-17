@@ -12611,388 +12611,320 @@ features:
 
   # ---- buyer-ai-surfaces-ui (grounded unary assistant, provenance in wire fields, home entry, flag exposure)
 
-  - id: buyer-ai-surfaces-ui.one-call-per-question-and-no-stream
-    title: "One call per question and no stream"
+  - id: frontend.bss-sponsored-slot-is-shown-labelled-in-its-category
+    title: "Sponsored slot is shown labelled in its category"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend, team-gateway, team-ai]
-    preconditions:
-      login: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot is shown labelled in its category"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "One call per question and no stream"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+      - "When a guest opens `/search?category=<c>` where an ACTIVE campaign exists for a published listing L in category c"
+      - "Then the page shows L in an element `sponsored-slot` that contains the text \"Tài trợ\", positioned before the first organic card"
+    tags: [buyer, ads]
     status: automated
-    covered_by: "frontend/buyer_ai_surfaces.feature::One call per question and no stream"
-    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::One call per question and no stream passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored slot is shown labelled in its category"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: buyer-ai-surfaces-ui.the-stream-route-is-gone
-    title: "The stream route is gone"
+  - id: frontend.bss-sponsored-listing-is-not-duplicated-in-organic-results
+    title: "Sponsored listing is not duplicated in organic results"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend, team-gateway, team-ai]
-    preconditions:
-      login: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Sponsored listing is not duplicated in organic results"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "The stream route is gone"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+      - "When the sponsored listing L also matches the organic search of page 1"
+      - "Then L appears exactly once on the page, inside `sponsored-slot`, and zero times in `search-results`"
+    tags: [buyer, ads]
     status: automated
-    covered_by: "frontend/buyer_ai_surfaces.feature::The stream route is gone"
-    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The stream route is gone passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored listing is not duplicated in organic results"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: buyer-ai-surfaces-ui.a-card-without-a-rating-shows-no-rating-line
-    title: "A card without a rating shows no rating line"
+  - id: frontend.bss-page-2-has-no-sponsored-slots
+    title: "Page 2 has no sponsored slots"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Page 2 has no sponsored slots"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A card without a rating shows no rating line"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When a visitor opens `/search?page=2`"
+      - "Then zero `sponsored-slot` elements are rendered and `ListSponsoredSlots` is not called"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `hides the rating line when empty` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `Page 2 has no sponsored slots`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.a-rated-card-shows-exactly-the-returned-rating-text
-    title: "A rated card shows exactly the returned rating text"
+  - id: frontend.bss-slot-service-failure-leaves-organic-results-intact
+    title: "Slot service failure leaves organic results intact"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Slot service failure leaves organic results intact"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A rated card shows exactly the returned rating text"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When `ListSponsoredSlots` fails with UNAVAILABLE or does not answer within 150 ms while the organic search succeeds"
+      - "Then the page responds 200 with the organic grid, count and pagination unchanged and zero `sponsored-slot` elements"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shows the returned rating text` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `Slot service failure leaves organic results intact`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.a-failed-call-shows-the-apology-and-no-cards
-    title: "A failed call shows the apology and no cards"
+  - id: frontend.bss-no-slots-when-the-organic-search-has-no-results
+    title: "No slots when the organic search has no results"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: No slots when the organic search has no results"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A failed call shows the apology and no cards"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When the organic search returns zero items for the query"
+      - "Then the page shows \"Không tìm thấy sản phẩm\" and zero `sponsored-slot` elements"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shows the apology on failure` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `No slots when the organic search has no results`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.a-reply-without-cards-is-shown-as-text-only
-    title: "A reply without cards is shown as text only"
+  - id: frontend.bss-unpublished-sponsored-listing-is-dropped
+    title: "Unpublished sponsored listing is dropped"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Unpublished sponsored listing is dropped"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A reply without cards is shown as text only"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When a returned slot points to a listing that `GetListing` reports as missing or not published"
+      - "Then that slot is not rendered and the other slots still render"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `renders a text-only reply` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/data.test.ts` `drops slots whose listing is missing or unpublished`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.card-impressions-carry-the-placement-and-the-request-id
-    title: "Card impressions carry the placement and the request id"
+  - id: frontend.bss-at-most-two-slots-are-rendered
+    title: "At most two slots are rendered"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend, team-gateway, team-ai]
-    preconditions:
-      login: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: At most two slots are rendered"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "Card impressions carry the placement and the request id"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+      - "When the service returns 4 slots for the request"
+      - "Then exactly 2 `sponsored-slot` elements are rendered, the first 2 in response order, and the request carried limit 2"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/data.test.ts` `requests and renders at most two slots`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-sponsored-slot-is-shown-on-the-home-feed
+    title: "Sponsored slot is shown on the home feed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot is shown on the home feed"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a guest opens `/` while an ACTIVE campaign exists whose slot is served for placement `home`"
+      - "Then the feed section \"Gợi ý hôm nay\" contains a `sponsored-slot` with the text \"Tài trợ\" before its first organic card"
+    tags: [buyer, ads]
     status: automated
-    covered_by: "frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id"
-    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored slot is shown on the home feed"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: buyer-ai-surfaces-ui.a-reply-without-a-request-id-sends-no-impression-id
-    title: "A reply without a request id sends no impression id"
+  - id: frontend.bss-home-dedupes-the-sponsored-listing
+    title: "Home dedupes the sponsored listing"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Home dedupes the sponsored listing"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A reply without a request id sends no impression id"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When the sponsored listing also occurs in the feed items"
+      - "Then it appears once on the page, inside `sponsored-slot`"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `omits empty provenance` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+    notes: "VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `Home dedupes the sponsored listing`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.a-reply-without-cards-queues-no-impression
-    title: "A reply without cards queues no impression"
+  - id: frontend.bss-home-slot-failure-does-not-break-the-feed
+    title: "Home slot failure does not break the feed"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Home slot failure does not break the feed"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A reply without cards queues no impression"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When the sponsored lookup fails or exceeds 150 ms"
+      - "Then the feed renders its organic items and zero `sponsored-slot` elements, and the other home blocks still render"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `reports nothing without cards` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+    notes: "VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `Home slot failure does not break the feed`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.the-helper-puts-provenance-in-wire-fields-only
-    title: "The helper puts provenance in wire fields only"
+  - id: frontend.bss-click-charges-the-campaign-once-and-opens-the-listing
+    title: "Click charges the campaign once and opens the listing"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click charges the campaign once and opens the listing"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "The helper puts provenance in wire fields only"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends provenance in wire fields only` in `team-frontend/src/lib/analytics/ai.test.ts`"
-
-  - id: buyer-ai-surfaces-ui.empty-provenance-sends-nothing-extra
-    title: "Empty provenance sends nothing extra"
-    persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
-    acceptance:
-      - "Empty provenance sends nothing extra"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `omits empty provenance` in `team-frontend/src/lib/analytics/ai.test.ts`"
-
-  - id: buyer-ai-surfaces-ui.the-assistant-accepted-click-reuses-the-reply-provenance
-    title: "The assistant accepted click reuses the reply provenance"
-    persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend, team-gateway, team-ai]
-    preconditions:
-      login: buyer
-    acceptance:
-      - "The assistant accepted click reuses the reply provenance"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+      - "When a buyer clicks the sponsored slot of campaign C (bid 1 000, budget remaining 5 000) on `/search`"
+      - "Then the browser lands on `/listing/<L>` and C's spent equals 1 000 (remaining 4 000) when read back through `ListMyAdCampaigns`"
+    tags: [buyer, ads]
     status: automated
-    covered_by: "tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance"
-    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/buyer_sponsored_slots.feature::Click charges the campaign once and opens the listing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: buyer-ai-surfaces-ui.copilot-events-carry-the-copilot-response-provenance
-    title: "Copilot events carry the copilot response provenance"
-    persona: seller
-    priority: P2
-    entry_route: "/chat"
-    services: [team-frontend]
-    acceptance:
-      - "Copilot events carry the copilot response provenance"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `copilot events carry provenance` in `team-frontend/src/features/chat/ChatView.test.tsx`"
-
-  - id: buyer-ai-surfaces-ui.the-review-summary-shown-event-carries-the-summary-provenance
-    title: "The review summary shown event carries the summary provenance"
+  - id: frontend.bss-second-click-on-the-same-slot-charges-nothing
+    title: "Second click on the same slot charges nothing"
     persona: buyer
-    priority: P2
-    entry_route: "/"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Second click on the same slot charges nothing"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "The review summary shown event carries the summary provenance"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shown carries provenance` in `team-frontend/src/features/review/AiReviewSummary.test.tsx`"
-
-  - id: buyer-ai-surfaces-ui.provenance-never-enters-properties-or-free-text
-    title: "Provenance never enters properties or free text"
-    persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend, team-gateway, team-ai]
-    preconditions:
-      login: buyer
-    acceptance:
-      - "Provenance never enters properties or free text"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+      - "When the buyer returns to the same results page without reloading and clicks the same slot again"
+      - "Then C's spent is still 1 000 and the navigation to `/listing/<L>` still works"
+    tags: [buyer, ads]
     status: automated
-    covered_by: "tracking/ai_interaction_events.feature::Provenance never enters properties or free text"
-    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::Provenance never enters properties or free text passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/buyer_sponsored_slots.feature::Second click on the same slot charges nothing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: buyer-ai-surfaces-ui.the-shown-event-carries-the-reply-provenance-in-wire-fields-only
-    title: "The shown event carries the reply provenance in wire fields only"
+  - id: frontend.bss-rendering-the-page-charges-nothing
+    title: "Rendering the page charges nothing"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend, team-gateway, team-ai]
-    preconditions:
-      login: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Rendering the page charges nothing"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "When a buyer asks the assistant for a product and a product card is shown"
-      - "Then exactly one assistant shown beacon is captured, its impressionId equals the reply request id, its modelVersion is non-empty and neither field is in its properties"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+      - "When a visitor loads `/search?category=<c>` with a sponsored slot and never clicks"
+      - "Then C's spent stays 0 and `RecordAdClick` is not called"
+    tags: [buyer, ads]
     status: automated
-    covered_by: "tracking/ai_interaction_events.feature::The shown event carries the reply provenance in wire fields only"
-    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The shown event carries the reply provenance in wire fields only passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/buyer_sponsored_slots.feature::Rendering the page charges nothing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: buyer-ai-surfaces-ui.a-viewer-without-the-seller-role-emits-no-copilot-provenance
-    title: "A viewer without the seller role emits no copilot provenance"
-    persona: seller
-    priority: P2
-    entry_route: "/chat"
-    services: [team-frontend]
-    acceptance:
-      - "A viewer without the seller role emits no copilot provenance"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `buyer quick replies emit nothing` in `team-frontend/src/features/chat/ChatView.test.tsx`"
-
-  - id: buyer-ai-surfaces-ui.a-tracker-failure-still-leaves-the-ai-action-working
-    title: "A tracker failure still leaves the AI action working"
+  - id: frontend.bss-a-seller-clicking-their-own-ad-is-not-charged
+    title: "Sponsored slot: a seller clicking their own ad is not charged"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot: a seller clicking their own ad is not charged"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A tracker failure still leaves the AI action working"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `swallows tracker failure` in `team-frontend/src/lib/analytics/ai.test.ts`"
-
-  - id: buyer-ai-surfaces-ui.the-home-entry-points-to-the-assistant-page
-    title: "The home entry points to the assistant page"
-    persona: buyer
-    priority: P2
-    entry_route: "/"
-    services: [team-frontend, team-gateway, team-ai]
-    acceptance:
-      - "The home entry points to the assistant page"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+      - "When the seller who owns C is logged in, opens `/search?category=<c>` and clicks the sponsored slot"
+      - "Then the navigation to `/listing/<L>` works and C's spent stays 0"
+    tags: [buyer, ads]
     status: automated
-    covered_by: "frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page"
-    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page passed on env docs-ai-data (2026-11-16)"
+    covered_by: "frontend/buyer_sponsored_slots.feature::Seller clicking their own ad is not charged"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
 
-  - id: buyer-ai-surfaces-ui.no-invented-score-is-rendered
-    title: "No invented score is rendered"
+  - id: frontend.bss-click-beacon-fires-once-per-gesture-and-does-not-prevent-navigation
+    title: "Click beacon fires once per gesture and does not prevent navigation"
     persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
-    acceptance:
-      - "No invented score is rendered"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `renders no match score` in `team-frontend/src/features/home/AssistantBlock.test.tsx`"
-
-  - id: buyer-ai-surfaces-ui.the-entry-does-not-load-the-feed
-    title: "The entry does not load the feed"
-    persona: buyer
-    priority: P2
-    entry_route: "/assistant"
-    services: [team-frontend]
-    acceptance:
-      - "The entry does not load the feed"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `does not depend on the feed` in `team-frontend/src/features/home/AssistantBlock.test.tsx`"
-
-  - id: buyer-ai-surfaces-ui.the-listing-id-reaches-the-copilot-call
-    title: "The listing id reaches the copilot call"
-    persona: seller
-    priority: P2
-    entry_route: "/chat"
-    services: [team-frontend]
-    acceptance:
-      - "The listing id reaches the copilot call"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `passes the thread listing` in `team-frontend/src/features/chat/actions.test.ts`"
-
-  - id: buyer-ai-surfaces-ui.a-failed-copilot-call-shows-no-suggestions
-    title: "A failed copilot call shows no suggestions"
-    persona: seller
-    priority: P2
-    entry_route: "/chat"
-    services: [team-frontend]
-    acceptance:
-      - "A failed copilot call shows no suggestions"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
-    status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `reports nothing for empty or failed copilot` in `team-frontend/src/features/chat/ChatView.test.tsx`"
-
-  - id: buyer-ai-surfaces-ui.a-buyer-has-no-copilot
-    title: "A buyer has no copilot"
-    persona: buyer
-    priority: P2
-    entry_route: "/chat"
-    services: [team-frontend, team-gateway, team-ai]
-    preconditions:
-      login: buyer
-    acceptance:
-      - "A buyer has no copilot"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui]
-    status: automated
-    covered_by: "tracking/ai_interaction_events.feature::A buyer has no copilot"
-    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::A buyer has no copilot passed on env docs-ai-data (2026-11-16)"
-
-  - id: buyer-ai-surfaces-ui.a-resolved-variant-is-returned-and-the-id-is-hashed
-    title: "A resolved variant is returned and the id is hashed"
-    persona: buyer
-    priority: P2
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click beacon fires once per gesture and does not prevent navigation"
     entry_route: "/"
-    services: [team-frontend]
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A resolved variant is returned and the id is hashed"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When a user clicks, or middle-clicks, an anchor inside a `sponsored-slot` once"
+      - "Then exactly one beacon with that slot's token is sent and the click event is not default-prevented"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `hashes the entity id` in `team-frontend/src/lib/flags/variant.test.ts`"
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/SponsoredClickGuard.test.tsx` `sends one beacon and keeps default navigation`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.a-slow-or-failing-flipt-yields-no-variant
-    title: "A slow or failing Flipt yields no variant"
+  - id: frontend.bss-click-on-an-organic-card-sends-no-beacon
+    title: "Click on an organic card sends no beacon"
     persona: buyer
-    priority: P2
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click on an organic card sends no beacon"
     entry_route: "/"
-    services: [team-frontend]
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A slow or failing Flipt yields no variant"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When a user clicks an anchor in `search-results` that is not inside a `sponsored-slot`"
+      - "Then no request is sent to `/api/ads/click`"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `times out to null` in `team-frontend/src/lib/flags/variant.test.ts`"
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/SponsoredClickGuard.test.tsx` `organic clicks send no beacon`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.disabled-flags-or-an-empty-entity-yield-no-variant
-    title: "Disabled flags or an empty entity yield no variant"
+  - id: frontend.bss-click-route-rejects-a-malformed-body
+    title: "Click route rejects a malformed body"
     persona: buyer
-    priority: P2
-    entry_route: "/"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click route rejects a malformed body"
+    entry_route: "/api/ads/click"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "Disabled flags or an empty entity yield no variant"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When `POST /api/ads/click` receives an empty body, a missing token, a token over 256 characters or a token with characters outside the allowed set"
+      - "Then it responds 400 and `RecordAdClick` is not called"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `returns null when disabled or without entity` in `team-frontend/src/lib/flags/variant.test.ts`"
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `rejects malformed bodies with 400`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.exposure-is-sent-once-per-mount-with-only-flag-and-variant
-    title: "Exposure is sent once per mount with only flag and variant"
+  - id: frontend.bss-click-route-hides-the-billing-outcome
+    title: "Click route hides the billing outcome"
     persona: buyer
-    priority: P2
-    entry_route: "/"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click route hides the billing outcome"
+    entry_route: "/api/ads/click"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "Exposure is sent once per mount with only flag and variant"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When `RecordAdClick` returns `charged = false` or fails with an error for a well-formed token"
+      - "Then `POST /api/ads/click` still responds 204 with an empty body"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends one exposure per mount` in `team-frontend/src/features/tracking/ExperimentExposure.test.tsx`"
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `answers 204 for charged, uncharged and failed calls`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.no-variant-sends-no-exposure
-    title: "No variant sends no exposure"
+  - id: frontend.bss-click-route-forwards-the-session-and-does-not-log-ids
+    title: "Click route forwards the session and does not log ids"
     persona: buyer
-    priority: P2
-    entry_route: "/"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click route forwards the session and does not log ids"
+    entry_route: "/api/ads/click"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "No variant sends no exposure"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When a logged-in buyer's click reaches `POST /api/ads/click`"
+      - "Then `RecordAdClick` is called with the session bearer token, and the log line contains only the outcome class and none of the token, listing id or user id"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends nothing without a variant` in `team-frontend/src/features/tracking/ExperimentExposure.test.tsx`"
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `forwards session and logs outcome class only`. Not producible end to end: a unit-level behaviour."
 
-  - id: buyer-ai-surfaces-ui.a-browser-bundle-never-contains-the-flag-client
-    title: "A browser bundle never contains the flag client"
+  - id: frontend.bss-get-on-the-click-route-is-not-allowed
+    title: "GET on the click route is not allowed"
     persona: buyer
-    priority: P2
-    entry_route: "/"
-    services: [team-frontend]
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: GET on the click route is not allowed"
+    entry_route: "/api/ads/click"
+    services: [team-frontend, team-gateway, team-promotion]
     acceptance:
-      - "A browser bundle never contains the flag client"
-    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+      - "When a client sends `GET /api/ads/click?token=x`"
+      - "Then the response is 405 and `RecordAdClick` is not called"
+    tags: [buyer, ads, unit]
     status: not-testable
-    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `is server-only` in `team-frontend/src/lib/flags/variant.test.ts`"
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `GET is rejected with 405`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-slots-are-mapped-from-the-response
+    title: "Slots are mapped from the response"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Slots are mapped from the response"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the response holds 2 slots with listing, campaign and token values"
+      - "Then the wrapper returns 2 entries with the same values in the same order and sent placement, category and limit as given"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/lib/gateway/promotion.test.ts` `listSponsoredSlotSet maps slots`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-a-failing-call-returns-no-slots
+    title: "A failing call returns no slots"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: A failing call returns no slots"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the underlying RPC rejects with UNAVAILABLE"
+      - "Then the wrapper resolves to an empty list and does not throw"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/lib/gateway/promotion.test.ts` `listSponsoredSlotSet returns empty on error`. Not producible end to end: a unit-level behaviour."
 
   - id: shop-page-featured-theme.featured-listings-appear-first-in-the-chosen-order
     title: "Featured listings appear first in the chosen order"
@@ -13391,317 +13323,1338 @@ features:
     notes: "VERIFIED BY `team-frontend/src/features/cart/CartGroups.test.tsx` `renders no combo UI without bundle lines`. The server-dropped tag state is asserted as the same no-combo render contract."
 
   # ---- buyer-sponsored-slots (initiative monetization)
-  - id: frontend.bss-sponsored-slot-is-shown-labelled-in-its-category
-    title: "Sponsored slot is shown labelled in its category"
-    persona: buyer
+
+  - id: legal.pages.renders-title-version-placeholder
+    title: "A legal page renders title, version and placeholder"
+    persona: guest
     priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot is shown labelled in its category"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+    summary: "A legal page renders title, version and placeholder"
+    entry_route: /dieu-khoan-su-dung
+    services: [team-frontend]
+    preconditions:
+      login: guest
     acceptance:
-      - "When a guest opens `/search?category=<c>` where an ACTIVE campaign exists for a published listing L in category c"
-      - "Then the page shows L in an element `sponsored-slot` that contains the text \"Tài trợ\", positioned before the first organic card"
-    tags: [buyer, ads]
+      - "An anonymous visitor opens /dieu-khoan-su-dung; the response is 200 with a Vietnamese h1, a Phiên bản version and the legal placeholder body"
+    tags: [buyer, legal]
     status: automated
-    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored slot is shown labelled in its category"
-    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "frontend/legal_pages.feature::A legal page renders title, version and placeholder"
 
-  - id: frontend.bss-sponsored-listing-is-not-duplicated-in-organic-results
-    title: "Sponsored listing is not duplicated in organic results"
-    persona: buyer
+  - id: legal.pages.all-seven-slugs-resolve
+    title: "All seven slugs resolve"
+    persona: guest
     priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Sponsored listing is not duplicated in organic results"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+    summary: "All seven slugs resolve"
+    entry_route: /dieu-khoan-su-dung
+    services: [team-frontend]
+    preconditions:
+      login: guest
     acceptance:
-      - "When the sponsored listing L also matches the organic search of page 1"
-      - "Then L appears exactly once on the page, inside `sponsored-slot`, and zero times in `search-results`"
-    tags: [buyer, ads]
+      - "Each of the seven legal slugs returns 200 and the sitemap lists exactly those 7 legal URLs"
+    tags: [buyer, legal]
     status: automated
-    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored listing is not duplicated in organic results"
-    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "frontend/legal_pages.feature::All seven slugs resolve"
 
-  - id: frontend.bss-page-2-has-no-sponsored-slots
-    title: "Page 2 has no sponsored slots"
-    persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Page 2 has no sponsored slots"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+  - id: legal.pages.unknown-slug-not-found
+    title: "An unknown legal slug is not found"
+    persona: guest
+    priority: P2
+    summary: "An unknown legal slug is not found"
+    entry_route: /chinh-sach-khong-ton-tai
+    services: [team-frontend]
+    preconditions:
+      login: guest
     acceptance:
-      - "When a visitor opens `/search?page=2`"
-      - "Then zero `sponsored-slot` elements are rendered and `ListSponsoredSlots` is not called"
-    tags: [buyer, ads, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `Page 2 has no sponsored slots`. Not producible end to end: a unit-level behaviour."
+      - "A visitor opens /chinh-sach-khong-ton-tai; the response is 404 and the not-found page renders"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_pages.feature::An unknown legal slug is not found"
 
-  - id: frontend.bss-slot-service-failure-leaves-organic-results-intact
-    title: "Slot service failure leaves organic results intact"
-    persona: buyer
+  - id: legal.pages.need-no-login
+    title: "Legal pages need no login"
+    persona: guest
     priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Slot service failure leaves organic results intact"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+    summary: "Legal pages need no login"
+    entry_route: /chinh-sach-bao-mat
+    services: [team-frontend]
+    preconditions:
+      login: guest
     acceptance:
-      - "When `ListSponsoredSlots` fails with UNAVAILABLE or does not answer within 150 ms while the organic search succeeds"
-      - "Then the page responds 200 with the organic grid, count and pagination unchanged and zero `sponsored-slot` elements"
-    tags: [buyer, ads, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `Slot service failure leaves organic results intact`. Not producible end to end: a unit-level behaviour."
+      - "A visitor without a session cookie opens /chinh-sach-bao-mat; 200 with no redirect to /login"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_pages.feature::Legal pages need no login"
 
-  - id: frontend.bss-no-slots-when-the-organic-search-has-no-results
-    title: "No slots when the organic search has no results"
-    persona: buyer
+  - id: legal.footer.exposes-legal-links
+    title: "Footer exposes the legal links"
+    persona: guest
     priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: No slots when the organic search has no results"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+    summary: "Footer exposes the legal links"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
     acceptance:
-      - "When the organic search returns zero items for the query"
-      - "Then the page shows \"Không tìm thấy sản phẩm\" and zero `sponsored-slot` elements"
-    tags: [buyer, ads, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `No slots when the organic search has no results`. Not producible end to end: a unit-level behaviour."
+      - "The footer links the seven legal slugs and the RMA link targets /chinh-sach-doi-tra"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_pages.feature::Footer exposes the legal links"
 
-  - id: frontend.bss-unpublished-sponsored-listing-is-dropped
-    title: "Unpublished sponsored listing is dropped"
+  - id: legal.footer.operator-placeholders
+    title: "Footer shows the operator placeholders"
+    persona: guest
+    priority: P2
+    summary: "Footer shows the operator placeholders"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The footer shows four labelled operator fields each with the operator placeholder"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_pages.feature::Footer shows the operator placeholders"
+
+  - id: legal.footer.never-links-missing-pages
+    title: "Footer never links legal pages that are missing"
+    persona: guest
+    priority: P2
+    summary: "Footer never links legal pages that are missing"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Every footer legal link resolves to a page and the RMA entry does not point to /account/orders"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_pages.feature::Footer never links legal pages that are missing"
+
+  - id: legal.signup.both-boxes-record-two-consents
+    title: "Registering with both boxes checked records two consents"
+    persona: guest
+    priority: P1
+    summary: "Registering with both boxes checked records two consents"
+    entry_route: /register
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Submitting the register form with both boxes checked creates the account and ListMyConsents returns TERMS and PRIVACY_POLICY at the current versions with source register"
+    tags: [auth, buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_signup.feature::Registering with both boxes checked records two consents"
+
+  - id: legal.signup.unchecked-box-blocks-submission
+    title: "Unchecked box blocks submission"
+    persona: guest
+    priority: P1
+    summary: "Unchecked box blocks submission"
+    entry_route: /register
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "With the Terms box unchecked a field error is shown, no Register call reaches the gateway and no account is created"
+    tags: [auth, buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_signup.feature::Unchecked box blocks submission"
+
+  - id: legal.signup.forged-post-refused
+    title: "A forged post without acceptance fields is refused"
+    persona: guest
+    priority: P1
+    summary: "A forged post without acceptance fields is refused"
+    entry_route: /register
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A register post without the acceptance fields returns a field error, 0 Register calls reach the gateway and no account is created"
+    tags: [auth, buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_signup.feature::A forged post without acceptance fields is refused"
+
+  - id: legal.signup.stale-version-reported
+    title: "A stale version is reported to the user"
+    persona: guest
+    priority: P1
+    summary: "A stale version is reported to the user"
+    entry_route: /register
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When identity requires a newer terms version the form shows the Vietnamese update message and no account is created"
+    tags: [auth, buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_signup.feature::A stale version is reported to the user"
+
+  - id: legal.reacceptance.legacy-user-prompted-and-accepts
+    title: "A legacy user is prompted and accepts"
     persona: buyer
     priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Unpublished sponsored listing is dropped"
+    summary: "A legacy user is prompted and accepts"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A signed-in user with no TERMS or PRIVACY_POLICY row sees the dialog, clicks Đồng ý, RecordConsent is called once and the dialog does not return on reload"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::A legacy user is prompted and accepts"
+
+  - id: legal.reacceptance.newer-terms-triggers-prompt
+    title: "A newer Terms version triggers the prompt"
+    persona: buyer
+    priority: P1
+    summary: "A newer Terms version triggers the prompt"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A user whose latest TERMS version differs from the current one sees the dialog on non-legal pages while legal pages stay readable"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::A newer Terms version triggers the prompt"
+
+  - id: legal.reacceptance.up-to-date-not-prompted
+    title: "Up-to-date users are not prompted"
+    persona: buyer
+    priority: P1
+    summary: "Up-to-date users are not prompted"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "An up-to-date user loading 3 pages sees no dialog and ListMyConsents is called at most once"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::Up-to-date users are not prompted"
+
+  - id: legal.reacceptance.anonymous-never-prompted
+    title: "Anonymous visitors are never prompted"
+    persona: guest
+    priority: P1
+    summary: "Anonymous visitors are never prompted"
+    entry_route: /
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An anonymous visitor sees no dialog and the gateway receives 0 PrivacyService calls"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::Anonymous visitors are never prompted"
+
+  - id: legal.reacceptance.lookup-failure-does-not-block
+    title: "Consent lookup failure does not block browsing"
+    persona: buyer
+    priority: P2
+    summary: "Consent lookup failure does not block browsing"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When ListMyConsents fails the page renders normally with no dialog and no error"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::Consent lookup failure does not block browsing"
+
+  - id: legal.reacceptance.declining-signs-out
+    title: "Declining signs the user out"
+    persona: buyer
+    priority: P1
+    summary: "Declining signs the user out"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Clicking Đăng xuất clears the session, lands the user on / as anonymous and writes no consent row"
+    tags: [buyer, legal]
+    status: automated
+    covered_by: "frontend/legal_reacceptance.feature::Declining signs the user out"
+
+  - id: consent.banner-ledger.text-is-vietnamese
+    title: "Banner text is Vietnamese"
+    persona: guest
+    priority: P2
+    summary: "Banner text is Vietnamese"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The banner title is Tùy chọn cookie, the groups are Phân tích, Tiếp thị, Cá nhân hóa and no English label remains"
+    tags: [buyer, consent]
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::Banner text is Vietnamese"
+
+  - id: consent.banner-ledger.signed-in-save-changed-only
+    title: "Signed-in save records only changed purposes"
+    persona: buyer
+    priority: P1
+    summary: "Signed-in save records only changed purposes"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Turning on Cá nhân hóa and saving updates the cookie, calls RecordConsent once with 1 record and lists it as the newest row"
+    tags: [buyer, consent]
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::Signed-in save records only changed purposes"
+
+  - id: consent.banner-ledger.first-choice-records-all-three
+    title: "First choice records all three purposes"
+    persona: buyer
+    priority: P1
+    summary: "First choice records all three purposes"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Từ chối tất cả without a prior cookie calls RecordConsent once with 3 denied records"
+    tags: [buyer, consent]
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::First choice records all three purposes"
+
+  - id: consent.banner-ledger.anonymous-cookie-only
+    title: "Anonymous choice is cookie only"
+    persona: guest
+    priority: P1
+    summary: "Anonymous choice is cookie only"
+    entry_route: /
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Chấp nhận tất cả sets the cookie and the gateway receives 0 PrivacyService calls"
+    tags: [buyer, consent]
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::Anonymous choice is cookie only"
+
+  - id: consent.banner-ledger.write-failure-keeps-cookie
+    title: "Ledger write failure keeps the cookie choice"
+    persona: buyer
+    priority: P2
+    summary: "Ledger write failure keeps the cookie choice"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When RecordConsent fails the cookie still holds the choice, the banner closes and no error shows"
+    tags: [buyer, consent]
+    status: automated
+    covered_by: "frontend/consent_banner_ledger.feature::Ledger write failure keeps the cookie choice"
+
+  - id: legal.pages.unit-versions-equal-configured
+    title: "Terms and privacy page versions equal the configured versions"
+    persona: buyer
+    priority: P2
+    summary: "Terms and privacy page versions equal the configured versions"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The unit suite compares the dieu-khoan-su-dung and chinh-sach-bao-mat front-matter versions with the configured NEXT_PUBLIC versions (unit-verified)"
+    tags: [buyer, legal, unit]
+    status: not-testable
+    notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/legal/content.test.ts \"[Terms and privacy page versions equal the configured versions] terms\", \"[Terms and privacy page versions equal the configured versions] privacy\". Not producible end to end: reads content files and build-time env, not observable through the running app."
+
+  - id: legal.signup.unit-boundary-version-length
+    title: "Boundary version length"
+    persona: buyer
+    priority: P2
+    summary: "Boundary version length"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The register request carries each configured version unchanged and at most 32 characters (unit-verified)"
+    tags: [auth, buyer, legal, unit]
+    status: not-testable
+    notes: "frontend-legal-pages: unit-verified. VERIFIED BY team-frontend/src/features/auth/actions.test.ts \"[Boundary version length] each version string is sent unchanged and is at most 32 characters\". Not producible end to end: asserts the outgoing server-action request argument, not observable end to end."
+
+  - id: privacy.ui.signed-in-user-reaches-the-page-from-the-account-m
+    title: "PV1 Signed-in user reaches the page from the account menu"
+    persona: buyer
+    priority: P1
+    summary: "Buyer opens the privacy page from the account menu (PV1)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer clicks \"Quyền riêng tư\" in the account menu"
+      - "Then the browser lands on `/account/privacy`, the heading \"Quyền riêng tư\" shows and the menu entry has `aria-current=\"page\"`"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV1 Signed-in user reaches the page from the account menu"
+
+  - id: privacy.ui.guest-is-sent-to-login
+    title: "PV2 Guest is sent to login"
+    persona: guest
+    priority: P1
+    summary: "Guest is sent to login (PV2)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest opens `/account/privacy`"
+      - "Then the response redirects to `/login` with the return URL `/account/privacy` and 0 gateway calls are made"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV2 Guest is sent to login"
+
+  - id: privacy.ui.unit-pv3-one-failing-read-does-not-blank-the-page
+    title: "PV3 One failing read does not blank the page"
+    persona: buyer
+    priority: P2
+    summary: "PV3 One failing read does not blank the page"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `ListMyConsents` fails with `Unavailable` and `GetAccountDeletionStatus` succeeds"
+      - "Then the consent card shows \"Không thể tải lịch sử đồng ý.\" with a retry button and the deletion and export cards still render (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"a failed consent read keeps the other cards\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv29-a-guest-cannot-reach-any-privacy-data
+    title: "PV29 A guest cannot reach any privacy data"
+    persona: guest
+    priority: P2
+    summary: "PV29 A guest cannot reach any privacy data"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest opens `/account/privacy` or calls a privacy action without a session"
+      - "Then the page redirects to `/login` or the action is refused `Unauthenticated`, and no consent, export or deletion data is returned (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"redirects a guest to login\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.history-is-listed-newest-first-and-paged
+    title: "PV4 History is listed newest first and paged"
+    persona: buyer
+    priority: P1
+    summary: "Consent history is listed newest first (PV4)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user with 25 consent records opens `/account/privacy`"
+      - "Then the history shows 20 rows ordered newest first, the first row is the newest record and a pagination link to page 2 shows 5 more rows"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV4 History is listed newest first and paged"
+
+  - id: privacy.ui.saving-a-change-records-one-row-per-changed-purpos
+    title: "PV5 Saving a change records one row per changed purpose"
+    persona: buyer
+    priority: P1
+    summary: "Changing consent stores records and sets the cookie (PV5)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user with analytics granted switches analytics off and marketing on and saves"
+      - "Then `RecordConsent` is called once with exactly 2 records (analytics granted false, marketing granted true, source `account`), then the cookie holds `a=0&m=1`, a toast \"Đã lưu lựa chọn của bạn.\" shows and the history gains 2 rows"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV5 Saving a change records one row per changed purpose"
+
+  - id: privacy.ui.unit-pv6-saving-without-a-change-makes-no-call
+    title: "PV6 Saving without a change makes no call"
+    persona: buyer
+    priority: P2
+    summary: "PV6 Saving without a change makes no call"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user opens the page and clicks save without toggling anything"
+      - "Then 0 `RecordConsent` calls are made and the save button is disabled until a toggle changes (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ConsentForm.test.tsx \"save is disabled until a purpose changes\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv7-a-failed-record-leaves-the-cookie-unchanged
+    title: "PV7 A failed record leaves the cookie unchanged"
+    persona: buyer
+    priority: P2
+    summary: "PV7 A failed record leaves the cookie unchanged"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `RecordConsent` fails `Unavailable` after the user toggles personalization"
+      - "Then the cookie value is unchanged, an inline Alert \"Chưa lưu được lựa chọn. Vui lòng thử lại.\" shows and the toggle keeps the user's choice (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ConsentForm.test.tsx \"does not write the cookie when the record fails\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv8-legal-acceptance-rows-are-read-only
+    title: "PV8 Legal acceptance rows are read-only"
+    persona: buyer
+    priority: P2
+    summary: "PV8 Legal acceptance rows are read-only"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the history contains TERMS, PRIVACY_POLICY and SELLER_TERMS records"
+      - "Then each shows its Vietnamese label with the accepted version and no toggle exists for it (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ConsentForm.test.tsx \"renders toggles only for the three banner purposes\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv9-an-empty-history-shows-an-empty-state
+    title: "PV9 An empty history shows an empty state"
+    persona: buyer
+    priority: P2
+    summary: "PV9 An empty history shows an empty state"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a legacy user with no consent records opens the page"
+      - "Then the history shows \"Chưa có lịch sử đồng ý.\" and the toggles show the cookie values (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"empty history shows the empty state\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv10-an-expired-session-on-save-asks-to-sign-in-again
+    title: "PV10 An expired session on save asks to sign in again"
+    persona: buyer
+    priority: P2
+    summary: "PV10 An expired session on save asks to sign in again"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `RecordConsent` fails `Unauthenticated`"
+      - "Then the action returns \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and the cookie is unchanged (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on consent save\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.export-downloads-one-json-file
+    title: "PV11 Export downloads one JSON file"
+    persona: buyer
+    priority: P1
+    summary: "User downloads their data (PV11)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in user clicks \"Tải dữ liệu của tôi\""
+      - "Then the browser receives one file named `agora-du-lieu-<date>.json` whose JSON has `account.user_id` equal to the user's id"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV11 Export downloads one JSON file"
+
+  - id: privacy.ui.unit-pv12-export-failure-is-shown-and-retryable
+    title: "PV12 Export failure is shown and retryable"
+    persona: buyer
+    priority: P2
+    summary: "PV12 Export failure is shown and retryable"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `ExportMyData` fails `Unavailable`"
+      - "Then an Alert \"Chưa tải được dữ liệu. Vui lòng thử lại sau.\" shows, no file is produced and the button is enabled again (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ExportButton.test.tsx \"shows an error and re-enables the button\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv13-export-content-is-never-retained-or-logged
+    title: "PV13 Export content is never retained or logged"
+    persona: buyer
+    priority: P2
+    summary: "PV13 Export content is never retained or logged"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the export action succeeds"
+      - "Then the action writes 0 cookies, calls no `revalidatePath` and logs 0 lines containing the content, and the page HTML contains none of the exported values (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"export leaves no trace outside the response\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv14-double-click-makes-one-call
+    title: "PV14 Double click makes one call"
+    persona: buyer
+    priority: P2
+    summary: "PV14 Double click makes one call"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the user clicks the export button twice within the pending state"
+      - "Then `ExportMyData` is called once (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/ExportButton.test.tsx \"blocks a second click while pending\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv15-the-export-card-links-the-in-app-views
+    title: "PV15 The export card links the in-app views"
+    persona: buyer
+    priority: P2
+    summary: "PV15 The export card links the in-app views"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the page renders"
+      - "Then the export card contains links to `/account/orders`, the user's reviews entry point and `/chat` (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/app/(shop)/account/privacy/page.test.tsx \"export card links orders and chats\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv30-an-unauthenticated-export-is-refused
+    title: "PV30 An unauthenticated export is refused"
+    persona: buyer
+    priority: P2
+    summary: "PV30 An unauthenticated export is refused"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `ExportMyData` answers `Unauthenticated` or `PermissionDenied`"
+      - "Then the action returns \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and no file is produced (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on every action\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.confirming-with-the-password-schedules-deletion
+    title: "PV16 Confirming with the password schedules deletion"
+    persona: buyer
+    priority: P1
+    summary: "Buyer schedules account deletion (PV16)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer with no open obligations enters the correct password in the deletion modal and confirms"
+      - "Then the page shows the pending panel with an erase time 48 h (within 5 s) after the request and the \"Hủy yêu cầu xóa\" button"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV16 Confirming with the password schedules deletion"
+
+  - id: privacy.ui.wrong-password-schedules-nothing
+    title: "PV17 Wrong password schedules nothing"
+    persona: buyer
+    priority: P1
+    summary: "Wrong password does not schedule deletion (PV17)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the gateway answers `PermissionDenied` to `RequestAccountDeletion`"
+      - "Then the modal stays open with \"Mật khẩu không đúng.\", the password field is cleared and the status read still shows nothing pending"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV17 Wrong password schedules nothing"
+
+  - id: privacy.ui.unit-pv18-empty-password-is-blocked-locally
+    title: "PV18 Empty password is blocked locally"
+    persona: buyer
+    priority: P2
+    summary: "PV18 Empty password is blocked locally"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the user clicks confirm with an empty password"
+      - "Then the confirm button is disabled and 0 gateway calls are made (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/DeleteAccountModal.test.tsx \"confirm is disabled for an empty password\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.an-open-obligation-shows-the-reason
+    title: "PV19 An open obligation shows the reason"
+    persona: buyer
+    priority: P1
+    summary: "Open order blocks deletion with a reason (PV19)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the gateway answers `FailedPrecondition` with a message naming open orders"
+      - "Then the modal shows \"Chưa thể xóa tài khoản: \" followed by that message, no pending panel appears and the account stays usable"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV19 An open obligation shows the reason"
+
+  - id: privacy.ui.unit-pv20-obligation-service-outage-fails-closed
+    title: "PV20 Obligation service outage fails closed"
+    persona: buyer
+    priority: P2
+    summary: "PV20 Obligation service outage fails closed"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the gateway answers `Unavailable` to `RequestAccountDeletion`"
+      - "Then the modal shows \"Chưa kiểm tra được đơn hàng và số dư của bạn. Vui lòng thử lại sau.\" and no pending panel appears (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unavailable on request deletion\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.pending-deletion-can-be-cancelled
+    title: "PV21 Pending deletion can be cancelled"
+    persona: buyer
+    priority: P1
+    summary: "Pending deletion is cancelled (PV21)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user whose deletion is pending clicks \"Hủy yêu cầu xóa\" and confirms"
+      - "Then `CancelAccountDeletion` is called once, the panel returns to the \"Xóa tài khoản\" offer and the toast \"Đã hủy yêu cầu xóa tài khoản.\" shows"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV21 Pending deletion can be cancelled"
+
+  - id: privacy.ui.unit-pv22-cancel-with-nothing-pending-is-explained
+    title: "PV22 Cancel with nothing pending is explained"
+    persona: buyer
+    priority: P2
+    summary: "PV22 Cancel with nothing pending is explained"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `CancelAccountDeletion` fails `FailedPrecondition` because the window already ended or was cancelled elsewhere"
+      - "Then the action returns \"Không có yêu cầu xóa tài khoản đang chờ.\" and the page re-reads the status (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps FailedPrecondition on cancel\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv23-a-repeated-request-keeps-the-original-time
+    title: "PV23 A repeated request keeps the original time"
+    persona: buyer
+    priority: P2
+    summary: "PV23 A repeated request keeps the original time"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user with deletion pending opens the page in a second tab and sees the pending panel"
+      - "Then the second tab offers only the cancel button and no \"Xóa tài khoản\" button (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/DeletionCard.test.tsx \"pending state hides the delete offer\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv24-the-password-never-leaves-the-action
+    title: "PV24 The password never leaves the action"
+    persona: buyer
+    priority: P2
+    summary: "PV24 The password never leaves the action"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `requestDeletionAction` runs with success or failure"
+      - "Then its return value, the logs and the revalidated page contain 0 occurrences of the password (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"never returns or logs the password\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv25-double-submit-makes-one-request
+    title: "PV25 Double submit makes one request"
+    persona: buyer
+    priority: P2
+    summary: "PV25 Double submit makes one request"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the user clicks confirm twice while the first call is pending"
+      - "Then `RequestAccountDeletion` is called once (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/DeleteAccountModal.test.tsx \"blocks a double submit\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv31-deletion-by-a-session-without-rights-is-refused
+    title: "PV31 Deletion by a session without rights is refused"
+    persona: buyer
+    priority: P2
+    summary: "PV31 Deletion by a session without rights is refused"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `RequestAccountDeletion` answers `Unauthenticated`"
+      - "Then the modal shows \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and no pending panel appears (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"maps Unauthenticated on every action\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.a-call-without-a-session-is-refused
+    title: "PV26 A call without a session is refused"
+    persona: buyer
+    priority: P1
+    summary: "Expired session on a privacy action asks to sign in (PV26)"
+    entry_route: /account/privacy
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an action runs and the gateway answers `Unauthenticated`"
+      - "Then the action returns \"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\" and shows no technical text"
+    tags: [buyer, privacy]
+    status: automated
+    covered_by: "frontend/account_privacy_ui.feature::PV26 A call without a session is refused"
+
+  - id: privacy.ui.unit-pv27-no-request-carries-a-user-id
+    title: "PV27 No request carries a user id"
+    persona: buyer
+    priority: P2
+    summary: "PV27 No request carries a user id"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When any privacy action calls the gateway"
+      - "Then the request message has no user id field set and the Authorization header carries the session token (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/lib/gateway/privacy.test.ts \"sends the session token and no user id\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: privacy.ui.unit-pv28-unknown-failures-hide-detail
+    title: "PV28 Unknown failures hide detail"
+    persona: buyer
+    priority: P2
+    summary: "PV28 Unknown failures hide detail"
+    entry_route: /account/privacy
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an action fails with an error that is not a Connect error or has an unmapped code"
+      - "Then the action returns its fixed failure text and the text contains no gateway message (unit-verified)"
+    tags: [buyer, privacy, unit]
+    status: not-testable
+    notes: "frontend-account-privacy: unit-verified. VERIFIED BY team-frontend/src/features/privacy/actions.test.ts \"unmapped errors show only the fixed text\". Not producible end to end: needs a forced gateway failure, a stubbed response or a client-side call count that the running stack cannot produce or observe."
+
+  - id: seller-kyc-ui.the-buyer-route-is-gone
+    title: "The buyer route is gone"
+    persona: buyer
+    priority: P1
+    summary: "The buyer route is gone"
+    entry_route: /account/verification
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer requests `/account/verification` on the buyer app"
+      - "Then the response is 404"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::The buyer route is gone"
+
+  - id: seller-kyc-ui.buyer-navigation-has-no-verification-link
+    title: "Buyer navigation has no verification link"
+    persona: buyer
+    priority: P1
+    summary: "Buyer navigation has no verification link"
+    entry_route: /account
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer opens any `/account/*` page"
+      - "Then the account nav and the top bar contain 0 links to `/account/verification`"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::Buyer navigation has no verification link"
+
+  - id: seller-kyc-ui.verified-seller-s-shop-shows-the-badge
+    title: "Verified seller's shop shows the badge"
+    persona: guest
+    priority: P1
+    summary: "Verified seller's shop shows the badge"
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When anyone, including an anonymous visitor, opens the shop page of a `VERIFIED` seller"
+      - "Then the page contains exactly 1 \"Đã xác minh\" badge"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::Verified seller's shop shows the badge"
+
+  - id: seller-kyc-ui.non-verified-shops-show-no-badge-and-no-status
+    title: "Non-verified shops show no badge and no status"
+    persona: guest
+    priority: P1
+    summary: "Non-verified shops show no badge and no status"
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When anyone opens the shop page of a seller who is `PENDING`, `REJECTED` or `NOT_SUBMITTED`"
+      - "Then the page contains 0 badges and none of the words \"Đang chờ duyệt\", \"Bị từ chối\" or \"Chưa gửi hồ sơ\""
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::Non-verified shops show no badge and no status"
+
+  - id: seller-kyc-ui.badge-lookup-failure-does-not-break-the-page
+    title: "Badge lookup failure does not break the page"
+    persona: seller
+    priority: P1
+    summary: "Badge lookup failure does not break the page"
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `GetPublicBadges` fails or times out"
+      - "Then the shop page still renders with HTTP 200 and 0 badges"
+    tags: [seller-kyc-ui]
+    status: automated
+    covered_by: "buyer/shop_verified_badge.feature::Badge lookup failure does not break the page"
+
+  - id: seller-kyc-ui.the-badge-call-asks-for-the-shop-seller-only
+    title: "The badge call asks for the shop seller only"
+    persona: seller
+    priority: P1
+    summary: "The badge call asks for the shop seller only"
+    entry_route: /shop/{seller_id}
+    services: [team-frontend, team-gateway, team-verification]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the shop page is rendered"
+      - "Then exactly 1 `GetPublicBadges` call is made with 1 user id equal to the shop's seller id"
+    tags: [seller-kyc-ui, unit]
+    status: not-testable
+    notes: "seller-kyc-ui: unit-verified, not producible end to end (the server-side gateway call is not observable from the browser). VERIFIED BY `team-frontend/src/app/(shop)/shop/[id]/page.test.tsx` `[The badge call asks for the shop seller only] asks GetPublicBadges for the shop seller only`."
+
+  - id: buyer-ai-surfaces-ui.one-call-per-question-and-no-stream
+    title: "One call per question and no stream"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "One call per question and no stream"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: automated
+    covered_by: "frontend/buyer_ai_surfaces.feature::One call per question and no stream"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::One call per question and no stream passed on env docs-ai-data (2026-11-16)"
+
+  - id: buyer-ai-surfaces-ui.the-stream-route-is-gone
+    title: "The stream route is gone"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "The stream route is gone"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: automated
+    covered_by: "frontend/buyer_ai_surfaces.feature::The stream route is gone"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The stream route is gone passed on env docs-ai-data (2026-11-16)"
+
+  - id: buyer-ai-surfaces-ui.a-card-without-a-rating-shows-no-rating-line
+    title: "A card without a rating shows no rating line"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A card without a rating shows no rating line"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `hides the rating line when empty` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-rated-card-shows-exactly-the-returned-rating-text
+    title: "A rated card shows exactly the returned rating text"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A rated card shows exactly the returned rating text"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shows the returned rating text` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-failed-call-shows-the-apology-and-no-cards
+    title: "A failed call shows the apology and no cards"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A failed call shows the apology and no cards"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shows the apology on failure` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-reply-without-cards-is-shown-as-text-only
+    title: "A reply without cards is shown as text only"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A reply without cards is shown as text only"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `renders a text-only reply` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.card-impressions-carry-the-placement-and-the-request-id
+    title: "Card impressions carry the placement and the request id"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Card impressions carry the placement and the request id"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: automated
+    covered_by: "frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::Card impressions carry the placement and the request id passed on env docs-ai-data (2026-11-16)"
+
+  - id: buyer-ai-surfaces-ui.a-reply-without-a-request-id-sends-no-impression-id
+    title: "A reply without a request id sends no impression id"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A reply without a request id sends no impression id"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `omits empty provenance` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-reply-without-cards-queues-no-impression
+    title: "A reply without cards queues no impression"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "A reply without cards queues no impression"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `reports nothing without cards` in `team-frontend/src/features/assistant/AssistantChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.the-helper-puts-provenance-in-wire-fields-only
+    title: "The helper puts provenance in wire fields only"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "The helper puts provenance in wire fields only"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends provenance in wire fields only` in `team-frontend/src/lib/analytics/ai.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.empty-provenance-sends-nothing-extra
+    title: "Empty provenance sends nothing extra"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "Empty provenance sends nothing extra"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `omits empty provenance` in `team-frontend/src/lib/analytics/ai.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.the-assistant-accepted-click-reuses-the-reply-provenance
+    title: "The assistant accepted click reuses the reply provenance"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "The assistant accepted click reuses the reply provenance"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The assistant accepted click reuses the reply provenance passed on env docs-ai-data (2026-11-16)"
+
+  - id: buyer-ai-surfaces-ui.copilot-events-carry-the-copilot-response-provenance
+    title: "Copilot events carry the copilot response provenance"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend]
+    acceptance:
+      - "Copilot events carry the copilot response provenance"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `copilot events carry provenance` in `team-frontend/src/features/chat/ChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.the-review-summary-shown-event-carries-the-summary-provenance
+    title: "The review summary shown event carries the summary provenance"
+    persona: buyer
+    priority: P2
     entry_route: "/"
-    services: [team-frontend, team-gateway, team-promotion]
+    services: [team-frontend]
     acceptance:
-      - "When a returned slot points to a listing that `GetListing` reports as missing or not published"
-      - "Then that slot is not rendered and the other slots still render"
-    tags: [buyer, ads, unit]
+      - "The review summary shown event carries the summary provenance"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/data.test.ts` `drops slots whose listing is missing or unpublished`. Not producible end to end: a unit-level behaviour."
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `shown carries provenance` in `team-frontend/src/features/review/AiReviewSummary.test.tsx`"
 
-  - id: frontend.bss-at-most-two-slots-are-rendered
-    title: "At most two slots are rendered"
+  - id: buyer-ai-surfaces-ui.provenance-never-enters-properties-or-free-text
+    title: "Provenance never enters properties or free text"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: At most two slots are rendered"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
     acceptance:
-      - "When the service returns 4 slots for the request"
-      - "Then exactly 2 `sponsored-slot` elements are rendered, the first 2 in response order, and the request carried limit 2"
-    tags: [buyer, ads, unit]
-    status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/data.test.ts` `requests and renders at most two slots`. Not producible end to end: a unit-level behaviour."
-
-  - id: frontend.bss-sponsored-slot-is-shown-on-the-home-feed
-    title: "Sponsored slot is shown on the home feed"
-    persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot is shown on the home feed"
-    entry_route: "/"
-    services: [team-frontend, team-gateway, team-promotion]
-    acceptance:
-      - "When a guest opens `/` while an ACTIVE campaign exists whose slot is served for placement `home`"
-      - "Then the feed section \"Gợi ý hôm nay\" contains a `sponsored-slot` with the text \"Tài trợ\" before its first organic card"
-    tags: [buyer, ads]
+      - "Provenance never enters properties or free text"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: automated
-    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored slot is shown on the home feed"
-    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "tracking/ai_interaction_events.feature::Provenance never enters properties or free text"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::Provenance never enters properties or free text passed on env docs-ai-data (2026-11-16)"
 
-  - id: frontend.bss-home-dedupes-the-sponsored-listing
-    title: "Home dedupes the sponsored listing"
+  - id: buyer-ai-surfaces-ui.the-shown-event-carries-the-reply-provenance-in-wire-fields-only
+    title: "The shown event carries the reply provenance in wire fields only"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Home dedupes the sponsored listing"
-    entry_route: "/"
-    services: [team-frontend, team-gateway, team-promotion]
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
     acceptance:
-      - "When the sponsored listing also occurs in the feed items"
-      - "Then it appears once on the page, inside `sponsored-slot`"
-    tags: [buyer, ads, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `Home dedupes the sponsored listing`. Not producible end to end: a unit-level behaviour."
-
-  - id: frontend.bss-home-slot-failure-does-not-break-the-feed
-    title: "Home slot failure does not break the feed"
-    persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Home slot failure does not break the feed"
-    entry_route: "/"
-    services: [team-frontend, team-gateway, team-promotion]
-    acceptance:
-      - "When the sponsored lookup fails or exceeds 150 ms"
-      - "Then the feed renders its organic items and zero `sponsored-slot` elements, and the other home blocks still render"
-    tags: [buyer, ads, unit]
-    status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `Home slot failure does not break the feed`. Not producible end to end: a unit-level behaviour."
-
-  - id: frontend.bss-click-charges-the-campaign-once-and-opens-the-listing
-    title: "Click charges the campaign once and opens the listing"
-    persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Click charges the campaign once and opens the listing"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
-    acceptance:
-      - "When a buyer clicks the sponsored slot of campaign C (bid 1 000, budget remaining 5 000) on `/search`"
-      - "Then the browser lands on `/listing/<L>` and C's spent equals 1 000 (remaining 4 000) when read back through `ListMyAdCampaigns`"
-    tags: [buyer, ads]
+      - "When a buyer asks the assistant for a product and a product card is shown"
+      - "Then exactly one assistant shown beacon is captured, its impressionId equals the reply request id, its modelVersion is non-empty and neither field is in its properties"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
     status: automated
-    covered_by: "frontend/buyer_sponsored_slots.feature::Click charges the campaign once and opens the listing"
-    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+    covered_by: "tracking/ai_interaction_events.feature::The shown event carries the reply provenance in wire fields only"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::The shown event carries the reply provenance in wire fields only passed on env docs-ai-data (2026-11-16)"
 
-  - id: frontend.bss-second-click-on-the-same-slot-charges-nothing
-    title: "Second click on the same slot charges nothing"
-    persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Second click on the same slot charges nothing"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+  - id: buyer-ai-surfaces-ui.a-viewer-without-the-seller-role-emits-no-copilot-provenance
+    title: "A viewer without the seller role emits no copilot provenance"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend]
     acceptance:
-      - "When the buyer returns to the same results page without reloading and clicks the same slot again"
-      - "Then C's spent is still 1 000 and the navigation to `/listing/<L>` still works"
-    tags: [buyer, ads]
-    status: automated
-    covered_by: "frontend/buyer_sponsored_slots.feature::Second click on the same slot charges nothing"
-    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+      - "A viewer without the seller role emits no copilot provenance"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `buyer quick replies emit nothing` in `team-frontend/src/features/chat/ChatView.test.tsx`"
 
-  - id: frontend.bss-rendering-the-page-charges-nothing
-    title: "Rendering the page charges nothing"
+  - id: buyer-ai-surfaces-ui.a-tracker-failure-still-leaves-the-ai-action-working
+    title: "A tracker failure still leaves the AI action working"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Rendering the page charges nothing"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
     acceptance:
-      - "When a visitor loads `/search?category=<c>` with a sponsored slot and never clicks"
-      - "Then C's spent stays 0 and `RecordAdClick` is not called"
-    tags: [buyer, ads]
-    status: automated
-    covered_by: "frontend/buyer_sponsored_slots.feature::Rendering the page charges nothing"
-    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+      - "A tracker failure still leaves the AI action working"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `swallows tracker failure` in `team-frontend/src/lib/analytics/ai.test.ts`"
 
-  - id: frontend.bss-a-seller-clicking-their-own-ad-is-not-charged
-    title: "Sponsored slot: a seller clicking their own ad is not charged"
+  - id: buyer-ai-surfaces-ui.the-home-entry-points-to-the-assistant-page
+    title: "The home entry points to the assistant page"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot: a seller clicking their own ad is not charged"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
-    acceptance:
-      - "When the seller who owns C is logged in, opens `/search?category=<c>` and clicks the sponsored slot"
-      - "Then the navigation to `/listing/<L>` works and C's spent stays 0"
-    tags: [buyer, ads]
-    status: automated
-    covered_by: "frontend/buyer_sponsored_slots.feature::Seller clicking their own ad is not charged"
-    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
-
-  - id: frontend.bss-click-beacon-fires-once-per-gesture-and-does-not-prevent-navigation
-    title: "Click beacon fires once per gesture and does not prevent navigation"
-    persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Click beacon fires once per gesture and does not prevent navigation"
+    priority: P2
     entry_route: "/"
-    services: [team-frontend, team-gateway, team-promotion]
+    services: [team-frontend, team-gateway, team-ai]
     acceptance:
-      - "When a user clicks, or middle-clicks, an anchor inside a `sponsored-slot` once"
-      - "Then exactly one beacon with that slot's token is sent and the click event is not default-prevented"
-    tags: [buyer, ads, unit]
-    status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/SponsoredClickGuard.test.tsx` `sends one beacon and keeps default navigation`. Not producible end to end: a unit-level behaviour."
+      - "The home entry points to the assistant page"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: automated
+    covered_by: "frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page"
+    notes: "buyer-ai-surfaces-ui: e2e frontend/buyer_ai_surfaces.feature::The home entry points to the assistant page passed on env docs-ai-data (2026-11-16)"
 
-  - id: frontend.bss-click-on-an-organic-card-sends-no-beacon
-    title: "Click on an organic card sends no beacon"
+  - id: buyer-ai-surfaces-ui.no-invented-score-is-rendered
+    title: "No invented score is rendered"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Click on an organic card sends no beacon"
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "No invented score is rendered"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `renders no match score` in `team-frontend/src/features/home/AssistantBlock.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.the-entry-does-not-load-the-feed
+    title: "The entry does not load the feed"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend]
+    acceptance:
+      - "The entry does not load the feed"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `does not depend on the feed` in `team-frontend/src/features/home/AssistantBlock.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.the-listing-id-reaches-the-copilot-call
+    title: "The listing id reaches the copilot call"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend]
+    acceptance:
+      - "The listing id reaches the copilot call"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `passes the thread listing` in `team-frontend/src/features/chat/actions.test.ts`"
+
+  - id: buyer-ai-surfaces-ui.a-failed-copilot-call-shows-no-suggestions
+    title: "A failed copilot call shows no suggestions"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend]
+    acceptance:
+      - "A failed copilot call shows no suggestions"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
+    status: not-testable
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `reports nothing for empty or failed copilot` in `team-frontend/src/features/chat/ChatView.test.tsx`"
+
+  - id: buyer-ai-surfaces-ui.a-buyer-has-no-copilot
+    title: "A buyer has no copilot"
+    persona: buyer
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A buyer has no copilot"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A buyer has no copilot"
+    notes: "buyer-ai-surfaces-ui: e2e tracking/ai_interaction_events.feature::A buyer has no copilot passed on env docs-ai-data (2026-11-16)"
+
+  - id: buyer-ai-surfaces-ui.a-resolved-variant-is-returned-and-the-id-is-hashed
+    title: "A resolved variant is returned and the id is hashed"
+    persona: buyer
+    priority: P2
     entry_route: "/"
-    services: [team-frontend, team-gateway, team-promotion]
+    services: [team-frontend]
     acceptance:
-      - "When a user clicks an anchor in `search-results` that is not inside a `sponsored-slot`"
-      - "Then no request is sent to `/api/ads/click`"
-    tags: [buyer, ads, unit]
+      - "A resolved variant is returned and the id is hashed"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/SponsoredClickGuard.test.tsx` `organic clicks send no beacon`. Not producible end to end: a unit-level behaviour."
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `hashes the entity id` in `team-frontend/src/lib/flags/variant.test.ts`"
 
-  - id: frontend.bss-click-route-rejects-a-malformed-body
-    title: "Click route rejects a malformed body"
+  - id: buyer-ai-surfaces-ui.a-slow-or-failing-flipt-yields-no-variant
+    title: "A slow or failing Flipt yields no variant"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Click route rejects a malformed body"
-    entry_route: "/api/ads/click"
-    services: [team-frontend, team-gateway, team-promotion]
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
     acceptance:
-      - "When `POST /api/ads/click` receives an empty body, a missing token, a token over 256 characters or a token with characters outside the allowed set"
-      - "Then it responds 400 and `RecordAdClick` is not called"
-    tags: [buyer, ads, unit]
+      - "A slow or failing Flipt yields no variant"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `rejects malformed bodies with 400`. Not producible end to end: a unit-level behaviour."
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `times out to null` in `team-frontend/src/lib/flags/variant.test.ts`"
 
-  - id: frontend.bss-click-route-hides-the-billing-outcome
-    title: "Click route hides the billing outcome"
+  - id: buyer-ai-surfaces-ui.disabled-flags-or-an-empty-entity-yield-no-variant
+    title: "Disabled flags or an empty entity yield no variant"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Click route hides the billing outcome"
-    entry_route: "/api/ads/click"
-    services: [team-frontend, team-gateway, team-promotion]
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
     acceptance:
-      - "When `RecordAdClick` returns `charged = false` or fails with an error for a well-formed token"
-      - "Then `POST /api/ads/click` still responds 204 with an empty body"
-    tags: [buyer, ads, unit]
+      - "Disabled flags or an empty entity yield no variant"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `answers 204 for charged, uncharged and failed calls`. Not producible end to end: a unit-level behaviour."
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `returns null when disabled or without entity` in `team-frontend/src/lib/flags/variant.test.ts`"
 
-  - id: frontend.bss-click-route-forwards-the-session-and-does-not-log-ids
-    title: "Click route forwards the session and does not log ids"
+  - id: buyer-ai-surfaces-ui.exposure-is-sent-once-per-mount-with-only-flag-and-variant
+    title: "Exposure is sent once per mount with only flag and variant"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Click route forwards the session and does not log ids"
-    entry_route: "/api/ads/click"
-    services: [team-frontend, team-gateway, team-promotion]
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
     acceptance:
-      - "When a logged-in buyer's click reaches `POST /api/ads/click`"
-      - "Then `RecordAdClick` is called with the session bearer token, and the log line contains only the outcome class and none of the token, listing id or user id"
-    tags: [buyer, ads, unit]
+      - "Exposure is sent once per mount with only flag and variant"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `forwards session and logs outcome class only`. Not producible end to end: a unit-level behaviour."
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends one exposure per mount` in `team-frontend/src/features/tracking/ExperimentExposure.test.tsx`"
 
-  - id: frontend.bss-get-on-the-click-route-is-not-allowed
-    title: "GET on the click route is not allowed"
+  - id: buyer-ai-surfaces-ui.no-variant-sends-no-exposure
+    title: "No variant sends no exposure"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: GET on the click route is not allowed"
-    entry_route: "/api/ads/click"
-    services: [team-frontend, team-gateway, team-promotion]
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
     acceptance:
-      - "When a client sends `GET /api/ads/click?token=x`"
-      - "Then the response is 405 and `RecordAdClick` is not called"
-    tags: [buyer, ads, unit]
+      - "No variant sends no exposure"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `GET is rejected with 405`. Not producible end to end: a unit-level behaviour."
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `sends nothing without a variant` in `team-frontend/src/features/tracking/ExperimentExposure.test.tsx`"
 
-  - id: frontend.bss-slots-are-mapped-from-the-response
-    title: "Slots are mapped from the response"
+  - id: buyer-ai-surfaces-ui.a-browser-bundle-never-contains-the-flag-client
+    title: "A browser bundle never contains the flag client"
     persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: Slots are mapped from the response"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
     acceptance:
-      - "When the response holds 2 slots with listing, campaign and token values"
-      - "Then the wrapper returns 2 entries with the same values in the same order and sent placement, category and limit as given"
-    tags: [buyer, ads, unit]
+      - "A browser bundle never contains the flag client"
+    tags: [ai-surfaces, buyer-ai-surfaces-ui, unit]
     status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/lib/gateway/promotion.test.ts` `listSponsoredSlotSet maps slots`. Not producible end to end: a unit-level behaviour."
-
-  - id: frontend.bss-a-failing-call-returns-no-slots
-    title: "A failing call returns no slots"
-    persona: buyer
-    priority: P1
-    summary: "Scenario of change buyer-sponsored-slots: A failing call returns no slots"
-    entry_route: "/search"
-    services: [team-frontend, team-gateway, team-promotion]
-    acceptance:
-      - "When the underlying RPC rejects with UNAVAILABLE"
-      - "Then the wrapper resolves to an empty list and does not throw"
-    tags: [buyer, ads, unit]
-    status: not-testable
-    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/lib/gateway/promotion.test.ts` `listSponsoredSlotSet returns empty on error`. Not producible end to end: a unit-level behaviour."
+    notes: "buyer-ai-surfaces-ui: unit-verified, not producible end to end (browser-only or mock-backend-only behaviour, AGENTS.md 9b). VERIFIED BY `is server-only` in `team-frontend/src/lib/flags/variant.test.ts`"

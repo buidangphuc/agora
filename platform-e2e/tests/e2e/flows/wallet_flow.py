@@ -6,12 +6,14 @@ import time
 from typing import Any
 
 from src.models import User
+from tests.e2e.flows.kyc_flow import verify_seller
 
 
 def request_seller_payout_via_api(
     world, seller: User, amount: int, bank_code: str = "VCB", account_number: str = "9988776655"
 ) -> dict[str, Any]:
     """Request a bank payout from seller wallet."""
+    verify_seller(seller.token)
     world.service_factory.set_token(seller.token)
     res = world.service_factory.payment.request_payout(
         seller_id="",  # the caller's own wallet; the user id, never the username

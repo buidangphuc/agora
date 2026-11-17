@@ -28,3 +28,13 @@ func NewDisputeConsumer(client *kgo.Client, h consume.Handler, dlq consume.DLQPr
 		KeyFP:          keyFP,
 	})
 }
+
+func NewErasureKafkaConsumer(client *kgo.Client, h consume.Handler, dlq consume.DLQProducer, keyFP *kafkax.Fingerprinter, s config.Settings) (*consume.Consumer, error) {
+	return consume.NewConsumer(client, h, dlq, consume.Options{
+		DLQTopic:       s.Events.ErasureDLQ,
+		MaxAttempts:    math.MaxInt32,
+		MaxBackoff:     5 * time.Second,
+		MaxPollRecords: 1,
+		KeyFP:          keyFP,
+	})
+}

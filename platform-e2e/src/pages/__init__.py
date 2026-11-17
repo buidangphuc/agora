@@ -27,6 +27,7 @@ from .seller_order_returns_page import SellerOrderReturnsPage
 from .seller_orders_page import SellerOrdersPage
 from .seller_paging_page import SellerPagingPage
 from .seller_shop_page import SellerShopPage
+from .seller_verification_page import SellerVerificationPage
 from .seller_wallet_page import SellerWalletPage
 from .shop_profile_page import ShopProfilePage
 from .vouchers_page import VouchersPage
@@ -57,6 +58,7 @@ __all__ = [
     "SellerOrdersPage",
     "SellerPagingPage",
     "SellerAnalyticsPage",
+    "SellerVerificationPage",
     "SellerWalletPage",
     "SellerShopPage",
     "SellerOrderDetailPage",

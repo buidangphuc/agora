@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/buidangphuc/team-verification/internal/store"
 	"github.com/buidangphuc/team-verification/internal/store/storetest"
@@ -130,5 +131,27 @@ func TestValidation(t *testing.T) {
 	}
 	if _, err := svc.Review(ctx, "kyc_missing", "approve"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound reviewing missing id, got %v", err)
+	}
+}
+
+type sweptRepo struct {
+	*storetest.InMemoryKycRepo
+	deletedAt time.Time
+}
+
+func (r sweptRepo) ListDocuments(_ context.Context, submissionID string) ([]store.Document, error) {
+	return []store.Document{{SubmissionID: submissionID, Index: 0, ObjectKey: "kyc/u/k", DeletedAt: &r.deletedAt}}, nil
+}
+
+// Scenario: Rejected documents are deleted after 90 days (GetKycDocumentUrl fails NOT_FOUND).
+func TestDocumentKeyOfSweptDocumentIsNotFound(t *testing.T) {
+	repo := sweptRepo{InMemoryKycRepo: storetest.NewInMemoryKycRepo(), deletedAt: time.Now()}
+	sub, err := repo.Create(context.Background(), &store.Submission{ID: "kyc_swept", UserID: "u", DocType: "national_id", DocRef: "kyc/u/k", Status: store.StatusRejected})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := verification.NewVerificationService(repo)
+	if _, _, err := svc.DocumentKey(context.Background(), sub.ID, 0); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("DocumentKey of a swept document: err = %v, want store.ErrNotFound", err)
 	}
 }

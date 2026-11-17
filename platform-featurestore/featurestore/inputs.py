@@ -11,6 +11,8 @@ import pyarrow.parquet as pq
 
 from featurestore.settings import ConfigError
 
+ERASED_PREFIX = "erased:"
+
 FILES = {
     "events": "tracking_events_resolved.parquet",
     "facts": "engagement_facts.parquet",
