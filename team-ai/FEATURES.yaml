@@ -3106,7 +3106,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario A placement without a flag makes no Flipt call in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario A placement without a flag makes no Flipt call in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_placement_without_flag_makes_no_call. Needs fault injection or internals the gateway does not expose."
@@ -3119,7 +3119,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario A caller with no identity gets no arm in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario A caller with no identity gets no arm in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_no_identity_no_arm. Needs fault injection or internals the gateway does not expose."
@@ -3132,7 +3132,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario A slow Flipt is cut off at the timeout in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario A slow Flipt is cut off at the timeout in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_slow_flipt_times_out. Needs fault injection or internals the gateway does not expose."
@@ -3145,7 +3145,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario Flipt receives only the hashed entity id in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario Flipt receives only the hashed entity id in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_entity_id_is_salted_hash_and_not_logged. Needs fault injection or internals the gateway does not expose."
@@ -3158,7 +3158,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario A server error from Flipt is treated as unassigned in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario A server error from Flipt is treated as unassigned in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_flipt_500_is_unassigned. Needs fault injection or internals the gateway does not expose."
@@ -3171,7 +3171,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario An attachment cannot change the ladder in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario An attachment cannot change the ladder in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_attachment_cannot_change_ladder. Needs fault injection or internals the gateway does not expose."
@@ -3184,7 +3184,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario An unknown ranking model in an attachment is ignored in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario An unknown ranking model in an attachment is ignored in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_unknown_ranking_model_ignored. Needs fault injection or internals the gateway does not expose."
@@ -3197,7 +3197,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario Seeding does not overwrite an enabled flag in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario Seeding does not overwrite an enabled flag in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_seed_flipt_flags.py::test_existing_flag_untouched. Needs fault injection or internals the gateway does not expose."
@@ -3210,7 +3210,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario The ladder floor reports the popular tier in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario The ladder floor reports the popular tier in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_floor_reports_popular_tier. Needs fault injection or internals the gateway does not expose."
@@ -3223,7 +3223,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario A trained ranker is named only when it ran in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario A trained ranker is named only when it ran in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_untrained_gbdt_reports_fixed_weights. Needs fault injection or internals the gateway does not expose."
@@ -3236,7 +3236,7 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "Scenario An unexpected failure reports the serving-fallback tier in openspec/changes/recs-experiment-arms/specs/recs-experiment-arms/spec.md"
+      - "Scenario An unexpected failure reports the serving-fallback tier in openspec/specs/recs-experiment-arms/spec.md"
     tags: [recommendations, ai]
     status: not-testable
     notes: "VERIFIED BY test_unexpected_failure_reports_fallback_tier. Needs fault injection or internals the gateway does not expose."
