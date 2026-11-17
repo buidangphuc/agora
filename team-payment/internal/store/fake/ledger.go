@@ -76,11 +76,21 @@ func (r *InMemoryLedgerRepository) heldCreditsLocked(sellerID string, h store.Ho
 		}
 		net := c.Amount
 		for _, d := range r.entries {
-			if c.ReferenceID == "" || d.Type != store.LedgerTypeRefundDeduction || r.refunds == nil {
+			if c.ReferenceID == "" {
 				continue
 			}
-			if pid, ok := r.refunds.paymentOf(d.ReferenceID); ok && pid == c.ReferenceID {
-				net += d.Amount
+			switch d.Type {
+			case store.LedgerTypeRefundDeduction, store.LedgerTypeCommissionReversal:
+				if r.refunds == nil {
+					continue
+				}
+				if pid, ok := r.refunds.paymentOf(d.ReferenceID); ok && pid == c.ReferenceID {
+					net += d.Amount
+				}
+			case store.LedgerTypeCommission:
+				if d.ReferenceID == c.ReferenceID {
+					net += d.Amount
+				}
 			}
 		}
 		out = append(out, store.HeldCredit{CreatedAt: c.CreatedAt, Net: net})
@@ -106,6 +116,35 @@ func (r *InMemoryLedgerRepository) AppendDebit(_ context.Context, e store.Ledger
 		return store.LedgerEntry{}, err
 	}
 	return r.appendLocked(e), nil
+}
+
+// AppendDebitOnce mirrors the Postgres version under one write lock.
+func (r *InMemoryLedgerRepository) AppendDebitOnce(_ context.Context, e store.LedgerEntry, hold store.Holdback) (store.LedgerEntry, bool, error) {
+	if e.Amount >= 0 {
+		return store.LedgerEntry{}, false, store.ErrInvalidAmount
+	}
+	if e.ReferenceID == "" {
+		return store.LedgerEntry{}, false, store.ErrReferenceRequired
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if existing, ok := r.byReferenceLocked(e.Type, e.ReferenceID); ok {
+		if existing.Amount != e.Amount || existing.SellerID != e.SellerID {
+			return store.LedgerEntry{}, false, store.ErrFeeReferenceConflict
+		}
+		return existing, false, nil
+	}
+	var balance int64
+	for _, x := range r.entries {
+		if x.SellerID == e.SellerID {
+			balance += x.Amount
+		}
+	}
+	if err := store.CheckWithdrawable(balance, -e.Amount, r.heldCreditsLocked(e.SellerID, hold), hold); err != nil {
+		return store.LedgerEntry{}, false, err
+	}
+	return r.appendLocked(e), true, nil
 }
 
 func (r *InMemoryLedgerRepository) Balance(_ context.Context, sellerID string) (int64, error) {

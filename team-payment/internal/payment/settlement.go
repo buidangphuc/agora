@@ -13,10 +13,32 @@ import (
 // the event's total (a mismatch is logged). ErrNotSettled when the order has no
 // PAID/REFUNDED transaction; store.ErrInvalidAmount for a non-positive amount.
 func (s *Service) CreditSettlement(ctx context.Context, orderID, sellerID string, eventTotal int64) error {
+	return s.credit(ctx, orderID, sellerID, eventTotal, store.Commissionable{})
+}
+
+// Breakdown is the price breakdown of an OrderPaidEvent, in integer VND.
+type Breakdown struct {
+	ItemsSubtotal, ShippingFee, ShopDiscount, PlatformDiscount int64
+}
+
+// CreditSettlementWithBreakdown is CreditSettlement for an event that carries the price
+// breakdown: the seller is also credited the platform voucher share and the commission is
+// booked on items subtotal minus shop discount at the configured rate.
+func (s *Service) CreditSettlementWithBreakdown(ctx context.Context, orderID, sellerID string, eventTotal int64, b Breakdown) error {
+	c := store.Commissionable{
+		OK:               true,
+		PlatformDiscount: b.PlatformDiscount,
+		Base:             max(b.ItemsSubtotal-b.ShopDiscount, 0),
+		RateBps:          int(s.commission),
+	}
+	return s.credit(ctx, orderID, sellerID, eventTotal, c)
+}
+
+func (s *Service) credit(ctx context.Context, orderID, sellerID string, eventTotal int64, c store.Commissionable) error {
 	if s.settle == nil {
 		return ErrSettlementNotConfigured
 	}
-	res, err := s.settle.CreditSettlement(ctx, orderID, sellerID)
+	res, err := s.settle.CreditSettlement(ctx, orderID, sellerID, c)
 	if err != nil {
 		return err
 	}
@@ -99,4 +121,13 @@ func (s *Service) VoidCancelledOrder(ctx context.Context, orderID string) error 
 		return nil
 	}
 	return s.RefundCancelledOrder(ctx, orderID)
+}
+
+// GetOrderSettlement reads the settlement breakdown of an order without writing.
+// ErrNotSettled when the order has no settled payment or no credit yet.
+func (s *Service) GetOrderSettlement(ctx context.Context, orderID string) (store.OrderSettlementView, error) {
+	if s.settle == nil {
+		return store.OrderSettlementView{}, ErrSettlementNotConfigured
+	}
+	return s.settle.OrderSettlement(ctx, orderID)
 }

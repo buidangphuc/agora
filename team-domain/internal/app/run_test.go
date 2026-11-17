@@ -3,6 +3,7 @@ package app_test
 import (
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -21,9 +22,34 @@ import (
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-domain/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
+	promotionv1 "github.com/buidangphuc/team-domain/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-domain/internal/app"
 	"github.com/buidangphuc/team-domain/internal/store"
 )
+
+type fakeSubscriptions struct {
+	promotionv1.UnimplementedSubscriptionServiceServer
+}
+
+func (fakeSubscriptions) GetEntitlements(context.Context, *promotionv1.GetEntitlementsRequest) (*promotionv1.GetEntitlementsResponse, error) {
+	return &promotionv1.GetEntitlementsResponse{
+		Plan:   promotionv1.PlanTier_PLAN_TIER_FREE,
+		Limits: map[string]string{"max_listings": "-1", "featured_listings": "-1"},
+	}, nil
+}
+
+func fakePromotion(t *testing.T) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	srv := grpc.NewServer()
+	promotionv1.RegisterSubscriptionServiceServer(srv, fakeSubscriptions{})
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+	return lis.Addr().String()
+}
 
 func createDraft(ctx context.Context, r *running, seller string) (*listingv1.Listing, error) {
 	resp, err := listingv1.NewListingServiceClient(r.conn).CreateListing(asSeller(ctx, seller),
@@ -60,6 +86,7 @@ func TestRunRelaysOutbox(t *testing.T) {
 	url := migratedURL(t)
 	brokers := testkit.Redpanda(t)
 	s := domainSettings(testkit.FreePort(t), url, brokers)
+	s.Upstream.PromotionAddr = fakePromotion(t)
 	r := start(t, s)
 	waitServing(t, r)
 
@@ -193,7 +220,9 @@ func TestReadinessIgnoresKafkaOutage(t *testing.T) {
 	// scenario: Domain SDK: A Kafka outage does not fail readiness
 	url := migratedURL(t)
 	pool := openPool(t, url)
-	r := start(t, domainSettings(testkit.FreePort(t), url, deadBroker))
+	ks := domainSettings(testkit.FreePort(t), url, deadBroker)
+	ks.Upstream.PromotionAddr = fakePromotion(t)
+	r := start(t, ks)
 	waitServing(t, r)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
@@ -282,6 +311,7 @@ func TestShutdownRelaysInFlightWrite(t *testing.T) {
 	pool := openPool(t, url)
 	brokers := testkit.Redpanda(t)
 	s := domainSettings(testkit.FreePort(t), url, brokers)
+	s.Upstream.PromotionAddr = fakePromotion(t)
 	s.DrainDelay = time.Second
 	s.ShutdownGrace = 10 * time.Second
 	s.Outbox.PollInterval = 30 * time.Second

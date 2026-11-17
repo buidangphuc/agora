@@ -609,6 +609,15 @@ message OrderPaidEvent {
   google.protobuf.Timestamp paid_at = 6;
   string seller_id = 7;
   google.protobuf.Timestamp ship_by = 8;
+  // items_subtotal is the sum of line prices before shipping and discounts, in integer VND.
+  // Absent (unset) when the event was published without a breakdown; absent is not zero.
+  optional int64 items_subtotal = 9;
+  // shipping_fee is the shipping charged to the buyer, in integer VND. Absent when published without a breakdown.
+  optional int64 shipping_fee = 10;
+  // shop_discount_amount is the seller-funded voucher share, in integer VND. Absent when published without a breakdown; an explicit 0 means no discount.
+  optional int64 shop_discount_amount = 11;
+  // platform_discount_amount is the platform voucher share, in integer VND. Absent when published without a breakdown; an explicit 0 means no discount.
+  optional int64 platform_discount_amount = 12;
 }
 
 // ReturnRefunded is emitted (via the outbox, to order.events) in the same transaction

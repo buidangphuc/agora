@@ -457,7 +457,14 @@ func toConnectErr(err error) error {
 	default: // Internal, Unknown and any future code
 		return sanitized(connect.CodeInternal, msgInternalError, err)
 	}
-	return connect.NewError(code, errors.New(st.Message()))
+	ce := connect.NewError(code, errors.New(st.Message()))
+	for _, d := range st.Details() {
+		if info, ok := d.(*errdetails.ErrorInfo); ok {
+			addErrorInfo(ce, info.GetDomain(), info.GetReason())
+			break
+		}
+	}
+	return ce
 }
 
 func addErrorInfo(err error, domain, reason string) {

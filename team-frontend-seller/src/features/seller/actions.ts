@@ -1,5 +1,6 @@
 "use server";
 
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
 import { ListingStatus } from "@/generated/platform/listing/v1/listing_pb.js";
@@ -15,7 +16,6 @@ import {
 } from "@/lib/gateway/listings";
 import { type ViewOrderReturn, updateReturnStatus } from "@/lib/gateway/orders";
 import { requestWalletPayout } from "@/lib/gateway/payment";
-import { Code, ConnectError } from "@connectrpc/connect";
 
 import {
   DiscountType,
@@ -25,10 +25,13 @@ import {
   type CreateCampaignInput,
   type ViewAdCampaign,
   cancelMyCampaign,
+  cancelSubscription,
   createAdCampaign,
   createCampaign,
   createVoucher,
   deactivateMyShopVoucher,
+  pauseAdCampaign,
+  resumeAdCampaign,
   subscribe,
 } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
@@ -120,8 +123,25 @@ export async function refundReturnAction(
 // ── Plans ───────────────────────────────────────────────────────────────────
 
 export async function subscribeAction(planId: string): Promise<ActionResult> {
-  const res = await subscribe(planId);
-  if (!res.ok) return fail(res.message || "Đăng ký gói thất bại.");
+  try {
+    const res = await subscribe(planId);
+    if (!res.ok) return fail(res.message || "Đăng ký gói thất bại.");
+  } catch (err: unknown) {
+    if (err instanceof ConnectError && err.code === Code.FailedPrecondition) {
+      return fail("Số dư có thể rút không đủ để trả gói này.");
+    }
+    return fail("Đăng ký gói thất bại.");
+  }
+  revalidatePath("/seller/plans");
+  return ok();
+}
+
+export async function cancelSubscriptionAction(): Promise<ActionResult> {
+  try {
+    await cancelSubscription();
+  } catch {
+    return fail("Hủy gia hạn thất bại.");
+  }
   revalidatePath("/seller/plans");
   return ok();
 }
@@ -156,6 +176,7 @@ export async function createAdCampaignAction(
   if (!(budget > 0) || !(bid > 0)) {
     return fail("Ngân sách và giá thầu phải lớn hơn 0.");
   }
+  if (bid < 500) return fail("Giá thầu tối thiểu là ₫500.");
   try {
     const campaign = await createAdCampaign(listingId, budget, bid);
     revalidatePath("/seller/ads");
@@ -163,6 +184,40 @@ export async function createAdCampaignAction(
   } catch (err: unknown) {
     return fail(messageOf(err, "Tạo chiến dịch thất bại."));
   }
+}
+
+async function moveCampaign(
+  campaignId: string,
+  op: (id: string) => Promise<ViewAdCampaign>,
+  failure: string,
+): Promise<ActionResult<{ campaign: ViewAdCampaign }>> {
+  try {
+    const campaign = await op(campaignId);
+    revalidatePath("/seller/ads");
+    return ok({ campaign });
+  } catch (err: unknown) {
+    if (err instanceof ConnectError) {
+      if (err.code === Code.NotFound) return fail("Không tìm thấy chiến dịch.");
+      if (err.code === Code.FailedPrecondition) {
+        return fail(
+          "Ngân sách còn lại thấp hơn giá thầu, không thể tiếp tục chạy.",
+        );
+      }
+    }
+    return fail(failure);
+  }
+}
+
+export async function pauseAdCampaignAction(
+  campaignId: string,
+): Promise<ActionResult<{ campaign: ViewAdCampaign }>> {
+  return moveCampaign(campaignId, pauseAdCampaign, "Tạm dừng thất bại.");
+}
+
+export async function resumeAdCampaignAction(
+  campaignId: string,
+): Promise<ActionResult<{ campaign: ViewAdCampaign }>> {
+  return moveCampaign(campaignId, resumeAdCampaign, "Tiếp tục thất bại.");
 }
 
 // ── Shop profile ────────────────────────────────────────────────────────────

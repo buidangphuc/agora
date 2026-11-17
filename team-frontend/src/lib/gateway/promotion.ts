@@ -295,3 +295,42 @@ export async function listSponsoredSlots(
     return [];
   }
 }
+
+export interface SponsoredSlotView {
+  listingId: string;
+  campaignId: string;
+  impressionToken: string;
+}
+
+export async function listSponsoredSlotSet(input: {
+  placement: string;
+  categoryId: string;
+  limit: number;
+}): Promise<SponsoredSlotView[]> {
+  try {
+    const res = await promotion().sponsored.listSponsoredSlots({
+      placement: input.placement,
+      categoryId: input.categoryId,
+      limit: input.limit,
+    });
+    return res.slots.map((s) => ({
+      listingId: s.listingId,
+      campaignId: s.campaignId,
+      impressionToken: s.impressionToken,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export interface AdClickResult {
+  listingId: string;
+  charged: boolean;
+}
+
+export async function recordAdClick(
+  impressionToken: string,
+): Promise<AdClickResult> {
+  const res = await promotion().sponsored.recordAdClick({ impressionToken });
+  return { listingId: res.listingId, charged: res.charged };
+}

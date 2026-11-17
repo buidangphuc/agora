@@ -24,6 +24,7 @@ features:
     tags: [tracking, analytics]
     status: automated
     covered_by: "tracking/consent_contract.feature::Old payload stays readable"
+
   - id: tracking-consent.missing-consent-denied
     title: Missing consent reads as denied
     persona: buyer
@@ -43,6 +44,7 @@ features:
     tags: [tracking, analytics]
     status: automated
     covered_by: "tracking/consent_contract.feature::Missing consent reads as denied"
+
   - id: tracking-consent.channel-funnel-non-admin-rejected
     title: Non-admin is rejected
     persona: buyer
@@ -65,6 +67,7 @@ features:
     tags: [tracking, analytics]
     status: automated
     covered_by: "tracking/consent_contract.feature::Non-admin is rejected"
+
   - id: tracking-consent.channel-funnel-all-sellers
     title: Empty seller means all sellers
     persona: admin
@@ -88,6 +91,7 @@ features:
     tags: [tracking, analytics]
     status: automated
     covered_by: "tracking/consent_contract.feature::Empty seller means all sellers"
+
   - id: tracking-consent.channel-funnel-invalid-range
     title: Invalid date range
     persona: admin
@@ -108,6 +112,7 @@ features:
     tags: [tracking, analytics]
     status: automated
     covered_by: "tracking/consent_contract.feature::Invalid date range"
+
   - id: tracking-consent.channel-funnel-empty-range
     title: Empty range returns no rows
     persona: admin
@@ -311,6 +316,7 @@ features:
 
   # Go platform SDK (change add-go-platform-sdk-core): library behaviour with no UI journey;
   # every entry is not-testable and names its unit test.
+
   - id: go-sdk.defaults-apply-and-env-overrides-them
     title: Defaults apply and env overrides them
     persona: guest
@@ -329,6 +335,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config
       TestLoadDefaultsAndOverrides.
+
   - id: go-sdk.unparseable-values-fail-with-the-variable-name
     title: Unparseable values fail with the variable name
     persona: guest
@@ -344,6 +351,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestLoadReportsBadVariable.
+
   - id: go-sdk.enabled-database-without-a-url-fails-validation
     title: Enabled database without a URL fails validation
     persona: guest
@@ -360,6 +368,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestLoadRunsValidate.
+
   - id: go-sdk.missing-and-stale-keys-are-both-reported
     title: Missing and stale keys are both reported
     persona: guest
@@ -375,6 +384,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestCheckEnvExampleReportsBothDirections.
+
   - id: go-sdk.context-identifiers-appear-in-log-records
     title: Context identifiers appear in log records
     persona: guest
@@ -391,6 +401,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/logx
       TestHandlerAddsContextIDs.
+
   - id: go-sdk.missing-identifiers-are-omitted-not-logged-empty
     title: Missing identifiers are omitted, not logged empty
     persona: guest
@@ -406,6 +417,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestHandlerOmitsMissingIDs.
+
   - id: go-sdk.disabled-telemetry-exports-nothing
     title: Disabled telemetry exports nothing
     persona: guest
@@ -422,6 +434,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/otelx
       TestInitDisabledIsNoop.
+
   - id: go-sdk.enabled-telemetry-names-the-service
     title: Enabled telemetry names the service
     persona: guest
@@ -437,6 +450,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestInitEnabledUsesServiceFallback.
+
   - id: go-sdk.anonymous-principal-is-unauthenticated
     title: Anonymous principal is unauthenticated
     persona: guest
@@ -453,6 +467,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auth
       TestRequirePrincipalRejectsAnonymous.
+
   - id: go-sdk.admin-is-not-a-wildcard
     title: Admin is not a wildcard
     persona: guest
@@ -468,6 +483,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestRequireScopesExactMatchNoAdminBypass.
+
   - id: go-sdk.stream-handlers-see-the-principal
     title: Stream handlers see the principal
     persona: guest
@@ -483,6 +499,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestStreamInterceptorInjectsPrincipal.
+
   - id: go-sdk.a-failing-checker-flips-status
     title: A failing checker flips status
     persona: guest
@@ -500,6 +517,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/healthx
       TestCheckerFailureFlipsStatus.
+
   - id: go-sdk.drain-wins-over-passing-checks
     title: Drain wins over passing checks
     persona: guest
@@ -515,6 +533,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestDrainIsSticky.
+
   - id: go-sdk.a-hanging-checker-counts-as-failed
     title: A hanging checker counts as failed
     persona: guest
@@ -530,6 +549,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestHangingCheckerFailsWithoutBlocking.
+
   - id: go-sdk.a-failing-component-stops-the-others
     title: A failing component stops the others
     persona: guest
@@ -546,6 +566,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/lifecycle
       TestFailingComponentCancelsOthers.
+
   - id: go-sdk.closers-run-in-reverse-order-after-drain
     title: Closers run in reverse order after drain
     persona: guest
@@ -561,6 +582,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestShutdownOrder.
+
   - id: go-sdk.shutdown-is-bounded
     title: Shutdown is bounded
     persona: guest
@@ -576,6 +598,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestShutdownDeadline.
+
   - id: go-sdk.stack-closes-in-reverse-order-exactly-once
     title: Stack closes in reverse order exactly once
     persona: guest
@@ -591,6 +614,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestStackClosesReverseOnce.
+
   - id: go-sdk.drain-delay-holds-components-after-the-hooks
     title: Drain delay holds components after the hooks
     persona: guest
@@ -606,6 +630,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestDrainDelayHoldsComponents.
+
   - id: go-sdk.unreachable-database-fails-at-open
     title: Unreachable database fails at open
     persona: guest
@@ -622,6 +647,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/pgx
       TestOpenFailsOnUnreachableDB.
+
   - id: go-sdk.withtx-rolls-back-on-error
     title: WithTx rolls back on error
     persona: guest
@@ -638,6 +664,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestWithTxRollsBackOnError
       (testkit Postgres).
+
   - id: go-sdk.up-is-idempotent
     title: Up is idempotent
     persona: guest
@@ -654,6 +681,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/migrate
       TestUpIsIdempotent.
+
   - id: go-sdk.invalid-sql-fails-the-migration
     title: Invalid SQL fails the migration
     persona: guest
@@ -669,6 +697,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestUpFailsOnInvalidSQL.
+
   - id: go-sdk.non-retryable-codes-are-not-retried
     title: Non-retryable codes are not retried
     persona: guest
@@ -685,6 +714,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/resilience
       TestRetrySkipsNonRetryableCodes.
+
   - id: go-sdk.open-breaker-rejects-calls
     title: Open breaker rejects calls
     persona: guest
@@ -700,6 +730,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestBreakerOpensAfterFailures.
+
   - id: go-sdk.a-panicking-handler-returns-internal-and-the-server-keeps-serving
     title: A panicking handler returns Internal and the server keeps serving
     persona: guest
@@ -716,6 +747,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx
       TestRecoveryKeepsServing.
+
   - id: go-sdk.request-id-round-trips
     title: Request id round-trips
     persona: guest
@@ -731,6 +763,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestRequestIDPropagates.
+
   - id: go-sdk.unknown-errors-do-not-leak
     title: Unknown errors do not leak
     persona: guest
@@ -746,6 +779,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestStatusHidesUnknownErrors.
+
   - id: go-sdk.existing-grpc-status-errors-pass-through
     title: Existing gRPC status errors pass through
     persona: guest
@@ -761,6 +795,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestStatusPassesThroughGRPCStatus.
+
   - id: go-sdk.health-drains-before-stop
     title: Health drains before stop
     persona: guest
@@ -777,6 +812,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/examples/hello/internal/app
       TestShutdownDrainsHealthFirst.
+
   - id: go-sdk.calls-without-a-principal-are-rejected
     title: Calls without a principal are rejected
     persona: guest
@@ -792,6 +828,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestGreetRejectsMissingPrincipal.
+
   - id: go-sdk.sync-vendors-the-tagged-tree
     title: Sync vendors the tagged tree
     persona: guest
@@ -808,6 +845,7 @@ features:
     - unit
     status: not-testable
     notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
+
   - id: go-sdk.unknown-tag-changes-nothing
     title: Unknown tag changes nothing
     persona: guest
@@ -823,6 +861,7 @@ features:
     - unit
     status: not-testable
     notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
+
   - id: model-registry.server-is-up-with-the-pinned-version
     title: Server is up with the pinned version
     persona: guest
@@ -841,6 +880,7 @@ features:
     status: automated
     covered_by: "model_registry/model_registry.feature::mlflow_server_up - Server is up with the pinned version"
     notes: 'add-model-registry: e2e scenario mlflow_server_up in model_registry/model_registry.feature.'
+
   - id: model-registry.a-run-and-a-registered-model-version-are-stored-with-artifacts-in-mini
     title: A run and a registered model version are stored with artifacts in MinIO
     persona: guest
@@ -860,6 +900,7 @@ features:
     status: automated
     covered_by: "model_registry/model_registry.feature::run_and_artifact_stored - A run and a registered model version are stored with artifacts in MinIO"
     notes: 'add-model-registry: e2e scenario run_and_artifact_stored in model_registry/model_registry.feature.'
+
   - id: model-registry.bucket-creation-is-idempotent
     title: Bucket creation is idempotent
     persona: guest
@@ -878,6 +919,7 @@ features:
     status: automated
     covered_by: "model_registry/model_registry.feature::bucket_init_idempotent - Bucket creation is idempotent"
     notes: 'add-model-registry: e2e scenario bucket_init_idempotent in model_registry/model_registry.feature.'
+
   - id: model-registry.unit-backend-store-is-not-the-shared-postgres
     title: Backend store is not the shared postgres
     persona: guest
@@ -896,6 +938,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by platform-core/packages/py-modelregistry/tests/test_infra_config.py::test_backend_store_is_dedicated.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-no-ingress-is-rendered
     title: No ingress is rendered
     persona: guest
@@ -914,6 +957,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by platform-gitops/tests/test_mlflow_manifests.py::test_no_ingress_clusterip_only.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-manifests-without-a-literal-secret
     title: Manifests without a literal secret
     persona: guest
@@ -932,6 +976,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by platform-gitops/tests/test_mlflow_manifests.py::test_credentials_from_vault_refs.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-argocd-application-points-at-the-manifests
     title: ArgoCD application points at the manifests
     persona: guest
@@ -949,6 +994,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by platform-gitops/tests/test_mlflow_manifests.py::test_argocd_app_source_path.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-supersession-is-visible-from-the-old-adrs
     title: Supersession is visible from the old ADRs
     persona: guest
@@ -967,6 +1013,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by platform-core/packages/py-modelregistry/tests/test_adr.py::test_supersession_lines.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-consumer-privacy-rule-is-recorded
     title: Consumer privacy rule is recorded
     persona: guest
@@ -985,6 +1032,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by tests/test_adr.py::test_privacy_rule_present. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-job-triggers-on-library-changes
     title: Job triggers on library changes
     persona: guest
@@ -1002,6 +1050,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by tests/test_ci_workflow.py::test_job_and_path_filter_present.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-a-failing-test-fails-the-job
     title: A failing test fails the job
     persona: guest
@@ -1019,6 +1068,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by tests/test_ci_workflow.py::test_job_runs_pytest_without_continue_on_error.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-single-writer-assumption-is-written-down
     title: Single-writer assumption is written down
     persona: guest
@@ -1037,6 +1087,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by tests/test_adr.py::test_single_writer_and_states_recorded. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-registry.unit-adr-without-the-state-model-fails-the-check
     title: ADR without the state model fails the check
     persona: guest
@@ -1054,6 +1105,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by tests/test_adr.py::test_adr_rejects_missing_sections. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-passing-candidate-is-promotable-and-no-alias-moves
     title: Passing candidate is promotable and no alias moves
     persona: guest
@@ -1073,6 +1125,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_pass_is_promotable_and_moves_no_alias.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-insufficient-improvement-is-rejected
     title: Insufficient improvement is rejected
     persona: guest
@@ -1091,6 +1144,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_insufficient_improvement_rejected. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-guard-violation-is-rejected
     title: Guard violation is rejected
     persona: guest
@@ -1109,6 +1163,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_guard_violation_rejected. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-thresholds-are-inclusive
     title: Thresholds are inclusive
     persona: guest
@@ -1127,6 +1182,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_thresholds_are_inclusive. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-floating-point-rounding-at-the-threshold-is-tolerated
     title: Floating-point rounding at the threshold is tolerated
     persona: guest
@@ -1145,6 +1201,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_threshold_tolerance_1e9. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-champion-metric-is-the-latest-value
     title: Champion metric is the latest value
     persona: guest
@@ -1162,6 +1219,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_champion_metric_uses_latest_value. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-run-artifact-and-lineage-are-attached-to-the-version
     title: Run, artifact and lineage are attached to the version
     persona: guest
@@ -1182,6 +1240,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_artifact_run_and_lineage_tags. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-decision-is-deterministic
     title: Decision is deterministic
     persona: guest
@@ -1200,6 +1259,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_decision_is_deterministic. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-protocol-mismatch-judges-floors-only
     title: Protocol mismatch judges floors only
     persona: guest
@@ -1219,6 +1279,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_protocol_mismatch_floors_only. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-protocol-mismatch-below-a-floor-is-rejected
     title: Protocol mismatch below a floor is rejected
     persona: guest
@@ -1236,6 +1297,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_protocol_mismatch_below_floor_rejected.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-matching-protocol-is-compared
     title: Matching protocol is compared
     persona: guest
@@ -1255,6 +1317,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_protocol_match_is_compared. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-champion-without-a-protocol-tag
     title: Champion without a protocol tag
     persona: guest
@@ -1273,6 +1336,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_champion_without_protocol_tag. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-candidate-missing-the-primary-metric
     title: Candidate missing the primary metric
     persona: guest
@@ -1291,6 +1355,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_missing_primary_rejected. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-candidate-metric-is-nan-or-infinite
     title: Candidate metric is NaN or infinite
     persona: guest
@@ -1308,6 +1373,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_non_finite_metrics_rejected. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-candidate-missing-a-floor-metric
     title: Candidate missing a floor metric
     persona: guest
@@ -1325,6 +1391,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_missing_floor_metric_rejected. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-guard-missing-on-the-champion-is-skipped-and-noted
     title: Guard missing on the champion is skipped and noted
     persona: guest
@@ -1343,6 +1410,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_guard_missing_on_champion_skipped. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-champion-primary-is-zero-or-negative
     title: Champion primary is zero or negative
     persona: guest
@@ -1362,6 +1430,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_champion_primary_not_positive. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-first-champion-via-floors
     title: First champion via floors
     persona: guest
@@ -1381,6 +1450,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_first_champion_meets_floors. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-candidate-below-a-floor-is-rejected-and-no-champion-is-set
     title: Candidate below a floor is rejected and no champion is set
     persona: guest
@@ -1399,6 +1469,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_first_candidate_below_floor_rejected.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-candidate-exactly-at-the-floor-passes
     title: Candidate exactly at the floor passes
     persona: guest
@@ -1416,6 +1487,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_evaluate.py::test_floor_is_inclusive. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-read-the-champion
     title: Read the champion
     persona: guest
@@ -1434,6 +1506,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_get_champion_returns_run_and_metrics. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-no-champion-returns-none-not-an-error
     title: No champion returns None, not an error
     persona: guest
@@ -1451,6 +1524,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_get_champion_none_without_champion. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-apply-after-evaluate-moves-the-aliases
     title: Apply after evaluate moves the aliases
     persona: guest
@@ -1470,6 +1544,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_apply_moves_champion_and_sets_previous.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-apply-is-refused-on-a-rejected-version
     title: Apply is refused on a rejected version
     persona: guest
@@ -1487,6 +1562,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_apply_refused_on_rejected. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-apply-is-refused-on-a-pending-version
     title: Apply is refused on a pending version
     persona: guest
@@ -1504,6 +1580,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_apply_refused_on_pending. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-crash-between-evaluate-and-apply-changes-nothing-served
     title: Crash between evaluate and apply changes nothing served
     persona: guest
@@ -1523,6 +1600,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_crash_between_evaluate_and_apply_leaves_aliases.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-mark-rejected-after-a-downstream-failure
     title: mark_rejected after a downstream failure
     persona: guest
@@ -1540,6 +1618,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_mark_rejected_touches_no_alias. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-register-rejected-records-a-structural-rejection
     title: register_rejected records a structural rejection
     persona: guest
@@ -1558,6 +1637,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_register_rejected_skips_policy. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-submit-is-evaluate-then-apply
     title: Submit is evaluate then apply
     persona: guest
@@ -1577,6 +1657,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_apply.py::test_submit_is_evaluate_then_apply. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.submit-against-a-real-mlflow-server
     title: Submit against a real MLflow server
     persona: guest
@@ -1596,6 +1677,7 @@ features:
     status: automated
     covered_by: "model_registry/model_registry.feature::gate_against_real_server - Submit against a real MLflow server"
     notes: 'add-model-registry: e2e scenario gate_against_real_server in model_registry/model_registry.feature.'
+
   - id: model-publish-gate.unit-unknown-model-has-no-policy
     title: Unknown model has no policy
     persona: guest
@@ -1613,6 +1695,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_policy.py::test_unknown_model_raises_before_any_write.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-malformed-policy-is-rejected
     title: Malformed policy is rejected
     persona: guest
@@ -1630,6 +1713,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_policy.py::test_malformed_entries_raise. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-resolution-order
     title: Resolution order
     persona: guest
@@ -1649,6 +1733,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_policy.py::test_resolution_order. Platform library / infra
       / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-shipped-policies-yaml-loads-and-holds-no-live-model
     title: Shipped policies.yaml loads and holds no live model
     persona: guest
@@ -1667,6 +1752,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_policy.py::test_shipped_file_loads. Platform library /
       infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-omitted-optional-keys-take-defaults
     title: Omitted optional keys take defaults
     persona: guest
@@ -1684,6 +1770,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_policy.py::test_defaults. Platform library / infra / docs
       behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-force-moves-the-alias-and-records-the-override
     title: Force moves the alias and records the override
     persona: guest
@@ -1704,6 +1791,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_force_promote_records_override. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-force-without-a-reason-is-refused
     title: Force without a reason is refused
     persona: guest
@@ -1721,6 +1809,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_force_without_reason_refused. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-promoting-an-unknown-version-fails
     title: Promoting an unknown version fails
     persona: guest
@@ -1738,6 +1827,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_unknown_version_exit_2. Platform library /
       infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-unforced-promote-that-fails-the-gate-exits-0-with-the-decision
     title: Unforced promote that fails the gate exits 0 with the decision
     persona: guest
@@ -1757,6 +1847,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_unforced_promote_rejected_exits_0_with_json.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-unforced-promote-that-passes-applies-it
     title: Unforced promote that passes applies it
     persona: guest
@@ -1775,6 +1866,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_unforced_promote_passes_applies. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-rollback-swaps-the-aliases
     title: Rollback swaps the aliases
     persona: guest
@@ -1793,6 +1885,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_rollback_swaps_champion_and_previous. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-a-second-rollback-toggles-back
     title: A second rollback toggles back
     persona: guest
@@ -1810,6 +1903,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_promote.py::test_double_rollback_toggles. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-rollback-without-a-previous-is-refused
     title: Rollback without a previous is refused
     persona: guest
@@ -1827,6 +1921,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_rollback_without_previous_exit_2. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-seed-creates-the-first-champion
     title: Seed creates the first champion
     persona: guest
@@ -1846,6 +1941,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_seed.py::test_seed_creates_first_champion. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-seed-without-an-artifact-is-allowed
     title: Seed without an artifact is allowed
     persona: guest
@@ -1863,6 +1959,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_seed.py::test_seed_metrics_only. Platform library / infra
       / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-seed-refused-when-versions-exist
     title: Seed refused when versions exist
     persona: guest
@@ -1880,6 +1977,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_seed.py::test_seed_refused_when_versions_exist. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-the-next-evaluate-compares-against-the-seeded-champion
     title: The next evaluate compares against the seeded champion
     persona: guest
@@ -1899,6 +1997,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_seed.py::test_evaluate_after_seed_compares. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-unreachable-registry-raises-and-decides-nothing
     title: Unreachable registry raises and decides nothing
     persona: guest
@@ -1916,6 +2015,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_failclosed.py::test_evaluate_raises_when_unreachable. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-cli-exits-1-when-the-registry-is-down
     title: CLI exits 1 when the registry is down
     persona: guest
@@ -1933,6 +2033,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_failclosed.py::test_cli_exit_1_when_unreachable. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-a-hanging-registry-times-out-within-the-deadline
     title: A hanging registry times out within the deadline
     persona: guest
@@ -1950,6 +2051,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_failclosed.py::test_hanging_server_times_out_within_deadline.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-first-call-answers-then-the-registry-stalls
     title: First call answers, then the registry stalls
     persona: guest
@@ -1968,6 +2070,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_failclosed.py::test_total_deadline_across_calls. Platform
       library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-timeout-is-capped-at-10-s-per-call
     title: Timeout is capped at 10 s per call
     persona: guest
@@ -1985,6 +2088,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_failclosed.py::test_timeout_is_capped. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-reachability-check
     title: Reachability check
     persona: guest
@@ -2002,6 +2106,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_failclosed.py::test_reachability_check. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-outage-mid-evaluate-leaves-no-champion-change-and-no-promoted-version
     title: Outage mid-evaluate leaves no champion change and no promoted version
     persona: guest
@@ -2021,6 +2126,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_failclosed.py::test_outage_mid_evaluate_keeps_champion.
       Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-policyerror-exits-2
     title: PolicyError exits 2
     persona: guest
@@ -2038,6 +2144,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_policy_error_exit_2. Platform library / infra
       / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-unknown-subcommand-or-missing-argument-exits-2
     title: Unknown subcommand or missing argument exits 2
     persona: guest
@@ -2055,6 +2162,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_usage_error_exit_2. Platform library / infra
       / docs behaviour with no user journey; not producible end to end.'
+
   - id: model-publish-gate.unit-unexpected-exception-exits-1
     title: Unexpected exception exits 1
     persona: guest
@@ -2072,6 +2180,7 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_unexpected_exception_exit_1. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+
   - id: identity-auth-contract.fields-exist-with-the-agreed-numbers
     title: "Fields exist with the agreed numbers"
     persona: guest
@@ -2086,6 +2195,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `platform-core/packages/proto` descriptor check run by `make check`/`buf build` plus a generated-code field-number assertion in the generated-code task (tasks 2.1)"
+
   - id: identity-auth-contract.change-is-backward-compatible
     title: "Change is backward compatible"
     persona: guest
@@ -2100,6 +2210,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking`"
+
   - id: identity-auth-contract.boundary-sessions-disabled
     title: "Boundary, sessions disabled"
     persona: guest
@@ -2114,6 +2225,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `platform-core/packages/proto/platform/identity/v1/authresult_roundtrip_test.go` (tasks 2.1)"
+
   - id: identity-auth-contract.service-and-messages-exist-in-every-generated-language
     title: "Service and messages exist in every generated language"
     persona: guest
@@ -2128,6 +2240,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+
   - id: identity-auth-contract.lint-passes
     title: "Lint passes"
     persona: guest
@@ -2142,6 +2255,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto`"
+
   - id: identity-auth-contract.error-contract-is-documented
     title: "Error contract is documented"
     persona: guest
@@ -2156,6 +2270,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: proto comment check in `make -C platform-core check` review gate (tasks 1.3); behaviour is verified in identity-session-refresh"
+
   - id: identity-auth-contract.existing-rpcs-are-untouched
     title: "Existing RPCs are untouched"
     persona: guest
@@ -2170,6 +2285,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` plus diff review"
+
   - id: identity-auth-contract.empty-or-malformed-token-is-documented-as-unauthenticated
     title: "Empty or malformed token is documented as Unauthenticated"
     persona: guest
@@ -2184,6 +2300,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: proto comment review (tasks 1.3); behaviour verified in identity-session-refresh"
+
   - id: identity-auth-contract.grace-replay-semantics-are-documented
     title: "Grace replay semantics are documented"
     persona: guest
@@ -2198,6 +2315,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: proto comment review (tasks 1.3); behaviour verified in identity-session-refresh"
+
   - id: engagement-review-contract.service-and-messages-exist-in-every-generated-language
     title: "Service and messages exist in every generated language"
     persona: guest
@@ -2212,6 +2330,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+
   - id: engagement-review-contract.request-field-numbers-are-fixed
     title: "Request field numbers are fixed"
     persona: guest
@@ -2226,6 +2345,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor/round-trip test `platform-core/packages/proto/platform/engagement/v1/hidereview_roundtrip_test.go` (tasks 2.1)"
+
   - id: engagement-review-contract.round-trip-of-a-boundary-reason
     title: "Round-trip of a boundary reason"
     persona: guest
@@ -2240,6 +2360,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `hidereview_roundtrip_test.go` (tasks 2.1)"
+
   - id: engagement-review-contract.error-and-authz-contract-is-documented
     title: "Error and authz contract is documented"
     persona: guest
@@ -2254,6 +2375,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: error-code text assertion in `hidereview_roundtrip_test.go` (tasks 2.1) plus comment review (tasks 1.2); behaviour is verified in engagement-review-integrity"
+
   - id: engagement-review-contract.anonymous-and-non-admin-callers-are-documented-with-distinct-codes
     title: "Anonymous and non-admin callers are documented with distinct codes"
     persona: guest
@@ -2268,6 +2390,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: descriptor assertion in `hidereview_roundtrip_test.go` that `HideReviewRequest` has exactly the fields `review_id` and `reason`, error-code text assertion in `hidereview_roundtrip_test.go` (tasks 2.1) plus comment review (tasks 1.2); enforcement is verified in engagement-review-integrity"
+
   - id: engagement-review-contract.change-is-backward-compatible
     title: "Change is backward compatible"
     persona: guest
@@ -2282,6 +2405,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking`"
+
   - id: engagement-review-contract.existing-messages-keep-their-wire-shape
     title: "Existing messages keep their wire shape"
     persona: guest
@@ -2296,6 +2420,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor assertion in `hidereview_roundtrip_test.go` (tasks 2.1) plus `make -C platform-core breaking`"
+
   - id: engagement-review-contract.wire-breaking-edit-is-rejected
     title: "Wire-breaking edit is rejected"
     persona: guest
@@ -2310,6 +2435,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` plus the descriptor assertion in `hidereview_roundtrip_test.go` (tasks 2.1, 1.4)"
+
   - id: engagement-review-contract.rule-comments-are-present
     title: "Rule comments are present"
     persona: guest
@@ -2324,6 +2450,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: four-string comment assertion (reads the proto file and checks each rule text) in `hidereview_roundtrip_test.go` (tasks 2.1)"
+
   - id: engagement-review-contract.copies-match-the-source
     title: "Copies match the source"
     persona: guest
@@ -2338,6 +2465,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `cmp` of the three copies against the source (tasks 2.3)"
+
   - id: engagement-review-contract.consumer-copies-lint
     title: "Consumer copies lint"
     persona: guest
@@ -2352,6 +2480,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
+
   - id: engagement-review-contract.drifted-copy-is-rejected
     title: "Drifted copy is rejected"
     persona: guest
@@ -2366,6 +2495,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `cmp` of the three copies against the source (tasks 2.3)"
+
   - id: audit-query-contract.new-filter-fields-exist-with-fixed-numbers
     title: "New filter fields exist with fixed numbers"
     persona: guest
@@ -2380,6 +2510,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/audit/v1/auditquery_roundtrip_test.go` (tasks 2.1)"
+
   - id: audit-query-contract.filters-in-every-generated-language
     title: "Filters in every generated language"
     persona: guest
@@ -2394,6 +2525,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+
   - id: audit-query-contract.round-trip-of-equal-time-bounds
     title: "Round-trip of equal time bounds"
     persona: guest
@@ -2408,6 +2540,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `auditquery_roundtrip_test.go` (tasks 2.1)"
+
   - id: audit-query-contract.round-trip-of-empty-action-and-long-target-id
     title: "Round-trip of empty action and long target id"
     persona: guest
@@ -2422,6 +2555,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `auditquery_roundtrip_test.go` (tasks 2.1)"
+
   - id: audit-query-contract.untouched-request-leaves-new-fields-unset
     title: "Untouched request leaves new fields unset"
     persona: guest
@@ -2436,6 +2570,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `auditquery_roundtrip_test.go` (tasks 2.1)"
+
   - id: audit-query-contract.old-client-request-still-parses
     title: "Old client request still parses"
     persona: guest
@@ -2450,6 +2585,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `auditquery_roundtrip_test.go` (tasks 2.1) plus `make -C platform-core breaking`"
+
   - id: audit-query-contract.filter-semantics-are-documented
     title: "Filter semantics are documented"
     persona: guest
@@ -2464,6 +2600,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `auditquery_roundtrip_test.go` (tasks 2.1) plus comment review (tasks 1.2)"
+
   - id: audit-query-contract.change-is-backward-compatible
     title: "Change is backward compatible"
     persona: guest
@@ -2478,6 +2615,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking`"
+
   - id: audit-query-contract.wire-breaking-edit-is-rejected
     title: "Wire-breaking edit is rejected"
     persona: guest
@@ -2492,6 +2630,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` plus the descriptor assertions in `auditquery_roundtrip_test.go` (tasks 2.1, 1.4)"
+
   - id: audit-query-contract.lint-passes
     title: "Lint passes"
     persona: guest
@@ -2506,6 +2645,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto`"
+
   - id: audit-query-contract.non-admin-access-is-documented-as-denied
     title: "Non-admin access is documented as denied"
     persona: guest
@@ -2520,6 +2660,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `auditquery_roundtrip_test.go` (tasks 2.1); enforcement is verified in audit-query-filters"
+
   - id: audit-query-contract.naming-rule-and-catalogue-are-present
     title: "Naming rule and catalogue are present"
     persona: guest
@@ -2534,6 +2675,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: 14-string comment assertion in `auditquery_roundtrip_test.go` (tasks 2.1)"
+
   - id: audit-query-contract.write-wire-is-unchanged
     title: "Write wire is unchanged"
     persona: guest
@@ -2548,6 +2690,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: descriptor assertion in `auditquery_roundtrip_test.go` (tasks 2.1) plus `make -C platform-core breaking`"
+
   - id: audit-query-contract.action-missing-from-the-catalogue-is-caught
     title: "Action missing from the catalogue is caught"
     persona: guest
@@ -2562,6 +2705,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: 14-string comment assertion in `auditquery_roundtrip_test.go` (tasks 2.1)"
+
   - id: audit-query-contract.uniform-admin-path-wording-and-non-admin-exclusion
     title: "Uniform admin-path wording and non-admin exclusion"
     persona: guest
@@ -2576,6 +2720,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `auditquery_roundtrip_test.go` (tasks 2.1)"
+
   - id: audit-query-contract.copies-match-the-source
     title: "Copies match the source"
     persona: guest
@@ -2590,6 +2735,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `cmp` of the ten copies against the source (tasks 2.3)"
+
   - id: audit-query-contract.drifted-or-missing-copy-is-rejected
     title: "Drifted or missing copy is rejected"
     persona: guest
@@ -2604,6 +2750,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `cmp` of the ten copies against the source (tasks 2.3)"
+
   - id: audit-query-contract.consumer-copies-lint-where-a-buf-module-exists
     title: "Consumer copies lint where a buf module exists"
     persona: guest
@@ -2618,6 +2765,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory with a `buf.yaml` (tasks 2.3)"
+
   - id: audit-query-contract.six-producers-have-the-audit-address
     title: "Six producers have the audit address"
     persona: guest
@@ -2632,6 +2780,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: rendered-config assertion script run in tasks 3.1 (reads only the root `docker-compose.services.yaml`)"
+
   - id: audit-query-contract.compose-file-stays-valid
     title: "Compose file stays valid"
     persona: guest
@@ -2646,6 +2795,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `docker compose config -q` (tasks 3.1)"
+
   - id: audit-query-contract.wrong-or-missing-address-is-detected
     title: "Wrong or missing address is detected"
     persona: guest
@@ -2660,6 +2810,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: rendered-config assertion script run in tasks 3.1"
+
   - id: audit-query-contract.agents-md-carries-the-rule
     title: "AGENTS.md carries the rule"
     persona: guest
@@ -2674,6 +2825,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: grep assertions on `AGENTS.md` (tasks 3.2)"
+
   - id: audit-query-contract.reviewer-flags-an-unaudited-admin-mutation
     title: "Reviewer flags an unaudited admin mutation"
     persona: guest
@@ -2688,6 +2840,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: grep assertions on `.claude/agents/auth-scope-reviewer.md` for the check text and the fail-closed wording (tasks 3.3)"
+
   - id: audit-query-contract.owner-path-is-not-flagged
     title: "Owner path is not flagged"
     persona: guest
@@ -2702,6 +2855,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: grep assertion on `.claude/agents/auth-scope-reviewer.md` for the owner-path exemption (tasks 3.3)"
+
   - id: loop-events-contract.loop-event-types-exist-with-fixed-numbers
     title: "Loop events contract: Loop event types exist with fixed numbers"
     persona: guest
@@ -2716,6 +2870,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/analytics/v1/loopevents_compat_test.go` (tasks 2.1)"
+
   - id: loop-events-contract.existing-values-keep-their-numbers
     title: "Loop events contract: Existing values keep their numbers"
     persona: guest
@@ -2730,6 +2885,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `loopevents_compat_test.go` (tasks 2.1)"
+
   - id: loop-events-contract.each-new-type-round-trips
     title: "Loop events contract: Each new type round-trips"
     persona: guest
@@ -2744,6 +2900,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `loopevents_compat_test.go` (tasks 2.1)"
+
   - id: loop-events-contract.event-with-maximum-value-round-trips
     title: "Loop events contract: Event with maximum value round-trips"
     persona: guest
@@ -2758,6 +2915,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `loopevents_compat_test.go` (tasks 2.1)"
+
   - id: loop-events-contract.old-event-bytes-still-parse
     title: "Loop events contract: Old event bytes still parse"
     persona: guest
@@ -2772,6 +2930,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `loopevents_compat_test.go` (tasks 2.1) plus `make -C platform-core breaking`"
+
   - id: loop-events-contract.property-keys-are-documented
     title: "Loop events contract: Property keys are documented"
     persona: guest
@@ -2786,6 +2945,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `loopevents_compat_test.go` (tasks 2.1) plus comment review (tasks 1.1)"
+
   - id: loop-events-contract.ai-event-forbids-free-text
     title: "Loop events contract: AI event forbids free text"
     persona: guest
@@ -2800,6 +2960,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `loopevents_compat_test.go` (tasks 2.1)"
+
   - id: loop-events-contract.missing-key-comment-is-caught
     title: "Loop events contract: Missing key comment is caught"
     persona: guest
@@ -2814,6 +2975,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `loopevents_compat_test.go` (tasks 2.1)"
+
   - id: loop-events-contract.new-types-in-every-generated-language
     title: "Loop events contract: New types in every generated language"
     persona: guest
@@ -2828,6 +2990,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+
   - id: loop-events-contract.change-is-backward-compatible
     title: "Loop events contract: Change is backward compatible"
     persona: guest
@@ -2842,6 +3005,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` (tasks 1.3)"
+
   - id: loop-events-contract.wire-breaking-edit-is-rejected
     title: "Loop events contract: Wire-breaking edit is rejected"
     persona: guest
@@ -2856,6 +3020,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` run on a mutated copy plus `loopevents_compat_test.go` (tasks 1.3, 2.1)"
+
   - id: loop-events-contract.lint-passes
     title: "Loop events contract: Lint passes"
     persona: guest
@@ -2870,6 +3035,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto` (tasks 1.3)"
+
   - id: loop-events-contract.copies-match-the-source
     title: "Loop events contract: Copies match the source"
     persona: guest
@@ -2884,6 +3050,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the three copies against the source (tasks 2.3)"
+
   - id: loop-events-contract.drifted-or-missing-copy-is-rejected
     title: "Loop events contract: Drifted or missing copy is rejected"
     persona: guest
@@ -2898,6 +3065,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the three copies against the source (tasks 2.3)"
+
   - id: loop-events-contract.consumer-copies-lint
     title: "Loop events contract: Consumer copies lint"
     persona: guest
@@ -2912,6 +3080,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
+
   - id: flash-stock-contract.hold-rpcs-exist-on-flashsaleservice
     title: "Flash stock contract: Hold RPCs exist on FlashSaleService"
     persona: guest
@@ -2926,6 +3095,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/promotion/v1/flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.message-fields-have-fixed-names-and-numbers
     title: "Flash stock contract: Message fields have fixed names and numbers"
     persona: guest
@@ -2940,6 +3110,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.existing-messages-are-untouched
     title: "Flash stock contract: Existing messages are untouched"
     persona: guest
@@ -2954,6 +3125,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.hold-messages-round-trip
     title: "Flash stock contract: Hold messages round-trip"
     persona: guest
@@ -2968,6 +3140,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.maximum-quantity-and-price-round-trip
     title: "Flash stock contract: Maximum quantity and price round-trip"
     persona: guest
@@ -2982,6 +3155,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.old-readers-skip-the-new-request-fields
     title: "Flash stock contract: Old readers skip the new request fields"
     persona: guest
@@ -2996,6 +3170,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.service-only-is-documented
     title: "Flash stock contract: Service-only is documented"
     persona: guest
@@ -3010,6 +3185,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.missing-service-only-note-is-caught
     title: "Flash stock contract: Missing service-only note is caught"
     persona: guest
@@ -3024,6 +3200,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.non-service-callers-are-documented-as-denied
     title: "Flash stock contract: Non-service callers are documented as denied"
     persona: guest
@@ -3038,6 +3215,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1); enforcement is tested end to end in promotion-flash-stock-hold"
+
   - id: flash-stock-contract.hold-lifecycle-is-documented
     title: "Flash stock contract: Hold lifecycle is documented"
     persona: guest
@@ -3052,6 +3230,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.reserve-replay-after-release
     title: "Flash stock contract: Reserve replay after release"
     persona: guest
@@ -3066,6 +3245,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.reasons-are-documented-as-a-closed-set
     title: "Flash stock contract: Reasons are documented as a closed set"
     persona: guest
@@ -3080,6 +3260,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.invalid-input-is-not-a-reason
     title: "Flash stock contract: Invalid input is not a reason"
     persona: guest
@@ -3094,6 +3275,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.reservation-id-shape-is-documented
     title: "Flash stock contract: Reservation id shape is documented"
     persona: guest
@@ -3108,6 +3290,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.remaining-meter-definition-is-documented
     title: "Flash stock contract: Remaining meter definition is documented"
     persona: guest
@@ -3122,6 +3305,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+
   - id: flash-stock-contract.change-is-backward-compatible
     title: "Flash stock contract: Change is backward compatible"
     persona: guest
@@ -3136,6 +3320,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` (tasks 1.2)"
+
   - id: flash-stock-contract.lint-passes
     title: "Flash stock contract: Lint passes"
     persona: guest
@@ -3150,6 +3335,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto` (tasks 1.2)"
+
   - id: flash-stock-contract.wire-breaking-edit-is-rejected
     title: "Flash stock contract: Wire-breaking edit is rejected"
     persona: guest
@@ -3164,6 +3350,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` run on a mutated copy plus `flashstock_compat_test.go` (tasks 1.2, 2.1)"
+
   - id: flash-stock-contract.new-rpcs-in-every-generated-language
     title: "Flash stock contract: New RPCs in every generated language"
     persona: guest
@@ -3178,6 +3365,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+
   - id: flash-stock-contract.copies-match-the-source
     title: "Flash stock contract: Copies match the source"
     persona: guest
@@ -3192,6 +3380,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the five copies against the source (tasks 2.3)"
+
   - id: flash-stock-contract.drifted-or-missing-copy-is-rejected
     title: "Flash stock contract: Drifted or missing copy is rejected"
     persona: guest
@@ -3206,6 +3395,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the five copies against the source (tasks 2.3)"
+
   - id: flash-stock-contract.consumer-copies-lint
     title: "Flash stock contract: Consumer copies lint"
     persona: guest
@@ -3987,6 +4177,7 @@ features:
     tags: [q6-trust-contract, unit]
     status: not-testable
     notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: `buf lint` run per consumer, recorded in tasks 3.2"
+
   - id: order-lifecycle-contract.confirmreceipt-rpc-exists
     title: "Order lifecycle contract: ConfirmReceipt RPC exists"
     persona: guest
@@ -4001,6 +4192,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/order/v1/lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.enums-have-fixed-names-and-numbers
     title: "Order lifecycle contract: Enums have fixed names and numbers"
     persona: guest
@@ -4015,6 +4207,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.cancelorderrequest-carries-a-reason-code
     title: "Order lifecycle contract: CancelOrderRequest carries a reason code"
     persona: guest
@@ -4029,6 +4222,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.confirmreceipt-authz-and-preconditions-are-documented
     title: "Order lifecycle contract: ConfirmReceipt authz and preconditions are documented"
     persona: guest
@@ -4043,6 +4237,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.system-only-cancel-reasons-are-documented-as-refused-for-buyers
     title: "Order lifecycle contract: System-only cancel reasons are documented as refused for buyers"
     persona: guest
@@ -4057,6 +4252,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.missing-authz-note-is-caught
     title: "Order lifecycle contract: Missing authz note is caught"
     persona: guest
@@ -4071,6 +4267,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.order-lifecycle-fields-have-fixed-numbers
     title: "Order lifecycle contract: Order lifecycle fields have fixed numbers"
     persona: guest
@@ -4085,6 +4282,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.return-and-event-additions-are-fixed
     title: "Order lifecycle contract: Return and event additions are fixed"
     persona: guest
@@ -4099,6 +4297,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.order-with-lifecycle-fields-round-trips
     title: "Order lifecycle contract: Order with lifecycle fields round-trips"
     persona: guest
@@ -4113,6 +4312,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.old-readers-skip-the-new-order-fields
     title: "Order lifecycle contract: Old readers skip the new Order fields"
     persona: guest
@@ -4127,6 +4327,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.unknown-cancel-reason-value-parses
     title: "Order lifecycle contract: Unknown cancel reason value parses"
     persona: guest
@@ -4141,6 +4342,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.derivation-rules-are-documented
     title: "Order lifecycle contract: Derivation rules are documented"
     persona: guest
@@ -4155,6 +4357,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.new-event-messages-have-fixed-fields
     title: "Order lifecycle contract: New event messages have fixed fields"
     persona: guest
@@ -4169,6 +4372,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.completed-event-round-trips
     title: "Order lifecycle contract: Completed event round-trips"
     persona: guest
@@ -4183,6 +4387,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.cod-placed-event-round-trips-without-a-deadline
     title: "Order lifecycle contract: COD placed event round-trips without a deadline"
     persona: guest
@@ -4197,6 +4402,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.reminder-and-return-events-round-trip
     title: "Order lifecycle contract: Reminder and return events round-trip"
     persona: guest
@@ -4211,6 +4417,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.event-semantics-are-documented
     title: "Order lifecycle contract: Event semantics are documented"
     persona: guest
@@ -4225,6 +4432,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.payment-status-cancelled-exists
     title: "Order lifecycle contract: PAYMENT_STATUS_CANCELLED exists"
     persona: guest
@@ -4239,6 +4447,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+
   - id: order-lifecycle-contract.change-is-backward-compatible
     title: "Order lifecycle contract: Change is backward compatible"
     persona: guest
@@ -4253,6 +4462,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` (tasks 1.3)"
+
   - id: order-lifecycle-contract.lint-passes
     title: "Order lifecycle contract: Lint passes"
     persona: guest
@@ -4267,6 +4477,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto` (tasks 1.3)"
+
   - id: order-lifecycle-contract.wire-breaking-edit-is-rejected
     title: "Order lifecycle contract: Wire-breaking edit is rejected"
     persona: guest
@@ -4281,6 +4492,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` (compares against HEAD = the slice commit) run on a mutated copy plus `lifecycle_compat_test.go` (tasks 1.3, 2.1)"
+
   - id: order-lifecycle-contract.new-contract-in-every-generated-language
     title: "Order lifecycle contract: New contract in every generated language"
     persona: guest
@@ -4295,6 +4507,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+
   - id: order-lifecycle-contract.copies-match-the-source
     title: "Order lifecycle contract: Copies match the source"
     persona: guest
@@ -4309,6 +4522,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the twenty copies against the sources (tasks 2.3)"
+
   - id: order-lifecycle-contract.drifted-or-missing-copy-is-rejected
     title: "Order lifecycle contract: Drifted or missing copy is rejected"
     persona: guest
@@ -4323,6 +4537,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the twenty copies against the sources (tasks 2.3)"
+
   - id: order-lifecycle-contract.consumer-copies-lint
     title: "Order lifecycle contract: Consumer copies lint"
     persona: guest
@@ -4337,6 +4552,7 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
+
   - id: go-sdk.an-sdk-release-does-not-re-sync-services
     title: An SDK release does not re-sync services
     persona: guest
@@ -4352,6 +4568,7 @@ features:
     - unit
     status: not-testable
     notes: Process rule from ADR-0016 Distribution; verified by review of the change diff.
+
   - id: go-sdk.headers-carry-trace-and-request-ids
     title: Headers carry trace and request ids
     persona: guest
@@ -4368,6 +4585,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax
       TestPublishAddsTraceAndRequestHeaders (testkit Redpanda).
+
   - id: go-sdk.produce-failure-is-returned-not-swallowed
     title: Produce failure is returned, not swallowed
     persona: guest
@@ -4383,6 +4601,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by TestPublishReturnsErrorWhenBrokerDown.
+
   - id: go-sdk.a-published-row-is-not-relayed-twice
     title: A published row is not relayed twice
     persona: guest
@@ -4399,6 +4618,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/outbox
       TestConcurrentRelayersPublishOnce.
+
   - id: go-sdk.a-failing-row-backs-off-and-is-parked
     title: A failing row backs off and is parked
     persona: guest
@@ -4415,6 +4635,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by TestFailingRowBacksOffThenParks.
+
   - id: go-sdk.enqueue-rolls-back-with-the-business-transaction
     title: Enqueue rolls back with the business transaction
     persona: guest
@@ -4430,6 +4651,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by TestEnqueueRollsBackWithTx.
+
   - id: go-sdk.poison-record-goes-to-the-dlq-and-the-offset-moves-on
     title: Poison record goes to the DLQ and the offset moves on
     persona: guest
@@ -4447,6 +4669,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/consume
       TestPermanentErrorGoesToDLQ (testkit Redpanda).
+
   - id: go-sdk.dlq-failure-stops-without-committing
     title: DLQ failure stops without committing
     persona: guest
@@ -4462,6 +4685,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by TestDLQFailureDoesNotCommit.
+
   - id: go-sdk.same-event-for-two-consumers-is-processed-by-both
     title: Same event for two consumers is processed by both
     persona: guest
@@ -4477,6 +4701,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by TestDedupeIsPerConsumer.
+
   - id: go-sdk.rolled-back-handling-is-not-marked-processed
     title: Rolled-back handling is not marked processed
     persona: guest
@@ -4492,6 +4717,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by TestDedupeRollsBackWithTx.
+
   - id: go-sdk.worker-outlives-the-server-during-shutdown
     title: Worker outlives the server during shutdown
     persona: guest
@@ -4508,6 +4734,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/lifecycle
       TestStopAfterOrdersShutdown.
+
   - id: go-sdk.service-principal-replaces-the-caller-and-the-buyer-is-not-forwarded
     title: Service principal replaces the caller and the buyer is not forwarded
     persona: guest
@@ -4526,6 +4753,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream
       TestAsServiceReplacesPrincipal.
+
   - id: go-sdk.unreachable-flipt-returns-the-default
     title: Unreachable Flipt returns the default
     persona: guest
@@ -4542,6 +4770,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags
       TestUnreachableFliptReturnsDefault.
+
   - id: go-sdk.sync-works-on-a-fresh-checkout-without-generated-code
     title: Sync works on a fresh checkout without generated code
     persona: guest
@@ -4558,6 +4787,7 @@ features:
     - unit
     status: not-testable
     notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
+
   - id: go-sdk.duplicate-enqueue-does-not-abort-the-transaction
     title: Duplicate enqueue does not abort the transaction
     persona: guest
@@ -4574,6 +4804,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/outbox
       TestEnqueueDuplicateIsNoop.
+
   - id: go-sdk.per-call-service-principal-overrides-forwarding-not-other-calls
     title: Per-call service principal overrides forwarding, not other calls
     persona: guest
@@ -4592,6 +4823,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream
       TestPerCallServicePrincipal.
+
   - id: go-sdk.in-memory-provider-toggles-a-flag-and-an-unknown-flag-does-not-fail
     title: In-memory provider toggles a flag and an unknown flag does not fail
     persona: guest
@@ -4608,6 +4840,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags
       TestNewWithProviderEvaluates.
+
   - id: go-sdk.transient-fetch-error-does-not-stop-the-loop
     title: Transient fetch error does not stop the loop
     persona: guest
@@ -4624,6 +4857,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/consume
       TestFetchErrorDoesNotStopLoop.
+
   - id: go-sdk.auto-topic-creation-can-be-enabled-for-a-consumer
     title: Auto topic creation can be enabled for a consumer
     persona: guest
@@ -4641,6 +4875,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax
       TestConsumerClientAcceptsOptions.
+
   - id: go-sdk.anonymous-caller-with-the-public-scope-is-admitted
     title: Anonymous caller with the public scope is admitted
     persona: guest
@@ -4658,6 +4893,7 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/auth
       TestRequireScopesAllowAnonymousAdmitsScopedAnonymous.
+
   - id: go-sdk.anonymous-caller-without-the-scope-is-denied-not-unauthenticated
     title: Anonymous caller without the scope is denied, not unauthenticated
     persona: guest
@@ -4673,6 +4909,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by TestRequireScopesAllowAnonymousDeniesMissingScope.
+
   - id: go-sdk.re-sync-does-not-drop-a-service-exclusion
     title: Re-sync does not drop a service exclusion
     persona: guest
@@ -4689,6 +4926,7 @@ features:
     - unit
     status: not-testable
     notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
+
   - id: go-sdk.a-hand-edited-vendored-file-fails-the-check
     title: A hand-edited vendored file fails the check
     persona: guest
@@ -4704,6 +4942,7 @@ features:
     - unit
     status: not-testable
     notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
+
   - id: go-sdk.a-service-scaffolded-from-the-template-builds-without-platform-copies
     title: A service scaffolded from the template builds without platform copies
     persona: guest
@@ -4719,6 +4958,7 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/tools/template_smoke_test.sh.
+
   - id: go-sdk.requireservice-rejects-a-user-principal
     title: "RequireService rejects a user principal"
     persona: guest
@@ -4734,6 +4974,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/auth TestRequireServiceRejectsUser"
+
   - id: go-sdk.requireuser-does-not-admit-service-or-anonymous-callers
     title: "RequireUser does not admit service or anonymous callers"
     persona: guest
@@ -4749,6 +4990,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestRequireUserRejectsServiceAndAnonymous"
+
   - id: go-sdk.claims-json-field-names-do-not-drift
     title: "Claims JSON field names do not drift"
     persona: guest
@@ -4764,6 +5006,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/jwtx TestClaimsJSONContract"
+
   - id: go-sdk.out-of-rule-keys-are-not-accepted
     title: "Out-of-rule keys are not accepted"
     persona: guest
@@ -4779,6 +5022,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/idempotency TestValidateRule"
+
   - id: go-sdk.rule-message-replaces-wrapped-error-text
     title: "Rule message replaces wrapped error text"
     persona: guest
@@ -4794,6 +5038,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/grpcx TestStatusUsesRuleMessage"
+
   - id: go-sdk.a-rule-without-message-does-not-change-today-s-text
     title: "A rule without message does not change today's text"
     persona: guest
@@ -4809,6 +5054,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStatusKeepsErrorTextWithoutMessage"
+
   - id: go-sdk.strict-envs-are-recognised-and-dev-is-not
     title: "Strict envs are recognised and dev is not"
     persona: guest
@@ -4824,6 +5070,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/config TestIsStrict"
+
   - id: go-sdk.non-positive-durations-are-not-accepted
     title: "Non-positive durations are not accepted"
     persona: guest
@@ -4839,6 +5086,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestPositiveDuration"
+
   - id: go-sdk.explicit-empty-value-is-kept
     title: "Explicit empty value is kept"
     persona: guest
@@ -4854,6 +5102,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestKeepEmpty"
+
   - id: go-sdk.malformed-tokens-are-not-decoded
     title: "Malformed tokens are not decoded"
     persona: guest
@@ -4869,6 +5118,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/pagination TestOffsetToken"
+
   - id: go-sdk.a-failing-tick-does-not-stop-the-worker
     title: "A failing tick does not stop the worker"
     persona: guest
@@ -4884,6 +5134,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/lifecycle TestEveryKeepsRunningAfterError"
+
   - id: go-sdk.http-server-drains-in-flight-requests
     title: "HTTP server drains in-flight requests"
     persona: guest
@@ -4899,6 +5150,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestHTTPShutsDownGracefully"
+
   - id: go-sdk.setup-failure-does-not-stop-the-service
     title: "Setup failure does not stop the service"
     persona: guest
@@ -4914,6 +5166,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags TestNewOrDisabledDegrades"
+
   - id: go-sdk.transient-batch-failure-is-retried-without-commit
     title: "Transient batch failure is retried without commit"
     persona: guest
@@ -4929,6 +5182,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/consume TestBatchRetriesWithoutCommit"
+
   - id: go-sdk.permanent-batch-failure-goes-to-the-dlq
     title: "Permanent batch failure goes to the DLQ"
     persona: guest
@@ -4944,6 +5198,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestBatchPermanentGoesToDLQ"
+
   - id: go-sdk.processed-reports-existing-pairs-only
     title: "Processed reports existing pairs only"
     persona: guest
@@ -4959,6 +5214,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestDedupeProcessedIsReadOnly"
+
   - id: go-sdk.database-errors-are-not-reported-as-not-processed
     title: "Database errors are not reported as not processed"
     persona: guest
@@ -4974,6 +5230,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestDedupeProcessedReturnsErrors"
+
   - id: go-sdk.group-less-client-reads-existing-records-and-does-not-commit
     title: "Group-less client reads existing records and does not commit"
     persona: guest
@@ -4989,6 +5246,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax TestGroupLessConsumerClient"
+
   - id: go-sdk.extra-dial-options-are-applied
     title: "Extra dial options are applied"
     persona: guest
@@ -5004,6 +5262,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream TestDialOptionsApplied"
+
   - id: go-sdk.retryif-narrows-retries
     title: "RetryIf narrows retries"
     persona: guest
@@ -5019,6 +5278,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/resilience TestRetryIfOverridesDefault"
+
   - id: go-sdk.schemas-isolate-tests-that-share-a-container
     title: "Schemas isolate tests that share a container"
     persona: guest
@@ -5034,6 +5294,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/testkit TestSchemaIsolation"
+
   - id: go-sdk.recorder-can-fail-one-key-and-not-others
     title: "Recorder can fail one key and not others"
     persona: guest
@@ -5049,6 +5310,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestRecorderFailOn"
+
   - id: go-sdk.fresh-sync-leaves-a-require-line-without-failing-tidy
     title: "Fresh sync leaves a require line without failing tidy"
     persona: guest
@@ -5064,6 +5326,7 @@ features:
     - unit
     status: not-testable
     notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
+
   - id: go-sdk.a-rule-without-message-sends-the-sentinel-text-not-the-chain
     title: "A rule without message sends the sentinel text, not the chain"
     persona: guest
@@ -5079,6 +5342,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStatusDefaultsToSentinelText"
+
   - id: go-sdk.the-first-matching-rule-wins
     title: "The first matching rule wins"
     persona: guest
@@ -5094,6 +5358,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStatusFirstMatchingRuleWins"
+
   - id: go-sdk.context-errors-are-not-internal-errors
     title: "Context errors are not internal errors"
     persona: guest
@@ -5109,6 +5374,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStatusMapsContextErrorsWithoutErrorLog"
+
   - id: go-sdk.the-first-call-waits-one-interval-unless-runatstart-is-set
     title: "The first call waits one interval unless RunAtStart is set"
     persona: guest
@@ -5124,6 +5390,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestEveryWaitsForFirstTickWithoutRunAtStart"
+
   - id: go-sdk.a-non-positive-interval-is-rejected
     title: "A non-positive interval is rejected"
     persona: guest
@@ -5139,6 +5406,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestEveryRejectsNonPositiveInterval"
+
   - id: go-sdk.the-targeting-key-comes-from-the-principal
     title: "The targeting key comes from the principal"
     persona: guest
@@ -5154,6 +5422,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestTargetingKeyFromPrincipal"
+
   - id: go-sdk.options-override-the-key-and-add-attributes
     title: "Options override the key and add attributes"
     persona: guest
@@ -5169,6 +5438,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestEvalOptionsOverrideKeyAndAddAttributes"
+
   - id: go-sdk.closing-one-client-keeps-another-working
     title: "Closing one client keeps another working"
     persona: guest
@@ -5184,6 +5454,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestCloseKeepsOtherClientWorking"
+
   - id: go-sdk.a-poison-batch-is-dead-lettered-after-the-attempt-limit
     title: "A poison batch is dead-lettered after the attempt limit"
     persona: guest
@@ -5199,6 +5470,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestPoisonBatchGoesToDLQAfterMaxAttempts"
+
   - id: go-sdk.the-attempt-limit-has-a-default
     title: "The attempt limit has a default"
     persona: guest
@@ -5214,6 +5486,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestBatchDefaultMaxAttempts"
+
   - id: go-sdk.an-invalid-table-name-is-rejected-at-construction
     title: "An invalid table name is rejected at construction"
     persona: guest
@@ -5229,6 +5502,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestNewDedupeValidatesTable"
+
   - id: go-sdk.calls-are-spread-across-resolved-addresses
     title: "Calls are spread across resolved addresses"
     persona: guest
@@ -5244,6 +5518,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestDefaultsToRoundRobin"
+
   - id: go-sdk.every-caller-fails-when-docker-is-required-and-missing
     title: "Every caller fails when Docker is required and missing"
     persona: guest
@@ -5259,6 +5534,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestSharedPostgresFailsEveryCallerWhenDockerRequired"
+
   - id: go-sdk.rows-of-one-aggregate-publish-in-enqueue-order
     title: "Rows of one aggregate publish in enqueue order"
     persona: guest
@@ -5274,6 +5550,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/outbox TestOrderPerAggregate"
+
   - id: go-sdk.a-failing-row-blocks-its-own-aggregate-only
     title: "A failing row blocks its own aggregate only"
     persona: guest
@@ -5289,6 +5566,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestFailingRowBlocksItsAggregateOnly"
+
   - id: go-sdk.a-parked-row-keeps-blocking-its-aggregate
     title: "A parked row keeps blocking its aggregate"
     persona: guest
@@ -5304,6 +5582,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestParkedRowBlocksItsAggregate"
+
   - id: go-sdk.published-records-carry-the-headers
     title: "Published records carry the headers"
     persona: guest
@@ -5319,6 +5598,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestPublishedRecordCarriesHeaders"
+
   - id: go-sdk.a-row-topic-overrides-the-relayer-topic
     title: "A row topic overrides the relayer topic"
     persona: guest
@@ -5334,6 +5614,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestRowTopicOverridesRelayerTopic"
+
   - id: go-sdk.a-blocked-broker-cannot-outlive-the-claim-lock
     title: "A blocked broker cannot outlive the claim lock"
     persona: guest
@@ -5349,6 +5630,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestRelayBatchBoundedUnderBlockingPublisher"
+
   - id: go-sdk.empty-event-ids-are-rejected
     title: "Empty event ids are rejected"
     persona: guest
@@ -5364,6 +5646,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestEnqueueRejectsEmptyEventID"
+
   - id: go-sdk.purge-removes-old-published-rows-only
     title: "Purge removes old published rows only"
     persona: guest
@@ -5379,6 +5662,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestPurgeDeletesOnlyOldPublishedRows"
+
   - id: go-sdk.the-schema-upgrades-an-old-table
     title: "The schema upgrades an old table"
     persona: guest
@@ -5394,6 +5678,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestSchemaSQLUpgradesTableFromOldSchema"
+
   - id: go-sdk.trace-and-request-id-reach-the-handler
     title: "Trace and request id reach the handler"
     persona: guest
@@ -5409,6 +5694,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/consume TestTraceAndRequestIDReachHandlerContext"
+
   - id: go-sdk.a-batch-span-links-to-its-records
     title: "A batch span links to its records"
     persona: guest
@@ -5424,6 +5710,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestBatchContextLinksRecordSpans"
+
   - id: go-sdk.records-expose-partition-timestamp-and-duplicate-headers
     title: "Records expose partition, timestamp and duplicate headers"
     persona: guest
@@ -5439,6 +5726,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestRecordCarriesPartitionTimestampAndDuplicateHeaders"
+
   - id: go-sdk.a-revoked-partition-is-not-rewound-or-committed-twice
     title: "A revoked partition is not rewound or committed twice"
     persona: guest
@@ -5454,6 +5742,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestRevokeMidFetchDoesNotRewindOrDoubleCommit"
+
   - id: go-sdk.a-failed-record-is-never-committed-and-rebalances-stay-possible
     title: "A failed record is never committed and rebalances stay possible"
     persona: guest
@@ -5469,6 +5758,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestFailedRecordIsNeverCommittedAndRebalanceIsAllowed"
+
   - id: go-sdk.a-failed-dlq-publish-commits-nothing
     title: "A failed DLQ publish commits nothing"
     persona: guest
@@ -5484,6 +5774,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestDLQFailureCommitsNothing"
+
   - id: go-sdk.constructors-reject-invalid-arguments
     title: "Constructors reject invalid arguments"
     persona: guest
@@ -5499,6 +5790,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestConstructorsRejectInvalidArguments"
+
   - id: go-sdk.the-producer-has-a-delivery-timeout
     title: "The producer has a delivery timeout"
     persona: guest
@@ -5514,6 +5806,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax TestProducerDefaultsRecordDeliveryTimeout"
+
   - id: go-sdk.group-clients-block-rebalance-on-poll
     title: "Group clients block rebalance on poll"
     persona: guest
@@ -5529,6 +5822,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestGroupConsumerClientBlocksRebalanceOnPoll"
+
   - id: go-sdk.the-health-check-reports-the-ping-result
     title: "The health check reports the ping result"
     persona: guest
@@ -5544,6 +5838,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestCheckerReportsPingResult"
+
   - id: go-sdk.constants-keep-their-wire-values
     title: "Constants keep their wire values"
     persona: guest
@@ -5559,6 +5854,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/auth TestPrincipalTypeConstants"
+
   - id: go-sdk.an-invalid-key-matches-errinvalidkey
     title: "An invalid key matches ErrInvalidKey"
     persona: guest
@@ -5574,6 +5870,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/idempotency TestValidateReturnsErrInvalidKey"
+
   - id: go-sdk.env-is-required
     title: "ENV is required"
     persona: guest
@@ -5589,6 +5886,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestLoadRequiresEnv and TestIsLocalOnlyForExplicitLocalOrTest"
+
   - id: go-sdk.every-embedded-group-is-validated
     title: "Every embedded group is validated"
     persona: guest
@@ -5604,6 +5902,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestLoadValidatesEveryEmbeddedGroup"
+
   - id: go-sdk.durations-are-go-durations-with-suffix-free-keys
     title: "Durations are Go durations with suffix-free keys"
     persona: guest
@@ -5619,6 +5918,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestMessagingGroupOverrides, TestMessagingGroupDefaults and TestDrainDelay"
+
   - id: go-sdk.a-non-positive-interval-is-rejected
     title: "A non-positive interval is rejected"
     persona: guest
@@ -5634,6 +5934,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestNewRejectsNonPositiveInterval"
+
   - id: go-sdk.components-and-closers-share-one-grace-period
     title: "Components and closers share one grace period"
     persona: guest
@@ -5649,6 +5950,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestShutdownWorstCaseIsOneGrace"
+
   - id: go-sdk.withtx-rolls-back-on-panic
     title: "WithTx rolls back on panic"
     persona: guest
@@ -5664,6 +5966,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestWithTxPanicDoesNotLeakConnection"
+
   - id: go-sdk.internal-and-plain-errors-are-not-retried
     title: "Internal and plain errors are not retried"
     persona: guest
@@ -5679,6 +5982,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestInternalAndPlainErrorsAreNotRetried"
+
   - id: go-sdk.zero-options-are-bounded
     title: "Zero options are bounded"
     persona: guest
@@ -5694,6 +5998,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestZeroValueRetryOptionsBounded and TestZeroValueBreakerOptionsDoNotPanic"
+
   - id: go-sdk.invalid-options-are-rejected
     title: "Invalid options are rejected"
     persona: guest
@@ -5709,6 +6014,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestInvalidOptionsRejected"
+
   - id: go-sdk.oversized-or-malformed-request-ids-are-replaced
     title: "Oversized or malformed request ids are replaced"
     persona: guest
@@ -5724,6 +6030,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestRequestIDRejectsOversizedOrBadCharset"
+
   - id: go-sdk.reflection-is-off-by-default
     title: "Reflection is off by default"
     persona: guest
@@ -5738,6 +6045,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestReflectionOffByDefault"
+
   - id: go-sdk.reflection-is-served-locally-when-enabled
     title: "Reflection is served locally when enabled"
     persona: guest
@@ -5752,6 +6060,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestReflectionServedWhenEnabled"
+
   - id: go-sdk.reflection-is-refused-in-a-strict-environment
     title: "Reflection is refused in a strict environment"
     persona: guest
@@ -5766,6 +6075,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStrictEnvRefusesGRPCReflection"
+
   - id: go-sdk.reflection-without-a-runtime-is-refused
     title: "Reflection without a Runtime is refused"
     persona: guest
@@ -5780,6 +6090,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestReflectionWithoutRuntimeIsRefused"
+
   - id: go-sdk.reflection-is-accepted-locally-and-defaults-to-off
     title: "Reflection is accepted locally and defaults to off"
     persona: guest
@@ -5794,6 +6105,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestLocalEnvAcceptsGRPCReflection and TestGRPCReflectionDefaultsOff"
+
   - id: go-sdk.a-strict-env-reflection-refusal-comes-before-group-validation
     title: "A strict-env reflection refusal comes before group validation"
     persona: guest
@@ -5808,6 +6120,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStrictReflectionRefusalPrecedesValidation"
+
   - id: go-sdk.liveness-stays-serving-while-a-dependency-is-down
     title: "Liveness stays serving while a dependency is down"
     persona: guest
@@ -5822,6 +6135,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestLivenessIgnoresCheckerFailure"
+
   - id: go-sdk.liveness-is-serving-from-construction
     title: "Liveness is serving from construction"
     persona: guest
@@ -5836,6 +6150,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestLivenessServingBeforeRun"
+
   - id: go-sdk.a-hanging-checker-does-not-delay-liveness
     title: "A hanging checker does not delay liveness"
     persona: guest
@@ -5850,6 +6165,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestLivenessAnswersFastDuringHangingChecker"
+
   - id: go-sdk.drain-turns-liveness-off
     title: "Drain turns liveness off"
     persona: guest
@@ -5864,6 +6180,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestDrainSetsLivenessNotServing"
+
   - id: go-sdk.an-unknown-health-service-name-is-still-rejected
     title: "An unknown health service name is still rejected"
     persona: guest
@@ -5878,6 +6195,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestUnknownHealthServiceNotFound"
+
   - id: go-sdk.an-unreachable-database-fails-boot-outside-local
     title: "An unreachable database fails boot outside local"
     persona: guest
@@ -5893,6 +6211,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestBootFailsWhenDatabaseUnreachableOutsideLocal"
+
   - id: go-sdk.bad-rules-are-rejected
     title: "Bad rules are rejected"
     persona: guest
@@ -5908,6 +6227,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestNewErrorTableRejectsBadRules"
+
   - id: go-sdk.topic-level-errors-do-not-park-rows
     title: "Topic-level errors do not park rows"
     persona: guest
@@ -5923,6 +6243,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestPublishErrorClassification"
+
   - id: go-sdk.upgrading-an-older-table-keeps-creation-order
     title: "Upgrading an older table keeps creation order"
     persona: guest
@@ -5938,6 +6259,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestUpgradeSQLKeepsOrderOfAV0Table"
+
   - id: go-sdk.high-aggregate-keys-are-not-starved
     title: "High aggregate keys are not starved"
     persona: guest
@@ -5953,6 +6275,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestHeadScanCursorServesEveryAggregate"
+
   - id: go-sdk.deployed-environments-require-the-broker-address
     title: "Deployed environments require the broker address"
     persona: guest
@@ -5968,6 +6291,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStrictEnvRequiresKafka, TestStrictEnvRejectsEmptyKafkaBrokers and TestLocalEnvKeepsKafkaDefault"
+
   - id: go-sdk.feature-flags-have-no-switch
     title: "Feature flags have no on/off switch"
     persona: guest
@@ -5983,6 +6307,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestFlagsAlwaysPointAtFlipt, TestMessagingGroupDefaults and TestUnreachableFliptReturnsDefault"
+
   - id: go-sdk.withtx-rolls-back-when-fn-exits-its-goroutine
     title: "WithTx rolls back when fn exits its goroutine"
     persona: guest
@@ -5998,6 +6323,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestWithTxGoexitRollsBack"
+
   - id: go-sdk.closers-keep-a-live-context
     title: "Closers keep a live context"
     persona: guest
@@ -6013,6 +6339,7 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestCloseGraceReservesTimeForClosers and TestDefaultCloseGraceKeepsClosersAlive"
+
   - id: go-sdk.a-zero-policy-is-an-error-not-a-panic
     title: "A zero Policy is an error, not a panic"
     persona: guest
@@ -8276,7 +8603,6 @@ features:
     status: not-testable
     notes: "q7-referral-welcome-contract: pure contract, verified by the Go compat test, buf breaking and cmp; not producible end to end. Verified by: `platform-core/packages/proto/q7_consumer_copies_test.sh` (tasks 3.2)"
 
-
   - id: discovery.contract-enum-value-present-with-stable-numbers
     title: "Enum value present with stable numbers"
     persona: guest
@@ -9911,3 +10237,528 @@ features:
     tags: [seller-centre-contract, unit]
     status: not-testable
     notes: "seller-centre-contract: pure contract, not producible end to end. VERIFIED BY `platform-core/packages/proto/sellercentre_consumer_copies_test.sh` `buf lint $r`."
+
+  - id: monetization.contract-breakdown-fields-present-at-9-to-12
+    title: "Breakdown fields present at 9 to 12"
+    persona: guest
+    priority: P2
+    summary: "Breakdown fields present at 9 to 12"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Breakdown fields present at 9 to 12 (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_OrderPaidBreakdownShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-missing-breakdown-is-distinct-from-zero
+    title: "Missing breakdown is distinct from zero"
+    persona: guest
+    priority: P2
+    summary: "Missing breakdown is distinct from zero"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing breakdown is distinct from zero (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_BreakdownPresenceRoundTrip\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-event-published-before-deploy-still-parses
+    title: "Event published before deploy still parses"
+    persona: guest
+    priority: P2
+    summary: "Event published before deploy still parses"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Event published before deploy still parses (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_OldOrderPaidParses\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-breakdown-semantics-are-documented
+    title: "Breakdown semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Breakdown semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Breakdown semantics are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/order/v1/monetization_compat_test.go` \"TestMonetization_BreakdownDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-four-new-types-at-4-to-7
+    title: "Four new types at 4 to 7"
+    persona: guest
+    priority: P2
+    summary: "Four new types at 4 to 7"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Four new types at 4 to 7 (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_WalletTypesShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-old-consumer-meets-a-new-type
+    title: "Old consumer meets a new type"
+    persona: guest
+    priority: P2
+    summary: "Old consumer meets a new type"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old consumer meets a new type (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_OldSchemaParsesNewType\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-ad-spend-is-documented-as-reserved
+    title: "AD_SPEND is documented as reserved"
+    persona: guest
+    priority: P2
+    summary: "AD_SPEND is documented as reserved"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "AD_SPEND is documented as reserved (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_AdSpendDocumentedReserved\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-rpc-and-messages-present-at-the-specified-numbers
+    title: "RPC and messages present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "RPC and messages present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "RPC and messages present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_GetOrderSettlementShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-net-formula-and-access-rule-are-documented
+    title: "Net formula and access rule are documented"
+    persona: guest
+    priority: P2
+    summary: "Net formula and access rule are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Net formula and access rule are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_SettlementSemanticsDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-another-seller-and-an-unsettled-order-are-denied-as-not-found
+    title: "Another seller and an unsettled order are denied as not found"
+    persona: guest
+    priority: P2
+    summary: "Another seller and an unsettled order are denied as not found"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Another seller and an unsettled order are denied as not found (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_SettlementNotFoundDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-amount-fields-are-integer-vnd
+    title: "Amount fields are integer VND"
+    persona: guest
+    priority: P2
+    summary: "Amount fields are integer VND"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Amount fields are integer VND (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_NoFloatMoney\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-rpc-enum-and-messages-present-at-the-specified-numbers
+    title: "RPC, enum and messages present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "RPC, enum and messages present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "RPC, enum and messages present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-idempotency-and-error-rules-are-documented
+    title: "Idempotency and error rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Idempotency and error rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Idempotency and error rules are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeSemanticsDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-the-rpc-is-documented-as-internal-and-ad-spend-as-reserved
+    title: "The RPC is documented as internal and ad spend as reserved"
+    persona: guest
+    priority: P2
+    summary: "The RPC is documented as internal and ad spend as reserved"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The RPC is documented as internal and ad spend as reserved (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeInternalOnlyDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-fee-charge-is-not-reachable-by-a-seller-through-the-edge
+    title: "Fee charge is not reachable by a seller through the edge"
+    persona: guest
+    priority: P2
+    summary: "Fee charge is not reachable by a seller through the edge"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Fee charge is not reachable by a seller through the edge (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ChargeSellerFeeNoUserScopeDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-existing-payment-surface-is-untouched
+    title: "Existing payment surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing payment surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing payment surface is untouched (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/payment/v1/monetization_compat_test.go` \"TestMonetization_ExistingPaymentSurfaceUntouched\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-term-and-period-fields-present-at-the-specified-numbers
+    title: "Term and period fields present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Term and period fields present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Term and period fields present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_PlanTermShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-subscription-rpcs-present-with-empty-requests
+    title: "Subscription RPCs present with empty requests"
+    persona: guest
+    priority: P2
+    summary: "Subscription RPCs present with empty requests"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Subscription RPCs present with empty requests (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionRpcShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-price-unit-and-cancel-semantics-are-documented
+    title: "Price unit and cancel semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Price unit and cancel semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Price unit and cancel semantics are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionSemanticsDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-subscription-reads-take-no-seller-id
+    title: "Subscription reads take no seller id"
+    persona: guest
+    priority: P2
+    summary: "Subscription reads take no seller id"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Subscription reads take no seller id (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SubscriptionRequestsCarryNoSellerId\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-status-and-counters-present-at-the-specified-numbers
+    title: "Status and counters present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Status and counters present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Status and counters present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdCampaignShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-old-consumer-meets-the-new-status
+    title: "Old consumer meets the new status"
+    persona: guest
+    priority: P2
+    summary: "Old consumer meets the new status"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Old consumer meets the new status (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_OldSchemaParsesPausedBudget\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-minimum-bid-and-budget-status-are-documented
+    title: "Minimum bid and budget status are documented"
+    persona: guest
+    priority: P2
+    summary: "Minimum bid and budget status are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Minimum bid and budget status are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdCampaignSemanticsDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-request-and-response-fields-present-at-the-specified-numbers
+    title: "Request and response fields present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Request and response fields present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Request and response fields present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SponsoredSlotsShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-limit-bound-and-token-semantics-are-documented
+    title: "Limit bound and token semantics are documented"
+    persona: guest
+    priority: P2
+    summary: "Limit bound and token semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Limit bound and token semantics are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_SlotBoundAndTokenDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-a-request-without-the-new-fields-still-parses
+    title: "A request without the new fields still parses"
+    persona: guest
+    priority: P2
+    summary: "A request without the new fields still parses"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A request without the new fields still parses (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_OldSponsoredSlotsParse\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-the-slot-carries-no-buyer-identifier
+    title: "The slot carries no buyer identifier"
+    persona: guest
+    priority: P2
+    summary: "The slot carries no buyer identifier"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The slot carries no buyer identifier (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_NoBuyerIdentifiers\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-four-rpcs-and-their-messages-present-at-the-specified-numbers
+    title: "Four RPCs and their messages present at the specified numbers"
+    persona: guest
+    priority: P2
+    summary: "Four RPCs and their messages present at the specified numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Four RPCs and their messages present at the specified numbers (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_AdRpcsShape\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-ownership-and-error-rules-are-documented
+    title: "Ownership and error rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Ownership and error rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Ownership and error rules are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_CampaignRulesDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-click-rules-are-documented
+    title: "Click rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Click rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Click rules are documented (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_ClickRulesDocumented\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-existing-promotion-surface-is-untouched
+    title: "Existing promotion surface is untouched"
+    persona: guest
+    priority: P2
+    summary: "Existing promotion surface is untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Existing promotion surface is untouched (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/platform/promotion/v1/monetization_compat_test.go` \"TestMonetization_ExistingPromotionSurfaceUntouched\". monetization-contract: not producible end to end."
+
+  - id: monetization.contract-copies-match-the-source
+    title: "Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Copies match the source (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `copies match`. monetization-contract: not producible end to end."
+
+  - id: monetization.contract-drifted-or-missing-copy-is-rejected
+    title: "Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Drifted or missing copy is rejected (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `drifted and missing copy rejected and named`. monetization-contract: not producible end to end."
+
+  - id: monetization.contract-renumbering-is-rejected
+    title: "Renumbering is rejected"
+    persona: guest
+    priority: P2
+    summary: "Renumbering is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Renumbering is rejected (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` check `renumbering $label rejected and names $name`. monetization-contract: not producible end to end."
+
+  - id: monetization.contract-lint-and-breaking-check-pass
+    title: "Lint and breaking check pass"
+    persona: guest
+    priority: P2
+    summary: "Lint and breaking check pass"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Lint and breaking check pass (unit-verified)"
+    tags: [monetization-contract, unit]
+    status: not-testable
+    notes: "VERIFIED BY `platform-core/packages/proto/monetization_consumer_copies_test.sh` checks `buf lint` and `buf breaking vs $BASE_REF`. monetization-contract: not producible end to end."

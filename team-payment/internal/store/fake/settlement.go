@@ -103,7 +103,35 @@ func (s *InMemorySettlementLedger) ListRefunds(_ context.Context, paymentID stri
 	return s.refunds.list(paymentID), nil
 }
 
-func (s *InMemorySettlementLedger) CreditSettlement(_ context.Context, orderID, sellerID string) (store.CreditResult, error) {
+func (s *InMemorySettlementLedger) OrderSettlement(_ context.Context, orderID string) (store.OrderSettlementView, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.settledLocked(orderID)
+	if !ok {
+		return store.OrderSettlementView{}, store.ErrNotSettled
+	}
+	s.ledger.mu.RLock()
+	defer s.ledger.mu.RUnlock()
+	credit, ok := s.ledger.byReferenceLocked(store.LedgerTypeOrderSettlement, t.ID)
+	if !ok {
+		return store.OrderSettlementView{}, store.ErrNotSettled
+	}
+	v := store.OrderSettlementView{SellerID: credit.SellerID, Credited: credit.Amount}
+	if c, ok := s.ledger.byReferenceLocked(store.LedgerTypeCommission, t.ID); ok {
+		v.Commission, v.CommissionRateBps = -c.Amount, c.RateBps
+	}
+	for _, r := range s.refunds.list(t.ID) {
+		if d, ok := s.ledger.byReferenceLocked(store.LedgerTypeRefundDeduction, r.ID); ok {
+			v.RefundDeducted += -d.Amount
+		}
+		if d, ok := s.ledger.byReferenceLocked(store.LedgerTypeCommissionReversal, r.ID); ok {
+			v.CommissionReversed += d.Amount
+		}
+	}
+	return v, nil
+}
+
+func (s *InMemorySettlementLedger) CreditSettlement(_ context.Context, orderID, sellerID string, c store.Commissionable) (store.CreditResult, error) {
 	if sellerID == "" {
 		return store.CreditResult{}, errors.New("seller id is required")
 	}
@@ -119,13 +147,22 @@ func (s *InMemorySettlementLedger) CreditSettlement(_ context.Context, orderID, 
 	s.ledger.mu.Lock()
 	defer s.ledger.mu.Unlock()
 	credit, credited, err := s.ledger.appendOnceLocked(store.LedgerEntry{
-		SellerID: sellerID, Type: store.LedgerTypeOrderSettlement, Amount: t.Amount,
+		SellerID: sellerID, Type: store.LedgerTypeOrderSettlement, Amount: c.CreditAmount(t.Amount),
 		Status: store.LedgerStatusCompleted, ReferenceID: t.ID,
 	})
 	if err != nil {
 		return store.CreditResult{}, err
 	}
+	if credited {
+		if entry, ok := c.CommissionEntry(sellerID, t.ID); ok {
+			if _, _, err := s.ledger.appendOnceLocked(entry); err != nil {
+				return store.CreditResult{}, err
+			}
+		}
+	}
+	commission := s.commissionLocked(t.ID)
 	res := store.CreditResult{Transaction: t, Credit: credit, Credited: credited}
+	var cumulative int64
 	for _, r := range s.refunds.list(t.ID) {
 		if r.Amount <= 0 {
 			continue
@@ -135,6 +172,13 @@ func (s *InMemorySettlementLedger) CreditSettlement(_ context.Context, orderID, 
 			return store.CreditResult{}, err
 		}
 		res.Deducted = res.Deducted || deducted
+		prev := store.ReversalTarget(commission, cumulative, t.Amount)
+		cumulative += r.Amount
+		if delta := store.ReversalTarget(commission, cumulative, t.Amount) - prev; delta > 0 {
+			if _, _, err := s.ledger.appendOnceLocked(store.ReversalEntry(credit.SellerID, r.ID, delta)); err != nil {
+				return store.CreditResult{}, err
+			}
+		}
 	}
 	return res, nil
 }
@@ -191,8 +235,31 @@ func (s *InMemorySettlementLedger) ApplyRefund(_ context.Context, req store.Refu
 			return store.RefundResult{}, err
 		}
 		res.Deducted = deducted
+		if commission := s.commissionLocked(t.ID); commission > 0 {
+			var reversed int64
+			for _, e := range s.ledger.entries {
+				if e.Type != store.LedgerTypeCommissionReversal {
+					continue
+				}
+				if pid, ok := s.refunds.paymentOf(e.ReferenceID); ok && pid == t.ID {
+					reversed += e.Amount
+				}
+			}
+			if delta := store.ReversalTarget(commission, t.RefundedAmount, t.Amount) - reversed; delta > 0 {
+				if _, _, err := s.ledger.appendOnceLocked(store.ReversalEntry(credit.SellerID, r.ID, delta)); err != nil {
+					return store.RefundResult{}, err
+				}
+			}
+		}
 	}
 	return res, nil
+}
+
+func (s *InMemorySettlementLedger) commissionLocked(paymentID string) int64 {
+	if e, ok := s.ledger.byReferenceLocked(store.LedgerTypeCommission, paymentID); ok {
+		return -e.Amount
+	}
+	return 0
 }
 
 var _ store.SettlementLedger = (*InMemorySettlementLedger)(nil)

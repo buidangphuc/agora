@@ -6,10 +6,11 @@ import (
 
 	"github.com/buidangphuc/team-promotion/internal/store"
 	"github.com/buidangphuc/team-promotion/internal/store/storefake"
+	"github.com/buidangphuc/team-promotion/internal/subscription/paymentfake"
 )
 
 func newSubscriptionSvc() *Service {
-	return New(storefake.NewInMemorySubscriptionRepository(), nil)
+	return New(storefake.NewInMemorySubscriptionRepository(), nil).WithPayment(paymentfake.New())
 }
 
 func TestListPlansReturnsSeededCatalog(t *testing.T) {

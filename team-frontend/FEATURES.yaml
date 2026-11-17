@@ -2612,9 +2612,9 @@ features:
     notes: "Verified by the Vitest test team-frontend/src/app/(shop)/account/referral/page.test.tsx › /account/referral › generating a code is pending, then toasts. NOT E2E-REACHABLE: team-referral GetMyReferral mints the code on first read, so a buyer without a code never reaches the Tạo mã button."
 
   # ---- d1-entries-end (append new d1 entries above this line)
-
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the
   # ---- ui_foundation.feature scenarios have run green against the local stack.
+
   - id: ui.not-found
     title: Unknown route shows the 404 result
     persona: guest
@@ -2936,6 +2936,7 @@ features:
 
   # ---- ui-phase-product-detail (PDP rebuilt on the core components). status:
   # ---- planned until product_detail.feature has run green against the local stack.
+
   - id: discovery.home-streaming
     title: Home streams independent blocks
     persona: guest
@@ -3175,6 +3176,7 @@ features:
       e2e scenarios "Card impression still fires once", "Card click still records select_item" and
       "Search results still emit a batched impression" (tracking/discovery_tracking_unchanged.feature). The payload snapshot
       and the recommendations attribution are unit tests (ListingCard.test.tsx).
+
   - id: cart.grouped-by-shop
     title: Cart groups items by shop with the real shop name
     persona: buyer
@@ -4948,6 +4950,7 @@ features:
     tags: [buyer, order, wap]
     status: automated
     covered_by: "frontend/orders_ui.feature::The order screens fit a 375px viewport"
+
   - id: account.shell-nav
     title: Account pages share a URL-driven settings shell
     persona: buyer
@@ -5205,6 +5208,7 @@ features:
     tags: [auth, buyer]
     status: automated
     covered_by: "frontend/account.feature::Wrong credentials show an inline error and keep the typed username"
+
   - id: listing.pdp-anatomy
     title: Product detail page follows the Basic Profile anatomy
     persona: buyer
@@ -7965,6 +7969,7 @@ features:
     notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/product_detail_ui.feature` `A successful mutation revalidates the page`"
 
   # ---- frontend-audit-viewer (q3-audit-log)
+
   - id: frontend-loop-events.ga4-names-map-to-beacon-types
     title: "Loop events: GA4 names map to beacon types"
     persona: guest
@@ -8398,6 +8403,7 @@ features:
     notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
 
   # ---- frontend-ai-interaction-events (ai_interaction beacons from the AI surfaces)
+
   - id: frontend-ai-interaction-events.the-helper-sends-only-allowlisted-keys
     title: "The helper sends only allowlisted keys"
     persona: buyer
@@ -8612,6 +8618,7 @@ features:
     notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::No summary, no event"
 
   # ---- frontend-advertised-price (initiative q5-advertised-price)
+
   - id: frontend.adv-pdp-never-exposes-another-buyers-city
     title: "Advertised price: PDP never exposes another buyer's city"
     persona: buyer
@@ -9062,6 +9069,7 @@ features:
     covered_by: "frontend/user_enforcement_ui.feature::Users UI: Wrong password for a suspended buyer shows the credentials message"
 
   # ---- frontend-order-lifecycle (initiative q10-order-lifecycle)
+
   - id: frontend.olc-cancel-is-offered-only-for-pending-and-paid-orders
     title: "Order lifecycle: cancel is offered only for pending and paid orders"
     persona: buyer
@@ -10121,6 +10129,7 @@ features:
     covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: signed-in non-admin still sees the 403 view"
 
   # ---- frontend-checkout-coherence (initiative q11-checkout-coherence).
+
   - id: frontend.cc-two-shops-show-two-groups-with-their-own-shipping
     title: "Checkout coherence: two shops show two groups with their own shipping"
     persona: buyer
@@ -10590,6 +10599,7 @@ features:
     notes: "VERIFIED BY `team-frontend/src/features/order/checkoutParams.test.ts` `legacy voucher param is ignored`. Not producible end to end through the browser (unit level)."
 
   # ---- frontend-cart-selection (initiative q11-checkout-coherence).
+
   - id: frontend.cs-every-line-is-ticked-by-default
     title: "Cart selection: every line is ticked by default"
     persona: buyer
@@ -12600,6 +12610,7 @@ features:
     notes: "recsys-cart-cross-sell: frontend/cart_cross_sell_ui.feature. Red until the change is implemented."
 
   # ---- buyer-ai-surfaces-ui (grounded unary assistant, provenance in wire fields, home entry, flag exposure)
+
   - id: buyer-ai-surfaces-ui.one-call-per-question-and-no-stream
     title: "One call per question and no stream"
     persona: buyer
@@ -13378,3 +13389,319 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/cart/CartGroups.test.tsx` `renders no combo UI without bundle lines`. The server-dropped tag state is asserted as the same no-combo render contract."
+
+  # ---- buyer-sponsored-slots (initiative monetization)
+  - id: frontend.bss-sponsored-slot-is-shown-labelled-in-its-category
+    title: "Sponsored slot is shown labelled in its category"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot is shown labelled in its category"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a guest opens `/search?category=<c>` where an ACTIVE campaign exists for a published listing L in category c"
+      - "Then the page shows L in an element `sponsored-slot` that contains the text \"Tài trợ\", positioned before the first organic card"
+    tags: [buyer, ads]
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored slot is shown labelled in its category"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: frontend.bss-sponsored-listing-is-not-duplicated-in-organic-results
+    title: "Sponsored listing is not duplicated in organic results"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Sponsored listing is not duplicated in organic results"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the sponsored listing L also matches the organic search of page 1"
+      - "Then L appears exactly once on the page, inside `sponsored-slot`, and zero times in `search-results`"
+    tags: [buyer, ads]
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored listing is not duplicated in organic results"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: frontend.bss-page-2-has-no-sponsored-slots
+    title: "Page 2 has no sponsored slots"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Page 2 has no sponsored slots"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a visitor opens `/search?page=2`"
+      - "Then zero `sponsored-slot` elements are rendered and `ListSponsoredSlots` is not called"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `Page 2 has no sponsored slots`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-slot-service-failure-leaves-organic-results-intact
+    title: "Slot service failure leaves organic results intact"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Slot service failure leaves organic results intact"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When `ListSponsoredSlots` fails with UNAVAILABLE or does not answer within 150 ms while the organic search succeeds"
+      - "Then the page responds 200 with the organic grid, count and pagination unchanged and zero `sponsored-slot` elements"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `Slot service failure leaves organic results intact`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-no-slots-when-the-organic-search-has-no-results
+    title: "No slots when the organic search has no results"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: No slots when the organic search has no results"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the organic search returns zero items for the query"
+      - "Then the page shows \"Không tìm thấy sản phẩm\" and zero `sponsored-slot` elements"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/search/SearchBlocks.test.tsx` `No slots when the organic search has no results`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-unpublished-sponsored-listing-is-dropped
+    title: "Unpublished sponsored listing is dropped"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Unpublished sponsored listing is dropped"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a returned slot points to a listing that `GetListing` reports as missing or not published"
+      - "Then that slot is not rendered and the other slots still render"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/data.test.ts` `drops slots whose listing is missing or unpublished`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-at-most-two-slots-are-rendered
+    title: "At most two slots are rendered"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: At most two slots are rendered"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the service returns 4 slots for the request"
+      - "Then exactly 2 `sponsored-slot` elements are rendered, the first 2 in response order, and the request carried limit 2"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/data.test.ts` `requests and renders at most two slots`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-sponsored-slot-is-shown-on-the-home-feed
+    title: "Sponsored slot is shown on the home feed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot is shown on the home feed"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a guest opens `/` while an ACTIVE campaign exists whose slot is served for placement `home`"
+      - "Then the feed section \"Gợi ý hôm nay\" contains a `sponsored-slot` with the text \"Tài trợ\" before its first organic card"
+    tags: [buyer, ads]
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Sponsored slot is shown on the home feed"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: frontend.bss-home-dedupes-the-sponsored-listing
+    title: "Home dedupes the sponsored listing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Home dedupes the sponsored listing"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the sponsored listing also occurs in the feed items"
+      - "Then it appears once on the page, inside `sponsored-slot`"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `Home dedupes the sponsored listing`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-home-slot-failure-does-not-break-the-feed
+    title: "Home slot failure does not break the feed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Home slot failure does not break the feed"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the sponsored lookup fails or exceeds 150 ms"
+      - "Then the feed renders its organic items and zero `sponsored-slot` elements, and the other home blocks still render"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/home/blocks.test.tsx` `Home slot failure does not break the feed`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-click-charges-the-campaign-once-and-opens-the-listing
+    title: "Click charges the campaign once and opens the listing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click charges the campaign once and opens the listing"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a buyer clicks the sponsored slot of campaign C (bid 1 000, budget remaining 5 000) on `/search`"
+      - "Then the browser lands on `/listing/<L>` and C's spent equals 1 000 (remaining 4 000) when read back through `ListMyAdCampaigns`"
+    tags: [buyer, ads]
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Click charges the campaign once and opens the listing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: frontend.bss-second-click-on-the-same-slot-charges-nothing
+    title: "Second click on the same slot charges nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Second click on the same slot charges nothing"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the buyer returns to the same results page without reloading and clicks the same slot again"
+      - "Then C's spent is still 1 000 and the navigation to `/listing/<L>` still works"
+    tags: [buyer, ads]
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Second click on the same slot charges nothing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: frontend.bss-rendering-the-page-charges-nothing
+    title: "Rendering the page charges nothing"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Rendering the page charges nothing"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a visitor loads `/search?category=<c>` with a sponsored slot and never clicks"
+      - "Then C's spent stays 0 and `RecordAdClick` is not called"
+    tags: [buyer, ads]
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Rendering the page charges nothing"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: frontend.bss-a-seller-clicking-their-own-ad-is-not-charged
+    title: "Sponsored slot: a seller clicking their own ad is not charged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Sponsored slot: a seller clicking their own ad is not charged"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the seller who owns C is logged in, opens `/search?category=<c>` and clicks the sponsored slot"
+      - "Then the navigation to `/listing/<L>` works and C's spent stays 0"
+    tags: [buyer, ads]
+    status: automated
+    covered_by: "frontend/buyer_sponsored_slots.feature::Seller clicking their own ad is not charged"
+    notes: "Change buyer-sponsored-slots; green in the initiative e2e run on env monetization (2026-11-15)."
+
+  - id: frontend.bss-click-beacon-fires-once-per-gesture-and-does-not-prevent-navigation
+    title: "Click beacon fires once per gesture and does not prevent navigation"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click beacon fires once per gesture and does not prevent navigation"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a user clicks, or middle-clicks, an anchor inside a `sponsored-slot` once"
+      - "Then exactly one beacon with that slot's token is sent and the click event is not default-prevented"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/SponsoredClickGuard.test.tsx` `sends one beacon and keeps default navigation`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-click-on-an-organic-card-sends-no-beacon
+    title: "Click on an organic card sends no beacon"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click on an organic card sends no beacon"
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a user clicks an anchor in `search-results` that is not inside a `sponsored-slot`"
+      - "Then no request is sent to `/api/ads/click`"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/features/ads/SponsoredClickGuard.test.tsx` `organic clicks send no beacon`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-click-route-rejects-a-malformed-body
+    title: "Click route rejects a malformed body"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click route rejects a malformed body"
+    entry_route: "/api/ads/click"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When `POST /api/ads/click` receives an empty body, a missing token, a token over 256 characters or a token with characters outside the allowed set"
+      - "Then it responds 400 and `RecordAdClick` is not called"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `rejects malformed bodies with 400`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-click-route-hides-the-billing-outcome
+    title: "Click route hides the billing outcome"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click route hides the billing outcome"
+    entry_route: "/api/ads/click"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When `RecordAdClick` returns `charged = false` or fails with an error for a well-formed token"
+      - "Then `POST /api/ads/click` still responds 204 with an empty body"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `answers 204 for charged, uncharged and failed calls`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-click-route-forwards-the-session-and-does-not-log-ids
+    title: "Click route forwards the session and does not log ids"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Click route forwards the session and does not log ids"
+    entry_route: "/api/ads/click"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a logged-in buyer's click reaches `POST /api/ads/click`"
+      - "Then `RecordAdClick` is called with the session bearer token, and the log line contains only the outcome class and none of the token, listing id or user id"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `forwards session and logs outcome class only`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-get-on-the-click-route-is-not-allowed
+    title: "GET on the click route is not allowed"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: GET on the click route is not allowed"
+    entry_route: "/api/ads/click"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When a client sends `GET /api/ads/click?token=x`"
+      - "Then the response is 405 and `RecordAdClick` is not called"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/app/api/ads/click/route.test.ts` `GET is rejected with 405`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-slots-are-mapped-from-the-response
+    title: "Slots are mapped from the response"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: Slots are mapped from the response"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the response holds 2 slots with listing, campaign and token values"
+      - "Then the wrapper returns 2 entries with the same values in the same order and sent placement, category and limit as given"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/lib/gateway/promotion.test.ts` `listSponsoredSlotSet maps slots`. Not producible end to end: a unit-level behaviour."
+
+  - id: frontend.bss-a-failing-call-returns-no-slots
+    title: "A failing call returns no slots"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change buyer-sponsored-slots: A failing call returns no slots"
+    entry_route: "/search"
+    services: [team-frontend, team-gateway, team-promotion]
+    acceptance:
+      - "When the underlying RPC rejects with UNAVAILABLE"
+      - "Then the wrapper resolves to an empty list and does not throw"
+    tags: [buyer, ads, unit]
+    status: not-testable
+    notes: "buyer-sponsored-slots: VERIFIED BY `team-frontend/src/lib/gateway/promotion.test.ts` `listSponsoredSlotSet returns empty on error`. Not producible end to end: a unit-level behaviour."

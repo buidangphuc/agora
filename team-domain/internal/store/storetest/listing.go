@@ -367,6 +367,32 @@ func (c stockChanges) listings() []string {
 	return out
 }
 
+func (r *InMemoryListingRepository) countSellerLocked(sellerID string) int64 {
+	var n int64
+	for _, l := range r.byID {
+		if l.SellerID == sellerID {
+			n++
+		}
+	}
+	return n
+}
+
+func (r *InMemoryListingRepository) CountBySeller(_ context.Context, sellerID string) (int64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.countSellerLocked(sellerID), nil
+}
+
+func (r *InMemoryListingRepository) CreateCapped(_ context.Context, l store.Listing, limit int64) (store.Listing, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if limit >= 0 && r.countSellerLocked(l.SellerID) >= limit {
+		return store.Listing{}, store.ErrListingCapReached
+	}
+	r.byID[l.ID] = l
+	return l, nil
+}
+
 // GetByIDs returns the known listings among ids; unknown ids are omitted.
 func (r *InMemoryListingRepository) GetByIDs(_ context.Context, ids []string) (map[string]store.Listing, error) {
 	r.mu.RLock()

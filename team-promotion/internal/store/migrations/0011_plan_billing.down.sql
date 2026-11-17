@@ -1,0 +1,10 @@
+DROP INDEX IF EXISTS seller_subscriptions_due_idx;
+ALTER TABLE seller_subscriptions DROP COLUMN IF EXISTS period_seq;
+ALTER TABLE seller_subscriptions DROP COLUMN IF EXISTS pending_plan_id;
+ALTER TABLE seller_subscriptions DROP COLUMN IF EXISTS auto_renew;
+ALTER TABLE seller_subscriptions DROP COLUMN IF EXISTS current_period_end;
+ALTER TABLE seller_subscriptions DROP COLUMN IF EXISTS current_period_start;
+UPDATE subscription_plans SET price = 19900000 WHERE id = 'plan_pro';
+UPDATE subscription_plans SET price = 49900000 WHERE id = 'plan_premium';
+ALTER TABLE subscription_plans DROP CONSTRAINT IF EXISTS subscription_plans_term_days_positive;
+ALTER TABLE subscription_plans DROP COLUMN IF EXISTS term_days;
