@@ -2,6 +2,8 @@
 
 Initiative `docs-ai-data`: 10 OpenSpec slices that put real data behind the AI and analytics surfaces (seller demand forecast, recs experiment arms, grounded assistant and copilot, admin insight reports). Plan and lock: `plans/docs-ai-data/` (LOCK re-approved 2026-11-16, all 10 digests match).
 
+**Archived in this PR:** all 10 OpenSpec changes, in LOCK.md build order, moved to `openspec/changes/archive/2026-11-17-<slice>/` and folded into `openspec/specs/` (no separate archive PR). New capabilities: `docs-ai-data-contract`, `demand-forecast-job`, `analytics-demand-forecast`, `analytics-experiment-reports`, `admin-insights-panels`, `recs-experiment-arms`, `ai-assistant-grounding`, `ai-copilot-grounding`, `buyer-ai-surfaces-ui`, `seller-demand-forecast-card`, `seller-magic-listing-provenance` (each with a written Purpose). Updated capabilities: `recs-serving-safeguards` and `recsys-generations` (1 MODIFIED each), `ai-assistant` (1 REMOVED), `ai-interaction-events` (1 ADDED, 1 MODIFIED, 1 REMOVED). team-ai FEATURES.yaml acceptance refs now point at `openspec/specs/recs-experiment-arms/spec.md`; the per-slice packets in `plans/docs-ai-data/wave*.md` keep their historical `openspec/changes/<slice>` paths, as earlier archived initiatives do.
+
 ```mermaid
 flowchart LR
   C[docs-ai-data-contract<br/>platform-core proto] --> AFS
@@ -67,14 +69,15 @@ platform-e2e/         56 e2e files: features, steps, recsys/forecast fixtures
   **After:** 70 FEATURES entries flipped to `automated` after their scenarios passed on env `docs-ai-data`; renamed modules re-ran green (2 + 33 passed, b881d721f).
 - **rgp module, fresh env `docs-ai-data` with the tooling PR's `agora_env.py` (2026-11-16):** `up --with platform-recsys,mlflow`, recsys seed only from `up` (1440/1440 events, export confirmed).
   `test_rgp_generation_publish.py`: **7 passed, 0 failed, 0 errors**; teardown `restore_real_generation` clean. Decision 8 (recsys seed shape) is proven. Before the tooling fixes the same module had 7 failed + 1 error (mlflow `NoSuchBucket`: `minio-init` was not started).
-- **era module (only `FLIPT_CONTAINER` user), same env:** `test_era_experiment_arms.py` **8 passed, 1 failed**:
-  `platform-e2e/tests/e2e/step_definitions/test_era_experiment_arms.py::test_flipt_unreachable_serves_the_default_ranker_as_unassigned[chromium]`.
-  The arm is `unassigned` as expected (Flipt stop works), but the ranker is `similarity` with no items: on a fresh env no published listing exists when `up` seeds, so the serving generation holds only synthetic ids, `in_stock_only` drops all of them and team-ai falls back to `_popular_result`. Data dependency, not a code defect; fix choice is under Needs human.
+- **era module, earlier run (2026-11-16):** 8 passed, 1 failed (`test_flipt_unreachable_serves_the_default_ranker_as_unassigned`): on a fresh env no published listing existed when `up` seeded, so `in_stock_only` dropped every synthetic id. Fixed in 0a9630251: the scenario publishes its own stock-5 listing and puts it in the serving generation (restored in teardown); assertions and spec.md unchanged.
+- **E2E re-run 2026-11-17, fresh env `docs-ai-data` with the tooling PR's `agora_env.py`, no `--with`:** the tooling auto-added platform-recsys and mlflow (plus postgres-mlflow, minio) from the slices; recsys seed export confirmed (120 visitors). `test_era_experiment_arms.py` + `test_rgp_generation_publish.py` (HEADLESS=true): **16 passed, 0 failed, 0 skipped**. The env was taken down afterwards (no containers, volumes, networks or state left). Two env `up` attempts failed first for environment reasons handled in the tooling PR (migrate jobs racing a fresh postgres initdb; OrbStack daemon crash during the 21-image rebuild); the passing `up` reused the images built from unchanged source.
 - **Tooling commits moved out of this branch (2026-11-16):** 529796f42 (red_first BSR remote-plugin drop) reverted in 33079bafc; the `agora_env.py` `FLIPT_CONTAINER` hunk of c44c42977 reverted in 06ab26afa; the `services-ci.yml` platform-forecast job of 5849c3d81 reverted in c879164f6. All three now live in `chore/asdlc-tooling`. Feature code from c44c42977 and 5849c3d81 stays here.
-- **Local CI (base 06c44c17, head c879164f6, re-run 2026-11-16 after the reverts; later commits are docs only):**
+- **Local CI (base 06c44c17, head c879164f6, re-run 2026-11-16 after the reverts). After the archive (head d5eadf9f1, 2026-11-17) `ci_local.sh specs features repo proto tests-asdlc` re-ran: all five PASS (tests-asdlc 222 passed).**
 
 | check | result | evidence |
 |---|---|---|
+| ci_local specs (after archive, 2026-11-17) | pass | spec_sync --strict on all 10 archived changes ("e2e-ready to archive"), cross_change_check OK (resolves `openspec/changes/archive/<date>-<slice>`) |
+| openspec validate --specs --strict (after archive) | pass for this branch | 154 passed, 53 failed; all 53 are main specs with the placeholder Purpose already on origin/main, none of the 15 capabilities this branch touches |
 | ci_local specs | pass | openspec validate --strict, spec_lint (warnings only), spec_sync, cross_change_check |
 | ci_local features | pass | `make -C platform-e2e features-check` |
 | ci_local repo | pass | repo_doctor, validate_plan (known exceptions below), asdlc_config, check_gates |
@@ -112,15 +115,16 @@ Additive proto fields and RPCs (buf breaking passes), new optional env vars with
 - Assistant reply streaming route `POST /api/assistant/stream` is removed from team-frontend.
 - The three apps re-vendor `fe-platform-api-client.tgz`; a stale tarball breaks their build.
 - Hot file shared with the seller-centre / trust-legal PRs: `docker-compose.services.yaml`.
+- `openspec/specs/**`: no capability directory this branch touches is touched by the seller-centre, monetization or trust-legal branches, so the archive adds no spec merge conflict. `scripts/asdlc/cross_change_check.py` and its test carry the same content as dc30a7b5d on `asdlc/seller-centre` (the archive-dir resolver), so they merge cleanly either way. Trial merges still conflict on FEATURES.yaml, READMEs, `package-lock.json` and the vendored api-client tarball (pre-existing, not from the archive).
 - `scripts/asdlc/red_first.sh`, `scripts/devenv/agora_env.py` and `.github/workflows/services-ci.yml` are back to `origin/main` on this branch; their changes ship in the tooling PR.
 
-**Merge order:** `chore/asdlc-tooling` first, then this PR. Until the tooling PR lands: the services-ci platform-forecast job does not exist (`openspec/changes/forecast-nightly-job` task 1.8 and spec text still name it), `flipt_flow.py` falls back to container `agora-flipt-1` without the `FLIPT_CONTAINER` export, red_first can hit unauthenticated BSR rate limits, and the two tdd rows above stay red.
+**Merge order:** `chore/asdlc-tooling` first, then this PR. Until the tooling PR lands: the services-ci platform-forecast job does not exist (`openspec/changes/archive/2026-11-17-forecast-nightly-job` task 1.8 and `openspec/specs/demand-forecast-job` still name it), `flipt_flow.py` falls back to container `agora-flipt-1` without the `FLIPT_CONTAINER` export, red_first can hit unauthenticated BSR rate limits, and the two tdd rows above stay red.
 
 ## Needs human
 
 ### E2E decisions
-- `test_flipt_unreachable_serves_the_default_ranker_as_unassigned` on a fresh env: (a) the scenario ensures an in-stock published listing is in the serving generation, (b) `agora_env up` creates published, stocked listings before seeding, or (c) accept a dependency on a mature stack such as mainx.
-- rgp e2e needs `up --with platform-recsys,mlflow`; the docs-ai-data slices do not pull these in. Decide whether slices.yaml or the tooling adds them.
+- Resolved: the ERA fresh-env failure (option a, 0a9630251) and the rgp `--with` question (the tooling PR now adds platform-recsys and mlflow from the slices); both modules green on 2026-11-17.
+- Postgres healthcheck in `docker-compose.yaml` (`pg_isready -U postgres` passes during initdb on the unix socket); `pg_isready -h 127.0.0.1 -U postgres` would remove the migrate-job race at the source. Product compose config, your call.
 
 ### Deploy order
 1. platform-core contract (proto) and fe-platform api-client release.
