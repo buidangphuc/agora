@@ -1,7 +1,7 @@
 # [W3-T3] shop-page-featured-theme
 
 ## Role
-feature-run worker (change `openspec/changes/shop-page-featured-theme`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-shop-page-featured-theme`)
 
 ## Objective
 Implement OpenSpec change `shop-page-featured-theme` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

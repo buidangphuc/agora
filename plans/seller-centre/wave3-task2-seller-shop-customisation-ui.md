@@ -1,7 +1,7 @@
 # [W3-T2] seller-shop-customisation-ui
 
 ## Role
-feature-run worker (change `openspec/changes/seller-shop-customisation-ui`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-shop-customisation-ui`)
 
 ## Objective
 Implement OpenSpec change `seller-shop-customisation-ui` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

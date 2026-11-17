@@ -2,7 +2,7 @@
 Feature: Seller marketing hub (seller-marketing-hub)
   A seller manages shop vouchers and flash sales of their own shop on /seller/marketing and never
   sees or touches another seller's. Scenario names equal the spec scenario titles of
-  openspec/changes/seller-marketing-hub. Every refusal is paired with a positive control.
+  openspec/changes/archive/2026-11-17-seller-marketing-hub. Every refusal is paired with a positive control.
 
   Scenario: Seller opens the hub from the navigation
     Given a seller is signed in the seller app

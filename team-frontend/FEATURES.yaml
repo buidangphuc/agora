@@ -12898,7 +12898,7 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "See the spec scenario C3 A refused add flips the card to unavailable in openspec/changes/shop-bundle-purchase-ui"
+      - "See the spec scenario C3 A refused add flips the card to unavailable in openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/shop/AddBundleButton.test.tsx` `flips to unavailable on failed precondition`. FAILED_PRECONDITION cannot be produced for a card the page showed available without racing the search index."
@@ -12913,7 +12913,7 @@ features:
     preconditions:
       login: guest
     acceptance:
-      - "See the spec scenario C4 A guest is sent to login in openspec/changes/shop-bundle-purchase-ui"
+      - "See the spec scenario C4 A guest is sent to login in openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/cart/actions.test.ts` `addBundleToCartAction reports unauthenticated`. The server action result is asserted; the redirect branch is a component-level contract."
@@ -12928,7 +12928,7 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "See the spec scenario C5 A double click adds the combo once in openspec/changes/shop-bundle-purchase-ui"
+      - "See the spec scenario C5 A double click adds the combo once in openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/shop/AddBundleButton.test.tsx` `sends one request on double click`. Counts AddBundleToCart requests, which no browser response exposes."
@@ -12943,7 +12943,7 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "See the spec scenario C6 An unknown bundle or an outage shows an error in openspec/changes/shop-bundle-purchase-ui"
+      - "See the spec scenario C6 An unknown bundle or an outage shows an error in openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/cart/actions.test.ts` `addBundleToCartAction maps not found and outage`. NOT_FOUND and outage answers cannot be produced on the real stack from the page."
@@ -12958,7 +12958,7 @@ features:
     preconditions:
       login: guest
     acceptance:
-      - "See the spec scenario C7 The combo card shows the saving when all prices are known in openspec/changes/shop-bundle-purchase-ui"
+      - "See the spec scenario C7 The combo card shows the saving when all prices are known in openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/shop/BundleCard.test.tsx` `shows the saving`. Card rendering with known prices is a component contract."
@@ -12973,7 +12973,7 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "See the spec scenario C9 A cart without bundles is unchanged in openspec/changes/shop-bundle-purchase-ui"
+      - "See the spec scenario C9 A cart without bundles is unchanged in openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/cart/CartGroups.test.tsx` `renders no combo UI without bundle lines`. Component-level absence check."
@@ -12988,7 +12988,7 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "See the spec scenario C11 A combo line with a missing discount does not break the cart in openspec/changes/shop-bundle-purchase-ui"
+      - "See the spec scenario C11 A combo line with a missing discount does not break the cart in openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/cart/groupByShop.test.ts` `treats lines without bundle id as regular`. The gateway never returns a bundle line without id or discount."
@@ -13003,7 +13003,7 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "See the spec scenario C13 An invalid combo at checkout shows regular prices in openspec/changes/shop-bundle-purchase-ui"
+      - "See the spec scenario C13 An invalid combo at checkout shows regular prices in openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui"
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/cart/CartGroups.test.tsx` `renders no combo UI without bundle lines`. The server-dropped tag state is asserted as the same no-combo render contract."

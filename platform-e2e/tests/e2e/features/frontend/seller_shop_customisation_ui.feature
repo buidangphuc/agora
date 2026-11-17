@@ -1,7 +1,7 @@
 @seller @shop @needsSeller
 Feature: Seller brands the shop from /seller/shop (seller-shop-customisation-ui)
   The seller sets banner, tagline, featured listings and theme in the browser; scenario names echo
-  the e2e scenarios of openspec/changes/seller-shop-customisation-ui. Data is seeded through the
+  the e2e scenarios of openspec/changes/archive/2026-11-17-seller-shop-customisation-ui. Data is seeded through the
   gateway API; the server rejection of a foreign featured listing is driven through the gateway.
 
   Scenario: Seller shop UI: a seller brands the shop in the browser and the buyer sees it

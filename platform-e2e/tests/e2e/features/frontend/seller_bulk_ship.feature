@@ -1,6 +1,6 @@
 @seller
 Feature: Seller bulk ship and batch print on /seller/orders (seller-bulk-ship, initiative seller-centre)
-  Scenario names equal the spec scenario titles of openspec/changes/seller-bulk-ship. Orders are
+  Scenario names equal the spec scenario titles of openspec/changes/archive/2026-11-17-seller-bulk-ship. Orders are
   seeded through the real gateway API and the buyer cancel goes through the API.
 
   Scenario: Bulk ship: a seller ships several paid orders in the browser

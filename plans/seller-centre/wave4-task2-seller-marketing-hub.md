@@ -1,7 +1,7 @@
 # [W4-T2] seller-marketing-hub
 
 ## Role
-feature-run worker (change `openspec/changes/seller-marketing-hub`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-marketing-hub`)
 
 ## Objective
 Implement OpenSpec change `seller-marketing-hub` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.
@@ -28,7 +28,7 @@ Implement OpenSpec change `seller-marketing-hub` test-first per its tasks.md; co
 - platform-e2e/src/pages/vouchers_page.py
 - platform-e2e/src/constants/routes.py
 - platform-e2e/src/constants/pages.py
-- openspec/changes/seller-marketing-hub/specs/seller-marketing-hub/spec.md (widened at build: P1, own OpenSpec folder: VERIFIED BY citation lines only, no requirement or scenario wording change)
+- openspec/changes/archive/2026-11-17-seller-marketing-hub/specs/seller-marketing-hub/spec.md (widened at build: P1, own OpenSpec folder: VERIFIED BY citation lines only, no requirement or scenario wording change)
 - platform-e2e/src/pages/__init__.py (widened at build: P1, e2e page-object registration of this change's SellerMarketingPage)
 - platform-e2e/tests/e2e/support/seller_marketing_hub_support.py (widened at build: P1, e2e support helpers of this change's seller_marketing_hub feature)
 

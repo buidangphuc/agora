@@ -1,7 +1,7 @@
 # [W1-T2] order-seller-list-paging
 
 ## Role
-feature-run worker (change `openspec/changes/order-seller-list-paging`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-order-seller-list-paging`)
 
 ## Objective
 Implement OpenSpec change `order-seller-list-paging` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.
@@ -22,9 +22,9 @@ Implement OpenSpec change `order-seller-list-paging` test-first per its tasks.md
 - platform-e2e/tests/e2e/step_definitions/seller_list_paging_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_seller_list_paging.py
 - platform-e2e/src/api/services/order_service.py
-- openspec/changes/order-seller-list-paging/proposal.md (widened at build: P1, own OpenSpec folder; migration renumbered 0025→0026 (user decision 2026-11-15))
-- openspec/changes/order-seller-list-paging/specs/order-seller-list-paging/spec.md (widened at build: P1, own OpenSpec folder; VERIFIED BY citation + 0025→0026 renumber (user decision 2026-11-15))
-- openspec/changes/order-seller-list-paging/tasks.md (widened at build: P1, own OpenSpec folder; migration renumbered 0025→0026)
+- openspec/changes/archive/2026-11-17-order-seller-list-paging/proposal.md (widened at build: P1, own OpenSpec folder; migration renumbered 0025→0026 (user decision 2026-11-15))
+- openspec/changes/archive/2026-11-17-order-seller-list-paging/specs/order-seller-list-paging/spec.md (widened at build: P1, own OpenSpec folder; VERIFIED BY citation + 0025→0026 renumber (user decision 2026-11-15))
+- openspec/changes/archive/2026-11-17-order-seller-list-paging/tasks.md (widened at build: P1, own OpenSpec folder; migration renumbered 0025→0026)
 - platform-e2e/tests/e2e/step_definitions/order_seller_list_paging_steps.py (widened at build: P1, e2e step file of this change, named differently from the packet)
 - platform-e2e/tests/e2e/step_definitions/test_order_seller_list_paging.py (widened at build: P1, e2e step file of this change, named differently from the packet)
 

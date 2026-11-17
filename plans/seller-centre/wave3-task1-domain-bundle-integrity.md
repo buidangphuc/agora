@@ -1,7 +1,7 @@
 # [W3-T1] domain-bundle-integrity
 
 ## Role
-feature-run worker (change `openspec/changes/domain-bundle-integrity`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-domain-bundle-integrity`)
 
 ## Objective
 Implement OpenSpec change `domain-bundle-integrity` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

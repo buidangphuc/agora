@@ -2,7 +2,7 @@
 Feature: Sellers list and stop their own flash-sale campaigns and shop vouchers (promotion-seller-self-service)
   A seller sees only the campaigns and shop vouchers of their own shop, cancels a SCHEDULED
   campaign and deactivates a shop voucher without being an admin, and none of it is audited.
-  Scenario names equal the spec scenario titles of openspec/changes/promotion-seller-self-service.
+  Scenario names equal the spec scenario titles of openspec/changes/archive/2026-11-17-promotion-seller-self-service.
   Every refusal is paired with a positive control so it cannot pass vacuously.
 
   Scenario: Seller sees only their own campaigns with status

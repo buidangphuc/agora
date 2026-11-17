@@ -2,7 +2,7 @@
 Feature: Seller getting-started checklist on /seller (seller-getting-started, initiative seller-centre)
   The "Bắt đầu bán hàng" card reflects real shop state: each step turns done after the seller
   completes it on its linked page, and the card disappears once all four are done. Scenario names
-  equal the spec scenario titles of openspec/changes/seller-getting-started. Accounts are fresh per
+  equal the spec scenario titles of openspec/changes/archive/2026-11-17-seller-getting-started. Accounts are fresh per
   scenario and data is seeded through the real gateway API.
 
   Scenario: Getting started: a new seller completes the steps in the browser

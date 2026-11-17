@@ -1,7 +1,7 @@
 # [W6-T1] seller-bulk-ship
 
 ## Role
-feature-run worker (change `openspec/changes/seller-bulk-ship`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-bulk-ship`)
 
 ## Objective
 Implement OpenSpec change `seller-bulk-ship` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

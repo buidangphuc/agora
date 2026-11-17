@@ -1,7 +1,7 @@
 # [W5-T1] seller-getting-started
 
 ## Role
-feature-run worker (change `openspec/changes/seller-getting-started`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-getting-started`)
 
 ## Objective
 Implement OpenSpec change `seller-getting-started` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

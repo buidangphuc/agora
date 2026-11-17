@@ -1,7 +1,7 @@
 # [W4-T1] order-bundle-checkout
 
 ## Role
-feature-run worker (change `openspec/changes/order-bundle-checkout`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-order-bundle-checkout`)
 
 ## Objective
 Implement OpenSpec change `order-bundle-checkout` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

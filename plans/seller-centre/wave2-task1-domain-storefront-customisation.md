@@ -1,7 +1,7 @@
 # [W2-T1] domain-storefront-customisation
 
 ## Role
-feature-run worker (change `openspec/changes/domain-storefront-customisation`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-domain-storefront-customisation`)
 
 ## Objective
 Implement OpenSpec change `domain-storefront-customisation` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

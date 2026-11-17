@@ -1,7 +1,7 @@
 # [W0-T1] seller-centre-contract
 
 ## Role
-feature-run worker (change `openspec/changes/seller-centre-contract`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-centre-contract`)
 
 ## Objective
 Implement OpenSpec change `seller-centre-contract` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

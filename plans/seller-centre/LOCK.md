@@ -56,6 +56,9 @@ decision 13 tick, approved 2026-11-16 by Bùi Đăng Phúc.
 |---|---|---|---|
 | seller-centre-contract | c4dff7b1698c | 5cab20d26502 | task 3.2 ticked after JVM stubs were generated locally (protoc 28.3, protoc-gen-grpc-kotlin 1.4.1; grpc-java 1.68.1 stubs not generated because its osx-aarch_64 binary is x86_64 and Rosetta is absent); no requirement or scenario wording change |
 
+## Task 3.2 acceptance 2026-11-17
+seller-centre-contract task 3.2 is accepted as ticked with grpc-java stubs (`*Grpc.java`) not generated locally: the grpc-java 1.68.1 osx-aarch_64 artifact is an x86_64 binary and needs Rosetta/x86, `platform-core/gen/` is gitignored, and CI/BSR generates the JVM stubs. protoc 28.3 was verified over HTTPS only (no published checksum; local sha256 `92ceefda6a72...`, full value in PR.md).
+
 ## Known exceptions
 Accepted by Bùi Đăng Phúc on 2026-11-16 (decision 9). In the converge run, `scripts/validate_plan.py plans/seller-centre` reported these same-wave conflicts. Each one was the literal token `widened` from the old `widened (P1)` sub-heading in the packets, which validate_plan read as a path. Neither slice wrote a file the other slice owns. Since f0d7b6ea4 flattened those entries into the write-sets, `validate_plan.py plans/seller-centre` passes.
 - wave 1: domain-my-listings-filter vs promotion-seller-self-service, and order-seller-list-paging vs promotion-seller-self-service

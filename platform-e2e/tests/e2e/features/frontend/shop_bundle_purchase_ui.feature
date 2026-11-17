@@ -2,7 +2,7 @@
 Feature: A buyer buys a seller combo from the shop page and sees it in the cart (shop-bundle-purchase-ui)
   Sellers, listings and combos are seeded through the gateway API; the buyer signs in through the UI
   and buys through /shop/{id}, /cart and /checkout. Scenario names echo the e2e scenarios of
-  openspec/changes/shop-bundle-purchase-ui (initiative seller-centre); the unit-verified scenarios
+  openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui (initiative seller-centre); the unit-verified scenarios
   (C3-C7, C9, C11, C13) are not-testable entries in team-frontend/FEATURES.yaml.
 
   Scenario: C1 Adding an available combo puts every listing in the cart

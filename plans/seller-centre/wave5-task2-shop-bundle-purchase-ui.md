@@ -1,7 +1,7 @@
 # [W5-T2] shop-bundle-purchase-ui
 
 ## Role
-feature-run worker (change `openspec/changes/shop-bundle-purchase-ui`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui`)
 
 ## Objective
 Implement OpenSpec change `shop-bundle-purchase-ui` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.
@@ -29,7 +29,7 @@ Implement OpenSpec change `shop-bundle-purchase-ui` test-first per its tasks.md;
 - platform-e2e/src/pages/cart_page.py
 - platform-e2e/src/pages/checkout_page.py
 - platform-e2e/src/api/services/listing_service.py
-- openspec/changes/shop-bundle-purchase-ui/specs/ui-shop-bundle-purchase/spec.md (widened at build: P1, own OpenSpec folder: VERIFIED BY citation lines only, no requirement or scenario wording change)
+- openspec/changes/archive/2026-11-17-shop-bundle-purchase-ui/specs/ui-shop-bundle-purchase/spec.md (widened at build: P1, own OpenSpec folder: VERIFIED BY citation lines only, no requirement or scenario wording change)
 - team-frontend/src/features/order/CheckoutGroups.test.tsx (widened at build: P1, existing test fixture broken by new required ViewCartItem fields bundleId/bundleDiscount)
 
 ## Verify

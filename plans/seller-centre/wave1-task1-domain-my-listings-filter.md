@@ -1,7 +1,7 @@
 # [W1-T1] domain-my-listings-filter
 
 ## Role
-feature-run worker (change `openspec/changes/domain-my-listings-filter`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-domain-my-listings-filter`)
 
 ## Objective
 Implement OpenSpec change `domain-my-listings-filter` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.

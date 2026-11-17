@@ -1,7 +1,7 @@
 # [W2-T2] seller-server-paging-ui
 
 ## Role
-feature-run worker (change `openspec/changes/seller-server-paging-ui`)
+feature-run worker (change `openspec/changes/archive/2026-11-17-seller-server-paging-ui`)
 
 ## Objective
 Implement OpenSpec change `seller-server-paging-ui` test-first per its tasks.md; context in plans/seller-centre/00-spec.md and the decisions in plans/seller-centre/LOCK.md.
@@ -30,7 +30,7 @@ Implement OpenSpec change `seller-server-paging-ui` test-first per its tasks.md;
 - platform-e2e/src/pages/seller_listings_page.py
 - platform-e2e/src/pages/seller_dashboard_page.py
 - platform-e2e/src/pages/components/listing_picker.py
-- openspec/changes/seller-server-paging-ui/specs/seller-server-paging-ui/spec.md (widened at build: P1, own OpenSpec folder; VERIFIED BY citation for the listing.write denial scenario)
+- openspec/changes/archive/2026-11-17-seller-server-paging-ui/specs/seller-server-paging-ui/spec.md (widened at build: P1, own OpenSpec folder; VERIFIED BY citation for the listing.write denial scenario)
 - platform-e2e/src/pages/seller_paging_page.py (widened at build: P1, e2e page object of this change, named differently from the packet)
 - platform-e2e/src/pages/__init__.py (widened at build: P1, e2e page-object support file; exports SellerPagingPage of this change)
 
